@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Reveal } from "@/components/Reveal";
@@ -12,6 +12,7 @@ import {
   fetchDailyChallenge,
   getChallengeState,
   getStats,
+  todayKey,
   MAX_DAILY_ATTEMPTS,
   type ChallengeState,
   type DailyChallenge,
@@ -177,20 +178,65 @@ function TodayScreen() {
   const [daily, setDaily] = useState<DailyChallenge | null>(null);
   const [challenge, setChallenge] = useState<ChallengeState | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
+  // The local day the currently-shown challenge belongs to, so we know when
+  // midnight has rolled us onto a new one.
+  const loadedDayRef = useRef<string>("");
 
   useEffect(() => {
     let cancelled = false;
-    fetchDailyChallenge()
-      .then((c) => !cancelled && setDaily(c))
-      .catch(() => {});
-    getChallengeState()
-      .then((s) => !cancelled && setChallenge(s))
-      .catch(() => {});
-    getStats()
-      .then((s) => !cancelled && setStats(s))
-      .catch(() => {});
+    let midnightTimer: ReturnType<typeof setTimeout>;
+
+    const load = () => {
+      loadedDayRef.current = todayKey();
+      fetchDailyChallenge()
+        .then((c) => !cancelled && setDaily(c))
+        .catch(() => {});
+      getChallengeState()
+        .then((s) => !cancelled && setChallenge(s))
+        .catch(() => {});
+      getStats()
+        .then((s) => !cancelled && setStats(s))
+        .catch(() => {});
+    };
+
+    // Roll over exactly at the user's local midnight. Everything keys off
+    // todayKey() (a local-timezone date), so a fresh load past midnight pulls
+    // the next day's challenge and a clean attempt count.
+    const scheduleMidnight = () => {
+      const now = new Date();
+      const nextMidnight = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1,
+        0,
+        0,
+        5 // a few seconds past midnight, to be safely on the new day
+      );
+      midnightTimer = setTimeout(() => {
+        if (cancelled) return;
+        load();
+        scheduleMidnight();
+      }, nextMidnight.getTime() - now.getTime());
+    };
+
+    // Also catch the case where the tab was asleep across midnight: when it
+    // comes back and the local day has changed, refresh immediately.
+    const refreshIfNewDay = () => {
+      if (todayKey() !== loadedDayRef.current) load();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshIfNewDay();
+    };
+
+    load();
+    scheduleMidnight();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", refreshIfNewDay);
     return () => {
       cancelled = true;
+      clearTimeout(midnightTimer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", refreshIfNewDay);
     };
   }, []);
 

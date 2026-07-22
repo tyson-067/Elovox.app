@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Felix } from "@/components/FoxLogo";
 import {
   ONBOARDING_QUESTIONS,
+  hasCompletedOnboarding,
   saveOnboarding,
   type OnboardingAnswers,
 } from "@/lib/onboarding";
@@ -21,6 +22,22 @@ function OnboardingScreen() {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<OnboardingAnswers>({});
   const [saving, setSaving] = useState(false);
+  // Onboarding is a one-time thing. Anyone who has already finished it (this
+  // device, or any device via Firestore) is sent straight to the dashboard
+  // rather than being made to answer twenty questions again.
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    hasCompletedOnboarding().then((done) => {
+      if (cancelled) return;
+      if (done) router.replace("/dashboard");
+      else setChecking(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   const q = ONBOARDING_QUESTIONS[step];
   const total = ONBOARDING_QUESTIONS.length;
@@ -59,6 +76,10 @@ function OnboardingScreen() {
     if (isLast) void finish(answers);
     else setStep(step + 1);
   };
+
+  // Hold the UI blank until we know they haven't already onboarded, so the
+  // questions never flash before the redirect.
+  if (checking) return null;
 
   return (
     <div className="py-12 md:py-16 max-w-[640px] mx-auto">

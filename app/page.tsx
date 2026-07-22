@@ -7,6 +7,7 @@ import { Tilt } from "@/components/Tilt";
 import { GlowCard } from "@/components/GlowCard";
 import { GOALS } from "@/lib/goals";
 import { LEVELS } from "@/lib/levels";
+import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
 
 // Marketing landing page. The app itself lives behind /dashboard.
 
@@ -81,6 +82,7 @@ const FEATURES: {
 export default function LandingPage() {
   return (
     <div className="pb-20">
+      <RedirectIfAuthed />
       {/* Hero */}
       <section className="relative pt-16 md:pt-24 grid grid-cols-1 md:grid-cols-12 gap-10 items-center">
         {/* Brand circles drifting at different depths behind the hero,
