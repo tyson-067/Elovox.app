@@ -1,26 +1,563 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* Elovox brand palette: navy + orange fox, with purple/slate support
+     tones from the brand board, on a clean white surface. */
+  --color-primary: #2e3a66;
+  --color-on-primary: #ffffff;
+  --color-accent: #e8792f;
+  --color-violet: #7663c4;
+  --color-slate: #5c6fa8;
+  --color-amber: #f0ad2d;
+  --color-surface: #ffffff;
+  --color-surface-lowest: #ffffff;
+  --color-surface-container: #eef0f7;
+  --color-on-surface: #232946;
+  --color-on-surface-variant: #4a5068;
+  --color-outline-variant: #c9cddc;
+  --color-error: #ba1a1a;
+
+  /* Geometric/deco type (Fonseca–Konnect–Amenti direction):
+     Montserrat for headlines, Jost for body/UI. */
+  --font-headline: var(--font-montserrat), "Avenir Next", Futura,
+    system-ui, sans-serif;
+  --font-body: var(--font-jost), "Avenir Next", system-ui, sans-serif;
+  --font-data: var(--font-geist-mono), ui-monospace, monospace;
+  --font-slogan: var(--font-playfair), "Playfair Display", Georgia, serif;
+
+  --radius-card: 0.75rem;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Clip horizontal overflow at the root so ambient decoration (the hero's
+   blurred orbs, positioned with negative offsets) never spills into a
+   horizontal scrollbar on narrow viewports. `clip` — not `hidden` — so it
+   doesn't create a scroll container that would break the sticky header. */
+html {
+  overflow-x: clip;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-surface);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+/* Structural card: 1px navy border at low opacity, no shadow.
+   Lives in the components layer so Tailwind utilities (e.g. bg-primary
+   on the selected state) can override it. */
+@layer components {
+  .card {
+    background: var(--color-surface-lowest);
+    border: 1px solid rgba(46, 58, 102, 0.12);
+    border-radius: var(--radius-card);
+  }
+}
+
+/* The brand navy→white gradient (from the brand board's gradient tile).
+   Used for the premium card and hero visual. */
+.navy-gradient {
+  background: linear-gradient(
+    155deg,
+    #26315b 0%,
+    #3c4c8a 42%,
+    #93a0c9 76%,
+    #eadfe2 100%
+  );
+}
+
+/* Buttons: subtle lift + glow on hover, settle on press, plus a soft
+   light sweep that travels across the surface once per hover. */
+.btn {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease;
+}
+.btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 60%
+  );
+  transform: translateX(-120%);
+}
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(46, 58, 102, 0.18);
+  filter: brightness(1.06);
+}
+.btn:hover::after {
+  transition: transform 650ms ease;
+  transform: translateX(120%);
+}
+.btn:active {
+  transform: translateY(0);
+  box-shadow: 0 3px 10px rgba(46, 58, 102, 0.14);
+}
+
+/* Scroll-reveal: elements fade + rise as they enter the viewport
+   (driven by components/Reveal.tsx). */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Word-by-word headline entrance (driven by components/WordReveal.tsx).
+   Each word rises out of a slight blur with a per-word delay. */
+.wr .wr-word {
+  display: inline-block;
+  white-space: pre;
+}
+.wr .wr-word > span {
+  display: inline-block;
+  opacity: 0;
+}
+.wr-visible .wr-word > span {
+  animation: word-in 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes word-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.55em);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+/* Accent gradient text for a single headline word — brand navy→violet→
+   orange, slowly shifting. Applied to the inner word spans as well:
+   background-clip: text on a parent doesn't reach WordReveal's
+   inline-block children. */
+.text-gradient,
+.text-gradient .wr-word > span {
+  background-image: linear-gradient(
+    100deg,
+    var(--color-primary),
+    var(--color-violet) 40%,
+    var(--color-accent) 75%,
+    var(--color-amber)
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+/* The drift animation lives on the outer element only — the inner word
+   spans need their animation slot free for the word-in entrance. The
+   higher-specificity rule below re-asserts word-in on the spans because
+   the CSS minifier can merge the drift declaration into the combined
+   selector above, which would otherwise clobber the entrance. */
+.text-gradient {
+  animation: gradient-drift 7s ease-in-out infinite alternate;
+}
+.wr-visible.text-gradient .wr-word > span {
+  animation: word-in 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes gradient-drift {
+  from { background-position: 0% 50%; }
+  to { background-position: 100% 50%; }
+}
+
+/* Ambient orbs: the parallax circles also drift on their own so the
+   page breathes even when the user isn't scrolling. */
+.orb-float {
+  animation: orb-drift 14s ease-in-out infinite alternate;
+}
+.orb-float-slow {
+  animation: orb-drift 20s ease-in-out infinite alternate-reverse;
+}
+@keyframes orb-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(14px, -18px, 0) scale(1.06); }
+  to { transform: translate3d(-10px, 12px, 0) scale(0.97); }
+}
+
+/* Fine dot grid behind the hero — barely-there texture that keeps the
+   white surface from feeling flat. Fades out toward the bottom. */
+.dot-grid {
+  background-image: radial-gradient(
+    rgba(46, 58, 102, 0.13) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+  mask-image: linear-gradient(to bottom, black 30%, transparent 95%);
+}
+
+/* Cursor-tracking spotlight on cards (components/GlowCard.tsx sets
+   --mx/--my). The glow only shows on hover; border warms with it. */
+.card-glow {
+  position: relative;
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease;
+}
+.card-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 300ms ease;
+  background: radial-gradient(
+    260px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(118, 99, 196, 0.1),
+    transparent 70%
+  );
+}
+.card-glow:hover::before {
+  opacity: 1;
+}
+.card-glow:hover {
+  transform: translateY(-4px);
+  border-color: rgba(118, 99, 196, 0.35);
+  box-shadow: 0 12px 32px rgba(46, 58, 102, 0.12);
+}
+/* White spotlight variant for dark (navy-gradient) cards. */
+.card-glow-light::before {
+  background: radial-gradient(
+    260px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(255, 255, 255, 0.14),
+    transparent 70%
+  );
+}
+
+/* 3D tilt wrapper (components/Tilt.tsx drives the transform). */
+.tilt {
+  transition: transform 350ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+/* Section kicker underline: a short gradient bar that grows in once
+   the parent Reveal fires. */
+.grow-line {
+  display: block;
+  height: 2px;
+  width: 32px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-violet));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1) 150ms;
+}
+.reveal-visible .grow-line {
+  transform: scaleX(1);
+}
+
+/* Goal pills: gentle lift to match the cards. */
+.pill {
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease;
+}
+.pill:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(46, 58, 102, 0.1);
+}
+
+/* Slow shimmer across the navy gradient surfaces so they feel lit. */
+.navy-gradient {
+  background-size: 160% 160%;
+  animation: gradient-drift 12s ease-in-out infinite alternate;
+}
+
+/* Emphasis underlines that sweep across the words left-to-right once a
+   parent .reveal-visible fires (landing feature demo, report transcript).
+   Same look as .mark-strong/.mark-flag, drawn with a background so the
+   width can animate. Stagger with inline transition-delay. */
+.sweep {
+  background-repeat: no-repeat;
+  background-position: 0 calc(100% - 1px);
+  background-size: 0% 3px;
+  padding-bottom: 3px;
+  transition: background-size 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.sweep-strong {
+  background-image: linear-gradient(90deg, #e8792f, #e8792f);
+}
+.sweep-flag {
+  background-image: linear-gradient(90deg, #f0ad2d, #f0ad2d);
+}
+.reveal-visible .sweep,
+.sweep-visible.sweep {
+  background-size: 100% 3px;
+}
+
+/* Generic staggered entrance for list items and options that mount
+   already in view (onboarding steps, report notes). Stagger with
+   inline animation-delay. */
+.stagger-in {
+  animation: rise-in 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/* Score/skill bars grow from the left on mount. Width stays inline;
+   only the scale animates. Stagger with inline animation-delay. */
+.bar-grow {
+  transform-origin: left;
+  animation: bar-grow 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* Progress trend line draws itself in (path needs pathLength={1});
+   the session dots pop in behind the moving tip. */
+.chart-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: chart-draw 1.3s ease-out 150ms forwards;
+}
+@keyframes chart-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.chart-dot {
+  opacity: 0;
+  animation: dot-in 300ms ease-out forwards;
+}
+@keyframes dot-in {
+  to {
+    opacity: 1;
+  }
+}
+
+/* Fluid display type: scales smoothly with the viewport instead of
+   jumping at breakpoints, from phone up to ultra-wide. */
+.text-display {
+  font-size: clamp(2.75rem, 5.5vw + 1rem, 4.5rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+.text-display-sm {
+  font-size: clamp(2.125rem, 3.2vw + 0.9rem, 3rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.text-title {
+  font-size: clamp(1.9rem, 2.6vw + 0.9rem, 3rem);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+/* Opening slogan. Sized to sit on a single line within the hero column,
+   scaling smoothly with the viewport. "speak with" in the geometric sans
+   (lowercase), "impact." in the calligraphic italic serif, set slightly
+   larger for emphasis. */
+.hero-slogan {
+  font-size: clamp(1.85rem, 5.6vw, 3.6rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+.slogan-sans {
+  font-family: var(--font-headline);
+}
+.slogan-serif {
+  font-family: var(--font-slogan);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 1.16em;
+}
+
+/* Visible keyboard focus everywhere, in the brand violet. Mouse clicks
+   don't trigger it (:focus-visible), so the aesthetic stays clean. */
+:focus-visible {
+  outline: 2px solid var(--color-violet);
+  outline-offset: 2px;
+}
+.input-glow:focus-visible {
+  outline: none;
+}
+
+/* Skip-to-content link: hidden until keyboard-focused, then a floating
+   pill above the header. */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  transform: translateY(-200%);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  transition: transform 200ms ease;
+}
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+/* Header nav links: underline slides in from the left on hover. */
+.nav-link {
+  position: relative;
+  transition: color 200ms ease;
+}
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-violet));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 250ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.nav-link:hover::after,
+.nav-link[aria-current="page"]::after {
+  transform: scaleX(1);
+}
+
+/* The feature sub-nav scrolls sideways on narrow screens rather than
+   wrapping to a second row; the scrollbar itself would sit on top of the
+   tabs, so it's hidden. Content stays keyboard- and swipe-reachable. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Reading-progress hairline under the sticky header (ScrollProgress.tsx
+   drives --scroll-progress). Purely decorative — hidden from AT. */
+.scroll-progress {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 2px;
+  width: 100%;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-violet));
+  transform: scaleX(var(--scroll-progress, 0));
+  transform-origin: left;
+}
+
+/* Form inputs: soft violet focus ring instead of the default outline. */
+.input-glow {
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease;
+}
+.input-glow:focus {
+  border-color: rgba(118, 99, 196, 0.5);
+  box-shadow: 0 0 0 4px rgba(118, 99, 196, 0.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .btn,
+  .btn:hover,
+  .btn:active {
+    transform: none;
+    transition: none;
+  }
+  .btn::after {
+    display: none;
+  }
+  .wr .wr-word > span {
+    opacity: 1;
+    animation: none;
+  }
+  .text-gradient,
+  .orb-float,
+  .orb-float-slow,
+  .navy-gradient {
+    animation: none;
+  }
+  .grow-line {
+    transform: scaleX(1);
+    transition: none;
+  }
+  .card-glow:hover,
+  .pill:hover {
+    transform: none;
+  }
+  .tilt {
+    transition: none;
+  }
+  .sweep {
+    background-size: 100% 3px;
+    transition: none;
+  }
+  .stagger-in,
+  .bar-grow,
+  .chart-dot {
+    animation: none;
+    opacity: 1;
+  }
+  .chart-draw {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Transcript annotations */
+.mark-strong {
+  text-decoration: underline;
+  text-decoration-color: #e8792f;
+  text-decoration-thickness: 3px;
+  text-underline-offset: 4px;
+}
+.mark-flag {
+  text-decoration: underline;
+  text-decoration-color: #f0ad2d;
+  text-decoration-thickness: 3px;
+  text-underline-offset: 4px;
+}
+
+/* The one indulgent element: slightly imperfect record button */
+.record-blob {
+  border-radius: 47% 53% 52% 48% / 51% 49% 52% 48%;
+  transition: transform 120ms ease;
+}
+.record-blob:active {
+  transform: scale(0.97);
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 0.45; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+.pulse-ring {
+  animation: pulse-ring 1.6s ease-out infinite;
+  border-radius: 47% 53% 52% 48% / 51% 49% 52% 48%;
 }
