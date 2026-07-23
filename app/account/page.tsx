@@ -2,14 +2,16 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { RequireAuth } from "@/components/RequireAuth";
 import { useAuth } from "@/components/AuthProvider";
 import { usePlanRecord, refreshPlan, type PlanRecord } from "@/lib/plan";
-import { openBillingPortal } from "@/lib/checkout";
+import { openBillingPortal, fetchInvoices, type InvoiceRow } from "@/lib/checkout";
 import { planFor, formatUSD } from "@/lib/pricing";
 import {
   accountErrorMessage,
   changeEmail,
+  deleteAccount,
   changePassword,
   hasPasswordProvider,
   refreshVerifiedStatus,
@@ -34,6 +36,82 @@ function fmtDate(ms?: number): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function fmtMoney(minorUnits: number, currency: string): string {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: currency.toUpperCase(),
+  }).format(minorUnits / 100);
+}
+
+// Billing history, straight from Stripe Invoicing. Every subscription charge
+// produces an invoice (including the $0 one that opens a trial), so this is a
+// read-only view — receipts and PDFs are Stripe-hosted links, not files we
+// generate. Only rendered once a Stripe customer exists.
+function BillingHistory() {
+  const [rows, setRows] = useState<InvoiceRow[] | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchInvoices()
+      .then((list) => {
+        if (!cancelled) setRows(list);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Couldn't load invoices.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (error) {
+    return (
+      <p role="alert" className="mt-4 text-sm text-error">
+        {error}
+      </p>
+    );
+  }
+  if (rows === null) {
+    return <p className="mt-4 text-sm text-on-surface-variant">Loading billing history…</p>;
+  }
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="mt-6">
+      <h3 className="text-sm font-semibold text-on-surface-variant">Billing history</h3>
+      <ul className="mt-2 divide-y divide-on-surface/10">
+        {rows.map((inv) => (
+          <li key={inv.id} className="flex items-center justify-between gap-3 py-2.5">
+            <span className="text-sm text-on-surface">
+              {fmtDate(inv.created)}
+              {inv.number ? ` · ${inv.number}` : ""}
+            </span>
+            <span className="flex items-center gap-3 text-sm">
+              <span className="font-mono text-on-surface">
+                {fmtMoney(inv.total, inv.currency)}
+              </span>
+              {inv.status && inv.status !== "paid" && (
+                <span className="text-on-surface-variant">{inv.status}</span>
+              )}
+              {(inv.hostedUrl || inv.pdfUrl) && (
+                <a
+                  href={(inv.hostedUrl || inv.pdfUrl)!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-accent hover:underline"
+                >
+                  Receipt
+                </a>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 // Subscription state + the one button that manages it (Stripe Customer
@@ -160,6 +238,7 @@ function BillingSection() {
               {error}
             </p>
           )}
+          {r.stripeCustomerId && <BillingHistory />}
         </>
       )}
     </section>
@@ -405,7 +484,120 @@ function AccountScreen() {
           </p>
         )}
       </section>
+
+      <DeleteAccountSection hasPassword={hasPassword} />
     </div>
+  );
+}
+
+// Permanent account erasure. Deliberately the most friction in the app: it
+// asks twice (a confirm step, then typing DELETE), states plainly what goes,
+// and re-authenticates before anything happens. Everything it promises is
+// what /api/account/delete actually does — the privacy policy points here.
+function DeleteAccountSection({ hasPassword }: { hasPassword: boolean }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const armed = confirmText.trim().toUpperCase() === "DELETE";
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!armed) return;
+    setError("");
+    setBusy(true);
+    try {
+      await deleteAccount(hasPassword ? password : undefined);
+      // The account is gone; there's nothing signed-in to return to.
+      router.replace("/?deleted=1");
+    } catch (err) {
+      setError(accountErrorMessage(err) || "Couldn't delete your account.");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className={`${cardClass} border border-error/30`}>
+      <h2 className="font-headline text-lg font-semibold text-error">
+        Delete account
+      </h2>
+      <p className="mt-1 text-sm text-on-surface-variant">
+        Permanently erases your practice history, your progress, and your
+        login. If you have a subscription it&apos;s cancelled immediately. This
+        cannot be undone, and we can&apos;t recover any of it afterwards.
+      </p>
+
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="btn mt-4 rounded-lg border border-error/40 px-6 py-3 font-semibold text-error"
+        >
+          Delete my account
+        </button>
+      ) : (
+        <form onSubmit={submit} className="mt-4 space-y-3">
+          <label className="block text-sm text-on-surface">
+            Type <span className="font-mono font-semibold">DELETE</span> to
+            confirm.
+          </label>
+          <input
+            type="text"
+            required
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            aria-label="Type DELETE to confirm"
+            className={inputClass}
+          />
+          {hasPassword && (
+            <input
+              type="password"
+              required
+              autoComplete="current-password"
+              placeholder="Current password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={inputClass}
+            />
+          )}
+          {!hasPassword && (
+            <p className="text-sm text-on-surface-variant">
+              You&apos;ll confirm this in a quick Google popup.
+            </p>
+          )}
+          {error && (
+            <p role="alert" className="text-sm text-error">
+              {error}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="submit"
+              disabled={busy || !armed}
+              className="btn rounded-lg bg-error px-6 py-3 font-semibold text-white disabled:opacity-50"
+            >
+              {busy ? "Deleting…" : "Permanently delete"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setConfirmText("");
+                setPassword("");
+                setError("");
+              }}
+              disabled={busy}
+              className="btn card rounded-lg px-6 py-3 font-semibold text-primary"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+    </section>
   );
 }
 

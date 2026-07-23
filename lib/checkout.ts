@@ -33,6 +33,22 @@ export async function startCheckout(cycle: BillingCycle): Promise<void> {
   window.location.href = url;
 }
 
+export type { InvoiceRow } from "@/app/api/stripe/invoices/route";
+
+/**
+ * Billing history (Stripe invoices) for the signed-in user. Returns an empty
+ * list for anyone who never subscribed; throws only on a real failure, so the
+ * caller can tell "no invoices" from "couldn't load".
+ */
+export async function fetchInvoices(): Promise<
+  import("@/app/api/stripe/invoices/route").InvoiceRow[]
+> {
+  const res = await fetch("/api/stripe/invoices", { headers: await authHeader() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Couldn't load billing history.");
+  return data.invoices ?? [];
+}
+
 /** Opens the Stripe Customer Portal and redirects to it. */
 export async function openBillingPortal(): Promise<void> {
   const url = await postForUrl("/api/stripe/portal");

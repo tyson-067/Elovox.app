@@ -216,6 +216,35 @@ export async function changePassword(
 }
 
 /**
+ * Permanently delete the signed-in user: their practice history, their
+ * profile, their subscription, and the login itself.
+ *
+ * Re-authenticates first — this is the most destructive action in the app,
+ * so an idle session someone walked away from can't trigger it. The actual
+ * erasure runs server-side (/api/account/delete) because only the Admin SDK
+ * can remove the plan doc and the whole subtree; the fresh ID token minted
+ * here is what authorizes it.
+ */
+export async function deleteAccount(currentPassword?: string): Promise<void> {
+  const user = getAuthInstance().currentUser;
+  if (!user) throw new Error("You're not signed in.");
+  await reauthenticate(user, currentPassword);
+
+  const res = await fetch("/api/account/delete", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${await user.getIdToken(true)}` },
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Couldn't delete your account. Try again.");
+  }
+
+  // The server deleted the auth record; clear the local session so the app
+  // doesn't sit on a token for a user that no longer exists.
+  await signOutUser().catch(() => {});
+}
+
+/**
  * Error copy for the signed-in account settings screen. Unlike the sign-in
  * screen, this speaks to the account owner, so a wrong CURRENT password can be
  * named plainly — there's no enumeration risk in your own settings.

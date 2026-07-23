@@ -6,6 +6,7 @@ import { AuthProvider } from "@/components/AuthProvider";
 import { AuthNav } from "@/components/AuthNav";
 import { SubNav } from "@/components/SubNav";
 import { ScrollProgress } from "@/components/ScrollProgress";
+import { Footer } from "@/components/Footer";
 import "./globals.css";
 
 // Brand type direction: geometric/deco sans (Amenti, Konnect, Fonseca).
@@ -41,10 +42,33 @@ const playfair = Playfair_Display({
   style: ["italic"],
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://elovox.app";
+
+const TITLE = "Elovox — Speak with Impact";
+const DESCRIPTION =
+  "Speak with impact. Practice speeches, pitches, and interviews with Elovox and get specific coaching on your delivery.";
+
 export const metadata: Metadata = {
-  title: "Elovox — Speak with Impact",
-  description:
-    "Speak with impact. Practice speeches, pitches, and interviews with Elovox and get specific coaching on your delivery.",
+  // Absolute base for canonical/OG URLs. Preview deploys can override it
+  // with NEXT_PUBLIC_APP_URL so their links don't point at production.
+  metadataBase: new URL(SITE_URL),
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: "Elovox",
+    url: "/",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/icon.png"],
+  },
+  twitter: {
+    card: "summary",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/icon.png"],
+  },
 };
 
 export const viewport: Viewport = {
@@ -99,6 +123,7 @@ export default function RootLayout({
           <main id="main" className="flex-1 w-full px-4 md:px-10 xl:px-16 2xl:px-24">
             {children}
           </main>
+          <Footer />
         </AuthProvider>
       </body>
     </html>

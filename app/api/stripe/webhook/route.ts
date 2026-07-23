@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getStripe, isEntitled } from "@/lib/stripe";
-import { getAdminDb } from "@/lib/firebaseAdmin";
+import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
 import { cycleForPriceId } from "@/lib/pricing";
 
 // Stripe → Firestore entitlement sync. This is the ONLY writer of
@@ -32,6 +32,21 @@ async function syncSubscription(
     // No mapping back to a user — nothing we can safely write.
     console.error(`[stripe] subscription ${sub.id} has no firebaseUid`);
     return;
+  }
+
+  // Deleting an account cancels its subscription, and Stripe's resulting
+  // `customer.subscription.deleted` can land after the data is gone. Writing
+  // it would resurrect a plan doc under a user that no longer exists, so
+  // confirm the login is still there first.
+  const app = getAdminApp();
+  if (app) {
+    const { getAuth } = await import("firebase-admin/auth");
+    try {
+      await getAuth(app).getUser(uid);
+    } catch {
+      console.log(`[stripe] skipping ${sub.id} — user ${uid} was deleted`);
+      return;
+    }
   }
 
   const priceId = sub.items.data[0]?.price?.id;
