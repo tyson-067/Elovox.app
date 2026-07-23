@@ -32,6 +32,12 @@ export async function POST(req: NextRequest) {
   const stripe = getStripe();
   const db = getAdminDb();
   if (!stripe || !db) {
+    // Names the missing credential in the server log — "Billing is not
+    // configured" alone can't distinguish a missing Stripe key from a
+    // missing/truncated service account, which is the usual deploy slip.
+    console.error(
+      `[stripe] billing unconfigured — STRIPE_SECRET_KEY:${stripe ? "ok" : "MISSING"} FIREBASE_SERVICE_ACCOUNT:${db ? "ok" : "MISSING"}`
+    );
     return NextResponse.json({ error: "Billing is not configured." }, { status: 503 });
   }
 
