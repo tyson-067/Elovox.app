@@ -11,6 +11,7 @@ import { startCheckout } from "@/lib/checkout";
 import {
   PLANS,
   TRIAL_DAYS,
+  hasTrial,
   planFor,
   savingsVsWeekly,
   perMonth,
@@ -19,12 +20,12 @@ import {
 } from "@/lib/pricing";
 
 // Public pricing page. Freemium: Free forever on the left, Premium on the
-// right with a billing-cycle toggle. Every Premium cycle opens with a
-// 7-day free trial, so the CTA is a trial start, not a charge.
+// right with a billing-cycle toggle. Monthly and annual open with a 7-day
+// free trial, so their CTA is a trial start; weekly is charged immediately,
+// so its CTA has to say so rather than promising a free run.
 //
-// Stripe isn't wired yet (see lib/pricing.ts), so the CTA routes through
-// /signup for now — you need an account before you can start a trial. When
-// checkout exists, point the button at it and pass the selected cycle.
+// Signed-out visitors route through /signup carrying the chosen cycle, so
+// checkout resumes as soon as the account exists.
 
 const FREE_FEATURES = [
   "The daily 1-minute speech — new every day, written by Felix",
@@ -46,7 +47,7 @@ const PREMIUM_FEATURES = [
 const FAQ = [
   {
     q: `How does the ${TRIAL_DAYS}-day free trial work?`,
-    a: `You get full Premium access for ${TRIAL_DAYS} days, free. We only charge when the trial ends, and you can cancel any time before then and pay nothing.`,
+    a: `You get full Premium access for ${TRIAL_DAYS} days, free, on the monthly and annual plans. We only charge when the trial ends, and you can cancel any time before then and pay nothing. The weekly plan has no trial — it's charged from the day you start.`,
   },
   {
     q: "Why is the annual plan so much cheaper per week?",
@@ -70,6 +71,10 @@ export default function PricingPage() {
   const [error, setError] = useState("");
   const plan = planFor(cycle);
   const saved = savingsVsWeekly(plan);
+  // Weekly has no trial, so its CTA promises a charge, not a free run.
+  const ctaLabel = hasTrial(plan)
+    ? `Start ${plan.trialDays}-day free trial`
+    : "Get Premium weekly";
 
   // Signed-in visitors go straight to Stripe Checkout for the chosen cycle;
   // signed-out (or no Firebase) visitors sign up first, carrying the intent
@@ -111,9 +116,10 @@ export default function PricingPage() {
             <span className="slogan-serif text-gradient">impact.</span>
           </h1>
           <p className="mx-auto mt-5 max-w-[54ch] text-lg leading-8 text-on-surface-variant">
-            Try every Premium feature free for {TRIAL_DAYS} days. Keep the free
-            plan forever, or unlock unlimited reps and coaching — the longer you
-            commit, the less you pay each week.
+            Try every Premium feature free for {TRIAL_DAYS} days on the monthly
+            and annual plans. Keep the free plan forever, or unlock unlimited
+            reps and coaching — the longer you commit, the less you pay each
+            week.
           </p>
         </Reveal>
       </section>
@@ -212,6 +218,10 @@ export default function PricingPage() {
               <span className="font-data text-sm text-white/70">
                 / {plan.unit}
               </span>
+              {/* Stripe Tax is enabled on the account, so the card is charged
+                  the price plus sales tax for the customer's address. The
+                  exact amount varies by location and is shown at checkout. */}
+              <span className="font-data text-sm text-white/60">+ tax</span>
             </p>
 
             {/* The apples-to-apples per-week rate, plus the saving that makes
@@ -233,8 +243,19 @@ export default function PricingPage() {
             </p>
 
             <div className="mt-4 rounded-lg bg-white/10 px-3.5 py-2.5 text-sm font-medium text-white">
-              <span className="font-semibold">{plan.trialDays}-day free trial</span>
-              {" — you’re only charged when it ends. Cancel anytime."}
+              {hasTrial(plan) ? (
+                <>
+                  <span className="font-semibold">
+                    {plan.trialDays}-day free trial
+                  </span>
+                  {" — you’re only charged when it ends. Cancel anytime."}
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold">No trial on weekly</span>
+                  {" — billed today, then every week. Cancel anytime."}
+                </>
+              )}
             </div>
 
             <ul className="mt-5 space-y-2.5 text-base leading-6 text-white/90">
@@ -251,7 +272,7 @@ export default function PricingPage() {
               disabled={busy}
               className="btn mt-7 inline-block w-full rounded-lg bg-accent px-6 py-3 text-center font-semibold text-white disabled:opacity-60"
             >
-              {busy ? "Starting…" : `Start ${plan.trialDays}-day free trial`}
+              {busy ? "Starting…" : ctaLabel}
             </button>
             {error && (
               <p role="alert" className="mt-2 text-center text-[13px] text-amber">
@@ -259,8 +280,17 @@ export default function PricingPage() {
               </p>
             )}
             <p className="mt-2.5 text-center text-[13px] text-white/70">
-              Then {formatUSD(plan.price)}/{plan.unit}. Cancel before day{" "}
-              {plan.trialDays} and pay nothing.
+              {hasTrial(plan) ? (
+                <>
+                  Then {formatUSD(plan.price)}/{plan.unit} + tax. Cancel before
+                  day {plan.trialDays} and pay nothing.
+                </>
+              ) : (
+                <>
+                  {formatUSD(plan.price)} + tax charged today, then every{" "}
+                  {plan.unit}. Cancel anytime.
+                </>
+              )}
             </p>
           </GlowCard>
         </Reveal>
@@ -302,7 +332,7 @@ export default function PricingPage() {
                     {formatUSD(p.price)}
                     <span className="font-data text-sm font-normal text-on-surface-variant">
                       {" "}
-                      / {p.unit}
+                      / {p.unit} + tax
                     </span>
                   </p>
                   <p className="mt-1 text-sm text-on-surface-variant">
@@ -360,7 +390,7 @@ export default function PricingPage() {
             disabled={busy}
             className="btn mt-8 inline-block rounded-lg bg-accent px-8 py-3.5 font-semibold text-white disabled:opacity-60"
           >
-            {busy ? "Starting…" : `Start ${plan.trialDays}-day free trial`}
+            {busy ? "Starting…" : ctaLabel}
           </button>
         </Reveal>
       </section>
