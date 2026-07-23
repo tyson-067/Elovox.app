@@ -7,10 +7,9 @@ import { isFirebaseConfigured, getDb, getUser } from "./firebase";
 // users/{uid}/profile/plan, cached in localStorage so gated UI doesn't
 // flash on every navigation.
 //
-// Stripe isn't wired yet. When it is, the webhook writes `plan` on that
-// same profile doc and nothing in the UI has to change. Until then the
-// only ways to become premium are the dev override below and a manual
-// Firestore edit, which is exactly what we want for testing.
+// The Stripe webhook (/api/stripe/webhook) is the only writer of that doc —
+// it sets `plan` from the live subscription status. For testing without a
+// subscription, use the dev override below or edit Firestore directly.
 
 export type Plan = "free" | "premium";
 

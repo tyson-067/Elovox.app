@@ -14,6 +14,15 @@ import {
 } from "@/lib/auth";
 import { startCheckout } from "@/lib/checkout";
 import type { BillingCycle } from "@/lib/pricing";
+import {
+  AGE_BLOCK_MESSAGE,
+  MINIMUM_AGE,
+  MINOR_NOTICE,
+  ageFromDob,
+  latestAllowedDob,
+  rememberAgeBlock,
+  useAgeBlocked,
+} from "@/lib/age";
 
 // If the visitor arrived from a pricing CTA (/signup?plan=premium&cycle=…),
 // resume Stripe Checkout the moment the account exists. Read from the URL
@@ -45,6 +54,30 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [notice, setNotice] = useState("");
 
   const isSignup = mode === "signup";
+
+  // --- Age gate (signup only) ---------------------------------------------
+  // Asked before an account can be created by ANY route, including Google —
+  // otherwise the provider button would be a way around the check. The date
+  // itself is never sent anywhere; see lib/age.ts.
+  const [dob, setDob] = useState("");
+
+  const age = isSignup && dob ? ageFromDob(dob) : null;
+  const ageOk = !isSignup || (age !== null && age >= MINIMUM_AGE);
+
+  // Both halves of the gate are derived, not stored: `wasBlocked` reads the
+  // persisted flag straight from localStorage, and an under-age date blocks
+  // on the spot. Nothing here needs an effect.
+  const wasBlocked = useAgeBlocked();
+  const tooYoung = age !== null && age < MINIMUM_AGE;
+  const blocked = isSignup && (wasBlocked || tooYoung);
+
+  // Under-age answers stop here and stay stopped for this browser. Recorded
+  // from the change handler, so it happens once, when the answer is given.
+  const onDobChange = (value: string) => {
+    setDob(value);
+    const next = ageFromDob(value);
+    if (next !== null && next < MINIMUM_AGE) rememberAgeBlock();
+  };
   // New accounts go through onboarding; the RequireAuth gate would catch
   // them anyway, but routing there directly avoids a redirect bounce.
   // (Provider sign-ins on /signup may be returning users — the gate
@@ -98,8 +131,29 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     );
   }
 
+  if (blocked) {
+    return (
+      <div className="py-16 max-w-[480px] mx-auto">
+        <h1 className="text-title font-headline font-semibold text-primary">
+          We can&apos;t sign you up
+        </h1>
+        <p className="mt-3 text-lg leading-7 text-on-surface-variant">
+          {AGE_BLOCK_MESSAGE} Thanks for being honest about your age — come
+          back when you&apos;re old enough and we&apos;ll be here.
+        </p>
+        <Link
+          href="/"
+          className="btn rounded-lg mt-8 inline-block bg-accent text-white font-semibold px-8 py-3.5"
+        >
+          Back to home
+        </Link>
+      </div>
+    );
+  }
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!ageOk) return; // the form's own guard; the button is disabled too
     setError("");
     setNotice("");
     setBusy(true);
@@ -117,6 +171,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   };
 
   const withProvider = (signIn: () => Promise<void>) => async () => {
+    if (!ageOk) return; // signing up with Google clears the same gate
     setError("");
     setNotice("");
     setBusy(true);
@@ -170,6 +225,33 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           onChange={(e) => setEmail(e.target.value)}
           className={inputClass}
         />
+        {isSignup && (
+          <div>
+            <label
+              htmlFor="dob"
+              className="block text-sm font-medium text-on-surface-variant"
+            >
+              Date of birth
+            </label>
+            <input
+              id="dob"
+              type="date"
+              required
+              max={latestAllowedDob()}
+              value={dob}
+              onChange={(e) => onDobChange(e.target.value)}
+              className={`${inputClass} mt-1.5`}
+            />
+            <p className="mt-1.5 text-[13px] leading-5 text-on-surface-variant">
+              We use this once to check your age, and don&apos;t store it.
+            </p>
+            {age !== null && age >= MINIMUM_AGE && age < 18 && (
+              <p className="mt-1.5 text-[13px] leading-5 text-on-surface-variant">
+                {MINOR_NOTICE}
+              </p>
+            )}
+          </div>
+        )}
         <input
           type="password"
           required
@@ -208,7 +290,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || !ageOk}
           className="btn rounded-lg w-full bg-accent text-white font-semibold text-base px-8 py-3.5 disabled:opacity-50"
         >
           {busy ? "One moment…" : isSignup ? "Sign up free" : "Log in"}
@@ -225,7 +307,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         <button
           type="button"
           onClick={withProvider(signInWithGoogle)}
-          disabled={busy}
+          disabled={busy || !ageOk}
           className="card pill w-full px-4 py-3 text-base font-semibold text-primary hover:border-primary/30 disabled:opacity-50"
         >
           Continue with Google
