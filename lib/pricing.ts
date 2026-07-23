@@ -1,15 +1,15 @@
 // Elovox Premium pricing — the single source of truth for the pricing page
-// and, soon, the Stripe checkout call.
+// and the Stripe checkout call.
 //
 // Freemium: Free stays free forever (the daily speech + 3 attempts). Premium
-// unlocks everything and always opens with a 7-day free trial, billed on one
-// of three cycles. The cycles are priced so the effective per-week rate falls
+// unlocks everything, billed on one of three cycles. Monthly and annual open
+// with a 7-day free trial; weekly is charged from day one. The cycles are priced so the effective per-week rate falls
 // as the commitment grows — weekly is the impulse rate, annual is the best
 // deal — which is what makes the longer plans the obvious value.
 //
-// When Stripe is wired, fill in `stripePriceId` for each cycle; the checkout
-// button looks the plan up by cycle. Nothing downstream changes: the webhook
-// writes `plan: "premium"` on users/{uid}/profile/plan (see lib/plan.ts).
+// Price IDs come from the environment via `stripePriceIdFor` below; the
+// checkout button looks the plan up by cycle. The webhook then writes
+// `plan: "premium"` on users/{uid}/profile/plan (see lib/plan.ts).
 
 export type BillingCycle = "weekly" | "monthly" | "annual";
 
@@ -25,12 +25,21 @@ export interface PricingPlan {
 }
 
 /**
- * Default trial length, and the number shown in the marketing copy. The
- * weekly plan runs a shorter trial (see its `trialDays`) because a 7-day
- * trial on a 7-day billing period is a free week that never converts —
- * the trial and the first paid period would be the same length.
+ * Default trial length, and the number shown in the marketing copy. Applies
+ * to the monthly and annual plans; the weekly plan has no trial at all (a
+ * trial on a 7-day billing period is a free week that mostly never converts).
+ *
+ * This is the ONLY place the trial is defined — verified against the live
+ * Prices, which all have `recurring.trial_period_days = null`. Checkout
+ * passes the number from here, so changing it here is sufficient; don't add
+ * a trial to the Prices in the dashboard or the two will fight.
  */
 export const TRIAL_DAYS = 7;
+
+/** Does this plan open with a free trial? Weekly does not. */
+export function hasTrial(plan: PricingPlan): boolean {
+  return plan.trialDays > 0;
+}
 
 /**
  * Stripe Price ID for a cycle, read from the environment (server-side).
@@ -75,7 +84,7 @@ export const PLANS: PricingPlan[] = [
     price: 4.99,
     unit: "week",
     perWeek: 4.99,
-    trialDays: 3, // shorter than the billing period so the trial can convert
+    trialDays: 0, // no trial: a free week on a weekly plan rarely converts
     badge: "Most flexible",
   },
   {

@@ -17,6 +17,9 @@ export const runtime = "nodejs";
 
 const CYCLES: BillingCycle[] = ["weekly", "monthly", "annual"];
 
+// Dashboard label for this Checkout flow (Stripe API 2026-03-25.dahlia+).
+const CHECKOUT_INTEGRATION_ID = "elovox-premium-hqvbztkm";
+
 function baseUrl(req: NextRequest): string {
   return (
     process.env.NEXT_PUBLIC_APP_URL ||
@@ -87,11 +90,17 @@ export async function POST(req: NextRequest) {
 
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
+    // Labels this flow in the Stripe dashboard so Checkout performance can be
+    // compared across integrations. Static on purpose — it identifies the
+    // flow, not the session.
+    integration_identifier: CHECKOUT_INTEGRATION_ID,
     customer: customerId,
     client_reference_id: uid,
     line_items: [{ price: priceId, quantity: 1 }],
     subscription_data: {
-      trial_period_days: plan.trialDays,
+      // Omitted entirely for the weekly plan — Stripe rejects a zero-day
+      // trial, so "no trial" has to mean "no parameter".
+      ...(plan.trialDays > 0 ? { trial_period_days: plan.trialDays } : {}),
       metadata: { firebaseUid: uid },
     },
     allow_promotion_codes: true,
