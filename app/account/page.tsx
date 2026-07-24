@@ -6,7 +6,12 @@ import { useRouter } from "next/navigation";
 import { RequireAuth } from "@/components/RequireAuth";
 import { useAuth } from "@/components/AuthProvider";
 import { usePlanRecord, refreshPlan, type PlanRecord } from "@/lib/plan";
-import { openBillingPortal, fetchInvoices, type InvoiceRow } from "@/lib/checkout";
+import {
+  openBillingPortal,
+  fetchInvoices,
+  fetchDataExport,
+  type InvoiceRow,
+} from "@/lib/checkout";
 import { planFor, formatUSD } from "@/lib/pricing";
 import {
   accountErrorMessage,
@@ -485,8 +490,61 @@ function AccountScreen() {
         )}
       </section>
 
+      <ExportDataSection />
+
       <DeleteAccountSection hasPassword={hasPassword} />
     </div>
+  );
+}
+
+// Data portability, sitting just above deletion because they're the same
+// right: take your data, or take it and go. Placing export first also gives
+// anyone about to delete an obvious chance to keep a copy.
+function ExportDataSection() {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const download = async () => {
+    setError("");
+    setBusy(true);
+    try {
+      const blob = await fetchDataExport();
+      // Hand the file to the browser without ever navigating away.
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "elovox-my-data.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't prepare your download.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className={cardClass}>
+      <h2 className="font-headline text-lg font-semibold">Download your data</h2>
+      <p className="mt-1 text-sm text-on-surface-variant">
+        A copy of everything Elovox holds for your account — your practice
+        history, scores, and settings — as a JSON file. Card details aren&apos;t
+        included; those live with Stripe and never reach us.
+      </p>
+      <button
+        type="button"
+        onClick={download}
+        disabled={busy}
+        className="btn mt-4 rounded-lg border border-outline px-4 py-2 text-sm font-semibold disabled:opacity-60"
+      >
+        {busy ? "Preparing…" : "Download my data"}
+      </button>
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-error">
+          {error}
+        </p>
+      )}
+    </section>
   );
 }
 

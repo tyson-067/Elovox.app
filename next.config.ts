@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import type { NextConfig } from "next";
 
 // Security headers. Vercel serves none of these by default, so without this
@@ -9,6 +10,32 @@ import type { NextConfig } from "next";
 // Fonts are self-hosted by next/font at build time, so no font CDN is needed.
 
 const isDev = process.env.NODE_ENV === "development";
+
+// The Terms and Privacy pages render whatever lib/legal.ts holds, placeholders
+// included — they were live on /terms reading "[LEGAL ENTITY — …]". Terms that
+// name no entity and no governing law are hard to enforce, and it is the kind
+// of thing nobody notices until it matters. Shout on every build until the
+// real values are in. Deliberately a warning, not a thrown error: breaking the
+// deploy of a working app over copy would be worse than the copy.
+function warnOnLegalPlaceholders() {
+  try {
+    const src = readFileSync(
+      new URL("./lib/legal.ts", import.meta.url),
+      "utf8"
+    );
+    const unresolved = [...src.matchAll(/^\s*(\w+):\s*"(\[[^"]*\])"/gm)];
+    if (unresolved.length > 0) {
+      console.warn(
+        "\n⚠️  lib/legal.ts still has placeholder values — /terms and /privacy will display them verbatim:"
+      );
+      for (const [, key, value] of unresolved) console.warn(`      ${key}: ${value}`);
+      console.warn("");
+    }
+  } catch {
+    // Never let a check on copy break the build.
+  }
+}
+warnOnLegalPlaceholders();
 
 const csp = [
   "default-src 'self'",
@@ -89,6 +116,11 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // There's an unrelated package.json in the home directory, so Next was
+  // inferring ~/ as the workspace root and tracing files from outside the
+  // project into the build. Pin it to this directory.
+  turbopack: { root: import.meta.dirname },
+
   // Don't advertise the framework/version to anyone fingerprinting the stack.
   poweredByHeader: false,
 
