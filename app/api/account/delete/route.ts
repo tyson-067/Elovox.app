@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
-import { verifyUser } from "@/lib/verify";
+import { verifyUser, makeRateLimiter } from "@/lib/verify";
 
 // Account erasure — the self-serve half of the deletion right promised in
 // /privacy. Runs server-side because deleting a user's data needs the Admin
@@ -19,6 +19,11 @@ import { verifyUser } from "@/lib/verify";
 
 export const runtime = "nodejs";
 
+// Deletion is irreversible and cancels a subscription on the way out, so a
+// handful of attempts per hour is generous. A retry after a transient failure
+// still works; a loop does not.
+const rateLimited = makeRateLimiter(5);
+
 export async function POST(req: NextRequest) {
   const app = getAdminApp();
   const db = getAdminDb();
@@ -32,6 +37,12 @@ export async function POST(req: NextRequest) {
   const uid = await verifyUser(req);
   if (!uid || uid === "local-dev") {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
+  }
+  if (rateLimited(uid)) {
+    return NextResponse.json(
+      { error: "Too many attempts. Please wait a moment." },
+      { status: 429 }
+    );
   }
 
   // 1. Stop the money. Cancel immediately rather than at period end — the
