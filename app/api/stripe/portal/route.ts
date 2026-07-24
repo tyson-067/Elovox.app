@@ -39,10 +39,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No subscription to manage." }, { status: 404 });
   }
 
-  const session = await stripe.billingPortal.sessions.create({
-    customer: customerId,
-    return_url: `${baseUrl(req)}/account`,
-  });
+  // The Portal throws if it has no configuration in this mode — a live-mode
+  // setup that was only ever done in test is the usual cause. Surface Stripe's
+  // message instead of letting it collapse into a bare 500.
+  try {
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${baseUrl(req)}/account`,
+    });
 
-  return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: session.url });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[stripe] portal failed for ${uid} (customer ${customerId})`, err);
+    return NextResponse.json(
+      { error: `Couldn't open billing: ${message}` },
+      { status: 502 }
+    );
+  }
 }

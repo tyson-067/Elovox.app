@@ -83,37 +83,51 @@ export async function POST(req: NextRequest) {
     // email is a nicety, not required
   }
 
-  if (!customerId) {
-    const customer = await stripe.customers.create({
-      email,
-      metadata: { firebaseUid: uid },
+  // Everything below talks to Stripe, so a misconfiguration (a test Price ID
+  // paired with a live key, an unsupported parameter) surfaces as a thrown
+  // StripeError. Uncaught, that becomes a bare 500 with no JSON body, and the
+  // browser can only say "Something went wrong" — which hides the one detail
+  // that would explain it. Log Stripe's own message and pass it back.
+  try {
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email,
+        metadata: { firebaseUid: uid },
+      });
+      customerId = customer.id;
+      // Persist immediately so a retried checkout reuses it even before the
+      // webhook writes the full record.
+      await planRef.set({ stripeCustomerId: customerId }, { merge: true });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      // Labels this flow in the Stripe dashboard so Checkout performance can be
+      // compared across integrations. Static on purpose — it identifies the
+      // flow, not the session.
+      integration_identifier: CHECKOUT_INTEGRATION_ID,
+      customer: customerId,
+      client_reference_id: uid,
+      line_items: [{ price: priceId, quantity: 1 }],
+      subscription_data: {
+        // Omitted entirely for the weekly plan — Stripe rejects a zero-day
+        // trial, so "no trial" has to mean "no parameter".
+        ...(plan.trialDays > 0 ? { trial_period_days: plan.trialDays } : {}),
+        metadata: { firebaseUid: uid },
+      },
+      allow_promotion_codes: true,
+      // The webhook is the source of truth; these just route the browser back.
+      success_url: `${baseUrl(req)}/account?checkout=success`,
+      cancel_url: `${baseUrl(req)}/pricing?checkout=cancelled`,
     });
-    customerId = customer.id;
-    // Persist immediately so a retried checkout reuses it even before the
-    // webhook writes the full record.
-    await planRef.set({ stripeCustomerId: customerId }, { merge: true });
+
+    return NextResponse.json({ url: session.url });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[stripe] checkout failed for ${uid} (${cycle}, ${priceId})`, err);
+    return NextResponse.json(
+      { error: `Checkout couldn't start: ${message}` },
+      { status: 502 }
+    );
   }
-
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    // Labels this flow in the Stripe dashboard so Checkout performance can be
-    // compared across integrations. Static on purpose — it identifies the
-    // flow, not the session.
-    integration_identifier: CHECKOUT_INTEGRATION_ID,
-    customer: customerId,
-    client_reference_id: uid,
-    line_items: [{ price: priceId, quantity: 1 }],
-    subscription_data: {
-      // Omitted entirely for the weekly plan — Stripe rejects a zero-day
-      // trial, so "no trial" has to mean "no parameter".
-      ...(plan.trialDays > 0 ? { trial_period_days: plan.trialDays } : {}),
-      metadata: { firebaseUid: uid },
-    },
-    allow_promotion_codes: true,
-    // The webhook is the source of truth; these just route the browser back.
-    success_url: `${baseUrl(req)}/account?checkout=success`,
-    cancel_url: `${baseUrl(req)}/pricing?checkout=cancelled`,
-  });
-
-  return NextResponse.json({ url: session.url });
 }
