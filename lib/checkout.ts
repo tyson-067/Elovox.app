@@ -49,6 +49,20 @@ export async function fetchInvoices(): Promise<
   return data.invoices ?? [];
 }
 
+/**
+ * The signed-in user's full data export, as a downloadable blob. Kept here
+ * beside the other authenticated fetches so there's one place that knows how
+ * to attach the ID token.
+ */
+export async function fetchDataExport(): Promise<Blob> {
+  const res = await fetch("/api/account/export", { headers: await authHeader() });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Couldn't prepare your download.");
+  }
+  return res.blob();
+}
+
 /** Opens the Stripe Customer Portal and redirects to it. */
 export async function openBillingPortal(): Promise<void> {
   const url = await postForUrl("/api/stripe/portal");
