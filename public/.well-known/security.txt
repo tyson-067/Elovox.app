@@ -1,0 +1,12 @@
+# Security contact for Elovox (RFC 9116).
+# If you have found a vulnerability, please report it privately to the
+# address below rather than filing it publicly. We will acknowledge and
+# work with you in good faith.
+
+Contact: mailto:elovox.app@gmail.com
+Preferred-Languages: en
+Canonical: https://elovox.app/.well-known/security.txt
+
+# Update this date before it lapses — an expired security.txt is treated as
+# invalid by scanners and researchers.
+Expires: 2027-07-23T00:00:00.000Z

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import { verifyUser } from "@/lib/verify";
+import { verifyUser, makeRateLimiter } from "@/lib/verify";
 import { PLANS, stripePriceIdFor, type BillingCycle } from "@/lib/pricing";
 
 // Starts a Stripe Checkout session for a signed-in user. Subscription mode
@@ -19,6 +19,10 @@ const CYCLES: BillingCycle[] = ["weekly", "monthly", "annual"];
 
 // Dashboard label for this Checkout flow (Stripe API 2026-03-25.dahlia+).
 const CHECKOUT_INTEGRATION_ID = "elovox-premium-hqvbztkm";
+
+// Nobody legitimately opens Checkout 20 times an hour. Keyed by uid (the route
+// is authenticated), this stops a loop from minting endless Stripe customers.
+const rateLimited = makeRateLimiter(20);
 
 function baseUrl(req: NextRequest): string {
   return (
@@ -44,6 +48,12 @@ export async function POST(req: NextRequest) {
   const uid = await verifyUser(req);
   if (!uid || uid === "local-dev") {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
+  }
+  if (rateLimited(uid)) {
+    return NextResponse.json(
+      { error: "Too many attempts. Please wait a moment." },
+      { status: 429 }
+    );
   }
 
   let cycle: BillingCycle;
