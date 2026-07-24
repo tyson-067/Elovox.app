@@ -12,18 +12,20 @@ export const LEGAL = {
   serviceName: "Elovox",
 
   /**
-   * NEEDS REVIEW: the legal entity that contracts with users. If you haven't
-   * incorporated, this is you personally, by name — a sole proprietor's terms
-   * name the individual. Don't leave it as a placeholder at launch: terms
-   * signed by nobody are hard to enforce.
+   * The people who contract with users. Elovox isn't incorporated, so there is
+   * no company to name — the operators are named individually, which is what
+   * an unincorporated venture's terms have to do.
+   *
+   * Worth knowing: several people running a business together without
+   * incorporating is, by default, a general partnership in most US states —
+   * which generally means each person can be held personally liable for the
+   * whole of the venture's obligations. Forming an LLC is the usual fix, and
+   * would replace this line with the company name. Ask a lawyer.
    */
-  entity: "[LEGAL ENTITY — e.g. Elovox LLC, or your full legal name]",
+  entity: "Tyson Youm, Arad Mehrabian, Aanya Iyer Us, and Kelleyguo Kaling",
 
-  /**
-   * NEEDS REVIEW: governing law and the courts that hear disputes. Normally
-   * where the entity is based or incorporated.
-   */
-  jurisdiction: "[STATE/COUNTRY — e.g. the State of California, USA]",
+  /** Governing law and the courts that hear disputes. */
+  jurisdiction: "the State of New York, USA",
 
   /** NEEDS REVIEW: keep in sync with each substantive edit. */
   lastUpdated: "July 23, 2026",
