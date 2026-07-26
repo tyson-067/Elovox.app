@@ -5,9 +5,12 @@ import type { NextRequest } from "next/server";
 // Firebase ID token, verified against Google's identitytoolkit endpoint —
 // no admin SDK or service account needed.
 
-export async function verifyUser(req: NextRequest): Promise<string | null> {
+/** The account behind a request's ID token, or null if there isn't a valid one. */
+async function lookupUser(
+  req: NextRequest
+): Promise<{ uid: string; emailVerified: boolean } | null> {
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-  if (!apiKey) return "local-dev"; // Firebase not configured — nothing to verify against
+  if (!apiKey) return { uid: "local-dev", emailVerified: true }; // Firebase not configured
   const token = req.headers.get("authorization")?.replace(/^Bearer /, "");
   if (!token) return null;
   const res = await fetch(
@@ -20,7 +23,32 @@ export async function verifyUser(req: NextRequest): Promise<string | null> {
   );
   if (!res.ok) return null;
   const data = await res.json();
-  return data.users?.[0]?.localId ?? null;
+  const record = data.users?.[0];
+  if (!record?.localId) return null;
+  return { uid: record.localId, emailVerified: Boolean(record.emailVerified) };
+}
+
+export async function verifyUser(req: NextRequest): Promise<string | null> {
+  return (await lookupUser(req))?.uid ?? null;
+}
+
+/**
+ * Like `verifyUser`, but also requires the account's email to be verified —
+ * the server half of the /verify-email gate in components/RequireAuth.tsx.
+ * That gate is a redirect, which protects nobody: an unverified account still
+ * holds a valid ID token and can call these routes directly. Enforce it here,
+ * where the money is actually spent.
+ *
+ * Returns `"unverified"` rather than null so callers can answer 403 (do
+ * something about it) instead of 401 (sign in), which are different problems.
+ * Google accounts arrive already verified and pass straight through.
+ */
+export async function verifyVerifiedUser(
+  req: NextRequest
+): Promise<string | null | "unverified"> {
+  const found = await lookupUser(req);
+  if (!found) return null;
+  return found.emailVerified ? found.uid : "unverified";
 }
 
 /**

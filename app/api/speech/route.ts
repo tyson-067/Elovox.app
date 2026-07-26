@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateJson, geminiKey } from "@/lib/gemini";
-import { verifyUser, makeRateLimiter } from "@/lib/verify";
+import { verifyVerifiedUser, makeRateLimiter } from "@/lib/verify";
 import { sanitizeText } from "@/lib/validation";
 
 // Premium speech writing. Two jobs, one route:
@@ -64,8 +64,11 @@ function wordTarget(seconds: number): string {
 }
 
 export async function POST(req: NextRequest) {
-  const uid = await verifyUser(req);
+  const uid = await verifyVerifiedUser(req);
   if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (uid === "unverified") {
+    return NextResponse.json({ error: "verify your email first" }, { status: 403 });
+  }
   if (rateLimited(uid)) {
     return NextResponse.json({ error: "rate limited" }, { status: 429 });
   }

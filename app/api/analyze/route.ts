@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Analysis, CategoryId, StageAnalysis } from "@/lib/types";
 import { generateSampleAnalysis } from "@/lib/sample";
 import { generateJson } from "@/lib/gemini";
-import { verifyUser, makeRateLimiter, isPremiumServer } from "@/lib/verify";
+import { verifyVerifiedUser, makeRateLimiter, isPremiumServer } from "@/lib/verify";
 import { sanitizeText } from "@/lib/validation";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import {
@@ -549,9 +549,12 @@ function readFrames(form: FormData): { time: string; data: string }[] {
 }
 
 export async function POST(req: NextRequest) {
-  const uid = await verifyUser(req);
+  const uid = await verifyVerifiedUser(req);
   if (!uid) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (uid === "unverified") {
+    return NextResponse.json({ error: "verify your email first" }, { status: 403 });
   }
   if (rateLimited(uid)) {
     return NextResponse.json({ error: "rate limited" }, { status: 429 });

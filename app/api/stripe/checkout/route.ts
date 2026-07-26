@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import { verifyUser, makeRateLimiter } from "@/lib/verify";
+import { verifyVerifiedUser, makeRateLimiter } from "@/lib/verify";
 import { PLANS, stripePriceIdFor, type BillingCycle } from "@/lib/pricing";
 
 // Starts a Stripe Checkout session for a signed-in user. Subscription mode
@@ -45,9 +45,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Billing is not configured." }, { status: 503 });
   }
 
-  const uid = await verifyUser(req);
+  const uid = await verifyVerifiedUser(req);
   if (!uid || uid === "local-dev") {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
+  }
+  // A subscription on an unconfirmed address is a support problem waiting to
+  // happen: receipts and password resets go to an inbox nobody owns.
+  if (uid === "unverified") {
+    return NextResponse.json(
+      { error: "Please confirm your email address before subscribing." },
+      { status: 403 }
+    );
   }
   if (rateLimited(uid)) {
     return NextResponse.json(
