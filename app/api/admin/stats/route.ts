@@ -86,15 +86,31 @@ export async function GET(req: NextRequest) {
   }
 
   // --- Practice activity, from the session records -------------------------
-  // A single collectionGroup query beats walking users one at a time.
-  const recent = await db
-    .collectionGroup("sessions")
-    .where("createdAt", ">=", d30)
-    .get();
+  // A single collectionGroup query beats walking users one at a time. The
+  // date-filtered version needs a COLLECTION_GROUP_ASC index on createdAt
+  // (see firestore.indexes.json); until that's deployed Firestore rejects it
+  // with FAILED_PRECONDITION, so fall back to an unfiltered scan and filter
+  // in memory. Slower and unbounded, but a dashboard that loads beats a 500.
+  let recent;
+  try {
+    recent = await db
+      .collectionGroup("sessions")
+      .where("createdAt", ">=", d30)
+      .get();
+  } catch (err) {
+    if ((err as { code?: number })?.code !== 9) throw err;
+    console.warn(
+      "[admin] sessions index missing — falling back to a full scan. Deploy firestore.indexes.json."
+    );
+    recent = await db.collectionGroup("sessions").get();
+  }
 
   const active7 = new Set<string>();
   const active30 = new Set<string>();
   let sessions7 = 0;
+  // Counted rather than taken from recent.size: on the fallback path above the
+  // snapshot holds every session ever, not just the last 30 days.
+  let sessions30 = 0;
   let scoreSum = 0;
   let scoreCount = 0;
   let withVideo = 0;
@@ -103,6 +119,8 @@ export async function GET(req: NextRequest) {
     const uid = doc.ref.parent.parent?.id;
     const d = doc.data();
     const created = typeof d.createdAt === "number" ? d.createdAt : 0;
+    if (created < d30) continue;
+    sessions30++;
     if (uid) active30.add(uid);
     if (created >= d7) {
       sessions7++;
@@ -144,7 +162,7 @@ export async function GET(req: NextRequest) {
         activeLast7: active7.size,
         activeLast30: active30.size,
         sessionsLast7: sessions7,
-        sessionsLast30: recent.size,
+        sessionsLast30: sessions30,
         avgSessionsPerActive7:
           active7.size === 0
             ? 0
