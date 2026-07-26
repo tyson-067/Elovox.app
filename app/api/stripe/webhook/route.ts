@@ -100,7 +100,14 @@ async function syncSubscription(
       since: ms(source.start_date) ?? null,
       trialEnd: ms(source.trial_end) ?? null,
       currentPeriodEnd: ms(source.items.data[0]?.current_period_end) ?? null,
-      cancelAtPeriodEnd: source.cancel_at_period_end ?? false,
+      // Two ways Stripe records "this is going to stop": the boolean, and an
+      // explicit `cancel_at` timestamp — which is what the Customer Portal
+      // actually set when the first real subscriber cancelled, leaving the
+      // boolean false. Reading only the boolean told a cancelled user they
+      // were about to be billed.
+      cancelAtPeriodEnd:
+        (source.cancel_at_period_end ?? false) || source.cancel_at != null,
+      cancelAt: ms(source.cancel_at) ?? null,
       stripeCustomerId: customerId,
       stripeSubscriptionId: source.id,
     },

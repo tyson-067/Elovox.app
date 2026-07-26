@@ -32,6 +32,7 @@ export interface PlanRecord {
   trialEnd?: number; // epoch ms the trial ends (while trialing)
   currentPeriodEnd?: number; // epoch ms the paid period / access ends
   cancelAtPeriodEnd?: boolean; // canceled but still active until period end
+  cancelAt?: number; // epoch ms access ends, when Stripe set an explicit date
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
 }

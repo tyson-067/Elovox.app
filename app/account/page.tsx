@@ -177,10 +177,19 @@ function BillingSection() {
   const price = cyclePlan ? `${formatUSD(cyclePlan.price)}/${cyclePlan.unit}` : "";
 
   let statusLine = "You're on the Free plan.";
-  if (r?.status === "trialing") {
+  // A trial that has been cancelled still reports `trialing` right up until it
+  // lapses, so this has to be checked before the plain trial copy. Otherwise
+  // someone who has already cancelled is told they're about to be charged —
+  // which is both alarming and false.
+  const ending = r?.cancelAtPeriodEnd || r?.cancelAt != null;
+  const endsOn = fmtDate(r?.cancelAt ?? r?.trialEnd ?? r?.currentPeriodEnd);
+
+  if (r?.status === "trialing" && ending) {
+    statusLine = `Premium trial — cancelled. Access continues until ${endsOn}, and you won't be charged.`;
+  } else if (r?.status === "trialing") {
     statusLine = `Premium trial — free until ${fmtDate(r.trialEnd)}, then ${price}.`;
-  } else if (r?.status === "active" && r?.cancelAtPeriodEnd) {
-    statusLine = `Premium — cancels ${fmtDate(r.currentPeriodEnd)}. Access continues until then.`;
+  } else if (r?.status === "active" && ending) {
+    statusLine = `Premium — cancels ${endsOn}. Access continues until then.`;
   } else if (r?.status === "active") {
     statusLine = `Premium (${r.cycle}) — renews ${fmtDate(r.currentPeriodEnd)} at ${price}.`;
   } else if (r?.status === "past_due") {
