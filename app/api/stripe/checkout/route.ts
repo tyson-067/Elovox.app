@@ -118,6 +118,43 @@ export async function POST(req: NextRequest) {
       await planRef.set({ stripeCustomerId: customerId }, { merge: true });
     }
 
+    // What has this customer done before? Two things matter, and Stripe is the
+    // source of truth for both — a Firestore flag would drift the moment a
+    // subscription was changed from the dashboard.
+    //
+    //  - Already subscribed? Sending them through Checkout again bills them a
+    //    second time for the same product. (Seen in the wild: one tester ended
+    //    up with simultaneous monthly AND annual trials.) Send them to the
+    //    Portal to switch plans instead.
+    //  - Ever had a trial? The free week is once per customer, not once per
+    //    price. Otherwise: trial monthly, cancel, trial annual, repeat —
+    //    Premium indefinitely for nothing.
+    const existing = await stripe.subscriptions.list({
+      customer: customerId,
+      status: "all",
+      limit: 100,
+    });
+
+    const live = existing.data.find((s) =>
+      ["trialing", "active", "past_due", "unpaid"].includes(s.status)
+    );
+    if (live) {
+      return NextResponse.json(
+        {
+          error:
+            "You already have a subscription. Manage or switch your plan from your account page.",
+          code: "already_subscribed",
+        },
+        { status: 409 }
+      );
+    }
+
+    // trial_start is set by Stripe on any subscription that opened with a
+    // trial, and it survives cancellation — which is exactly the history we
+    // need. A returning customer subscribes at full price from day one.
+    const hadTrial = existing.data.some((s) => s.trial_start != null);
+    const grantTrial = plan.trialDays > 0 && !hadTrial;
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       // Labels this flow in the Stripe dashboard so Checkout performance can be
@@ -128,9 +165,10 @@ export async function POST(req: NextRequest) {
       client_reference_id: uid,
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: {
-        // Omitted entirely for the weekly plan — Stripe rejects a zero-day
-        // trial, so "no trial" has to mean "no parameter".
-        ...(plan.trialDays > 0 ? { trial_period_days: plan.trialDays } : {}),
+        // Omitted entirely for the weekly plan, and for anyone who has already
+        // used their trial — Stripe rejects a zero-day trial, so "no trial"
+        // has to mean "no parameter".
+        ...(grantTrial ? { trial_period_days: plan.trialDays } : {}),
         metadata: { firebaseUid: uid },
       },
       allow_promotion_codes: true,
