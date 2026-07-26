@@ -49,20 +49,60 @@ async function syncSubscription(
     }
   }
 
-  const priceId = sub.items.data[0]?.price?.id;
-  const entitled = isEntitled(sub.status);
+  const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
+
+  // Entitlement is a property of the CUSTOMER, not of whichever subscription
+  // this event happens to describe. Deriving it from `sub` alone revokes
+  // Premium from someone who still holds another live subscription — a
+  // cancellation event for one plan would write plan:"free" over an active
+  // one. Checkout now refuses to create a second subscription, but accounts
+  // predating that still have two, and the Portal can leave a superseded
+  // subscription behind when switching plans.
+  //
+  // Falls back to the event's own subscription if the list call fails: a
+  // slightly stale answer beats dropping the event and retrying forever.
+  let source = sub;
+  try {
+    const stripe = getStripe();
+    if (stripe) {
+      const all = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "all",
+        limit: 100,
+      });
+      // Prefer any subscription that grants access; among those, the one
+      // running longest, so the record reflects the access actually held.
+      const entitling = all.data.filter((s) => isEntitled(s.status));
+      if (entitling.length > 0) {
+        source = entitling.reduce((best, s) =>
+          (s.items.data[0]?.current_period_end ?? 0) >
+          (best.items.data[0]?.current_period_end ?? 0)
+            ? s
+            : best
+        );
+      } else if (all.data.length > 0) {
+        // None entitle — keep the most recent for an accurate status/date.
+        source = all.data.reduce((a, b) => (b.created > a.created ? b : a));
+      }
+    }
+  } catch (err) {
+    console.error(`[stripe] couldn't list subscriptions for ${customerId}`, err);
+  }
+
+  const priceId = source.items.data[0]?.price?.id;
+  const entitled = isEntitled(source.status);
 
   await db.doc(`users/${uid}/profile/plan`).set(
     {
       plan: entitled ? "premium" : "free",
-      status: sub.status,
+      status: source.status,
       cycle: priceId ? cycleForPriceId(priceId) ?? null : null,
-      since: ms(sub.start_date) ?? null,
-      trialEnd: ms(sub.trial_end) ?? null,
-      currentPeriodEnd: ms(sub.items.data[0]?.current_period_end) ?? null,
-      cancelAtPeriodEnd: sub.cancel_at_period_end ?? false,
-      stripeCustomerId: typeof sub.customer === "string" ? sub.customer : sub.customer.id,
-      stripeSubscriptionId: sub.id,
+      since: ms(source.start_date) ?? null,
+      trialEnd: ms(source.trial_end) ?? null,
+      currentPeriodEnd: ms(source.items.data[0]?.current_period_end) ?? null,
+      cancelAtPeriodEnd: source.cancel_at_period_end ?? false,
+      stripeCustomerId: customerId,
+      stripeSubscriptionId: source.id,
     },
     { merge: true }
   );
