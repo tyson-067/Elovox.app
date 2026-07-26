@@ -103,8 +103,14 @@ export default function LandingPage() {
 
         <div className="md:col-span-7">
           <Reveal>
+            {/* Names the product in plain text directly above the headline.
+                The <h1> is "Speak with impact." — a slogan that never says
+                "Elovox" — and it's split into per-word spans for the reveal
+                animation, so an automated reader (Google's OAuth review, link
+                previews, any scraper) finds no brand name at the top of the
+                page. That mismatch is what got the consent screen rejected. */}
             <span className="inline-flex items-center gap-2 text-[13px] font-semibold tracking-[0.08em] uppercase text-violet">
-              Your speaking practice partner
+              Elovox — your speaking practice partner
             </span>
             <h1 className="hero-slogan mt-4 font-headline font-bold text-primary whitespace-nowrap">
               <WordReveal text="Speak with" delay={100} className="slogan-sans" />
