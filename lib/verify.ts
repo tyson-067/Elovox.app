@@ -8,9 +8,9 @@ import type { NextRequest } from "next/server";
 /** The account behind a request's ID token, or null if there isn't a valid one. */
 async function lookupUser(
   req: NextRequest
-): Promise<{ uid: string; emailVerified: boolean } | null> {
+): Promise<{ uid: string; email: string; emailVerified: boolean } | null> {
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-  if (!apiKey) return { uid: "local-dev", emailVerified: true }; // Firebase not configured
+  if (!apiKey) return { uid: "local-dev", email: "", emailVerified: true }; // Firebase not configured
   const token = req.headers.get("authorization")?.replace(/^Bearer /, "");
   if (!token) return null;
   const res = await fetch(
@@ -25,7 +25,29 @@ async function lookupUser(
   const data = await res.json();
   const record = data.users?.[0];
   if (!record?.localId) return null;
-  return { uid: record.localId, emailVerified: Boolean(record.emailVerified) };
+  return {
+    uid: record.localId,
+    email: typeof record.email === "string" ? record.email : "",
+    emailVerified: Boolean(record.emailVerified),
+  };
+}
+
+/**
+ * Whether the caller is an operator, per the ADMIN_EMAILS allow-list. Matches
+ * on the verified email from the ID token rather than a uid so the list stays
+ * readable, and requires emailVerified so a hostile signup can't claim an
+ * operator's address. Empty/unset list means nobody is an admin — the admin
+ * surfaces simply 404 rather than falling open.
+ */
+export async function isAdmin(req: NextRequest): Promise<boolean> {
+  const allowed = (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  if (allowed.length === 0) return false;
+  const found = await lookupUser(req);
+  if (!found || !found.emailVerified || !found.email) return false;
+  return allowed.includes(found.email.toLowerCase());
 }
 
 export async function verifyUser(req: NextRequest): Promise<string | null> {

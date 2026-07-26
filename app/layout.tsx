@@ -7,6 +7,7 @@ import { AuthNav } from "@/components/AuthNav";
 import { SubNav } from "@/components/SubNav";
 import { ScrollProgress } from "@/components/ScrollProgress";
 import { Footer } from "@/components/Footer";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 // Brand type direction: geometric/deco sans (Amenti, Konnect, Fonseca).
@@ -124,6 +125,12 @@ export default function RootLayout({
             {children}
           </main>
           <Footer />
+          {/* Cookieless traffic analytics — pageviews, referrers, countries,
+              devices. Sets no cookies and stores no cross-site identifier, so
+              it needs no consent banner and nothing changes in the privacy
+              policy's cookie stance. Served same-origin from /_vercel/insights,
+              which the CSP's 'self' already allows. */}
+          <Analytics />
         </AuthProvider>
       </body>
     </html>
