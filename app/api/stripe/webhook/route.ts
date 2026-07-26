@@ -77,7 +77,26 @@ export async function POST(req: NextRequest) {
   }
 
   const sig = req.headers.get("stripe-signature");
-  if (!sig) return NextResponse.json({ error: "No signature." }, { status: 400 });
+  if (!sig) {
+    // TEMPORARY (remove once the signing secret is confirmed): a signature
+    // failure is indistinguishable from outside whether the configured secret
+    // is wrong, stale, whitespace-padded, or scoped to another environment,
+    // and the Vercel log UI proved hard to get at. Return a SHA-256 of the
+    // configured secret so the operator can compare it against the expected
+    // value without anyone having to read it. A hash of a 32-character random
+    // secret is not reversible, so this discloses nothing usable — unlike the
+    // length/prefix/suffix form, which would hand over real characters.
+    // `build` confirms the deployment is actually running this code.
+    const { createHash } = await import("node:crypto");
+    return NextResponse.json(
+      {
+        error: "No signature.",
+        build: "diag-1",
+        secretSha256: createHash("sha256").update(secret).digest("hex").slice(0, 16),
+      },
+      { status: 400 }
+    );
+  }
 
   const raw = await req.text();
   let event: Stripe.Event;
