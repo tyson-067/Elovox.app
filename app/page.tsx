@@ -11,6 +11,40 @@ import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
 
 // Marketing landing page. The app itself lives behind /dashboard.
 
+// Machine-readable statement of what this is and who runs it. Human readers
+// get the name and purpose from the hero copy; automated ones — Google's
+// OAuth consent-screen review, search crawlers, link unfurlers — read this.
+// The review rejected the consent screen for "the app name does not match
+// the app name on your home page", so declaring it explicitly (rather than
+// leaving it to be inferred from an animated slogan) closes that gap.
+const APP_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "Elovox",
+  url: "https://elovox.app",
+  applicationCategory: "EducationalApplication",
+  operatingSystem: "Any (web browser)",
+  description:
+    "Elovox is a speaking practice app. You record yourself giving a speech, pitch, or interview answer, and Elovox analyses the recording and returns coaching on your delivery — pace, filler words, pauses, clarity, and how the audience is likely to perceive you.",
+  offers: [
+    {
+      "@type": "Offer",
+      name: "Free",
+      price: "0",
+      priceCurrency: "USD",
+      description: "A daily practice topic with three attempts a day.",
+    },
+    {
+      "@type": "Offer",
+      name: "Premium",
+      price: "11.99",
+      priceCurrency: "USD",
+      description:
+        "Unlimited practice, camera coaching, the full speech library, and interview practice.",
+    },
+  ],
+};
+
 const STEPS = [
   {
     n: "01",
@@ -82,6 +116,11 @@ const FEATURES: {
 export default function LandingPage() {
   return (
     <div className="pb-20">
+      <script
+        type="application/ld+json"
+        // Not executable script — a data block crawlers and reviewers parse.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(APP_SCHEMA) }}
+      />
       <RedirectIfAuthed />
       {/* Hero */}
       <section className="relative pt-16 md:pt-24 grid grid-cols-1 md:grid-cols-12 gap-10 items-center">

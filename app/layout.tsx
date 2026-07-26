@@ -46,8 +46,11 @@ const playfair = Playfair_Display({
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://elovox.app";
 
 const TITLE = "Elovox — Speak with Impact";
+// Leads with the product name: this string is what link previews and
+// automated reviewers quote back, and Google's OAuth review flagged the site
+// for not naming the app clearly.
 const DESCRIPTION =
-  "Speak with impact. Practice speeches, pitches, and interviews with Elovox and get specific coaching on your delivery.";
+  "Elovox is a speaking practice app. Practice speeches, pitches, and interviews out loud, and get specific coaching on your delivery.";
 
 export const metadata: Metadata = {
   // Absolute base for canonical/OG URLs. Preview deploys can override it
