@@ -60,21 +60,41 @@ export function AuthNav() {
   // the display name or email so it's always something sensible.
   const label = user.displayName || user.email || "Account";
   const initial = label.trim().charAt(0).toUpperCase() || "A";
+  // An unverified address is the one account state worth interrupting for:
+  // until it's confirmed, RequireAuth holds the user out of the app entirely,
+  // so the dot is the only clue as to why.
+  const needsAttention = !user.emailVerified;
 
   return (
     <>
       {pricingLink}
       {appLinks}
+      {/* Shown at every width. It used to be hidden below the `sm` breakpoint,
+          which on a mobile-first app meant most users had no route to their
+          account, verification state, or billing at all. The name is what
+          collapses on small screens now, not the whole control. */}
       <Link
         href="/account"
         title="Account settings"
-        aria-label={`Account: ${label}`}
-        className="hidden sm:flex items-center gap-2 rounded-full border border-primary/15 py-1 pl-1 pr-3 hover:border-primary/35"
+        aria-label={
+          needsAttention
+            ? `Account: ${label} — email not verified`
+            : `Account: ${label}`
+        }
+        className="relative flex items-center gap-2 rounded-full border border-primary/15 py-1 pl-1 pr-1 sm:pr-3 hover:border-primary/35"
       >
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-on-primary">
           {initial}
         </span>
-        <span className="max-w-[14ch] truncate text-primary/70">{label}</span>
+        <span className="hidden sm:block max-w-[14ch] truncate text-primary/70">
+          {label}
+        </span>
+        {needsAttention && (
+          <span
+            aria-hidden="true"
+            className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-amber ring-2 ring-surface"
+          />
+        )}
       </Link>
       <button
         onClick={async () => {
