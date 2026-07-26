@@ -138,15 +138,25 @@ function BillingSection() {
     if (!justSubscribed) return;
     // Clear the query param so a refresh doesn't re-trigger the banner.
     window.history.replaceState({}, "", "/account");
-    // The confirming webhook can land a beat after the redirect — refresh a
-    // few times so Premium shows up without the user reloading.
+    // The confirming webhook can land a beat after the redirect, so poll until
+    // Premium shows up rather than making the user reload. Ten seconds of
+    // polling turned out to be optimistic — delivery plus the Firestore write
+    // can take longer under load, and someone who gave up before it landed
+    // used to be stuck (see CACHE_TTL_MS in lib/plan.ts). Keep trying for
+    // ~40s, backing off, and stop the moment it flips.
     let tries = 0;
+    let cancelled = false;
     const tick = async () => {
-      await refreshPlan();
+      if (cancelled) return;
+      const plan = await refreshPlan();
       reload();
-      if (++tries < 4) setTimeout(tick, 2500);
+      if (plan === "premium" || cancelled) return;
+      if (++tries < 10) setTimeout(tick, Math.min(1500 + tries * 700, 6000));
     };
     void tick();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

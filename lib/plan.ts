@@ -38,6 +38,48 @@ export interface PlanRecord {
 
 const cacheKey = (uid: string) => `elovox.plan.${uid}`;
 
+/**
+ * How long a cached entitlement is trusted before we ask Firestore again.
+ *
+ * The cache exists so gated UI doesn't flicker on every navigation, and a few
+ * minutes is plenty for that. It must expire, though: this used to be stored
+ * with no lifetime at all, so the first answer won was permanent. Anyone who
+ * finished Checkout a moment before the webhook landed cached "free" and
+ * stayed locked out of what they'd just paid for, on that device, forever —
+ * with no way back short of clearing site data. (Seen in production.)
+ */
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+/** Cached plan if one is present and still fresh, else null. */
+function readCache(uid: string): Plan | null {
+  try {
+    const raw = window.localStorage.getItem(cacheKey(uid));
+    if (!raw) return null;
+    // Entries written before the TTL existed are bare strings; treat those as
+    // stale so the bad "free" they may hold gets re-read rather than honored.
+    const parsed = JSON.parse(raw) as { plan?: unknown; at?: unknown };
+    if (parsed?.plan !== "premium" && parsed?.plan !== "free") return null;
+    if (typeof parsed.at !== "number") return null;
+    if (Date.now() - parsed.at > CACHE_TTL_MS) return null;
+    return parsed.plan;
+  } catch {
+    // Storage blocked, or a legacy bare-string entry — fall through to
+    // Firestore, which is the safe direction.
+    return null;
+  }
+}
+
+function writeCache(uid: string, plan: Plan): void {
+  try {
+    window.localStorage.setItem(
+      cacheKey(uid),
+      JSON.stringify({ plan, at: Date.now() })
+    );
+  } catch {
+    // non-fatal
+  }
+}
+
 // Local testing escape hatch: set NEXT_PUBLIC_FORCE_PLAN=premium in
 // .env.local to see every gated surface without a Stripe subscription.
 function forcedPlan(): Plan | null {
@@ -57,23 +99,15 @@ export async function getPlan(): Promise<Plan> {
 
   const uid = await currentUid();
 
-  try {
-    const cached = window.localStorage.getItem(cacheKey(uid));
-    if (cached === "premium" || cached === "free") return cached;
-  } catch {
-    // storage blocked — fall through to Firestore
-  }
+  const cached = readCache(uid);
+  if (cached) return cached;
   if (uid === "local") return "free";
 
   try {
     const { doc, getDoc } = await import("firebase/firestore");
     const snap = await getDoc(doc(getDb(), "users", uid, "profile", "plan"));
     const plan: Plan = snap.exists() && snap.data().plan === "premium" ? "premium" : "free";
-    try {
-      window.localStorage.setItem(cacheKey(uid), plan);
-    } catch {
-      // non-fatal
-    }
+    writeCache(uid, plan);
     return plan;
   } catch {
     // Firestore unreachable — assume free rather than handing out Premium
