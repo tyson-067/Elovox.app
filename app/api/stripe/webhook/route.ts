@@ -68,52 +68,77 @@ async function syncSubscription(
   );
 }
 
+/**
+ * The signing secret, from the environment if it's right and from Firestore
+ * if it isn't.
+ *
+ * STRIPE_WEBHOOK_SECRET is the proper home for this and stays authoritative.
+ * The fallback exists because a wrong value there is invisible from outside —
+ * every failure looks like an identical 400 — and fixing it means a dashboard
+ * round-trip plus a redeploy per attempt. `config/stripe` is admin-only
+ * (firestore.rules denies the whole collection; only the Admin SDK reads it),
+ * so this is the same trust boundary as the service-account credential the
+ * route already holds, and it can be corrected without a deploy.
+ *
+ * Prefers the env var whenever it verifies, so removing the Firestore doc
+ * once the environment is correct changes nothing.
+ */
+async function signingSecrets(
+  db: FirebaseFirestore.Firestore
+): Promise<string[]> {
+  const fromEnv = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+  const secrets = fromEnv ? [fromEnv] : [];
+  try {
+    const snap = await db.doc("config/stripe").get();
+    const fallback = snap.exists
+      ? (snap.data()?.webhookSecret as string | undefined)?.trim()
+      : undefined;
+    if (fallback && fallback !== fromEnv) secrets.push(fallback);
+  } catch {
+    // Firestore unreachable — the env var alone still has to do.
+  }
+  return secrets;
+}
+
 export async function POST(req: NextRequest) {
   const stripe = getStripe();
   const db = getAdminDb();
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!stripe || !db || !secret) {
+  if (!stripe || !db) {
+    return NextResponse.json({ error: "Webhook not configured." }, { status: 503 });
+  }
+  const secrets = await signingSecrets(db);
+  if (secrets.length === 0) {
     return NextResponse.json({ error: "Webhook not configured." }, { status: 503 });
   }
 
   const sig = req.headers.get("stripe-signature");
-  if (!sig) {
-    // TEMPORARY (remove once the signing secret is confirmed): a signature
-    // failure is indistinguishable from outside whether the configured secret
-    // is wrong, stale, whitespace-padded, or scoped to another environment,
-    // and the Vercel log UI proved hard to get at. Return a SHA-256 of the
-    // configured secret so the operator can compare it against the expected
-    // value without anyone having to read it. A hash of a 32-character random
-    // secret is not reversible, so this discloses nothing usable — unlike the
-    // length/prefix/suffix form, which would hand over real characters.
-    // `build` confirms the deployment is actually running this code.
-    const { createHash } = await import("node:crypto");
-    return NextResponse.json(
-      {
-        error: "No signature.",
-        build: "diag-1",
-        secretSha256: createHash("sha256").update(secret).digest("hex").slice(0, 16),
-      },
-      { status: 400 }
-    );
-  }
+  if (!sig) return NextResponse.json({ error: "No signature." }, { status: 400 });
 
   const raw = await req.text();
-  let event: Stripe.Event;
-  try {
-    event = stripe.webhooks.constructEvent(raw, sig, secret);
-  } catch (err) {
-    // Signature failures are near-impossible to debug from the outside: the
-    // response is identical whether the secret is wrong, stale, scoped to the
-    // wrong environment, or carrying whitespace from a paste. Describe the
-    // value the running process actually holds — its shape, never its content.
-    // Length plus prefix/suffix is enough to tell "old CLI secret" from
-    // "trailing space" from "correct", and forges nothing on its own.
-    const shape = `len=${secret.length} prefix=${secret.slice(0, 9)} suffix=${secret.slice(-4)} trimmed=${secret === secret.trim()}`;
-    console.error(`[stripe] bad signature — configured secret ${shape}`, err);
-    // The shape goes to the server log ONLY. This endpoint is public and
-    // unauthenticated, so returning it in the body would hand any anonymous
-    // caller seven characters of the signing secret and its exact length.
+  let event: Stripe.Event | null = null;
+  let lastErr: unknown;
+  for (const [i, secret] of secrets.entries()) {
+    try {
+      event = stripe.webhooks.constructEvent(raw, sig, secret);
+      if (i > 0) {
+        console.warn(
+          "[stripe] verified with the Firestore fallback secret — STRIPE_WEBHOOK_SECRET is wrong or stale"
+        );
+      }
+      break;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  if (!event) {
+    // Shape, never content: enough to tell a stale secret from a
+    // whitespace-padded one, and it goes to the server log only. This endpoint
+    // is public, so putting it in the response would hand any anonymous caller
+    // real characters of the signing secret.
+    const shapes = secrets
+      .map((s) => `len=${s.length} prefix=${s.slice(0, 9)} suffix=${s.slice(-4)}`)
+      .join(" | ");
+    console.error(`[stripe] bad signature — tried ${secrets.length}: ${shapes}`, lastErr);
     return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
   }
 
