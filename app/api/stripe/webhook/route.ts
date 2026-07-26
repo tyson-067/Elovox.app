@@ -84,7 +84,17 @@ export async function POST(req: NextRequest) {
   try {
     event = stripe.webhooks.constructEvent(raw, sig, secret);
   } catch (err) {
-    console.error("[stripe] bad signature", err);
+    // Signature failures are near-impossible to debug from the outside: the
+    // response is identical whether the secret is wrong, stale, scoped to the
+    // wrong environment, or carrying whitespace from a paste. Describe the
+    // value the running process actually holds — its shape, never its content.
+    // Length plus prefix/suffix is enough to tell "old CLI secret" from
+    // "trailing space" from "correct", and forges nothing on its own.
+    const shape = `len=${secret.length} prefix=${secret.slice(0, 9)} suffix=${secret.slice(-4)} trimmed=${secret === secret.trim()}`;
+    console.error(`[stripe] bad signature — configured secret ${shape}`, err);
+    // The shape goes to the server log ONLY. This endpoint is public and
+    // unauthenticated, so returning it in the body would hand any anonymous
+    // caller seven characters of the signing secret and its exact length.
     return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
   }
 
