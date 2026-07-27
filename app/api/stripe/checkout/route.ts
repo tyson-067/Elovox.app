@@ -100,11 +100,40 @@ export async function POST(req: NextRequest) {
   // that would explain it. Log Stripe's own message and pass it back.
   try {
     if (!customerId) {
-      const customer = await stripe.customers.create({
-        email,
-        metadata: { firebaseUid: uid },
-      });
-      customerId = customer.id;
+      // Before minting a new customer, look for one already on this email.
+      //
+      // Deleting an account recursively deletes users/{uid}, which takes the
+      // plan doc and the stripeCustomerId with it — but the Stripe customer
+      // survives, and so does its trial history. Without this lookup, the
+      // delete → sign up again → trial again loop is free and repeatable.
+      // The address is safe to match on: this route requires a verified
+      // email, and Firebase Auth keeps it unique across accounts.
+      if (email) {
+        const found = await stripe.customers.list({ email, limit: 100 });
+        // `list` returns newest first. Prefer a customer we created (one
+        // carrying a firebaseUid) over any made by hand in the dashboard.
+        const match =
+          found.data.find((c) => !c.deleted && c.metadata?.firebaseUid) ??
+          found.data.find((c) => !c.deleted);
+        if (match) {
+          customerId = match.id;
+          // Point the customer at the account that now owns it, so the next
+          // checkout, the webhook, and the dashboard all agree on the uid.
+          if (match.metadata?.firebaseUid !== uid) {
+            await stripe.customers.update(customerId, {
+              metadata: { firebaseUid: uid },
+            });
+          }
+        }
+      }
+
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email,
+          metadata: { firebaseUid: uid },
+        });
+        customerId = customer.id;
+      }
       // Persist immediately so a retried checkout reuses it even before the
       // webhook writes the full record.
       await planRef.set({ stripeCustomerId: customerId }, { merge: true });
