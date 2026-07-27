@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { verifyUser, makeRateLimiter } from "@/lib/verify";
@@ -58,7 +59,19 @@ export async function GET(req: NextRequest) {
   // Never subscribed — an empty history, not an error.
   if (!customerId) return NextResponse.json({ invoices: [] });
 
-  const list = await stripe.invoices.list({ customer: customerId, limit: 12 });
+  // Every other Stripe route wraps its API calls; this one didn't, so a
+  // Stripe-side failure escaped as a bare 500 with no JSON body and the
+  // account page fell back to a generic message.
+  let list: Stripe.ApiList<Stripe.Invoice>;
+  try {
+    list = await stripe.invoices.list({ customer: customerId, limit: 12 });
+  } catch (err) {
+    console.error(`[stripe] invoice list failed for ${uid} (${customerId})`, err);
+    return NextResponse.json(
+      { error: "Couldn't load billing history." },
+      { status: 502 }
+    );
+  }
 
   const invoices: InvoiceRow[] = list.data
     // Drafts aren't finalized yet: no number, no hosted page, and the amount

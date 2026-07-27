@@ -13,16 +13,30 @@ import { getFirestore, type Firestore } from "firebase-admin/firestore";
 function loadServiceAccount(): Record<string, string> | null {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
   if (!raw) return null;
-  const json = raw.trim().startsWith("{")
-    ? raw
-    : Buffer.from(raw, "base64").toString("utf8");
-  const parsed = JSON.parse(json);
-  // Private keys often arrive with literal "\n" sequences instead of real
-  // newlines once they've been through an env var — normalize them.
-  if (typeof parsed.private_key === "string") {
-    parsed.private_key = parsed.private_key.replace(/\\n/g, "\n");
+  // A truncated paste or a stray quote is the usual way this value goes wrong,
+  // and JSON.parse throwing here used to propagate all the way out of
+  // getAdminDb() — so every caller's "is billing configured?" null check was
+  // skipped and the route died as a bare 500 with no JSON body. Callers already
+  // handle null by returning a 503 that names the missing credential; a
+  // malformed value should take that same path.
+  try {
+    const json = raw.trim().startsWith("{")
+      ? raw
+      : Buffer.from(raw, "base64").toString("utf8");
+    const parsed = JSON.parse(json);
+    // Private keys often arrive with literal "\n" sequences instead of real
+    // newlines once they've been through an env var — normalize them.
+    if (typeof parsed.private_key === "string") {
+      parsed.private_key = parsed.private_key.replace(/\\n/g, "\n");
+    }
+    return parsed;
+  } catch (err) {
+    console.error(
+      "[firebase-admin] FIREBASE_SERVICE_ACCOUNT is set but unparseable — expected service-account JSON, or base64 of it",
+      err
+    );
+    return null;
   }
-  return parsed;
 }
 
 let cached: App | null = null;
