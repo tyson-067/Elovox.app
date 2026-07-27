@@ -32,6 +32,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...but the template is meant to be committed: README step 6 says to copy it,
+# and without it a fresh clone can't be set up. Verified to hold names only,
+# every value empty. The broad .env* above was swallowing it.
+!.env.local.example
 
 # vercel
 .vercel
@@ -42,3 +46,18 @@ next-env.d.ts
 
 # local editor/agent config
 /.claude/
+
+# Vendored third-party agent skills, pulled from docs.stripe.com (see the
+# copies kept locally alongside skills-lock.json). Stripe's documentation,
+# not ours — kept on disk for local tooling, never redistributed from this
+# repo, which is public.
+/.agents/
+/.devin/
+/.windsurf/
+/skills-lock.json
+
+# Internal operational runbook: live Price IDs, the webhook URL and its
+# event list, env var names, console paths. None of it is a credential, but
+# together it is a free map of the production setup — and it goes stale in
+# ways that misdescribe the current security posture. Keep it local.
+/STRIPE-GO-LIVE.md
