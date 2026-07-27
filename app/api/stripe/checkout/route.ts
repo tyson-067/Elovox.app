@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, appBaseUrl } from "@/lib/stripe";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { verifyVerifiedUser, makeRateLimiter } from "@/lib/verify";
 import { PLANS, stripePriceIdFor, type BillingCycle } from "@/lib/pricing";
@@ -23,14 +23,6 @@ const CHECKOUT_INTEGRATION_ID = "elovox-premium-hqvbztkm";
 // Nobody legitimately opens Checkout 20 times an hour. Keyed by uid (the route
 // is authenticated), this stops a loop from minting endless Stripe customers.
 const rateLimited = makeRateLimiter(20);
-
-function baseUrl(req: NextRequest): string {
-  return (
-    process.env.NEXT_PUBLIC_APP_URL ||
-    req.headers.get("origin") ||
-    new URL(req.url).origin
-  );
-}
 
 export async function POST(req: NextRequest) {
   const stripe = getStripe();
@@ -173,8 +165,8 @@ export async function POST(req: NextRequest) {
       },
       allow_promotion_codes: true,
       // The webhook is the source of truth; these just route the browser back.
-      success_url: `${baseUrl(req)}/account?checkout=success`,
-      cancel_url: `${baseUrl(req)}/pricing?checkout=cancelled`,
+      success_url: `${appBaseUrl(req)}/account?checkout=success`,
+      cancel_url: `${appBaseUrl(req)}/pricing?checkout=cancelled`,
     });
 
     return NextResponse.json({ url: session.url });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, appBaseUrl } from "@/lib/stripe";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { verifyUser, makeRateLimiter } from "@/lib/verify";
 
@@ -13,14 +13,6 @@ export const runtime = "nodejs";
 // Each call mints a Stripe Portal session; 20/hour per user is far above
 // normal use and well below anything that could be used to hammer Stripe.
 const rateLimited = makeRateLimiter(20);
-
-function baseUrl(req: NextRequest): string {
-  return (
-    process.env.NEXT_PUBLIC_APP_URL ||
-    req.headers.get("origin") ||
-    new URL(req.url).origin
-  );
-}
 
 export async function POST(req: NextRequest) {
   const stripe = getStripe();
@@ -55,7 +47,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${baseUrl(req)}/account`,
+      return_url: `${appBaseUrl(req)}/account`,
     });
 
     return NextResponse.json({ url: session.url });
