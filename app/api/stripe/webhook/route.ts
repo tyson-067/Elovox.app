@@ -9,8 +9,9 @@ import { cycleForPriceId } from "@/lib/pricing";
 // that doc). Everything the UI knows about a subscription originates here.
 //
 // Hardening: the raw body is signature-verified, and every event id is
-// recorded in `stripeEvents/{id}` before processing so a redelivery is a
-// no-op. We fail loudly (non-2xx) on unexpected errors so Stripe retries.
+// claimed in `stripeEvents/{id}` and then marked `done` once handled, so a
+// redelivery of finished work is a no-op while a crashed attempt can still be
+// retried. We fail loudly (non-2xx) on unexpected errors so Stripe retries.
 
 export const runtime = "nodejs";
 
@@ -18,19 +19,73 @@ function ms(seconds: number | null | undefined): number | undefined {
   return seconds ? seconds * 1000 : undefined;
 }
 
+/**
+ * The subscription that generated an invoice.
+ *
+ * This is NOT `invoice.subscription`. That top-level field was removed from
+ * the Invoice object in the Basil API release and does not exist on the
+ * version this SDK targets (2026-06-24.dahlia) — it now lives under
+ * `parent.subscription_details.subscription`. The old path read as plain
+ * `undefined` at runtime, which silently turned both invoice cases below into
+ * no-ops: the events were received, recorded as processed, and dropped.
+ *
+ * The legacy field is still read as a fallback so that pinning an older API
+ * version (or replaying an archived event) keeps working.
+ */
+function subscriptionIdForInvoice(invoice: Stripe.Invoice): string | undefined {
+  const ref = invoice.parent?.subscription_details?.subscription;
+  if (typeof ref === "string") return ref;
+  if (ref && typeof ref === "object") return ref.id;
+
+  const legacy = (invoice as { subscription?: unknown }).subscription;
+  if (typeof legacy === "string") return legacy;
+  if (legacy && typeof legacy === "object" && "id" in legacy) {
+    return (legacy as { id: string }).id;
+  }
+  return undefined;
+}
+
 /** Writes the derived entitlement + raw subscription state for one user. */
 async function syncSubscription(
   db: FirebaseFirestore.Firestore,
   sub: Stripe.Subscription
 ) {
+  const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
+
+  // Two places carry the mapping back to a Firebase user: the subscription's
+  // own metadata (set by our Checkout call) and the customer's (set when we
+  // create the customer). Prefer the subscription, fall back to the customer.
   const customerMeta =
     typeof sub.customer !== "string" && "metadata" in sub.customer
       ? (sub.customer.metadata?.firebaseUid as string | undefined)
       : undefined;
-  const uid = (sub.metadata?.firebaseUid as string | undefined) ?? customerMeta;
+  let uid = (sub.metadata?.firebaseUid as string | undefined) ?? customerMeta;
+
+  // `customer.subscription.*` events deliver the subscription unexpanded, so
+  // `sub.customer` is a bare id string and the customer-metadata fallback
+  // above can never fire. That only matters for a subscription lacking our
+  // metadata — one created from the Stripe dashboard, say, to comp an
+  // account — which would otherwise be dropped outright. Fetch the customer
+  // and check there before giving up.
+  if (!uid) {
+    try {
+      const stripe = getStripe();
+      if (stripe) {
+        const customer = await stripe.customers.retrieve(customerId);
+        if (!customer.deleted) {
+          uid = customer.metadata?.firebaseUid as string | undefined;
+        }
+      }
+    } catch (err) {
+      console.error(`[stripe] couldn't retrieve customer ${customerId}`, err);
+    }
+  }
+
   if (!uid) {
     // No mapping back to a user — nothing we can safely write.
-    console.error(`[stripe] subscription ${sub.id} has no firebaseUid`);
+    console.error(
+      `[stripe] subscription ${sub.id} (customer ${customerId}) has no firebaseUid`
+    );
     return;
   }
 
@@ -48,8 +103,6 @@ async function syncSubscription(
       return;
     }
   }
-
-  const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
 
   // Entitlement is a property of the CUSTOMER, not of whichever subscription
   // this event happens to describe. Deriving it from `sub` alone revokes
@@ -144,11 +197,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
   }
 
-  // Idempotency: claim the event id, and if it's already claimed, ack and skip.
+  // Idempotency: claim the event id, and if it's already handled, ack and skip.
+  //
+  // The claim is deliberately two-phase. Claiming and never marking completion
+  // means any death between the claim and the end of the handler — a function
+  // timeout on a slow Stripe list call, an instance being torn down — leaves a
+  // claim standing for work that never happened, and Stripe's retry is then
+  // rejected as a duplicate. The event is lost for good, which for
+  // `checkout.session.completed` is a paying customer who never gets Premium.
+  //
+  // So: a claim is only honored as "don't redo this" once `done` is set. A
+  // claim still in flight blocks concurrent redelivery, but goes stale after
+  // the window below so a crashed attempt can be retried rather than dropped.
   const seenRef = db.doc(`stripeEvents/${event.id}`);
+  const CLAIM_STALE_MS = 5 * 60 * 1000;
+
+  let claimed = false;
   try {
-    await seenRef.create({ type: event.type, at: Date.now() });
-  } catch {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(seenRef);
+      if (snap.exists) {
+        const prior = snap.data() ?? {};
+        if (prior.done) return; // genuinely handled already
+        const at = typeof prior.at === "number" ? prior.at : 0;
+        if (Date.now() - at < CLAIM_STALE_MS) return; // another attempt in flight
+        console.warn(`[stripe] reclaiming stale event ${event.id} (${event.type})`);
+      }
+      tx.set(seenRef, { type: event.type, at: Date.now(), done: false });
+      claimed = true;
+    });
+  } catch (err) {
+    // Couldn't even reach Firestore — 500 so Stripe retries rather than
+    // treating an infrastructure blip as a processed event.
+    console.error(`[stripe] idempotency claim failed for ${event.id}`, err);
+    return NextResponse.json({ error: "Claim failed." }, { status: 500 });
+  }
+  if (!claimed) {
     return NextResponse.json({ received: true, duplicate: true });
   }
 
@@ -176,10 +260,7 @@ export async function POST(req: NextRequest) {
       case "invoice.payment_failed":
       case "invoice.paid": {
         const invoice = event.data.object as Stripe.Invoice;
-        const subId =
-          typeof (invoice as { subscription?: unknown }).subscription === "string"
-            ? ((invoice as { subscription?: string }).subscription as string)
-            : undefined;
+        const subId = subscriptionIdForInvoice(invoice);
         if (subId) {
           const sub = await stripe.subscriptions.retrieve(subId, {
             expand: ["customer"],
@@ -198,6 +279,13 @@ export async function POST(req: NextRequest) {
     await seenRef.delete().catch(() => {});
     return NextResponse.json({ error: "Handler error." }, { status: 500 });
   }
+
+  // Only now is the claim meaningful as "this has been handled". Failing to
+  // record completion is not worth failing the event over — Stripe would
+  // retry work that already succeeded — so log and still ack.
+  await seenRef
+    .set({ done: true, completedAt: Date.now() }, { merge: true })
+    .catch((err) => console.error(`[stripe] couldn't mark ${event.id} done`, err));
 
   return NextResponse.json({ received: true });
 }
