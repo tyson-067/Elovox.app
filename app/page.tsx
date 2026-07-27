@@ -103,8 +103,8 @@ const STEPS = [
   },
   {
     n: "02",
-    title: "Three attempts to beat yourself",
-    body: "Say it, hear how it landed, say it again. Three goes at the same topic is where delivery actually changes — and where the XP is.",
+    title: "Three tries to beat your own score",
+    body: "Record the topic, get Felix's feedback, then run it again with his notes in mind. You get three attempts a day, each one scored, so you can watch your delivery improve in a single sitting.",
   },
   {
     n: "03",
@@ -206,9 +206,9 @@ export default function LandingPage() {
               <WordReveal text="impact." delay={280} className="slogan-serif text-gradient" />
             </h1>
             <p className="mt-5 text-lg md:text-xl leading-8 text-on-surface-variant max-w-[52ch]">
-              Elovox listens while you practice out loud — a speech, a pitch,
-              an interview answer — and Felix, your fox of a coach, tells you
-              exactly how it landed on the audience&apos;s ears.
+              Elovox listens while you practice out loud: a speech, a pitch, an
+              interview answer. Felix, your fox of a coach, tells you exactly
+              how it landed on the audience&apos;s ears.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Link
