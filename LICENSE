@@ -1,0 +1,24 @@
+Copyright (c) 2026 Tyson Youm, Arad Mehrabian, Aanya Iyer Us, and
+Kelleyguo Kaling. All rights reserved.
+
+Elovox is a commercial product. This source code is published so it can be
+read, studied, and referenced — not so it can be reused.
+
+No license is granted. You may view this repository and quote short excerpts
+for commentary, review, teaching, or research, with attribution. You may not
+copy, modify, merge, publish, distribute, sublicense, sell, or create
+derivative works from it, and you may not deploy it or any substantial part
+of it as a service, in whole or in part, without prior written permission.
+
+Third-party dependencies listed in package.json remain under their own
+licenses, which this notice does not alter.
+
+For permission requests, contact elovox.app@gmail.com.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING
+FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
