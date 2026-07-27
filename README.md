@@ -36,6 +36,27 @@ The app works with zero configuration (localStorage + sample feedback). To enabl
 
 Add both to `.env.local`. Restart the dev server after env changes.
 
+### 3. App Check (abuse protection — production)
+
+The client code is already wired ([`lib/appCheck.ts`](lib/appCheck.ts)) and stays
+inert until `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` is set. Without it, a signed-in user
+can talk to Firestore directly with their own token and skip every rate limit in
+`lib/verify.ts`, which only guard the API routes.
+
+1. [reCAPTCHA admin](https://www.google.com/recaptcha/admin) → register a **v3**
+   site for `elovox.app` → copy the **site key** (the secret key isn't used here).
+2. Firebase console → **Build → App Check → Apps → Web app → reCAPTCHA v3** →
+   paste the site key.
+3. Set `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` in Vercel and **redeploy** —
+   `NEXT_PUBLIC_*` bakes in at build time.
+4. Watch **App Check → APIs → Firestore** until unverified requests fall to
+   roughly zero, *then* click **Enforce**. Enforcing before that logs out every
+   session still running an older bundle.
+
+For local development, set `NEXT_PUBLIC_APPCHECK_DEBUG=true`, copy the token the
+SDK prints to the console, and register it under **App Check → Apps → ⋯ → Manage
+debug tokens**. Never set that variable in production.
+
 ## Deploy (Vercel)
 
 1. Push the repo to GitHub, import it in Vercel.

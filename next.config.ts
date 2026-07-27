@@ -45,7 +45,10 @@ const csp = [
   // middleware on every request). Even with it, this still blocks scripts
   // from any origin we haven't listed — the actual XSS delivery vector.
   // Dev additionally needs 'unsafe-eval' for React Fast Refresh.
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://apis.google.com https://accounts.google.com`,
+  // www.google.com + www.gstatic.com are reCAPTCHA v3, which backs Firebase
+  // App Check (lib/appCheck.ts). reCAPTCHA loads its own second script from
+  // gstatic, so listing only www.google.com silently breaks attestation.
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://apis.google.com https://accounts.google.com https://www.google.com https://www.gstatic.com`,
 
   // Tailwind injects styles inline.
   "style-src 'self' 'unsafe-inline'",
@@ -61,7 +64,15 @@ const csp = [
 
   // The Google sign-in popup renders in an iframe from the Firebase auth
   // domain; Stripe may embed its own frames during Checkout.
-  "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://checkout.stripe.com https://js.stripe.com",
+  //
+  // auth.elovox.app is the custom auth domain. Listed AHEAD of the switch on
+  // purpose: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN bakes in at build time, so if
+  // the domain flips before this line ships, sign-in breaks with nothing but
+  // a CSP violation in the console to explain it. Allowing a domain we don't
+  // use yet costs nothing; *.firebaseapp.com stays until the cutover is done.
+  //
+  // www.google.com is the reCAPTCHA challenge frame (App Check).
+  "frame-src 'self' https://*.firebaseapp.com https://auth.elovox.app https://accounts.google.com https://www.google.com https://checkout.stripe.com https://js.stripe.com",
 
   // Where forms may post. Checkout/Portal are top-level redirects rather than
   // form posts, but listing them keeps a stricter policy from breaking later.

@@ -1,6 +1,7 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, type Auth, type User } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
+import { startAppCheck } from "./appCheck";
 
 // Firebase is optional at runtime: when the NEXT_PUBLIC_FIREBASE_* env vars
 // are absent (local dev before setup), the app falls back to localStorage
@@ -26,6 +27,9 @@ let db: Firestore | null = null;
 function ensureApp(): FirebaseApp {
   if (!app) {
     app = getApps()[0] ?? initializeApp(config);
+    // Before getAuth/getFirestore, so the first request out already carries
+    // an attestation token. See lib/appCheck.ts — no-op unless configured.
+    startAppCheck(app);
     auth = getAuth(app);
     db = getFirestore(app);
   }
