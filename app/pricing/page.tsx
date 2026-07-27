@@ -7,7 +7,8 @@ import { Reveal } from "@/components/Reveal";
 import { Parallax } from "@/components/Parallax";
 import { GlowCard } from "@/components/GlowCard";
 import { useAuth } from "@/components/AuthProvider";
-import { startCheckout } from "@/lib/checkout";
+import { startCheckout, openBillingPortal } from "@/lib/checkout";
+import { usePlanRecord } from "@/lib/plan";
 import {
   PLANS,
   TRIAL_DAYS,
@@ -26,6 +27,13 @@ import {
 //
 // Signed-out visitors route through /signup carrying the chosen cycle, so
 // checkout resumes as soon as the account exists.
+//
+// Existing subscribers see the same comparison, but every buy CTA becomes a
+// Customer Portal link. /api/stripe/checkout already refuses a second
+// subscription with a 409, so this isn't the guard — it's so a subscriber
+// isn't offered a purchase that can only fail, and lands on switch/cancel
+// instead. The account page links here as "Compare plans", so the cycle
+// toggle and the comparison grid stay live for them.
 
 const FREE_FEATURES = [
   "The daily 1-minute speech — new every day, written by Felix",
@@ -66,15 +74,55 @@ const FAQ = [
 export default function PricingPage() {
   const router = useRouter();
   const { user, configured } = useAuth();
+  const { record } = usePlanRecord();
   const [cycle, setCycle] = useState<BillingCycle>("annual");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const plan = planFor(cycle);
   const saved = savingsVsWeekly(plan);
+
+  // `plan === "premium"` is the entitlement bit the webhook derives from the
+  // live Stripe status — true while trialing, active, or past_due, and false
+  // the moment access actually ends. That's exactly "has a subscription until
+  // it's done", so the buy CTAs come back on their own when it lapses; there
+  // is nothing to expire here.
+  const subscribed = record?.plan === "premium";
+
+  // Only a signed-in user can be a subscriber, so a visitor never waits on
+  // this — but for someone signed in we don't yet know, and rendering "Start
+  // free trial" and then swapping it for "Manage plan" is worse than a beat
+  // of disabled button.
+  const planPending = configured && !!user && record === null;
+
   // Weekly has no trial, so its CTA promises a charge, not a free run.
   const ctaLabel = hasTrial(plan)
     ? `Start ${plan.trialDays}-day free trial`
     : "Get Premium weekly";
+  const buyLabel = planPending
+    ? "Checking your plan…"
+    : busy
+      ? "Starting…"
+      : ctaLabel;
+
+  // Short current-plan line. The account page owns the full billing copy —
+  // this is only enough context to explain why the buy button is gone.
+  const ending = record?.cancelAtPeriodEnd || record?.cancelAt != null;
+  const endsOn = fmtDate(
+    record?.cancelAt ?? record?.trialEnd ?? record?.currentPeriodEnd
+  );
+  const currentPlan = record?.cycle ? planFor(record.cycle) : null;
+  let subscribedLine = "You're on Premium.";
+  if (record?.status === "past_due") {
+    subscribedLine = "Payment failed — update your card to keep Premium.";
+  } else if (ending && endsOn) {
+    subscribedLine = `Premium — cancelled. Access continues until ${endsOn}.`;
+  } else if (record?.status === "trialing") {
+    subscribedLine = `You're on the Premium free trial${
+      endsOn ? ` until ${endsOn}` : ""
+    }.`;
+  } else if (currentPlan) {
+    subscribedLine = `You're on Premium, billed ${currentPlan.label.toLowerCase()}.`;
+  }
 
   // Signed-in visitors go straight to Stripe Checkout for the chosen cycle;
   // signed-out (or no Firebase) visitors sign up first, carrying the intent
@@ -90,6 +138,19 @@ export default function PricingPage() {
       await startCheckout(cycle);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't start checkout.");
+      setBusy(false);
+    }
+  };
+
+  // Same Customer Portal the account page opens — switching cycles and
+  // cancelling are both configured there, so there's no second code path.
+  const manageBilling = async () => {
+    setError("");
+    setBusy(true);
+    try {
+      await openBillingPortal();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't open billing.");
       setBusy(false);
     }
   };
@@ -242,8 +303,16 @@ export default function PricingPage() {
               )}
             </p>
 
+            {/* A subscriber must not be promised a free trial they've already
+                used — the `hadTrial` check in /api/stripe/checkout would give
+                them full price from day one anyway. Show what they hold. */}
             <div className="mt-4 rounded-lg bg-white/10 px-3.5 py-2.5 text-sm font-medium text-white">
-              {hasTrial(plan) ? (
+              {subscribed ? (
+                <>
+                  <span className="font-semibold">Your current plan</span>
+                  {` — ${subscribedLine}`}
+                </>
+              ) : hasTrial(plan) ? (
                 <>
                   <span className="font-semibold">
                     {plan.trialDays}-day free trial
@@ -268,11 +337,15 @@ export default function PricingPage() {
             </ul>
 
             <button
-              onClick={goPremium}
-              disabled={busy}
+              onClick={subscribed ? manageBilling : goPremium}
+              disabled={busy || planPending}
               className="btn mt-7 inline-block w-full rounded-lg bg-accent px-6 py-3 text-center font-semibold text-white disabled:opacity-60"
             >
-              {busy ? "Starting…" : ctaLabel}
+              {subscribed
+                ? busy
+                  ? "Opening…"
+                  : "Manage your subscription"
+                : buyLabel}
             </button>
             {error && (
               <p role="alert" className="mt-2 text-center text-[13px] text-amber">
@@ -280,7 +353,9 @@ export default function PricingPage() {
               </p>
             )}
             <p className="mt-2.5 text-center text-[13px] text-white/70">
-              {hasTrial(plan) ? (
+              {subscribed ? (
+                <>Switch plans or cancel any time — no email, no phone call.</>
+              ) : hasTrial(plan) ? (
                 <>
                   Then {formatUSD(plan.price)}/{plan.unit} + tax. Cancel before
                   day {plan.trialDays} and pay nothing.
@@ -322,10 +397,16 @@ export default function PricingPage() {
                     <span className="font-headline text-lg font-semibold text-primary">
                       {p.label}
                     </span>
-                    {p.highlight && (
-                      <span className="rounded-full bg-violet/12 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet">
-                        Best value
+                    {subscribed && record?.cycle === p.cycle ? (
+                      <span className="rounded-full bg-accent/12 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent">
+                        Current plan
                       </span>
+                    ) : (
+                      p.highlight && (
+                        <span className="rounded-full bg-violet/12 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet">
+                          Best value
+                        </span>
+                      )
                     )}
                   </div>
                   <p className="mt-2 font-headline text-2xl font-bold text-primary">
@@ -379,23 +460,39 @@ export default function PricingPage() {
       <section className="mx-auto mt-16 max-w-2xl text-center">
         <Reveal>
           <h2 className="text-display-sm font-headline font-bold text-primary">
-            Your first week&apos;s on us.
+            {subscribed ? "You're all set." : "Your first week's on us."}
           </h2>
           <p className="mx-auto mt-3 max-w-[46ch] text-lg leading-7 text-on-surface-variant">
-            Start the free trial, keep the free plan, or go Premium — you can
-            change your mind any time.
+            {subscribed
+              ? "Every Premium feature is unlocked. Switch cycles or cancel whenever you like — changes take effect from the billing portal."
+              : "Start the free trial, keep the free plan, or go Premium — you can change your mind any time."}
           </p>
           <button
-            onClick={goPremium}
-            disabled={busy}
+            onClick={subscribed ? manageBilling : goPremium}
+            disabled={busy || planPending}
             className="btn mt-8 inline-block rounded-lg bg-accent px-8 py-3.5 font-semibold text-white disabled:opacity-60"
           >
-            {busy ? "Starting…" : ctaLabel}
+            {subscribed
+              ? busy
+                ? "Opening…"
+                : "Manage your subscription"
+              : buyLabel}
           </button>
         </Reveal>
       </section>
     </div>
   );
+}
+
+// Matches the account page's date formatting so a subscriber sees the same
+// "access until…" date on both screens.
+function fmtDate(ms?: number): string {
+  if (!ms) return "";
+  return new Date(ms).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function Check({ className = "" }: { className?: string }) {
