@@ -40,6 +40,15 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Firebase Hosting exists here for one reason: a custom auth domain
+# (auth.elovox.app) requires Hosting to serve the reserved /__/auth/* paths.
+# The site itself is on Vercel. `.firebaserc` and the `hosting` block in
+# firebase.json are committed so the setup is reproducible, but these two are
+# not: `firebase-hosting/` is the generated placeholder page nobody visits,
+# and `.firebase/` is the local deploy cache.
+/firebase-hosting/
+/.firebase/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
