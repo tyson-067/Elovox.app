@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateJson, geminiKey } from "@/lib/gemini";
-import { verifyVerifiedUser, makeRateLimiter } from "@/lib/verify";
+import { verifyVerifiedUser, makeRateLimiter, isPremiumServer } from "@/lib/verify";
 import { sanitizeText } from "@/lib/validation";
 
 // Premium speech writing. Two jobs, one route:
@@ -71,6 +71,27 @@ export async function POST(req: NextRequest) {
   }
   if (rateLimited(uid)) {
     return NextResponse.json({ error: "rate limited" }, { status: 429 });
+  }
+
+  // Both /library (regenerate) and /custom are Premium features, and both
+  // gate on usePlan() — in the browser, which protects nobody. An ordinary
+  // verified free account could POST here directly and get unlimited Gemini
+  // speech-writing, the same bypass /api/analyze already closes at its own
+  // isPremiumServer call. Entitlement has to be checked where the money is
+  // spent, not where the button is drawn.
+  //
+  // 403 with the same "premium-required" code /api/analyze returns, so the
+  // client can treat both the same way.
+  const premium = uid === "local-dev" ? true : await isPremiumServer(req, uid);
+  if (!premium) {
+    return NextResponse.json(
+      {
+        error: "premium-required",
+        message:
+          "Felix writes speeches for Premium members. Go Premium for the speech library, your own material, interview practice and camera coaching.",
+      },
+      { status: 403 }
+    );
   }
 
   const key = geminiKey();
