@@ -204,9 +204,22 @@ function BillingSection() {
         Plan &amp; billing
       </h2>
 
+      {/* The return-from-Checkout banner has to describe what the user
+          actually bought. It used to hard-code "Your trial has started",
+          which is wrong twice over: the weekly plan has no trial at all, and
+          neither does a returning customer who already used theirs (see the
+          `hadTrial` check in /api/stripe/checkout). It also asserted Premium
+          while the confirming webhook was still in flight and the record
+          still read free. Drive it from the synced status instead. */}
       {justSubscribed && (
         <p className="mt-3 rounded-lg bg-accent/10 px-3.5 py-2.5 text-sm font-medium text-accent">
-          Welcome to Premium! Your trial has started — everything is unlocked.
+          {r?.status === "trialing"
+            ? `Welcome to Premium! Your free trial has started${
+                r.trialEnd ? ` — free until ${fmtDate(r.trialEnd)}` : ""
+              }. Everything is unlocked.`
+            : isPremium
+              ? "Welcome to Premium! Everything is unlocked."
+              : "Thanks! We're confirming your subscription — this usually takes a few seconds."}
         </p>
       )}
 
