@@ -16,35 +16,27 @@ export interface OnboardingQuestion {
   options: string[];
 }
 
+// Seven questions, deliberately. This ran to 20 before launch, which is a lot
+// of friction to put between a hard-gated signup and the first real screen.
+// What survived earns its place: intent (`goal`, `skills`), a difficulty
+// signal (`experience`), the one thing to work on (`challenge`), a reason to
+// come back (`upcoming`, `practice_time`), and attribution (`source`).
+//
+// Cut, and why — so they don't creep back in one at a time:
+//   age                          already collected at signup by the DOB age
+//                                gate (lib/age.ts); asking twice is duplicate
+//                                collection of a minor's data
+//   role                         `skills` says more about what to practise
+//   context, focus               overlap `skills`; three angles on one answer
+//   nerves                       "Nerves" is already an option under `challenge`
+//   comfort, frequency           `experience` covers where someone is
+//   audience_size, voice_goal    too fine-grained to act on before there is
+//                                anything that reads them
+//   record_comfort               asking about dread invites it
+//   accountability, commitment   asks for a promise, not information
+//   feedback_style               revisit as a settings toggle, where it can be
+//                                changed after someone has seen the feedback
 export const ONBOARDING_QUESTIONS: OnboardingQuestion[] = [
-  {
-    id: "role",
-    question: "Which sounds most like you?",
-    options: [
-      "Student",
-      "Professional",
-      "Manager or leader",
-      "Founder or entrepreneur",
-      "Creator or performer",
-      "Something else",
-    ],
-  },
-  {
-    id: "age",
-    question: "How old are you?",
-    options: ["Under 18", "18–24", "25–34", "35–44", "45+"],
-  },
-  {
-    id: "source",
-    question: "How did you hear about Elovox?",
-    options: [
-      "A friend or coworker",
-      "Social media",
-      "Search or app store",
-      "School or work",
-      "Somewhere else",
-    ],
-  },
   {
     id: "goal",
     question: "What brings you to Elovox?",
@@ -70,52 +62,9 @@ export const ONBOARDING_QUESTIONS: OnboardingQuestion[] = [
     ],
   },
   {
-    id: "context",
-    question: "Where do you most need to speak well?",
-    options: [
-      "Work meetings",
-      "Presentations & pitches",
-      "Interviews",
-      "Teaching or the classroom",
-      "Social & personal",
-      "On camera or content",
-    ],
-  },
-  {
-    id: "frequency",
-    question: "How often do you speak in front of others?",
-    options: [
-      "Most days",
-      "A few times a week",
-      "A few times a month",
-      "Almost never",
-    ],
-  },
-  {
-    id: "comfort",
-    question: "How does speaking in front of people feel right now?",
-    options: [
-      "Honestly, terrifying",
-      "Nervous, but I manage",
-      "Fairly comfortable",
-      "I enjoy the spotlight",
-    ],
-  },
-  {
     id: "experience",
     question: "How would you rate your speaking today?",
     options: ["Just starting out", "Getting there", "Pretty solid", "Advanced"],
-  },
-  {
-    id: "audience_size",
-    question: "Which audience feels hardest?",
-    options: [
-      "One-on-one",
-      "A small group",
-      "A full room",
-      "A large stage",
-      "On camera",
-    ],
   },
   {
     id: "challenge",
@@ -128,36 +77,6 @@ export const ONBOARDING_QUESTIONS: OnboardingQuestion[] = [
       "Losing my train of thought",
       "Body language",
     ],
-  },
-  {
-    id: "nerves",
-    question: "When you're nervous, what happens?",
-    options: [
-      "My heart races",
-      "My mind goes blank",
-      "I speed up",
-      "My voice shakes",
-      "I ramble",
-    ],
-  },
-  {
-    id: "focus",
-    question: "Which of these matter most to you?",
-    hint: "Pick as many as you like",
-    multi: true,
-    options: [
-      "Confidence",
-      "Clarity",
-      "Persuasion",
-      "Storytelling",
-      "Executive presence",
-      "Warmth",
-    ],
-  },
-  {
-    id: "voice_goal",
-    question: "What should your voice project more of?",
-    options: ["Authority", "Warmth", "Energy", "Calm", "Enthusiasm"],
   },
   {
     id: "upcoming",
@@ -180,36 +99,19 @@ export const ONBOARDING_QUESTIONS: OnboardingQuestion[] = [
       "Whenever something's coming up",
     ],
   },
+  // Last on purpose: the only question here that serves us rather than the
+  // person answering. With no analytics cookies anywhere in the product, this
+  // is the sole read on which channel actually brings people in.
   {
-    id: "record_comfort",
-    question: "How do you feel about recording yourself?",
-    options: ["I love it", "Fine with it", "A little awkward", "I dread it"],
-  },
-  {
-    id: "feedback_style",
-    question: "How do you like your feedback?",
+    id: "source",
+    question: "How did you hear about Elovox?",
     options: [
-      "Direct and blunt",
-      "Warm and encouraging",
-      "Detailed and technical",
-      "Quick and simple",
+      "A friend or coworker",
+      "Social media",
+      "Search or app store",
+      "School or work",
+      "Somewhere else",
     ],
-  },
-  {
-    id: "accountability",
-    question: "What keeps you coming back?",
-    options: [
-      "Streaks",
-      "Watching my scores climb",
-      "Daily challenges",
-      "Reminders",
-      "My own drive",
-    ],
-  },
-  {
-    id: "commitment",
-    question: "How ready are you to put in the reps?",
-    options: ["All in", "Motivated", "Curious", "Just exploring"],
   },
 ];
 
