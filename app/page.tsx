@@ -17,13 +17,58 @@ import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
 // The review rejected the consent screen for "the app name does not match
 // the app name on your home page", so declaring it explicitly (rather than
 // leaving it to be inferred from an animated slogan) closes that gap.
-const APP_SCHEMA = {
-  "@context": "https://schema.org",
-  "@type": "WebApplication",
+//
+// Emitted as a @graph rather than three separate <script> blocks so the nodes
+// can reference each other by @id. Without that, a crawler sees an unattached
+// Organization and an unattached WebApplication and has to guess they're the
+// same outfit; with it, the publisher edge is stated.
+//
+// The Organization node exists for one specific reason: "Elovox" is a
+// contested name — a registered UK company shares it — so a query for the
+// brand is a tie Google breaks on entity signals. sameAs is the strongest one
+// we can assert from our own page. It is a claim, not proof: it only pays off
+// once those profiles link back here, so the accounts' bio links matter as
+// much as this block does.
+const SITE = "https://elovox.app";
+
+const ORGANIZATION = {
+  "@type": "Organization",
+  "@id": `${SITE}/#organization`,
   name: "Elovox",
-  url: "https://elovox.app",
+  url: SITE,
+  logo: {
+    "@type": "ImageObject",
+    url: `${SITE}/logo.png`,
+    width: 184,
+    height: 182,
+  },
+  description:
+    "Elovox makes speaking practice software: record a speech, pitch, or interview answer and get specific coaching on your delivery.",
+  sameAs: [
+    "https://www.instagram.com/elovox.app/",
+    "https://www.tiktok.com/@elovox0",
+  ],
+};
+
+// Carries the site name for search results. Google reads WebSite.name when
+// deciding what to print above the URL, and left to infer it, it tends to
+// pick the <title> tail or the domain.
+const WEBSITE = {
+  "@type": "WebSite",
+  "@id": `${SITE}/#website`,
+  name: "Elovox",
+  url: SITE,
+  publisher: { "@id": `${SITE}/#organization` },
+};
+
+const APP_SCHEMA = {
+  "@type": "WebApplication",
+  "@id": `${SITE}/#webapp`,
+  name: "Elovox",
+  url: SITE,
   applicationCategory: "EducationalApplication",
   operatingSystem: "Any (web browser)",
+  publisher: { "@id": `${SITE}/#organization` },
   description:
     "Elovox is a speaking practice app. You record yourself giving a speech, pitch, or interview answer, and Elovox analyses the recording and returns coaching on your delivery — pace, filler words, pauses, clarity, and how the audience is likely to perceive you.",
   offers: [
@@ -43,6 +88,11 @@ const APP_SCHEMA = {
         "Unlimited practice, camera coaching, the full speech library, and interview practice.",
     },
   ],
+};
+
+const SITE_SCHEMA = {
+  "@context": "https://schema.org",
+  "@graph": [ORGANIZATION, WEBSITE, APP_SCHEMA],
 };
 
 const STEPS = [
@@ -119,7 +169,7 @@ export default function LandingPage() {
       <script
         type="application/ld+json"
         // Not executable script — a data block crawlers and reviewers parse.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(APP_SCHEMA) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(SITE_SCHEMA) }}
       />
       <RedirectIfAuthed />
       {/* Hero */}

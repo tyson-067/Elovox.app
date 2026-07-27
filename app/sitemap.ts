@@ -5,12 +5,35 @@ import type { MetadataRoute } from "next";
 
 const BASE = process.env.NEXT_PUBLIC_APP_URL || "https://elovox.app";
 
+// Hand-maintained, and deliberately not `new Date()`.
+//
+// Build time is not modification time. Evaluating the date at build made every
+// page claim it changed on every deploy — including deploys that only touched
+// an API route — so a crawler that recrawled on the signal found the same
+// bytes it already had. Do that consistently and the signal stops being read,
+// which costs us the one case it exists for: telling Google that the legal
+// pages or the pricing really did change.
+//
+// Update the entry when the page's visible content changes. A stale-but-honest
+// date is worth more than a fresh lie.
+const MODIFIED: Record<string, string> = {
+  "/": "2026-07-26",
+  "/pricing": "2026-07-27", // subscriber CTAs → Customer Portal
+  "/terms": "2026-07-23",
+  "/privacy": "2026-07-23",
+};
+
 export default function sitemap(): MetadataRoute.Sitemap {
-  const now = new Date();
-  return [
-    { url: `${BASE}/`, lastModified: now, priority: 1 },
-    { url: `${BASE}/pricing`, lastModified: now, priority: 0.8 },
-    { url: `${BASE}/terms`, lastModified: now, priority: 0.3 },
-    { url: `${BASE}/privacy`, lastModified: now, priority: 0.3 },
-  ];
+  const priority: Record<string, number> = {
+    "/": 1,
+    "/pricing": 0.8,
+    "/terms": 0.3,
+    "/privacy": 0.3,
+  };
+
+  return Object.keys(MODIFIED).map((path) => ({
+    url: `${BASE}${path}`,
+    lastModified: new Date(`${MODIFIED[path]}T00:00:00Z`),
+    priority: priority[path],
+  }));
 }
