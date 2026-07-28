@@ -17,9 +17,13 @@ export function AuthNav() {
 
   if (loading) return null;
 
-  // Just the way in. Once inside the app, SubNav carries the per-feature
-  // tabs, so repeating them up here would only split attention.
-  const appLinks = (
+  // The way back into the app from a marketing page. Once inside, SubNav
+  // carries the per-feature tabs, so repeating them up here would only split
+  // attention.
+  //
+  // Deliberately paired with Pricing below rather than shown on its own: see
+  // the note in the signed-in branch.
+  const practiceLink = (
     <Link href="/dashboard" className="nav-link hover:text-primary">
       Practice
     </Link>
@@ -66,7 +70,7 @@ export function AuthNav() {
       <>
         {aboutLink}
         {pricingLink}
-        {appLinks}
+        {practiceLink}
       </>
     );
   }
@@ -101,11 +105,29 @@ export function AuthNav() {
 
   return (
     <>
-      {/* Only for people who could still buy something. `plan` is null while
-          it loads, so a subscriber never watches a Pricing link appear and
-          then vanish on every page load. */}
-      {plan === "free" && pricingLink}
-      {appLinks}
+      {/* Both links, or neither.
+
+          Pricing is only for people who could still buy something: once
+          someone IS paying it's noise pointing at a page whose whole job is
+          to sell them what they already own. Subscribers manage billing from
+          /account, which links through to /pricing as "Compare plans".
+
+          Practice then goes with it. On its own beside the account chip it
+          was a single lonely tab that duplicated the sub-nav sitting
+          directly beneath it, on every app page. It exists to get a free
+          user back into the app from /pricing, so it lives and dies with
+          that link. A subscriber's route back is the wordmark, which is
+          where people reach for it anyway.
+
+          Both are keyed off `plan === "free"` rather than `!== "premium"`:
+          `plan` is null while it loads, so nothing appears and then vanishes
+          a beat later. */}
+      {plan === "free" && (
+        <>
+          {pricingLink}
+          {practiceLink}
+        </>
+      )}
       {/* Shown at every width. It used to be hidden below the `sm` breakpoint,
           which on a mobile-first app meant most users had no route to their
           account, verification state, or billing at all. The name is what
@@ -118,9 +140,9 @@ export function AuthNav() {
             ? `Account: ${label}, email not verified`
             : `Account: ${label}`
         }
-        className="relative flex items-center gap-2 rounded-full border border-primary/15 py-1 pl-1 pr-1 sm:pr-3 hover:border-primary/35"
+        className="relative flex items-center gap-2 rounded-full border border-primary/15 bg-surface-lowest/70 py-1 pl-1 pr-1 sm:pr-3 transition-colors hover:border-accent/50 hover:bg-surface-lowest"
       >
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-on-primary">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-accent to-orange text-[11px] font-bold text-white">
           {initial}
         </span>
         <span className="hidden sm:block max-w-[14ch] truncate text-primary/70">
@@ -133,12 +155,16 @@ export function AuthNav() {
           />
         )}
       </Link>
+      {/* Quieter than the account chip on purpose. With Pricing and Practice
+          gone for subscribers these two are the whole right-hand side, and
+          two equally-weighted controls read as a choice rather than as "your
+          account, and the way out of it". */}
       <button
         onClick={async () => {
           await signOutUser();
           router.push("/");
         }}
-        className="rounded border border-primary/20 px-2.5 py-1 hover:text-primary hover:border-primary/40"
+        className="text-primary/55 transition-colors hover:text-primary"
       >
         Sign out
       </button>
