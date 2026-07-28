@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { RequireAuth } from "@/components/RequireAuth";
+import { Felix } from "@/components/FoxLogo";
 import { getCategory, pickPrompt } from "@/lib/categories";
 import { getSpeech } from "@/lib/speeches";
 import { getInterviewType, pickInterviewQuestion } from "@/lib/interviews";
@@ -344,7 +345,7 @@ function RecordingScreen() {
       if (levels.length > maxBars) levels.splice(0, levels.length - maxBars);
 
       ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = "#e8792f";
+      ctx.fillStyle = "#ff6b35";
       const mid = h / 2;
       for (let i = 0; i < levels.length; i++) {
         const amp = Math.max(0.015, levels[i]) * (h * 0.46);
@@ -598,6 +599,7 @@ function RecordingScreen() {
   if (plan !== null && !isPremium && !isDaily) {
     return (
       <div className="py-16 max-w-[560px] mx-auto">
+        <Felix mood="coach" className="mb-4 h-24 w-24" />
         <h1 className="text-title font-headline font-semibold text-primary">
           This one&apos;s Premium
         </h1>
@@ -629,6 +631,7 @@ function RecordingScreen() {
   if (isDaily && challenge?.complete) {
     return (
       <div className="py-16 max-w-[620px] mx-auto">
+        <Felix mood="cheer" animate className="mb-4 h-24 w-24" />
         <h1 className="text-title font-headline font-semibold text-primary">
           That&apos;s all three for today
         </h1>
@@ -657,7 +660,8 @@ function RecordingScreen() {
 
   if (isDaily && !daily) {
     return (
-      <div className="py-16">
+      <div className="py-16 flex items-center gap-4">
+        <Felix mood="listening" className="h-16 w-16" />
         <p className="text-lg text-on-surface-variant animate-pulse">
           Felix is picking today&apos;s topic…
         </p>
@@ -668,430 +672,427 @@ function RecordingScreen() {
   const attemptNumber = (challenge?.attempts.length ?? 0) + 1;
 
   return (
-    <div className="py-8 md:py-12 flex flex-col items-center">
-      <div className="stagger-in w-full max-w-[880px] mx-auto">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-block rounded-full bg-violet/10 text-violet text-[13px] font-semibold tracking-wide px-3 py-1">
-            {heading}
-          </span>
-          {isDaily && (
-            <>
-              <span className="inline-block rounded-full bg-accent/12 text-accent text-[13px] font-semibold tracking-wide px-3 py-1">
-                Attempt {attemptNumber} of {MAX_DAILY_ATTEMPTS}
-              </span>
-              {challenge?.bestScore !== null && challenge?.bestScore !== undefined && (
-                <span className="text-[13px] font-semibold tracking-wide text-on-surface-variant">
-                  Best today: <span className="font-data text-primary">{challenge.bestScore}</span>, beat it
+    // Two columns from `lg` up.
+    //
+    // This was one 880px column centred in the page, which on any desktop
+    // meant a narrow ribbon of text with several hundred pixels of empty
+    // margin either side, and the record button pushed below the fold by a
+    // brief the speaker was still reading. Splitting it puts the thing you
+    // read on the left and the thing you press on the right, both in view at
+    // once, and the stage sticks so the button stays reachable however long
+    // the brief runs. Below `lg` it stacks back to the original order:
+    // brief, stage, button.
+    <div className="py-8 md:py-12">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:items-start lg:gap-10">
+        <div className="stagger-in min-w-0 lg:col-span-7">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-block rounded-full bg-violet/10 text-violet text-[13px] font-semibold tracking-wide px-3 py-1">
+              {heading}
+            </span>
+            {isDaily && (
+              <>
+                <span className="inline-block rounded-full bg-accent/12 text-accent text-[13px] font-semibold tracking-wide px-3 py-1">
+                  Attempt {attemptNumber} of {MAX_DAILY_ATTEMPTS}
                 </span>
-              )}
-            </>
-          )}
-        </div>
-
-        {scenario && (
-          <p className="mt-3 text-base leading-6 text-on-surface-variant max-w-[60ch]">
-            {scenario}
-          </p>
-        )}
-
-        {isDaily && daily ? (
-          <div className="mt-3 max-w-[60ch]">
-            <p className="font-headline text-[26px] leading-9 text-primary">
-              {daily.topic}
-            </p>
-            <p className="mt-2 text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
-              Improvise. Hit these three, in your own words.
-            </p>
-            <ul className="mt-2 space-y-2">
-              {(daily.bullets ?? []).map((b, i) => (
-                <li key={i} className="flex gap-3 text-lg leading-7 text-on-surface">
-                  <span className="font-data text-sm text-accent mt-1">{i + 1}</span>
-                  <span>{b}</span>
-                </li>
-              ))}
-            </ul>
-
-            {/* People arrive at an improv challenge with no idea what good
-                practice looks like, hit record cold, ramble, and score badly
-                for reasons that have nothing to do with speaking. This is the
-                missing instruction: how to prep, how to run the minute, and
-                what to do with the three attempts. */}
-            <div className="card mt-5 p-4">
-              <p className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
-                How to run this
-              </p>
-              <ol className="mt-2.5 space-y-2.5 text-[15px] leading-6 text-on-surface-variant">
-                <li>
-                  <span className="font-semibold text-primary">
-                    Prep for about thirty seconds, not five minutes.
-                  </span>{" "}
-                  Read the three points and decide only your first sentence and
-                  your last one. Do not write anything down and do not rehearse
-                  it. The skill being trained is thinking while speaking, so
-                  scripting it quietly defeats the exercise.
-                </li>
-                <li>
-                  <span className="font-semibold text-primary">
-                    Stand up, breathe out, then start.
-                  </span>{" "}
-                  Standing changes your voice more than any tip here. Take one
-                  full breath before you tap record so the first line is not
-                  the one you are still finding your footing on.
-                </li>
-                <li>
-                  <span className="font-semibold text-primary">
-                    Spend roughly twenty seconds on each point.
-                  </span>{" "}
-                  Say the point, give one concrete example, move on. Running
-                  long on the first point is the single most common way people
-                  lose this minute.
-                </li>
-                <li>
-                  <span className="font-semibold text-primary">
-                    When you lose your thread, pause instead of filling.
-                  </span>{" "}
-                  A held silence reads as command. An {"“"}um{"”"} reads
-                  as lost, and Felix counts them.
-                </li>
-                <li>
-                  <span className="font-semibold text-primary">
-                    Land the ending on purpose.
-                  </span>{" "}
-                  Finish your last sentence and stop talking. Trailing off
-                  costs more points than anything in the middle.
-                </li>
-                <li>
-                  <span className="font-semibold text-primary">
-                    Use the three attempts as three different takes.
-                  </span>{" "}
-                  Read the feedback, change one thing, run it again. Three
-                  identical attempts teach you nothing.
-                </li>
-              </ol>
-            </div>
+                {challenge?.bestScore !== null && challenge?.bestScore !== undefined && (
+                  <span className="text-[13px] font-semibold tracking-wide text-on-surface-variant">
+                    Best today: <span className="font-data text-primary">{challenge.bestScore}</span>, beat it
+                  </span>
+                )}
+              </>
+            )}
           </div>
-        ) : (
-          <p
-            className={
-              isScript
-                ? "mt-3 text-lg leading-8 text-on-surface max-w-[68ch]"
-                : "mt-3 font-headline text-[26px] leading-9 text-primary max-w-[60ch]"
-            }
-          >
-            {script}
-          </p>
-        )}
 
-        {isDaily && daily?.focus && (
-          <p className="mt-3 text-base leading-6 text-accent max-w-[60ch]">
-            Felix is watching for: {daily.focus}
-          </p>
-        )}
+          {scenario && (
+            <p className="mt-3 text-base leading-6 text-on-surface-variant max-w-[60ch]">
+              {scenario}
+            </p>
+          )}
 
-        {mode === "interview" && (
-          <div className="mt-3">
-            <div className="flex flex-wrap items-center gap-4">
-              <button
-                type="button"
-                disabled={locked}
-                onClick={rerollQuestion}
-                className="text-[13px] font-semibold text-accent underline underline-offset-4 disabled:opacity-50"
-              >
-                Ask me a different one
-              </button>
-              <button
-                type="button"
-                disabled={locked}
-                onClick={() => {
-                  setComposer((c) => (c === "own" ? null : "own"));
-                  setOwnQuestion("");
-                }}
-                aria-expanded={composer === "own"}
-                className="text-[13px] font-semibold text-primary/70 underline underline-offset-4 hover:text-primary disabled:opacity-50"
-              >
-                {composer === "own" ? "Never mind" : "Write my own question"}
-              </button>
-              <button
-                type="button"
-                disabled={locked}
-                onClick={() => {
-                  setComposer((c) => (c === "felix" ? null : "felix"));
-                  setBankError("");
-                }}
-                aria-expanded={composer === "felix"}
-                className="text-[13px] font-semibold text-primary/70 underline underline-offset-4 hover:text-primary disabled:opacity-50"
-              >
-                {composer === "felix"
-                  ? "Never mind"
-                  : "Felix writes questions for my interview"}
-              </button>
+          {isDaily && daily ? (
+            <div className="mt-3 max-w-[60ch]">
+              <p className="font-headline text-[26px] leading-9 text-primary">
+                {daily.topic}
+              </p>
+              <p className="mt-2 text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
+                Improvise. Hit these three, in your own words.
+              </p>
+              <ul className="mt-2 space-y-2">
+                {(daily.bullets ?? []).map((b, i) => (
+                  <li key={i} className="flex gap-3 text-lg leading-7 text-on-surface">
+                    <span className="font-data text-sm text-accent mt-1">{i + 1}</span>
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* People arrive at an improv challenge with no idea what good
+                  practice looks like, hit record cold, ramble, and score badly
+                  for reasons that have nothing to do with speaking.
+
+                  This was six numbered paragraphs, which is more reading than
+                  the exercise itself is speaking, sitting between someone and
+                  the record button. Two points, because these two are where
+                  nearly every bad first minute actually goes wrong: people
+                  script it, and people run long on point one and then trail
+                  off. The rest was good advice nobody was going to read. */}
+              <div className="card-warm mt-5 p-4">
+                <p className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
+                  How to run this
+                </p>
+                <ol className="mt-2.5 space-y-2 text-[15px] leading-6 text-on-surface-variant">
+                  <li>
+                    <span className="font-semibold text-primary">
+                      Don&apos;t script it.
+                    </span>{" "}
+                    Decide your first line and your last line, nothing else.
+                    Thinking while speaking is the whole skill.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-primary">
+                      Twenty seconds a point, then land it.
+                    </span>{" "}
+                    One example each, and stop talking on your last sentence
+                    rather than trailing off.
+                  </li>
+                </ol>
+              </div>
             </div>
+          ) : (
+            <p
+              className={
+                isScript
+                  ? "mt-3 text-lg leading-8 text-on-surface max-w-[68ch]"
+                  : "mt-3 font-headline text-[26px] leading-9 text-primary max-w-[60ch]"
+              }
+            >
+              {script}
+            </p>
+          )}
 
-            {felixBank && (
-              <p className="mt-2 text-[13px] text-on-surface-variant">
-                Asking from {felixBank.length} questions Felix wrote for your
-                situation.{" "}
+          {isDaily && daily?.focus && (
+            <p className="mt-3 text-base leading-6 text-accent max-w-[60ch]">
+              Felix is watching for: {daily.focus}
+            </p>
+          )}
+
+          {mode === "interview" && (
+            <div className="mt-3">
+              <div className="flex flex-wrap items-center gap-4">
+                <button
+                  type="button"
+                  disabled={locked}
+                  onClick={rerollQuestion}
+                  className="text-[13px] font-semibold text-accent underline underline-offset-4 disabled:opacity-50"
+                >
+                  Ask me a different one
+                </button>
                 <button
                   type="button"
                   disabled={locked}
                   onClick={() => {
-                    setFelixBank(null);
-                    setSituation("");
-                    if (interviewId) {
-                      clearInterviewBank(interviewId);
-                      setQuestion(pickInterviewQuestion(interviewId));
-                    }
+                    setComposer((c) => (c === "own" ? null : "own"));
+                    setOwnQuestion("");
                   }}
-                  className="font-semibold text-primary underline underline-offset-4 disabled:opacity-50"
+                  aria-expanded={composer === "own"}
+                  className="text-[13px] font-semibold text-primary/70 underline underline-offset-4 hover:text-primary disabled:opacity-50"
                 >
-                  Back to the standard bank
+                  {composer === "own" ? "Never mind" : "Write my own question"}
                 </button>
-              </p>
-            )}
-
-            {composer === "own" && (
-              <div className="mt-3 max-w-[60ch]">
-                <label
-                  htmlFor="own-question"
-                  className="block text-[13px] font-semibold tracking-wide text-on-surface-variant"
-                >
-                  The question you are actually dreading
-                </label>
-                <textarea
-                  id="own-question"
-                  rows={3}
-                  maxLength={OWN_QUESTION_MAX}
-                  value={ownQuestion}
-                  onChange={(e) => setOwnQuestion(e.target.value)}
-                  placeholder="Why did you leave your last role after only seven months?"
-                  className="card input-glow mt-1.5 w-full px-4 py-3 text-base text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none"
-                />
-                <div className="mt-2 flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    disabled={locked || !sanitizeText(ownQuestion)}
-                    onClick={() => {
-                      const clean = sanitizeText(ownQuestion).slice(0, OWN_QUESTION_MAX);
-                      if (!clean) return;
-                      setQuestion(clean);
-                      setComposer(null);
-                    }}
-                    className="btn rounded-lg bg-accent px-5 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
-                  >
-                    Ask me this
-                  </button>
-                  <span className="text-[13px] text-on-surface-variant">
-                    Felix scores your answer exactly as he would any other
-                    question for this panel.
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {composer === "felix" && (
-              <div className="mt-3 max-w-[60ch]">
-                <label
-                  htmlFor="situation"
-                  className="block text-[13px] font-semibold tracking-wide text-on-surface-variant"
-                >
-                  What are you interviewing for?
-                </label>
-                <p className="mt-1 text-[13px] leading-5 text-on-surface-variant">
-                  The role, the place, and anything you think they will push
-                  on. The more specific you are, the less generic the questions.
-                </p>
-                <textarea
-                  id="situation"
-                  rows={4}
-                  maxLength={SITUATION_MAX}
-                  value={situation}
-                  onChange={(e) => setSituation(e.target.value)}
-                  placeholder="Second-round interview for a junior data analyst role at a hospital. I'm switching from retail, I have a certificate but no degree in it, and there's an eight-month gap on my resume."
-                  className="card input-glow mt-2 w-full px-4 py-3 text-base text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none"
-                />
-                {bankError && (
-                  <p role="alert" className="mt-2 text-[13px] leading-5 text-error">
-                    {bankError}
-                  </p>
-                )}
-                <div className="mt-2 flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    disabled={locked || bankBusy || !sanitizeText(situation)}
-                    onClick={generateBank}
-                    className="btn rounded-lg bg-accent px-5 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
-                  >
-                    {bankBusy ? "Felix is writing…" : "Write my questions"}
-                  </button>
-                  <span className="text-[13px] text-on-surface-variant">
-                    You will get a set to work through, and you can reroll
-                    within it.
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Coaching goal: what should this delivery do to the audience? */}
-        <div className="mt-5">
-          <span className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
-            What do you want this to do?{" "}
-            <span className="normal-case font-medium tracking-normal">
-              (Felix judges against it)
-            </span>
-          </span>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {GOALS.map((g) => {
-              const active = goalId === g.id;
-              return (
                 <button
-                  key={g.id}
                   type="button"
-                  disabled={state !== "idle" && state !== "error"}
-                  onClick={() => setGoalId(active ? null : g.id)}
-                  aria-pressed={active}
-                  className={`pill rounded-full border px-3.5 py-1.5 text-[13px] font-semibold tracking-wide disabled:opacity-50 ${
-                    active
-                      ? "border-accent bg-accent text-white"
-                      : "border-primary/20 text-primary hover:border-accent/60"
-                  }`}
+                  disabled={locked}
+                  onClick={() => {
+                    setComposer((c) => (c === "felix" ? null : "felix"));
+                    setBankError("");
+                  }}
+                  aria-expanded={composer === "felix"}
+                  className="text-[13px] font-semibold text-primary/70 underline underline-offset-4 hover:text-primary disabled:opacity-50"
                 >
-                  {g.label}
+                  {composer === "felix"
+                    ? "Never mind"
+                    : "Felix writes questions for my interview"}
                 </button>
-              );
-            })}
+              </div>
+
+              {felixBank && (
+                <p className="mt-2 text-[13px] text-on-surface-variant">
+                  Asking from {felixBank.length} questions Felix wrote for your
+                  situation.{" "}
+                  <button
+                    type="button"
+                    disabled={locked}
+                    onClick={() => {
+                      setFelixBank(null);
+                      setSituation("");
+                      if (interviewId) {
+                        clearInterviewBank(interviewId);
+                        setQuestion(pickInterviewQuestion(interviewId));
+                      }
+                    }}
+                    className="font-semibold text-primary underline underline-offset-4 disabled:opacity-50"
+                  >
+                    Back to the standard bank
+                  </button>
+                </p>
+              )}
+
+              {composer === "own" && (
+                <div className="mt-3 max-w-[60ch]">
+                  <label
+                    htmlFor="own-question"
+                    className="block text-[13px] font-semibold tracking-wide text-on-surface-variant"
+                  >
+                    The question you are actually dreading
+                  </label>
+                  <textarea
+                    id="own-question"
+                    rows={3}
+                    maxLength={OWN_QUESTION_MAX}
+                    value={ownQuestion}
+                    onChange={(e) => setOwnQuestion(e.target.value)}
+                    placeholder="Why did you leave your last role after only seven months?"
+                    className="card input-glow mt-1.5 w-full px-4 py-3 text-base text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none"
+                  />
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      disabled={locked || !sanitizeText(ownQuestion)}
+                      onClick={() => {
+                        const clean = sanitizeText(ownQuestion).slice(0, OWN_QUESTION_MAX);
+                        if (!clean) return;
+                        setQuestion(clean);
+                        setComposer(null);
+                      }}
+                      className="btn rounded-lg bg-accent px-5 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
+                    >
+                      Ask me this
+                    </button>
+                    <span className="text-[13px] text-on-surface-variant">
+                      Felix scores your answer exactly as he would any other
+                      question for this panel.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {composer === "felix" && (
+                <div className="mt-3 max-w-[60ch]">
+                  <label
+                    htmlFor="situation"
+                    className="block text-[13px] font-semibold tracking-wide text-on-surface-variant"
+                  >
+                    What are you interviewing for?
+                  </label>
+                  <p className="mt-1 text-[13px] leading-5 text-on-surface-variant">
+                    The role, the place, and anything you think they will push
+                    on. The more specific you are, the less generic the questions.
+                  </p>
+                  <textarea
+                    id="situation"
+                    rows={4}
+                    maxLength={SITUATION_MAX}
+                    value={situation}
+                    onChange={(e) => setSituation(e.target.value)}
+                    placeholder="Second-round interview for a junior data analyst role at a hospital. I'm switching from retail, I have a certificate but no degree in it, and there's an eight-month gap on my resume."
+                    className="card input-glow mt-2 w-full px-4 py-3 text-base text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none"
+                  />
+                  {bankError && (
+                    <p role="alert" className="mt-2 text-[13px] leading-5 text-error">
+                      {bankError}
+                    </p>
+                  )}
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      disabled={locked || bankBusy || !sanitizeText(situation)}
+                      onClick={generateBank}
+                      className="btn rounded-lg bg-accent px-5 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
+                    >
+                      {bankBusy ? "Felix is writing…" : "Write my questions"}
+                    </button>
+                    <span className="text-[13px] text-on-surface-variant">
+                      You will get a set to work through, and you can reroll
+                      within it.
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Coaching goal: what should this delivery do to the audience? */}
+          <div className="mt-5">
+            <span className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+              What do you want this to do?{" "}
+              <span className="normal-case font-medium tracking-normal">
+                (Felix judges against it)
+              </span>
+            </span>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {GOALS.map((g) => {
+                const active = goalId === g.id;
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    disabled={state !== "idle" && state !== "error"}
+                    onClick={() => setGoalId(active ? null : g.id)}
+                    aria-pressed={active}
+                    className={`pill rounded-full border px-3.5 py-1.5 text-[13px] font-semibold tracking-wide disabled:opacity-50 ${
+                      active
+                        ? "border-accent bg-accent text-white"
+                        : "border-primary/20 text-primary hover:border-accent/60"
+                    }`}
+                  >
+                    {g.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Camera: Premium. Body language is the other half of delivery. */}
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              disabled={!isPremium || (state !== "idle" && state !== "error")}
+              onClick={() => setVideoOn((v) => !v)}
+              aria-pressed={videoOn}
+              className={`pill rounded-full border px-4 py-2 text-[13px] font-semibold tracking-wide disabled:opacity-50 disabled:cursor-not-allowed ${
+                videoOn
+                  ? "border-violet bg-violet text-white"
+                  : "border-primary/20 text-primary hover:border-violet/60"
+              }`}
+            >
+              {videoOn ? "Camera on" : "Practice with camera"}
+            </button>
+            {isPremium ? (
+              <span className="text-[13px] text-on-surface-variant">
+                Felix reads posture, gestures, eye contact, expression and sway.
+              </span>
+            ) : (
+              <span className="text-[13px] text-on-surface-variant">
+                <span className="font-semibold text-violet">Premium</span>, add
+                body-language coaching: posture, gestures, eye contact, sway.
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Camera: Premium. Body language is the other half of delivery. */}
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            disabled={!isPremium || (state !== "idle" && state !== "error")}
-            onClick={() => setVideoOn((v) => !v)}
-            aria-pressed={videoOn}
-            className={`pill rounded-full border px-4 py-2 text-[13px] font-semibold tracking-wide disabled:opacity-50 disabled:cursor-not-allowed ${
-              videoOn
-                ? "border-violet bg-violet text-white"
-                : "border-primary/20 text-primary hover:border-violet/60"
-            }`}
+        {/* The stage and the button, the half of the screen you act on. */}
+        <div className="min-w-0 lg:col-span-5 lg:sticky lg:top-28">
+          {/* The stage: camera feed when on, waveform when off. Either way it's
+              the dominant element on the screen. */}
+          <div
+            className="stagger-in w-full bg-oxford rounded-xl h-[34vh] min-h-[220px] relative overflow-hidden"
+            style={{ animationDelay: "150ms" }}
           >
-            {videoOn ? "Camera on" : "Practice with camera"}
-          </button>
-          {isPremium ? (
-            <span className="text-[13px] text-on-surface-variant">
-              Felix reads posture, gestures, eye contact, expression and sway.
-            </span>
-          ) : (
-            <span className="text-[13px] text-on-surface-variant">
-              <span className="font-semibold text-violet">Premium</span>, add
-              body-language coaching: posture, gestures, eye contact, sway.
-            </span>
-          )}
-        </div>
-      </div>
+            <video
+              ref={videoRef}
+              muted
+              playsInline
+              className={`absolute inset-0 h-full w-full object-cover ${
+                videoOn && recording ? "" : "hidden"
+              }`}
+            />
+            <canvas
+              ref={canvasRef}
+              className={`absolute inset-0 w-full h-full ${
+                videoOn && recording ? "top-auto bottom-0 h-1/4 opacity-80" : ""
+              }`}
+            />
+            {!recording && !busy && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
+                <p className={state === "error" ? "text-amber text-base max-w-[46ch]" : "text-on-primary/50 text-base"}>
+                  {state === "error"
+                    ? errorMsg
+                    : videoOn
+                      ? "Stand back so Felix can see your hands. Press record when you're ready."
+                      : "Press record when you're ready. Take a breath first."}
+                </p>
+                {state === "error" && canRetryTake && (
+                  <button
+                    type="button"
+                    onClick={retryAnalysis}
+                    className="btn rounded-lg bg-accent text-white font-semibold px-6 py-2.5 text-sm"
+                  >
+                    Try again, same recording
+                  </button>
+                )}
+              </div>
+            )}
+            {busy && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <p className="text-accent text-base animate-pulse">
+                  {videoOn
+                    ? "Felix is watching that back, voice and body…"
+                    : "Felix is listening back to how that landed…"}
+                </p>
+              </div>
+            )}
+          </div>
 
-      {/* The stage: camera feed when on, waveform when off. Either way it's
-          the dominant element on the screen. */}
-      <div
-        className="stagger-in mt-6 w-full max-w-[880px] mx-auto bg-primary rounded-none h-[38vh] min-h-[240px] relative overflow-hidden"
-        style={{ animationDelay: "150ms" }}
-      >
-        <video
-          ref={videoRef}
-          muted
-          playsInline
-          className={`absolute inset-0 h-full w-full object-cover ${
-            videoOn && recording ? "" : "hidden"
-          }`}
-        />
-        <canvas
-          ref={canvasRef}
-          className={`absolute inset-0 w-full h-full ${
-            videoOn && recording ? "top-auto bottom-0 h-1/4 opacity-80" : ""
-          }`}
-        />
-        {!recording && !busy && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
-            <p className={state === "error" ? "text-amber text-base max-w-[46ch]" : "text-on-primary/50 text-base"}>
-              {state === "error"
-                ? errorMsg
-                : videoOn
-                  ? "Stand back so Felix can see your hands. Press record when you're ready."
-                  : "Press record when you're ready. Take a breath first."}
-            </p>
-            {state === "error" && canRetryTake && (
+          <div className="mt-8 flex flex-col items-center gap-5">
+            {/* The daily challenge counts DOWN, because the sixty seconds is the
+                exercise and running out is the point. Everything else counts up,
+                because nothing is running out. */}
+            <span
+              className={`font-data text-2xl tabular-nums ${
+                isDaily && recording && elapsed > DAILY_LIMIT_SEC - 10
+                  ? "text-accent"
+                  : "text-primary"
+              }`}
+              aria-live="off"
+            >
+              {isDaily
+                ? formatTime(Math.max(0, DAILY_LIMIT_SEC - elapsed))
+                : formatTime(elapsed)}
+            </span>
+
+            <div className="relative h-24 w-24">
+              {recording && (
+                <span className="pulse-ring absolute inset-0 bg-accent/60" aria-hidden="true" />
+              )}
               <button
                 type="button"
-                onClick={retryAnalysis}
-                className="btn rounded-lg bg-accent text-white font-semibold px-6 py-2.5 text-sm"
+                onClick={recording ? stop : start}
+                disabled={busy}
+                aria-label={recording ? "Stop recording" : "Start recording"}
+                className="record-blob relative h-24 w-24 bg-accent text-white flex items-center justify-center disabled:opacity-50"
               >
-                Try again, same recording
+                {recording ? (
+                  <span className="block h-7 w-7 rounded-[4px] bg-primary" />
+                ) : (
+                  <span className="block h-8 w-8 rounded-full border-[3px] border-primary" />
+                )}
               </button>
-            )}
-          </div>
-        )}
-        {busy && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-accent text-base animate-pulse">
-              {videoOn
-                ? "Felix is watching that back, voice and body…"
-                : "Felix is listening back to how that landed…"}
-            </p>
-          </div>
-        )}
-      </div>
+            </div>
 
-      <div className="mt-8 flex flex-col items-center gap-5">
-        {/* The daily challenge counts DOWN, because the sixty seconds is the
-            exercise and running out is the point. Everything else counts up,
-            because nothing is running out. */}
-        <span
-          className={`font-data text-2xl tabular-nums ${
-            isDaily && recording && elapsed > DAILY_LIMIT_SEC - 10
-              ? "text-accent"
-              : "text-primary"
-          }`}
-          aria-live="off"
-        >
-          {isDaily
-            ? formatTime(Math.max(0, DAILY_LIMIT_SEC - elapsed))
-            : formatTime(elapsed)}
-        </span>
+            <span className="text-[13px] font-semibold tracking-wide text-on-surface-variant">
+              {recording
+                ? isDaily
+                  ? "Tap to finish, or it stops itself at zero"
+                  : "Tap to finish"
+                : busy
+                  ? "One moment"
+                  : state === "error"
+                    ? "Tap to record again"
+                    : isDaily
+                      ? "Tap to record. You get sixty seconds."
+                      : "Tap to record"}
+            </span>
 
-        <div className="relative h-24 w-24">
-          {recording && (
-            <span className="pulse-ring absolute inset-0 bg-accent/60" aria-hidden="true" />
-          )}
-          <button
-            type="button"
-            onClick={recording ? stop : start}
-            disabled={busy}
-            aria-label={recording ? "Stop recording" : "Start recording"}
-            className="record-blob relative h-24 w-24 bg-accent text-white flex items-center justify-center disabled:opacity-50"
-          >
-            {recording ? (
-              <span className="block h-7 w-7 rounded-[4px] bg-primary" />
-            ) : (
-              <span className="block h-8 w-8 rounded-full border-[3px] border-primary" />
-            )}
-          </button>
+            {/* Felix, waiting on you. He shuts his eyes and his chest bars come
+                alive while the take is being analysed, which is the one moment
+                on this screen with nothing else to look at. */}
+            <Felix
+              mood={busy ? "listening" : recording ? "idle" : "coach"}
+              animate={!recording && !busy}
+              className="h-20 w-20 opacity-90"
+            />
+          </div>
         </div>
-
-        <span className="text-[13px] font-semibold tracking-wide text-on-surface-variant">
-          {recording
-            ? isDaily
-              ? "Tap to finish, or it stops itself at zero"
-              : "Tap to finish"
-            : busy
-              ? "One moment"
-              : state === "error"
-                ? "Tap to record again"
-                : isDaily
-                  ? "Tap to record. You get sixty seconds."
-                  : "Tap to record"}
-        </span>
       </div>
     </div>
   );
