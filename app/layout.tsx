@@ -116,11 +116,24 @@ export default function RootLayout({
                   className="h-9 w-9 rounded-[10px] transition-transform duration-300 ease-out group-hover:scale-110 group-hover:-rotate-6"
                   priority
                 />
-                <span className="font-headline text-xl font-bold tracking-tight transition-opacity group-hover:opacity-80">
+                {/* Hidden under 360px, where the wordmark is the difference
+                    between a header that fits and one that wraps: at 320px
+                    the bar has 288px of content width and the logo plus the
+                    three nav items need 333px. The fox mark still carries the
+                    brand and the link keeps its aria-label, so nothing is lost
+                    to a screen reader. 360px, not the `sm` breakpoint, because
+                    every common phone from the iPhone SE 2 (375) up has room
+                    for the wordmark and should keep it. */}
+                <span className="font-headline text-xl font-bold tracking-tight transition-opacity group-hover:opacity-80 max-[359px]:hidden">
                   Elovox
                 </span>
               </Link>
-              <nav className="flex items-center gap-5 text-[13px] font-semibold tracking-wide text-primary/70">
+              {/* gap-3 below `sm`: 20px between items is comfortable on a
+                  desktop header and is 16px of pure overflow on a narrow
+                  phone. Helps the signed-in header too, which carries its own
+                  set (Practice, the account chip, Sign out, and Pricing while
+                  the plan is free). */}
+              <nav className="flex items-center gap-3 sm:gap-5 text-[13px] font-semibold tracking-wide text-primary/70">
                 <AuthNav />
               </nav>
             </div>
