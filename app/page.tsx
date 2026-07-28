@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Felix } from "@/components/FoxLogo";
+import { Felix, FoxDen, type FelixMood } from "@/components/FoxLogo";
 import { Reveal } from "@/components/Reveal";
 import { Parallax } from "@/components/Parallax";
 import { WordReveal } from "@/components/WordReveal";
@@ -113,6 +113,36 @@ const STEPS = [
   },
 ];
 
+// Felix's story, told in four beats down the page. The mascot was a static
+// drawing on a gradient panel and nothing else; this gives him a past, which
+// is the whole argument the page is making — that the calm voice at the end
+// is something you build rather than something you're born with.
+//
+// It is also the one place the fox does the persuading instead of a feature
+// list, which is why it sits directly under the hero.
+const STORY: { mood: FelixMood; title: string; body: string }[] = [
+  {
+    mood: "sleepy",
+    title: "Felix used to hate this",
+    body: "Ears flat, tail down, rehearsing the same first line forty times and still losing it the moment anyone looked at him.",
+  },
+  {
+    mood: "coach",
+    title: "So he practised out loud",
+    body: "Every evening, one minute, in the den with the light on. Not reading. Speaking, badly at first, and listening back to it.",
+  },
+  {
+    mood: "listening",
+    title: "And he learned to hear it",
+    body: "Where he rushed. Where he trailed off. Which pause landed and which one was just fear with a stopwatch on it.",
+  },
+  {
+    mood: "cheer",
+    title: "Now he listens for you",
+    body: "Same den, same minute, same honest ear. He'll tell you what the room heard, and exactly what to change before tomorrow.",
+  },
+];
+
 const FEATURES: {
   title: string;
   body: string;
@@ -153,10 +183,10 @@ const FEATURES: {
     title: "Camera coaching, not just audio",
     body: "Turn the camera on and Felix reads the other half of delivery: posture, sway, hand gestures, facial expression, eye contact, and what your body does during the pauses. Premium.",
   },
-  {
-    title: "One speech a day, three attempts",
-    body: "A new AI-written minute every morning, the same for everyone. Beat your own score twice and watch the number move. That's the whole habit.",
-  },
+  // "One speech a day, three attempts" used to sit here. It said the same
+  // thing as steps 01 and 02 above, on the same page, six hundred pixels
+  // apart. Repeating a feature doesn't reinforce it, it just makes the page
+  // feel like it's shouting.
   {
     title: "Interviews that ask like the real thing",
     body: "Jobs, college admissions, scholarships, grad school, med and law. Real questions, and the follow-ups that actually decide it. Premium.",
@@ -187,11 +217,13 @@ export default function LandingPage() {
             see the media query in globals.css.) */}
         <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
           <div className="dot-grid absolute -inset-x-10 -top-16 bottom-0" />
+          {/* One warm orb and one cool one, so the background carries both
+              halves of the palette rather than a single wash. */}
           <Parallax speed={0.28} className="absolute -top-8 right-[8%]">
-            <div className="orb-float h-40 w-40 rounded-full bg-violet/10 blur-xl" />
+            <div className="orb-float h-40 w-40 rounded-full bg-orange/15 blur-xl" />
           </Parallax>
           <Parallax speed={-0.18} className="absolute top-40 -left-16">
-            <div className="orb-float-slow h-56 w-56 rounded-full bg-slate/10 blur-xl" />
+            <div className="orb-float-slow h-56 w-56 rounded-full bg-vista/25 blur-xl" />
           </Parallax>
         </div>
 
@@ -235,16 +267,50 @@ export default function LandingPage() {
           <Reveal delay={150}>
             <Parallax speed={0.08}>
               <Tilt>
-              <div className="navy-gradient rounded-card p-8 flex flex-col items-center">
-                <Felix className="h-44 w-44" />
-                <p className="mt-4 text-center text-white/90 text-base leading-6 max-w-[30ch]">
-                  Meet <span className="font-semibold">Felix</span>, the coach
-                  who hears you the way your audience does.
-                </p>
-              </div>
+                {/* Felix at home rather than Felix on a swatch. The den is a
+                    place, which gives the mascot somewhere to be and the
+                    story below somewhere to happen; he leans out of the
+                    doorway so the character still reads at small sizes. */}
+                <div className="relative">
+                  <FoxDen className="w-full rounded-card" />
+                  <Felix
+                    mood="cheer"
+                    animate
+                    className="absolute -bottom-6 -right-4 h-28 w-28 drop-shadow-[0_12px_24px_rgba(11,8,41,0.35)] md:h-32 md:w-32"
+                  />
+                </div>
               </Tilt>
             </Parallax>
+            <p className="mt-8 text-base leading-6 text-on-surface-variant">
+              Meet <span className="font-semibold text-primary">Felix</span>,
+              the coach who hears you the way your audience does.
+            </p>
           </Reveal>
+        </div>
+      </section>
+
+      {/* Felix's story */}
+      <section className="mt-20 md:mt-28">
+        <Reveal>
+          <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
+            How a nervous fox got his voice
+            <span className="grow-line" aria-hidden="true" />
+          </h2>
+        </Reveal>
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-4">
+          {STORY.map((beat, i) => (
+            <Reveal key={beat.title} delay={i * 130} className="h-full">
+              <div className="card-warm flex h-full flex-col p-5 md:p-6">
+                <Felix mood={beat.mood} className="h-20 w-20" />
+                <h3 className="mt-3 font-headline text-lg font-semibold text-primary">
+                  {beat.title}
+                </h3>
+                <p className="mt-1.5 text-[15px] leading-6 text-on-surface-variant">
+                  {beat.body}
+                </p>
+              </div>
+            </Reveal>
+          ))}
         </div>
       </section>
 
@@ -388,22 +454,21 @@ export default function LandingPage() {
               <p className="mt-1 font-data text-sm text-white/70">
                 7-day free trial · from $1.54/week
               </p>
+              {/* Four lines, not eight. The feature grid further up this page
+                  already made the case in detail; restating all of it here
+                  turns a price into another pitch. The full list lives on
+                  /pricing, which is where someone comparing plans is going
+                  next anyway. */}
               <ul className="mt-4 space-y-2 text-base leading-6 text-white/90">
                 <li>
                   <span className="font-semibold">Camera coaching</span>: posture,
                   sway, gestures, eye contact, expression
                 </li>
-                <li>The ~30-second speech library, unlimited reps</li>
+                <li>The nine-speech library, plus interview practice by type</li>
                 <li>
-                  Outgrown a speech? Felix rewrites it, on a similar topic or a
-                  different one
+                  Coaching on your own material, and custom speeches Felix
+                  writes for your actual situation
                 </li>
-                <li>
-                  Interview practice by type: jobs, college admissions,
-                  scholarships, grad school
-                </li>
-                <li>Coaching on your own material: pitches, talks, presentations</li>
-                <li>Custom speeches written by Felix for your actual situation</li>
                 <li>Everything in Free, including the daily challenge</li>
               </ul>
               <Link
@@ -421,10 +486,11 @@ export default function LandingPage() {
       <section className="relative mt-20 md:mt-28">
         <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
           <Parallax speed={0.2} className="absolute -top-10 right-0">
-            <div className="orb-float h-36 w-36 rounded-full bg-violet/12 blur-xl" />
+            <div className="orb-float h-36 w-36 rounded-full bg-orange/15 blur-xl" />
           </Parallax>
         </div>
         <Reveal>
+          <Felix mood="cheer" animate className="mb-4 h-24 w-24" />
           <h2 className="text-display-sm font-headline font-bold text-primary">
             <WordReveal text="The room goes quiet." step={90} />
             <WordReveal
