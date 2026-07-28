@@ -53,12 +53,6 @@ export default function PrivacyPage() {
           password. We also record whether your email has been verified.
         </p>
         <p>
-          <strong>Your onboarding answers.</strong> The multiple-choice answers
-          you give when you set up your account (things like whether you&apos;re
-          a student or a professional, and what you want to get better at). We
-          use these to pick which practice material to show you.
-        </p>
-        <p>
           <strong>Your recordings.</strong> When you practice, your browser
           records audio, and video frames as well if you turn the camera on.
           These are sent to our server so they can be analysed. See{" "}

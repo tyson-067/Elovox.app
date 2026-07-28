@@ -1,33 +1,27 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
-import { hasCompletedOnboarding } from "@/lib/onboarding";
 
 // Client-side gate for app pages (dashboard, practice, progress, report).
 // When Firebase is configured, visitors without an account are sent to
-// /login. Signed-in users who haven't answered the onboarding questions
-// are sent to /onboarding first (the onboarding page itself opts out via
-// gateOnboarding={false}). Without Firebase config the app stays open
-// (localStorage mode), but the onboarding gate still applies.
+// /login. Without Firebase config the app stays open (localStorage mode).
 //
 // Unverified email/password accounts are held at /verify-email until they
 // click the link. Google accounts pass straight through, Google has already
 // verified the address, so `emailVerified` is true from the first sign-in.
-// The check runs before onboarding so a new signup confirms their address
-// before answering questions we'd then have to discard.
+//
+// There used to be a third gate here: a run of onboarding questions every
+// new account had to answer before it could reach the dashboard. It's gone.
+// Nothing in the product ever read the answers, so it was a wall of forms
+// between signing up and the first thing anyone came here to do, which is
+// speak into a microphone. What Felix needs to know he learns from the
+// recordings.
 
-export function RequireAuth({
-  children,
-  gateOnboarding = true,
-}: {
-  children: ReactNode;
-  gateOnboarding?: boolean;
-}) {
+export function RequireAuth({ children }: { children: ReactNode }) {
   const { user, loading, configured } = useAuth();
   const router = useRouter();
-  const [onboarded, setOnboarded] = useState(!gateOnboarding);
 
   const unverified = Boolean(configured && user && !user.emailVerified);
 
@@ -37,25 +31,10 @@ export function RequireAuth({
       router.replace("/login");
       return;
     }
-    if (unverified) {
-      router.replace("/verify-email");
-      return;
-    }
-    if (!gateOnboarding) return;
-
-    let cancelled = false;
-    hasCompletedOnboarding().then((done) => {
-      if (cancelled) return;
-      if (done) setOnboarded(true);
-      else router.replace("/onboarding");
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [configured, loading, user, unverified, gateOnboarding, router]);
+    if (unverified) router.replace("/verify-email");
+  }, [configured, loading, user, unverified, router]);
 
   if (configured && (loading || !user)) return null;
   if (unverified) return null;
-  if (!onboarded) return null;
   return <>{children}</>;
 }

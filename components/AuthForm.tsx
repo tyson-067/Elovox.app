@@ -83,11 +83,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     const next = ageFromDob(value);
     if (next !== null && next < MINIMUM_AGE) rememberAgeBlock();
   };
-  // New accounts go through onboarding; the RequireAuth gate would catch
-  // them anyway, but routing there directly avoids a redirect bounce.
-  // (Provider sign-ins on /signup may be returning users, the gate
-  // simply lets them straight through to the dashboard.)
-  const destination = isSignup ? "/onboarding" : "/dashboard";
+  // Straight into the app, new account or returning. Signing up used to
+  // detour through a run of onboarding questions; there is nothing between
+  // making an account and today's challenge any more.
+  const destination = "/dashboard";
 
   // After a successful auth, either resume Checkout (if the user came from a
   // pricing CTA) or route on into the app. Checkout redirects away entirely;
