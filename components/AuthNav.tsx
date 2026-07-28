@@ -37,9 +37,34 @@ export function AuthNav() {
     </Link>
   );
 
+  // Signed-out visitors only, on every marketing page, at `sm` and up.
+  //
+  // /about exists to convince a stranger there are people behind the product.
+  // Someone with an account has already made that call, so this lives in the
+  // signed-out branches alone and never appears once they're in the app.
+  //
+  // Labelled "About", not "Meet the team": the page leads with why Elovox
+  // exists and lists the team underneath, so the narrower label is the honest
+  // one.
+  //
+  // Hidden below `sm` because the space genuinely isn't there: the 375px
+  // header has ~257px of room next to the wordmark, and Pricing + Log in +
+  // Get started plus their gaps already spend ~240px of it. A fourth item
+  // doesn't shrink, it wraps, landing on top of the wordmark and breaking
+  // "Get started" onto two lines. ("About" is shorter than "Meet the team"
+  // but still ~40px over the budget, so this stays.) Mobile reaches /about
+  // through the footer instead, see FooterAboutLink, which is gated the same
+  // way this is.
+  const aboutLink = (
+    <Link href="/about" className="nav-link hidden sm:block hover:text-primary">
+      About
+    </Link>
+  );
+
   if (!configured) {
     return (
       <>
+        {aboutLink}
         {pricingLink}
         {appLinks}
       </>
@@ -49,6 +74,7 @@ export function AuthNav() {
   if (!user) {
     return (
       <>
+        {aboutLink}
         {pricingLink}
         <Link href="/login" className="nav-link hover:text-primary">
           Log in

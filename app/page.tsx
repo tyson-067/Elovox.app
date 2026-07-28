@@ -438,6 +438,9 @@ export default function LandingPage() {
             One minute a day, out loud, three times, with honest feedback.
             That&apos;s how delivery gets built.
           </p>
+          {/* No /about link alongside this any more: the footer carries one on
+              every page at every width (FooterAboutLink), which covers the
+              mobile case this used to exist for. */}
           <Link
             href="/signup"
             className="btn rounded-lg mt-8 inline-block bg-accent text-white font-semibold px-8 py-3.5"

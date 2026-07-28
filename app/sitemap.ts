@@ -18,6 +18,7 @@ const BASE = process.env.NEXT_PUBLIC_APP_URL || "https://elovox.app";
 // date is worth more than a fresh lie.
 const MODIFIED: Record<string, string> = {
   "/": "2026-07-26",
+  "/about": "2026-07-28", // new page: team + why Elovox exists
   "/pricing": "2026-07-27", // subscriber CTAs → Customer Portal
   "/terms": "2026-07-23",
   "/privacy": "2026-07-23",
@@ -26,6 +27,7 @@ const MODIFIED: Record<string, string> = {
 export default function sitemap(): MetadataRoute.Sitemap {
   const priority: Record<string, number> = {
     "/": 1,
+    "/about": 0.5,
     "/pricing": 0.8,
     "/terms": 0.3,
     "/privacy": 0.3,

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LEGAL } from "@/lib/legal";
+import { FooterAboutLink } from "@/components/FooterAboutLink";
 
 // Site footer. A paid product needs a visible owner: a way to reach support,
 // and the legal pages. Rendered on every route from the root layout, below
@@ -25,6 +26,7 @@ export function Footer() {
             aria-label="Footer"
             className="flex flex-col gap-2 text-sm text-on-surface-variant sm:flex-row sm:gap-6"
           >
+            <FooterAboutLink className={linkClass} />
             <Link href="/pricing" className={linkClass}>
               Pricing
             </Link>
