@@ -44,9 +44,14 @@ can talk to Firestore directly with their own token and skip every rate limit in
 `lib/verify.ts`, which only guard the API routes.
 
 1. [reCAPTCHA admin](https://www.google.com/recaptcha/admin) → register a **v3**
-   site for `elovox.app` → copy the **site key** (the secret key isn't used here).
+   site for `elovox.app` → copy **both** keys. Both get used, in different
+   places: the site key is public and ships in the bundle, the secret key stays
+   with Firebase.
 2. Firebase console → **Build → App Check → Apps → Web app → reCAPTCHA v3** →
-   paste the site key.
+   paste the **secret key** — Firebase's backend is what redeems the token
+   against Google, so that's the half it needs. Pick plain **reCAPTCHA v3**,
+   not reCAPTCHA Enterprise: Enterprise takes a site key here and requires
+   `ReCaptchaEnterpriseProvider` in `lib/appCheck.ts`.
 3. Set `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` in Vercel and **redeploy** —
    `NEXT_PUBLIC_*` bakes in at build time.
 4. Watch **App Check → APIs → Firestore** until unverified requests fall to
