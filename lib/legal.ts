@@ -2,7 +2,7 @@
 // here, so the legal pages never drift from each other and there's exactly
 // one place to edit when something changes.
 //
-// TODO before launch — the three values marked NEEDS REVIEW must be filled
+// TODO before launch, the three values marked NEEDS REVIEW must be filled
 // in (and the whole of /terms and /privacy read by a lawyer). They're the
 // facts only the operator knows; everything else on those pages is drawn
 // from what the code actually does.
@@ -13,7 +13,7 @@ export const LEGAL = {
 
   /**
    * The people who contract with users. Elovox isn't incorporated, so there is
-   * no company to name — the operators are named individually, which is what
+   * no company to name, the operators are named individually, which is what
    * an unincorporated venture's terms have to do.
    *
    * Worth knowing: several people running a business together without
@@ -22,7 +22,8 @@ export const LEGAL = {
    * whole of the venture's obligations. Forming an LLC is the usual fix, and
    * would replace this line with the company name. Ask a lawyer.
    */
-  entity: "Tyson Youm, Arad Mehrabian, Aanya Iyer Us, and Kelleyguo Kaling",
+  entity:
+    "Tyson Youm, Arad Mehrabian, Aanya Iyer Us, and Kelley (Ka Ling) Guo",
 
   /** Governing law and the courts that hear disputes. */
   jurisdiction: "the State of New York, USA",
@@ -66,7 +67,7 @@ export const SUBPROCESSORS = [
   },
   {
     name: "Stripe",
-    purpose: "Subscription payments and billing — Elovox never sees your card details",
+    purpose: "Subscription payments and billing, Elovox never sees your card details",
     link: "https://stripe.com/privacy",
   },
   {

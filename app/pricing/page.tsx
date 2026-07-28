@@ -30,13 +30,13 @@ import {
 //
 // Existing subscribers see the same comparison, but every buy CTA becomes a
 // Customer Portal link. /api/stripe/checkout already refuses a second
-// subscription with a 409, so this isn't the guard — it's so a subscriber
+// subscription with a 409, so this isn't the guard, it's so a subscriber
 // isn't offered a purchase that can only fail, and lands on switch/cancel
 // instead. The account page links here as "Compare plans", so the cycle
 // toggle and the comparison grid stay live for them.
 
 const FREE_FEATURES = [
-  "The daily 1-minute speech — new every day, written by Felix",
+  "The daily 1-minute speech, new every day, written by Felix",
   "3 attempts a day to beat your own best score",
   "Full Felix feedback report on every attempt",
   "Levels, XP, and streaks",
@@ -44,30 +44,40 @@ const FREE_FEATURES = [
 ];
 
 const PREMIUM_FEATURES = [
-  "Everything in Free, unlimited — no daily attempt cap",
+  // This line used to read "Everything in Free, unlimited: no daily attempt
+  // cap", which was not true and is not the product. The daily challenge is
+  // three attempts a day on EVERY plan, deliberately: it's one shared topic
+  // the whole userbase is scored on. What Premium actually removes is the
+  // lock on the other modes, and those have no caps. See MAX_DAILY_ATTEMPTS
+  // in lib/daily.ts, and the FAQ entry below that says so outright.
+  "Everything in Free, plus unlimited practice beyond the daily challenge",
   "Camera coaching: posture, gestures, eye contact, expression",
   "The full ~30-second speech library, unlimited reps",
   "Interview practice: jobs, college, scholarships, grad school",
-  "Coaching on your own material — pitches, talks, presentations",
+  "Coaching on your own material: pitches, talks, presentations",
   "Custom speeches Felix writes for your actual situation",
 ];
 
 const FAQ = [
   {
     q: `How does the ${TRIAL_DAYS}-day free trial work?`,
-    a: `You get full Premium access for ${TRIAL_DAYS} days, free, on the monthly and annual plans. We only charge when the trial ends, and you can cancel any time before then and pay nothing. The weekly plan has no trial — it's charged from the day you start.`,
+    a: `You get full Premium access for ${TRIAL_DAYS} days, free, on the monthly and annual plans. We only charge when the trial ends, and you can cancel any time before then and pay nothing. The weekly plan has no trial. It's charged from the day you start.`,
   },
   {
     q: "Why is the annual plan so much cheaper per week?",
-    a: "Committing for longer lets us plan ahead, so we pass the saving back to you. Weekly is the flexible rate; annual is the best value — the same Premium, at a fraction of the weekly price.",
+    a: "Committing for longer lets us plan ahead, so we pass the saving back to you. Weekly is the flexible rate; annual is the best value: the same Premium, at a fraction of the weekly price.",
   },
   {
     q: "Can I switch or cancel later?",
-    a: "Any time. Switch between weekly, monthly, and annual whenever you like, and cancel in a couple of clicks — no email, no phone call.",
+    a: "Any time. Switch between weekly, monthly, and annual whenever you like, and cancel in a couple of clicks, no email, no phone call.",
+  },
+  {
+    q: "Does Premium give me more daily challenge attempts?",
+    a: "No, and that one is on purpose. The daily challenge is three attempts a day on every plan, because it's the same topic for everybody and the scores are only comparable if everyone gets the same number of goes at it. What Premium unlocks is everything else: the speech library, your own material, interview practice and custom speeches, none of which have a daily cap.",
   },
   {
     q: "Is the Free plan really free forever?",
-    a: "Yes. The daily speech, three attempts, and your full feedback report stay free for as long as you want them. Premium just removes the limits and adds the coaching modes.",
+    a: "Yes. The daily speech, three attempts, and your full feedback report stay free for as long as you want them. Premium adds the other coaching modes and takes the caps off those.",
   },
 ];
 
@@ -82,14 +92,14 @@ export default function PricingPage() {
   const saved = savingsVsWeekly(plan);
 
   // `plan === "premium"` is the entitlement bit the webhook derives from the
-  // live Stripe status — true while trialing, active, or past_due, and false
+  // live Stripe status, true while trialing, active, or past_due, and false
   // the moment access actually ends. That's exactly "has a subscription until
   // it's done", so the buy CTAs come back on their own when it lapses; there
   // is nothing to expire here.
   const subscribed = record?.plan === "premium";
 
   // Only a signed-in user can be a subscriber, so a visitor never waits on
-  // this — but for someone signed in we don't yet know, and rendering "Start
+  // this, but for someone signed in we don't yet know, and rendering "Start
   // free trial" and then swapping it for "Manage plan" is worse than a beat
   // of disabled button.
   const planPending = configured && !!user && record === null;
@@ -113,9 +123,9 @@ export default function PricingPage() {
   const currentPlan = record?.cycle ? planFor(record.cycle) : null;
   let subscribedLine = "You're on Premium.";
   if (record?.status === "past_due") {
-    subscribedLine = "Payment failed — update your card to keep Premium.";
+    subscribedLine = "Payment failed. Update your card to keep Premium.";
   } else if (ending && endsOn) {
-    subscribedLine = `Premium — cancelled. Access continues until ${endsOn}.`;
+    subscribedLine = `Premium, cancelled. Access continues until ${endsOn}.`;
   } else if (record?.status === "trialing") {
     subscribedLine = `You're on the Premium free trial${
       endsOn ? ` until ${endsOn}` : ""
@@ -142,7 +152,7 @@ export default function PricingPage() {
     }
   };
 
-  // Same Customer Portal the account page opens — switching cycles and
+  // Same Customer Portal the account page opens, switching cycles and
   // cancelling are both configured there, so there's no second code path.
   const manageBilling = async () => {
     setError("");
@@ -169,8 +179,11 @@ export default function PricingPage() {
           </Parallax>
         </div>
         <Reveal>
+          {/* Says WHICH plans the free week applies to. Unqualified, this sat
+              directly above a cycle toggle whose Weekly option has no trial
+              at all and bills from day one. */}
           <span className="inline-flex items-center gap-2 text-[13px] font-semibold tracking-[0.08em] uppercase text-violet">
-            {TRIAL_DAYS} days free, then choose your pace
+            {TRIAL_DAYS} days free on monthly and annual
           </span>
           <h1 className="text-title font-headline font-bold text-primary mt-4">
             Start free. Speak with{" "}
@@ -179,7 +192,7 @@ export default function PricingPage() {
           <p className="mx-auto mt-5 max-w-[54ch] text-lg leading-8 text-on-surface-variant">
             Try every Premium feature free for {TRIAL_DAYS} days on the monthly
             and annual plans. Keep the free plan forever, or unlock unlimited
-            reps and coaching — the longer you commit, the less you pay each
+            reps and coaching, the longer you commit, the less you pay each
             week.
           </p>
         </Reveal>
@@ -304,25 +317,25 @@ export default function PricingPage() {
             </p>
 
             {/* A subscriber must not be promised a free trial they've already
-                used — the `hadTrial` check in /api/stripe/checkout would give
+                used, the `hadTrial` check in /api/stripe/checkout would give
                 them full price from day one anyway. Show what they hold. */}
             <div className="mt-4 rounded-lg bg-white/10 px-3.5 py-2.5 text-sm font-medium text-white">
               {subscribed ? (
                 <>
                   <span className="font-semibold">Your current plan</span>
-                  {` — ${subscribedLine}`}
+                  {`, ${subscribedLine}`}
                 </>
               ) : hasTrial(plan) ? (
                 <>
                   <span className="font-semibold">
                     {plan.trialDays}-day free trial
                   </span>
-                  {" — you’re only charged when it ends. Cancel anytime."}
+                  {", you’re only charged when it ends. Cancel anytime."}
                 </>
               ) : (
                 <>
                   <span className="font-semibold">No trial on weekly</span>
-                  {" — billed today, then every week. Cancel anytime."}
+                  {", billed today, then every week. Cancel anytime."}
                 </>
               )}
             </div>
@@ -354,7 +367,7 @@ export default function PricingPage() {
             )}
             <p className="mt-2.5 text-center text-[13px] text-white/70">
               {subscribed ? (
-                <>Switch plans or cancel any time — no email, no phone call.</>
+                <>Switch plans or cancel any time, no email, no phone call.</>
               ) : hasTrial(plan) ? (
                 <>
                   Then {formatUSD(plan.price)}/{plan.unit} + tax. Cancel before
@@ -459,13 +472,26 @@ export default function PricingPage() {
       {/* Closing CTA */}
       <section className="mx-auto mt-16 max-w-2xl text-center">
         <Reveal>
+          {/* This headline used to say "Your first week's on us" to every
+              non-subscriber, including with the Weekly cycle selected. Weekly
+              has NO trial (trialDays: 0) and bills from day one, so the page
+              was promising a free week directly above a button that charges
+              $4.99 immediately. The buy button itself was already correct via
+              hasTrial(); the headline and the line under it were not, and
+              they are the larger type. Both now follow the same check. */}
           <h2 className="text-display-sm font-headline font-bold text-primary">
-            {subscribed ? "You're all set." : "Your first week's on us."}
+            {subscribed
+              ? "You're all set."
+              : hasTrial(plan)
+                ? "Your first week's on us."
+                : "Practice like it counts."}
           </h2>
           <p className="mx-auto mt-3 max-w-[46ch] text-lg leading-7 text-on-surface-variant">
             {subscribed
-              ? "Every Premium feature is unlocked. Switch cycles or cancel whenever you like — changes take effect from the billing portal."
-              : "Start the free trial, keep the free plan, or go Premium — you can change your mind any time."}
+              ? "Every Premium feature is unlocked. Switch cycles or cancel whenever you like. Changes take effect from the billing portal."
+              : hasTrial(plan)
+                ? "Start the free trial, keep the free plan, or go Premium. You can change your mind any time."
+                : "Keep the free plan, or go weekly and cancel whenever you like. Weekly bills from day one, with no trial."}
           </p>
           <button
             onClick={subscribed ? manageBilling : goPremium}

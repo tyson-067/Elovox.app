@@ -10,9 +10,13 @@ service cloud.firestore {
       allow read, write: if isOwner(uid);
     }
 
-    // Daily-challenge attempts: three per day, per user, and an attempt
-    // that has been recorded can be appended to but never shrunk — that
-    // would hand back attempts the user has already spent.
+    // Daily-challenge attempts: three per day, per user, for EVERYONE. The
+    // cap is not a paywall and Premium does not lift it (see the note on
+    // MAX_DAILY_ATTEMPTS in lib/daily.ts) — the daily challenge is one shared
+    // topic the whole userbase is scored on, so it has to be the same number
+    // of shots for all of them. An attempt array that has been recorded can
+    // be appended to but never shrunk, since shrinking it would hand back
+    // attempts the user has already spent.
     match /users/{uid}/challenges/{date} {
       allow read: if isOwner(uid);
       allow create: if isOwner(uid)

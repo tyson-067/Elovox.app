@@ -14,11 +14,22 @@ import { levelFromXp, xpForChallengeAttempt, type LevelProgress } from "./levels
 //
 // The first user to open the app on a given day finds no shared doc, asks
 // /api/daily to write one, and publishes it for everyone after. If two
-// users race, the loser's write is harmless — both wrote the same day key,
+// users race, the loser's write is harmless, both wrote the same day key,
 // and whichever lands second just overwrites identical-shaped content.
 // Without Firebase the whole thing degrades to localStorage, so the app
 // still works signed-out and offline.
 
+/**
+ * Three attempts at the daily challenge, for EVERYONE, free and Premium
+ * alike. This is deliberate and is not a paywall: the daily challenge is one
+ * shared topic that the whole userbase is scored on, so an uncapped run at it
+ * would make the scores incomparable and turn a habit into a grind. Premium's
+ * "unlimited" is about the other surfaces (the speech library, your own
+ * material, interview practice, custom speeches), which have no cap at all.
+ *
+ * Keep this in step with the /pricing copy: Premium must never be sold as
+ * removing THIS cap, because it does not.
+ */
 export const MAX_DAILY_ATTEMPTS = 3;
 
 export interface DailyChallenge {
@@ -100,7 +111,7 @@ function cacheChallenge(c: DailyChallenge): void {
   try {
     window.localStorage.setItem(challengeCacheKey(c.date), JSON.stringify(c));
   } catch {
-    // storage full — the network path still works
+    // storage full, the network path still works
   }
 }
 
@@ -113,7 +124,7 @@ async function generateChallenge(date: string): Promise<DailyChallenge> {
 /**
  * True only for the current improv format (topic + three bullets). Challenges
  * cached or published under the old "full speech" schema lack `bullets`, so we
- * treat them as absent and regenerate — otherwise the practice screen would
+ * treat them as absent and regenerate, otherwise the practice screen would
  * try to map over an undefined bullet list. The shared doc for such a day
  * can't be rewritten (rules forbid it), so each client just regenerates
  * locally until midnight rolls the day over.
@@ -127,7 +138,7 @@ function isCurrentFormat(c: DailyChallenge | null | undefined): c is DailyChalle
   );
 }
 
-/** Today's challenge — shared doc, generating and publishing it if needed. */
+/** Today's challenge, shared doc, generating and publishing it if needed. */
 export async function fetchDailyChallenge(
   date: string = todayKey()
 ): Promise<DailyChallenge> {
@@ -155,13 +166,13 @@ export async function fetchDailyChallenge(
       // Old-format shared doc: fall through and regenerate locally.
     }
   } catch {
-    // unreadable — fall through and generate a local-only one
+    // unreadable, fall through and generate a local-only one
   }
 
   const fresh = await generateChallenge(date);
   cacheChallenge(fresh);
   // Publish for everyone else today. Failure is fine: the next user tries.
-  // A fallback is never published — it would hand the whole user base
+  // A fallback is never published, it would hand the whole user base
   // canned content for the day, and the doc can't be rewritten afterwards.
   // (If an old-format doc already exists, this write is denied by rules and
   // harmlessly caught; we still use our freshly generated one.)

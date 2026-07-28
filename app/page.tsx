@@ -12,8 +12,8 @@ import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
 // Marketing landing page. The app itself lives behind /dashboard.
 
 // Machine-readable statement of what this is and who runs it. Human readers
-// get the name and purpose from the hero copy; automated ones — Google's
-// OAuth consent-screen review, search crawlers, link unfurlers — read this.
+// get the name and purpose from the hero copy; automated ones, Google's
+// OAuth consent-screen review, search crawlers, link unfurlers, read this.
 // The review rejected the consent screen for "the app name does not match
 // the app name on your home page", so declaring it explicitly (rather than
 // leaving it to be inferred from an animated slogan) closes that gap.
@@ -24,7 +24,7 @@ import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
 // same outfit; with it, the publisher edge is stated.
 //
 // The Organization node exists for one specific reason: "Elovox" is a
-// contested name — a registered UK company shares it — so a query for the
+// contested name, a registered UK company shares it, so a query for the
 // brand is a tie Google breaks on entity signals. sameAs is the strongest one
 // we can assert from our own page. It is a claim, not proof: it only pays off
 // once those profiles link back here, so the accounts' bio links matter as
@@ -70,7 +70,7 @@ const APP_SCHEMA = {
   operatingSystem: "Any (web browser)",
   publisher: { "@id": `${SITE}/#organization` },
   description:
-    "Elovox is a speaking practice app. You record yourself giving a speech, pitch, or interview answer, and Elovox analyses the recording and returns coaching on your delivery — pace, filler words, pauses, clarity, and how the audience is likely to perceive you.",
+    "Elovox is a speaking practice app. You record yourself giving a speech, pitch, or interview answer, and Elovox analyses the recording and returns coaching on your delivery: pace, filler words, pauses, clarity, and how the audience is likely to perceive you.",
   offers: [
     {
       "@type": "Offer",
@@ -99,12 +99,12 @@ const STEPS = [
   {
     n: "01",
     title: "A new topic every day",
-    body: "Felix sets a fresh topic and three points to hit each morning — the same one for everybody. You improvise for a minute, so you train thinking on your feet, not reading a script. Free, forever.",
+    body: "Felix sets a fresh topic and three points to hit each morning, the same one for everybody. You improvise for a minute, so you train thinking on your feet, not reading a script. Free, forever.",
   },
   {
     n: "02",
     title: "Three tries to beat your own score",
-    body: "Record the topic, get Felix's feedback, then run it again with his notes in mind. You get three attempts a day, each one scored, so you can watch your delivery improve in a single sitting.",
+    body: "Record the topic, get Felix's feedback, then run it again with his notes in mind. Three attempts a day, on every plan, each one scored, so you can watch your delivery improve in a single sitting.",
   },
   {
     n: "03",
@@ -120,11 +120,11 @@ const FEATURES: {
 }[] = [
   {
     title: "Voice feedback, not grammar feedback",
-    body: "Warmth, confidence, authority, enthusiasm, authenticity — plus pace, pitch variation, monotone stretches, fillers, and awkward pauses.",
+    body: "Warmth, confidence, authority, enthusiasm, authenticity, plus pace, pitch variation, monotone stretches, fillers, and awkward pauses.",
   },
   {
     title: "Delivery coaching on the words",
-    body: "Which words to emphasize, where to pause, where to slow down, where to change inflection — and why each change moves the audience.",
+    body: "Which words to emphasize, where to pause, where to slow down, where to change inflection, and why each change moves the audience.",
     // Live sample of Felix's line-by-line marks: the underlines sweep
     // across the words as the card scrolls into view.
     demo: (
@@ -133,7 +133,7 @@ const FEATURES: {
         <span className="sweep sweep-strong" style={{ transitionDelay: "400ms" }}>
           didn&apos;t just meet
         </span>{" "}
-        the goal — we{" "}
+        the goal, we{" "}
         <span className="sweep sweep-strong" style={{ transitionDelay: "700ms" }}>
           doubled
         </span>{" "}
@@ -147,7 +147,7 @@ const FEATURES: {
   },
   {
     title: "Audience impact prediction",
-    body: "Felix predicts how listeners will perceive you — trusted or doubted, leader or presenter, and whether your ending loses energy.",
+    body: "Felix predicts how listeners will perceive you: trusted or doubted, leader or presenter, and whether your ending loses energy.",
   },
   {
     title: "Camera coaching, not just audio",
@@ -155,7 +155,7 @@ const FEATURES: {
   },
   {
     title: "One speech a day, three attempts",
-    body: "A new AI-written minute every morning, the same for everyone. Beat your own score twice and watch the number move — that's the whole habit.",
+    body: "A new AI-written minute every morning, the same for everyone. Beat your own score twice and watch the number move. That's the whole habit.",
   },
   {
     title: "Interviews that ask like the real thing",
@@ -168,38 +168,43 @@ export default function LandingPage() {
     <div className="pb-20">
       <script
         type="application/ld+json"
-        // Not executable script — a data block crawlers and reviewers parse.
+        // Not executable script, a data block crawlers and reviewers parse.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(SITE_SCHEMA) }}
       />
       <RedirectIfAuthed />
       {/* Hero */}
       <section className="relative pt-16 md:pt-24 grid grid-cols-1 md:grid-cols-12 gap-10 items-center">
-        {/* Brand circles drifting at different depths behind the hero,
-            each also floating on its own so the page moves at rest.
-            A faint dot grid keeps the white from feeling flat. */}
+        {/* Brand circles drifting at different depths behind the hero, plus
+            a faint dot grid so the white doesn't feel flat.
+
+            There used to be three orbs here, all floating on their own loop
+            AND parallaxing at three different speeds, over a dot grid, under
+            a per-word headline reveal. Individually each is subtle; together
+            they meant nothing on the page was ever still, which is what made
+            a first visit feel busy. Two orbs at lower opacity keeps the depth
+            and the brand colour without the whole background breathing.
+            (Anyone with prefers-reduced-motion set already got none of it;
+            see the media query in globals.css.) */}
         <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
           <div className="dot-grid absolute -inset-x-10 -top-16 bottom-0" />
           <Parallax speed={0.28} className="absolute -top-8 right-[8%]">
-            <div className="orb-float h-40 w-40 rounded-full bg-violet/15 blur-xl" />
+            <div className="orb-float h-40 w-40 rounded-full bg-violet/10 blur-xl" />
           </Parallax>
           <Parallax speed={-0.18} className="absolute top-40 -left-16">
-            <div className="orb-float-slow h-56 w-56 rounded-full bg-slate/15 blur-xl" />
-          </Parallax>
-          <Parallax speed={0.12} className="absolute bottom-0 right-[30%]">
-            <div className="orb-float h-28 w-28 rounded-full bg-accent/15 blur-lg" />
+            <div className="orb-float-slow h-56 w-56 rounded-full bg-slate/10 blur-xl" />
           </Parallax>
         </div>
 
         <div className="md:col-span-7">
           <Reveal>
             {/* Names the product in plain text directly above the headline.
-                The <h1> is "Speak with impact." — a slogan that never says
-                "Elovox" — and it's split into per-word spans for the reveal
+                The <h1> is "Speak with impact.", a slogan that never says
+                "Elovox", and it's split into per-word spans for the reveal
                 animation, so an automated reader (Google's OAuth review, link
                 previews, any scraper) finds no brand name at the top of the
                 page. That mismatch is what got the consent screen rejected. */}
             <span className="inline-flex items-center gap-2 text-[13px] font-semibold tracking-[0.08em] uppercase text-violet">
-              Elovox — your speaking practice partner
+              Elovox, your speaking practice partner
             </span>
             <h1 className="hero-slogan mt-4 font-headline font-bold text-primary whitespace-nowrap">
               <WordReveal text="Speak with" delay={100} className="slogan-sans" />
@@ -233,7 +238,7 @@ export default function LandingPage() {
               <div className="navy-gradient rounded-card p-8 flex flex-col items-center">
                 <Felix className="h-44 w-44" />
                 <p className="mt-4 text-center text-white/90 text-base leading-6 max-w-[30ch]">
-                  Meet <span className="font-semibold">Felix</span> — the coach
+                  Meet <span className="font-semibold">Felix</span>, the coach
                   who hears you the way your audience does.
                 </p>
               </div>
@@ -300,7 +305,7 @@ export default function LandingPage() {
           </h2>
           <p className="mt-3 text-lg leading-7 text-on-surface-variant max-w-[58ch]">
             Most speaking apps count your filler words and stop. Elovox coaches
-            emotional perception and audience response — how you make people
+            emotional perception and audience response: how you make people
             feel, and what they&apos;ll do about it.
           </p>
         </Reveal>
@@ -329,7 +334,7 @@ export default function LandingPage() {
             <span className="grow-line" aria-hidden="true" />
           </h2>
           <p className="mt-3 text-lg leading-7 text-on-surface-variant max-w-[56ch]">
-            XP comes from showing up and from beating your own best — not from
+            XP comes from showing up and from beating your own best, not from
             being naturally good. Streaks multiply it, up to double.
           </p>
         </Reveal>
@@ -363,7 +368,7 @@ export default function LandingPage() {
                 $0 / forever
               </p>
               <ul className="mt-4 space-y-2 text-base leading-6 text-on-surface">
-                <li>The daily 1-minute speech — new every day, written by Felix</li>
+                <li>The daily 1-minute speech, new every day, written by Felix</li>
                 <li>3 attempts a day to beat your own best score</li>
                 <li>Full Felix feedback report on every attempt</li>
                 <li>Levels, XP and streaks</li>
@@ -385,19 +390,19 @@ export default function LandingPage() {
               </p>
               <ul className="mt-4 space-y-2 text-base leading-6 text-white/90">
                 <li>
-                  <span className="font-semibold">Camera coaching</span> — posture,
+                  <span className="font-semibold">Camera coaching</span>: posture,
                   sway, gestures, eye contact, expression
                 </li>
                 <li>The ~30-second speech library, unlimited reps</li>
                 <li>
-                  Outgrown a speech? Felix rewrites it — similar topic or a
+                  Outgrown a speech? Felix rewrites it, on a similar topic or a
                   different one
                 </li>
                 <li>
                   Interview practice by type: jobs, college admissions,
                   scholarships, grad school
                 </li>
-                <li>Coaching on your own material — pitches, talks, presentations</li>
+                <li>Coaching on your own material: pitches, talks, presentations</li>
                 <li>Custom speeches written by Felix for your actual situation</li>
                 <li>Everything in Free, including the daily challenge</li>
               </ul>

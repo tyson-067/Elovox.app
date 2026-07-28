@@ -19,12 +19,12 @@ import {
   type UserStats,
 } from "@/lib/daily";
 
-// "Today" — the home of the app. Deliberately short: the day's challenge,
+// "Today", the home of the app. Deliberately short: the day's challenge,
 // where you are in the levels, and a way through to each feature. The
 // features themselves live on their own pages, reachable from SubNav, so
 // this stopped being one long scrolling wall.
 
-/** Level, XP and streak — the running total across every rep. */
+/** Level, XP and streak, the running total across every rep. */
 function LevelStrip({ stats }: { stats: UserStats | null }) {
   if (!stats) return null;
   const { level } = stats;
@@ -71,7 +71,7 @@ function LevelStrip({ stats }: { stats: UserStats | null }) {
   );
 }
 
-/** The universal daily challenge — the same topic for everyone, every day. */
+/** The universal daily challenge, the same topic for everyone, every day. */
 function DailyCard({
   challenge,
   state,
@@ -105,7 +105,7 @@ function DailyCard({
       )}
       {challenge && (
         <p className="mt-1 text-[13px] font-semibold tracking-wide text-white/60">
-          Improvise for a minute — three points, your own words.
+          Improvise for a minute, three points, your own words.
         </p>
       )}
 
@@ -129,7 +129,7 @@ function DailyCard({
         })}
         <span className="text-[13px] font-semibold tracking-wide text-white/70">
           {done
-            ? `Best today: ${state?.bestScore} — new topic tomorrow`
+            ? `Best today: ${state?.bestScore}, new topic tomorrow`
             : `${MAX_DAILY_ATTEMPTS - used} of ${MAX_DAILY_ATTEMPTS} attempts left`}
         </span>
       </div>
@@ -139,7 +139,7 @@ function DailyCard({
           href="/practice?daily=1"
           className="btn rounded-lg mt-6 inline-block bg-accent text-white font-semibold px-7 py-3.5"
         >
-          {used === 0 ? "Start today's challenge" : `Attempt ${used + 1} — beat ${state?.bestScore}`}
+          {used === 0 ? "Start today's challenge" : `Attempt ${used + 1}, beat ${state?.bestScore}`}
         </Link>
       )}
     </GlowCard>
@@ -162,7 +162,7 @@ const SHORTCUTS = [
   {
     href: "/custom",
     title: "Felix writes it",
-    body: "A toast, a pitch, a hard conversation — written for your actual situation.",
+    body: "A toast, a pitch, or a hard conversation, written for your actual situation.",
     premium: true,
   },
   {
@@ -243,13 +243,15 @@ function TodayScreen() {
   return (
     <div className="py-10 md:py-14">
       <Reveal>
+        {/* The subtitle that used to sit here said "a new topic every day,
+            three attempts, improvise for a minute" directly above a card
+            that says the topic, the attempt counter, and "improvise for a
+            minute" again. Three restatements of the same sentence is what
+            makes this screen feel loud on open. The card is the one that
+            carries real information, so the paragraph goes. */}
         <h1 className="text-title font-headline font-semibold text-primary">
           <WordReveal text="What are you practicing today?" delay={80} step={60} />
         </h1>
-        <p className="mt-3 text-lg leading-7 text-on-surface-variant max-w-[54ch]">
-          A new topic every day, three attempts to beat your own best.
-          Improvise for a minute and Felix will tell you how it landed.
-        </p>
       </Reveal>
 
       <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -299,7 +301,7 @@ function TodayScreen() {
               Premium adds the speech library with unlimited reps, interview
               practice by type, coaching on your own material, custom speeches
               written by Felix, camera feedback on posture, gestures, eye
-              contact and sway — plus Felix&apos;s deepest, most thorough
+              contact and sway, plus Felix&apos;s deepest, most thorough
               breakdown of every recording.
             </p>
             <Link

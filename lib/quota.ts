@@ -9,23 +9,32 @@ import { FieldValue, type Firestore } from "firebase-admin/firestore";
 // The counter lives at users/{uid}/usage/{date}.dailyAnalyses and is written
 // ONLY through the Admin SDK, which bypasses security rules. firestore.rules
 // lets the user read it (so the UI can show attempts remaining) but denies
-// every client write — so the number can't be forged.
+// every client write, so the number can't be forged.
 
-export const MAX_FREE_DAILY_ATTEMPTS = 3;
+/**
+ * Attempts at the daily challenge per user per day. Applies to EVERY plan:
+ * the daily challenge is one shared topic the whole userbase is scored on, so
+ * an uncapped run at it would make the scores incomparable. Premium lifts the
+ * locks on the other practice modes, not this number.
+ *
+ * Must stay equal to MAX_DAILY_ATTEMPTS in lib/daily.ts (the UI) and to the
+ * `attempts.size()` ceiling in firestore.rules.
+ */
+export const MAX_DAILY_ATTEMPTS = 3;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** UTC day key (YYYY-MM-DD), from server time — never client input. */
+/** UTC day key (YYYY-MM-DD), from server time, never client input. */
 function utcDateKey(now: number = Date.now()): string {
   return new Date(now).toISOString().slice(0, 10);
 }
 
 /**
  * The date the attempt should count against. "Today" is the user's LOCAL day
- * so the cap resets when their daily challenge does — but the client supplies
+ * so the cap resets when their daily challenge does, but the client supplies
  * that day, so we only trust it when it's within one day of the server's UTC
  * date. That preserves correct local-midnight resets for honest users while
- * bounding a tamperer to yesterday/today/tomorrow — at most 3× the cap across
+ * bounding a tamperer to yesterday/today/tomorrow, at most 3× the cap across
  * the boundary, never an infinite reset by inventing far-off dates.
  */
 export function usageDateKey(clientDate: string, now: number = Date.now()): string {
@@ -43,12 +52,12 @@ function usageRef(db: Firestore, uid: string, date: string) {
 
 /**
  * Atomically claim one of the day's free attempts. Returns ok:false (without
- * incrementing) when the cap is already spent. Reserving up front — rather
- * than counting after the fact — means concurrent requests can't slip past
- * the limit. A failed analysis is handed back with refundFreeDailyAttempt so
+ * incrementing) when the cap is already spent. Reserving up front, rather
+ * than counting after the fact, means concurrent requests can't slip past
+ * the limit. A failed analysis is handed back with refundDailyAttempt so
  * the user is never charged an attempt for Felix having a bad moment.
  */
-export async function reserveFreeDailyAttempt(
+export async function reserveDailyAttempt(
   db: Firestore,
   uid: string,
   date: string
@@ -57,7 +66,7 @@ export async function reserveFreeDailyAttempt(
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const used = snap.exists ? Number(snap.data()?.dailyAnalyses ?? 0) : 0;
-    if (used >= MAX_FREE_DAILY_ATTEMPTS) return { ok: false, used };
+    if (used >= MAX_DAILY_ATTEMPTS) return { ok: false, used };
     tx.set(
       ref,
       { dailyAnalyses: used + 1, updatedAt: FieldValue.serverTimestamp() },
@@ -68,7 +77,7 @@ export async function reserveFreeDailyAttempt(
 }
 
 /** Give back a reserved attempt when the analysis didn't complete. */
-export async function refundFreeDailyAttempt(
+export async function refundDailyAttempt(
   db: Firestore,
   uid: string,
   date: string
