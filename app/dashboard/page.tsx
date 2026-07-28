@@ -1,13 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Reveal } from "@/components/Reveal";
 import { WordReveal } from "@/components/WordReveal";
 import { GlowCard } from "@/components/GlowCard";
-import { PremiumBadge } from "@/components/PremiumBadge";
+import { Felix } from "@/components/FoxLogo";
 import { usePlan } from "@/lib/plan";
+import { listSessions } from "@/lib/store";
+import type { Session } from "@/lib/types";
+import {
+  badgesFor,
+  currentOutfit,
+  dailyQuests,
+  felixLine,
+  moodFor,
+  nextOutfit,
+  questsComplete,
+  sessionsFromToday,
+  type Quest,
+} from "@/lib/quests";
 import {
   fetchDailyChallenge,
   getChallengeState,
@@ -19,55 +32,116 @@ import {
   type UserStats,
 } from "@/lib/daily";
 
-// "Today", the home of the app. Deliberately short: the day's challenge,
-// where you are in the levels, and a way through to each feature. The
-// features themselves live on their own pages, reachable from SubNav, so
-// this stopped being one long scrolling wall.
+// "Today", the home of the app.
+//
+// Two things this screen is NOT allowed to become:
+//
+//   1. A second copy of the sub-nav. It used to end in a "More ways to
+//      practice" grid listing the speech library, interviews, Felix writes
+//      it and my material, which are the exact four tabs sitting in the
+//      header two centimetres above it. The same four names twice on one
+//      screen is what made this page feel loud, and it taught people the
+//      header wasn't worth reading.
+//   2. A wall. Everything below is on the day: what Felix makes of where
+//      you are, the challenge itself, three quests, and the Den. The
+//      features live on their own pages and are reached from the tabs.
+//
+// Everything gamified here is derived, never stored. See lib/quests.ts.
 
-/** Level, XP and streak, the running total across every rep. */
-function LevelStrip({ stats }: { stats: UserStats | null }) {
-  if (!stats) return null;
-  const { level } = stats;
+/** A flame that burns harder the longer the streak. */
+function StreakFlame({ days }: { days: number }) {
+  // Faster breath as the streak grows, floored so it never becomes a
+  // strobe: 2.6s at one day down to 1.1s from a fortnight on.
+  const speed = Math.max(1.1, 2.6 - days * 0.1);
+  const cold = days === 0;
   return (
-    <GlowCard className="card p-5 h-full">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <span className="text-[13px] font-semibold tracking-[0.06em] uppercase text-violet">
-            Level {level.level}
-          </span>
-          <div className="font-headline text-2xl font-medium text-primary">
-            {level.title}
-          </div>
-        </div>
-        <div className="flex items-center gap-6 text-right">
-          <div>
-            <div className="font-data text-xl text-primary">{stats.streakDays}</div>
-            <div className="text-[12px] text-on-surface-variant">day streak</div>
-          </div>
-          <div>
-            <div className="font-data text-xl text-primary">{level.xp}</div>
-            <div className="text-[12px] text-on-surface-variant">total XP</div>
-          </div>
-        </div>
-      </div>
-      <div className="mt-4 h-1.5 rounded-full bg-surface-container overflow-hidden">
-        <div
-          className="bar-grow h-full rounded-full bg-accent"
-          style={{ width: `${level.percent}%` }}
+    <span
+      className={cold ? "opacity-35" : "flame inline-block"}
+      style={cold ? undefined : ({ "--flame-speed": `${speed}s` } as React.CSSProperties)}
+      aria-hidden="true"
+    >
+      🔥
+    </span>
+  );
+}
+
+/**
+ * The mascot hero: Felix, a line from him about where you actually are, and
+ * the level bar and streak he's reacting to. One card rather than three, so
+ * the numbers read as his commentary rather than as a separate dashboard.
+ */
+function FelixHero({
+  stats,
+  challenge,
+}: {
+  stats: UserStats | null;
+  challenge: ChallengeState | null;
+}) {
+  const mood = moodFor({ stats, challenge });
+  const line = felixLine({ stats, challenge });
+  const level = stats?.level;
+  // Whatever the Den says he's unlocked, he is actually wearing.
+  const outfit = currentOutfit(level?.level ?? 1);
+
+  return (
+    <div className="card den-gradient border-none! overflow-hidden p-6 md:p-8">
+      <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-end">
+        <Felix
+          mood={mood}
+          animate
+          accessory={outfit?.id}
+          className="h-32 w-32 shrink-0 drop-shadow-[0_10px_20px_rgba(11,8,41,0.22)] md:h-40 md:w-40"
         />
+
+        <div className="min-w-0 flex-1 text-center sm:text-left">
+          <span className="text-[13px] font-semibold uppercase tracking-[0.06em] text-oxford/60">
+            Felix says
+          </span>
+          <p className="mt-1 font-headline text-xl leading-7 text-oxford md:text-2xl md:leading-8">
+            {line}
+          </p>
+
+          {level && (
+            <div className="mt-5">
+              <div className="flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1 sm:justify-start">
+                <span className="font-headline text-lg font-semibold text-oxford">
+                  Level {level.level}
+                </span>
+                <span className="text-lg text-oxford/75">{level.title}</span>
+                <span className="font-data text-[13px] text-oxford/60">
+                  {level.xp} XP
+                </span>
+              </div>
+              <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-oxford/15">
+                <div
+                  className="xp-bar-fill bar-grow h-full rounded-full bg-oxford"
+                  style={{ width: `${level.percent}%` }}
+                />
+              </div>
+              <p className="mt-1.5 text-[13px] text-oxford/70">
+                {level.isMax
+                  ? "Top of the ladder. Now hold it."
+                  : `${level.xpForNextLevel} XP to Level ${level.level + 1}`}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* The streak, given its own column so it reads as a standing total
+            rather than another stat in the level row. */}
+        <div className="shrink-0 rounded-xl bg-oxford/10 px-5 py-4 text-center">
+          <div className="text-3xl leading-none">
+            <StreakFlame days={stats?.streakDays ?? 0} />
+          </div>
+          <div className="mt-1 font-data text-2xl text-oxford">
+            {stats?.streakDays ?? 0}
+          </div>
+          <div className="text-[12px] font-semibold uppercase tracking-[0.06em] text-oxford/60">
+            day streak
+          </div>
+        </div>
       </div>
-      <p className="mt-2 text-[13px] text-on-surface-variant">
-        {level.isMax
-          ? "Top level. Now keep it."
-          : `${level.xpForNextLevel} XP to Level ${level.level + 1}`}
-      </p>
-      <Link
-        href="/progress"
-        className="mt-3 inline-block text-[13px] font-semibold text-accent"
-      >
-        See your progress →
-      </Link>
-    </GlowCard>
+    </div>
   );
 }
 
@@ -83,9 +157,9 @@ function DailyCard({
   const done = state?.complete ?? false;
 
   return (
-    <GlowCard className="card card-glow-light navy-gradient border-none! p-6 md:p-8 text-white h-full">
+    <GlowCard className="card card-glow-light dusk-gradient border-none! h-full p-6 text-white md:p-8">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-white/15 text-white text-[11px] font-semibold tracking-[0.06em] uppercase px-2.5 py-1">
+        <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-white">
           Today&apos;s challenge · 1 minute
         </span>
         {challenge?.theme && (
@@ -95,11 +169,11 @@ function DailyCard({
         )}
       </div>
 
-      <h2 className="mt-3 font-headline text-3xl md:text-4xl font-semibold">
+      <h2 className="mt-3 font-headline text-3xl font-semibold md:text-4xl">
         {challenge?.title ?? "Felix is picking today's topic…"}
       </h2>
       {challenge?.topic && (
-        <p className="mt-2 text-lg leading-7 text-white/85 max-w-[54ch]">
+        <p className="mt-2 max-w-[54ch] text-lg leading-7 text-white/85">
           {challenge.topic}
         </p>
       )}
@@ -137,47 +211,145 @@ function DailyCard({
       {!done && (
         <Link
           href="/practice?daily=1"
-          className="btn rounded-lg mt-6 inline-block bg-accent text-white font-semibold px-7 py-3.5"
+          className="btn mt-6 inline-block rounded-lg bg-accent px-7 py-3.5 font-semibold text-white"
         >
-          {used === 0 ? "Start today's challenge" : `Attempt ${used + 1}, beat ${state?.bestScore}`}
+          {used === 0
+            ? "Start today's challenge"
+            : `Attempt ${used + 1}, beat ${state?.bestScore}`}
         </Link>
       )}
     </GlowCard>
   );
 }
 
-const SHORTCUTS = [
-  {
-    href: "/library",
-    title: "Speech library",
-    body: "Eight ~30-second speeches, unlimited reps, replaceable when you outgrow one.",
-    premium: true,
-  },
-  {
-    href: "/interviews",
-    title: "Interviews",
-    body: "Jobs, college admissions, scholarships, grad school, and more.",
-    premium: true,
-  },
-  {
-    href: "/custom",
-    title: "Felix writes it",
-    body: "A toast, a pitch, or a hard conversation, written for your actual situation.",
-    premium: true,
-  },
-  {
-    href: "/own",
-    title: "My own material",
-    body: "Bring what you've already written and get coached on the delivery.",
-    premium: true,
-  },
-];
+function QuestCard({ quest, index }: { quest: Quest; index: number }) {
+  const percent = Math.round((quest.progress / quest.target) * 100);
+  return (
+    <GlowCard
+      className={`card h-full p-5 ${quest.done ? "quest-done border-accent/40!" : ""}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <span className="font-headline text-lg font-semibold text-primary">
+          {quest.title}
+        </span>
+        <span
+          className={`shrink-0 rounded-full px-2.5 py-1 font-data text-[11px] font-semibold ${
+            quest.done
+              ? "bg-accent text-white"
+              : "bg-surface-container text-on-surface-variant"
+          }`}
+        >
+          +{quest.xp} XP
+        </span>
+      </div>
+
+      <p className="mt-1.5 text-[15px] leading-6 text-on-surface-variant">
+        {quest.detail}
+      </p>
+
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-surface-container">
+        <div
+          className="bar-grow h-full rounded-full bg-gradient-to-r from-orange to-accent"
+          style={{ width: `${percent}%`, animationDelay: `${index * 120}ms` }}
+        />
+      </div>
+
+      <p className="mt-2 text-[13px] font-semibold text-accent">
+        {quest.done ? (
+          <span className="text-primary/70">✓ {quest.doneLabel}</span>
+        ) : (
+          <Link href={quest.href}>Take it on →</Link>
+        )}
+      </p>
+    </GlowCard>
+  );
+}
+
+/**
+ * The Fox Den: what you've earned and what Felix is still saving up for.
+ * Badges are real and unlock the moment the underlying rep happens; the
+ * wardrobe is level-gated, which is the app's only currency.
+ */
+function DenWidget({
+  stats,
+  sessions,
+}: {
+  stats: UserStats | null;
+  sessions: Session[];
+}) {
+  const badges = badgesFor({ stats, sessions });
+  const earned = badges.filter((b) => b.earned).length;
+  const level = stats?.level.level ?? 1;
+  const worn = currentOutfit(level);
+  const next = nextOutfit(level);
+
+  return (
+    <div className="card-warm h-full p-5 md:p-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-headline text-xl font-semibold text-primary">
+          The Fox Den
+        </h2>
+        <span className="font-data text-[13px] text-on-surface-variant">
+          {earned} / {badges.length} badges
+        </span>
+      </div>
+
+      <ul className="mt-4 grid grid-cols-3 gap-2.5">
+        {badges.map((b) => (
+          <li
+            key={b.id}
+            title={b.earned ? b.name : `${b.name}: ${b.hint}`}
+            className={`rounded-lg bg-white/70 px-2 py-3 text-center ${
+              b.earned ? "" : "locked-reward"
+            }`}
+          >
+            <span className="block text-xl leading-none" aria-hidden="true">
+              {b.emoji}
+            </span>
+            <span className="mt-1.5 block text-[11px] font-semibold leading-tight text-primary">
+              {b.name}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-4 border-t border-shrimp/70 pt-3 text-[13px] leading-5 text-on-surface-variant">
+        <p>
+          {worn ? (
+            <>
+              Felix is wearing{" "}
+              <span aria-hidden="true">{worn.emoji}</span>{" "}
+              <span className="font-semibold text-primary">{worn.name}</span>.
+            </>
+          ) : (
+            <>Felix has nothing to wear yet. Level 2 gets him a bow tie.</>
+          )}
+        </p>
+        {next && (
+          <p className="mt-1">
+            <span aria-hidden="true">{next.emoji}</span>{" "}
+            <span className="font-semibold text-primary">{next.name}</span> at
+            Level {next.level}.
+          </p>
+        )}
+      </div>
+
+      <Link
+        href="/progress"
+        className="mt-3 inline-block text-[13px] font-semibold text-accent"
+      >
+        See the whole run →
+      </Link>
+    </div>
+  );
+}
 
 function TodayScreen() {
-  const { plan, isPremium } = usePlan();
+  const { plan } = usePlan();
   const [daily, setDaily] = useState<DailyChallenge | null>(null);
   const [challenge, setChallenge] = useState<ChallengeState | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
+  const [sessions, setSessions] = useState<Session[]>([]);
   // The local day the currently-shown challenge belongs to, so we know when
   // midnight has rolled us onto a new one.
   const loadedDayRef = useRef<string>("");
@@ -196,6 +368,12 @@ function TodayScreen() {
         .catch(() => {});
       getStats()
         .then((s) => !cancelled && setStats(s))
+        .catch(() => {});
+      // Feeds the quests and the badges. A failure just means an empty
+      // history, which reads as "nothing earned yet" rather than an error:
+      // none of this is worth interrupting someone's practice over.
+      listSessions()
+        .then((s) => !cancelled && setSessions(s))
         .catch(() => {});
     };
 
@@ -240,52 +418,50 @@ function TodayScreen() {
     };
   }, []);
 
+  const today = useMemo(() => sessionsFromToday(sessions), [sessions]);
+  const quests = useMemo(
+    () => dailyQuests({ challenge, today }),
+    [challenge, today]
+  );
+  const questsDone = questsComplete(quests);
+
   return (
     <div className="py-10 md:py-14">
       <Reveal>
-        {/* The subtitle that used to sit here said "a new topic every day,
-            three attempts, improvise for a minute" directly above a card
-            that says the topic, the attempt counter, and "improvise for a
-            minute" again. Three restatements of the same sentence is what
-            makes this screen feel loud on open. The card is the one that
-            carries real information, so the paragraph goes. */}
         <h1 className="text-title font-headline font-semibold text-primary">
           <WordReveal text="What are you practicing today?" delay={80} step={60} />
         </h1>
       </Reveal>
 
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Reveal className="md:col-span-2">
+      <Reveal className="mt-8">
+        <FelixHero stats={stats} challenge={challenge} />
+      </Reveal>
+
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Reveal delay={80} className="lg:col-span-2">
           <DailyCard challenge={daily} state={challenge} />
         </Reveal>
-        <Reveal delay={120}>
-          <LevelStrip stats={stats} />
+        <Reveal delay={160}>
+          <DenWidget stats={stats} sessions={sessions} />
         </Reveal>
       </div>
 
       <section className="mt-12">
         <Reveal>
-          <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
-            More ways to practice
-            <span className="grow-line" aria-hidden="true" />
-          </h2>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
+              Today&apos;s fox quests
+              <span className="grow-line" aria-hidden="true" />
+            </h2>
+            <span className="font-data text-[13px] text-on-surface-variant">
+              {questsDone} of {quests.length} cleared
+            </span>
+          </div>
         </Reveal>
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-          {SHORTCUTS.map((s, i) => (
-            <Reveal key={s.href} delay={i * 70} className="h-full">
-              <GlowCard className="card h-full">
-                <Link href={s.href} className="block h-full p-5">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="font-headline text-xl font-medium text-primary block">
-                      {s.title}
-                    </span>
-                    {s.premium && !isPremium && <PremiumBadge />}
-                  </div>
-                  <span className="mt-1.5 block text-base leading-6 text-on-surface-variant">
-                    {s.body}
-                  </span>
-                </Link>
-              </GlowCard>
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
+          {quests.map((q, i) => (
+            <Reveal key={q.id} delay={i * 70} className="h-full">
+              <QuestCard quest={q} index={i} />
             </Reveal>
           ))}
         </div>
@@ -293,11 +469,11 @@ function TodayScreen() {
 
       {plan === "free" && (
         <Reveal>
-          <div className="card mt-12 mb-6 p-6 navy-gradient border-none! text-white">
+          <div className="card navy-gradient border-none! mt-12 mb-6 p-6 text-white">
             <h3 className="font-headline text-2xl font-semibold">
               Practice as much as you want
             </h3>
-            <p className="mt-2 text-base leading-6 text-white/85 max-w-[56ch]">
+            <p className="mt-2 max-w-[56ch] text-base leading-6 text-white/85">
               Premium adds the speech library with unlimited reps, interview
               practice by type, coaching on your own material, custom speeches
               written by Felix, camera feedback on posture, gestures, eye
