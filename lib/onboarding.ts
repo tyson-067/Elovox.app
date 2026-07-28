@@ -126,21 +126,44 @@ async function currentUid(): Promise<string> {
   return user?.uid ?? "local";
 }
 
+function cacheDone(uid: string, record?: unknown): void {
+  try {
+    if (record !== undefined) {
+      window.localStorage.setItem(answersKey(uid), JSON.stringify(record));
+    }
+    window.localStorage.setItem(doneKey(uid), "1");
+  } catch {
+    // storage full/blocked — Firestore is the durable record either way
+  }
+}
+
+/**
+ * Opens the gate on this device without claiming anything was persisted.
+ * Only for the failure path in app/onboarding/page.tsx: answering the
+ * questions again on another device is friction, but a gate that won't open
+ * is a redirect loop through the whole app.
+ */
+export async function markOnboardedLocally(): Promise<void> {
+  cacheDone(await currentUid());
+}
+
 export async function saveOnboarding(answers: OnboardingAnswers): Promise<void> {
   const uid = await currentUid();
   const record = { answers, completedAt: Date.now() };
 
-  try {
-    window.localStorage.setItem(answersKey(uid), JSON.stringify(record));
-    window.localStorage.setItem(doneKey(uid), "1");
-  } catch {
-    // storage full/blocked — Firestore write below still gates correctly
-  }
-
+  // Firestore FIRST, then the local flag. localStorage is a cache in front of
+  // the only durable record, so setting it before the write means a failed
+  // write leaves the device claiming "done" while nothing was persisted —
+  // this device is fine forever and every other one asks the questions again.
+  // That ordering is why onboarding could repeat. Also note iOS Safari evicts
+  // localStorage after ~7 idle days, so the cache is expected to go missing;
+  // the Firestore doc is what has to be there.
   if (uid !== "local") {
     const { doc, setDoc } = await import("firebase/firestore");
     await setDoc(doc(getDb(), "users", uid, "profile", "onboarding"), record);
   }
+
+  cacheDone(uid, record);
 }
 
 export async function hasCompletedOnboarding(): Promise<boolean> {

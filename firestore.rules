@@ -47,7 +47,22 @@ service cloud.firestore {
     // simply grant the write anyway. (Verified: it did.)
     match /users/{uid}/profile/{docId} {
       allow read: if isOwner(uid);
-      allow write: if isOwner(uid) && docId != "plan";
+      allow write: if isOwner(uid) && docId != "plan" && docId != "onboarding";
+    }
+
+    // Onboarding answers, written once at the end of the questions. Create
+    // is allowed, rewriting is not: the client gate (hasCompletedOnboarding)
+    // deliberately fails OPEN when Firestore is unreachable so an outage
+    // can't lock anyone out of the app, which means the client alone can
+    // never guarantee once-only. This is the half that can.
+    //
+    // Same OR-ing caveat as `plan` above: the wildcard has to exclude
+    // "onboarding" by name, because a narrower deny here would not override
+    // a broader allow there.
+    match /users/{uid}/profile/onboarding {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid);
+      allow update, delete: if false;
     }
 
     // The speech of the day is shared by everybody. Any signed-in user may

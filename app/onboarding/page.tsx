@@ -7,6 +7,7 @@ import { Felix } from "@/components/FoxLogo";
 import {
   ONBOARDING_QUESTIONS,
   hasCompletedOnboarding,
+  markOnboardedLocally,
   saveOnboarding,
   type OnboardingAnswers,
 } from "@/lib/onboarding";
@@ -49,9 +50,16 @@ function OnboardingScreen() {
     setSaving(true);
     try {
       await saveOnboarding(finalAnswers);
-    } finally {
-      router.replace("/dashboard");
+    } catch (err) {
+      // Two ways to land here: Firestore is unreachable, or the answers doc
+      // already exists and the rules refused the rewrite (onboarding is
+      // create-once). Neither should strand anyone on this screen — nothing
+      // reads the answers yet, so losing them costs nothing, while a gate
+      // that never opens bounces the user between here and /dashboard.
+      console.error("[onboarding] could not save answers", err);
+      await markOnboardedLocally();
     }
+    router.replace("/dashboard");
   };
 
   const pickSingle = (option: string) => {
