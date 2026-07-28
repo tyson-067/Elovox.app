@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { isFirebaseConfigured, getDb, getUser } from "./firebase";
 
 // Entitlements. One flag, free or premium, read from Firestore at
@@ -51,23 +51,33 @@ const cacheKey = (uid: string) => `elovox.plan.${uid}`;
  */
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-/** Cached plan if one is present and still fresh, else null. */
-function readCache(uid: string): Plan | null {
+interface CacheEntry {
+  plan: Plan;
+  at: number;
+}
+
+/** Whatever is cached, fresh or not, or null if there's nothing usable. */
+function readCacheEntry(uid: string): CacheEntry | null {
   try {
     const raw = window.localStorage.getItem(cacheKey(uid));
     if (!raw) return null;
-    // Entries written before the TTL existed are bare strings; treat those as
-    // stale so the bad "free" they may hold gets re-read rather than honored.
+    // Entries written before the TTL existed are bare strings; they carry no
+    // timestamp, so treat them as infinitely stale rather than discarding
+    // them: stale is still a better answer than a wrong "free".
     const parsed = JSON.parse(raw) as { plan?: unknown; at?: unknown };
     if (parsed?.plan !== "premium" && parsed?.plan !== "free") return null;
-    if (typeof parsed.at !== "number") return null;
-    if (Date.now() - parsed.at > CACHE_TTL_MS) return null;
-    return parsed.plan;
+    return { plan: parsed.plan, at: typeof parsed.at === "number" ? parsed.at : 0 };
   } catch {
-    // Storage blocked, or a legacy bare-string entry, fall through to
-    // Firestore, which is the safe direction.
+    // Storage blocked, or a malformed entry.
     return null;
   }
+}
+
+/** Cached plan if one is present and still fresh, else null. */
+function readCache(uid: string): Plan | null {
+  const entry = readCacheEntry(uid);
+  if (!entry) return null;
+  return Date.now() - entry.at > CACHE_TTL_MS ? null : entry.plan;
 }
 
 function writeCache(uid: string, plan: Plan): void {
@@ -94,6 +104,26 @@ async function currentUid(): Promise<string> {
   return user?.uid ?? "local";
 }
 
+/**
+ * In-flight Firestore read, shared across every hook that asks at the same
+ * moment. A dashboard renders four or five `usePlan()` consumers at once and
+ * they used to fire four or five identical reads on every cold navigation.
+ */
+let inFlight: { uid: string; promise: Promise<Plan> } | null = null;
+
+/** Mounted `usePlan` consumers, so a refresh reaches all of them at once. */
+const planListeners = new Set<(plan: Plan) => void>();
+
+function broadcast(plan: Plan): void {
+  planListeners.forEach((l) => l(plan));
+}
+
+async function readPlanFromFirestore(uid: string): Promise<Plan> {
+  const { doc, getDoc } = await import("firebase/firestore");
+  const snap = await getDoc(doc(getDb(), "users", uid, "profile", "plan"));
+  return snap.exists() && snap.data().plan === "premium" ? "premium" : "free";
+}
+
 export async function getPlan(): Promise<Plan> {
   const forced = forcedPlan();
   if (forced) return forced;
@@ -104,16 +134,35 @@ export async function getPlan(): Promise<Plan> {
   if (cached) return cached;
   if (uid === "local") return "free";
 
-  try {
-    const { doc, getDoc } = await import("firebase/firestore");
-    const snap = await getDoc(doc(getDb(), "users", uid, "profile", "plan"));
-    const plan: Plan = snap.exists() && snap.data().plan === "premium" ? "premium" : "free";
-    writeCache(uid, plan);
-    return plan;
-  } catch {
-    // Firestore unreachable, assume free rather than handing out Premium
-    return "free";
-  }
+  if (inFlight?.uid === uid) return inFlight.promise;
+
+  const promise = (async () => {
+    try {
+      const plan = await readPlanFromFirestore(uid);
+      writeCache(uid, plan);
+      return plan;
+    } catch {
+      // Firestore unreachable. This used to return "free", which is where
+      // Premium visibly disappeared mid-session: one flaky read after the
+      // 5-minute cache expired and a paying subscriber watched every gated
+      // surface lock, then unlock again a few clicks later when the next
+      // read happened to succeed.
+      //
+      // A network failure is not evidence that someone stopped paying, so
+      // the last answer we actually got from Firestore stands, however old
+      // it is. The cache is not re-stamped, so the next navigation still
+      // retries rather than pinning this forever. With nothing cached at
+      // all we have never seen an entitlement, and "free" is the safe
+      // direction: the server enforces the real boundary on every gated
+      // route regardless of what this returns.
+      return readCacheEntry(uid)?.plan ?? "free";
+    } finally {
+      if (inFlight?.uid === uid) inFlight = null;
+    }
+  })();
+
+  inFlight = { uid, promise };
+  return promise;
 }
 
 /**
@@ -128,7 +177,13 @@ export async function refreshPlan(): Promise<Plan> {
   } catch {
     // non-fatal
   }
-  return getPlan();
+  inFlight = null;
+  const plan = await getPlan();
+  // Push it to every mounted consumer, so returning from Checkout unlocks
+  // the header, the sub-nav and the page body together rather than
+  // whichever one happens to remount first.
+  broadcast(plan);
+  return plan;
 }
 
 /**
@@ -137,14 +192,33 @@ export async function refreshPlan(): Promise<Plan> {
  */
 export function usePlan(): { plan: Plan | null; isPremium: boolean } {
   const [plan, setPlan] = useState<Plan | null>(null);
+  // A ref, not the state value: the failure path below only needs to know
+  // whether an answer has ever landed, and reading `plan` there would put it
+  // in the effect's dependency list and re-subscribe on every change.
+  const resolved = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
+    const onChange = (p: Plan) => {
+      if (cancelled) return;
+      resolved.current = true;
+      setPlan(p);
+    };
+    planListeners.add(onChange);
+
     getPlan()
-      .then((p) => !cancelled && setPlan(p))
-      .catch(() => !cancelled && setPlan("free"));
+      .then(onChange)
+      // getPlan resolves rather than rejects on a Firestore failure, so this
+      // only fires if Firebase itself fails to load. Even then, don't assert
+      // "free" over an entitlement we've already shown: hold the last known
+      // answer and let the next navigation try again.
+      .catch(() => {
+        if (!cancelled && !resolved.current) setPlan("free");
+      });
+
     return () => {
       cancelled = true;
+      planListeners.delete(onChange);
     };
   }, []);
 
@@ -171,7 +245,10 @@ export async function getPlanRecord(): Promise<PlanRecord> {
     const data = snap.data() as PlanRecord;
     return { ...data, plan: data.plan === "premium" ? "premium" : "free" };
   } catch {
-    return { plan: "free", status: "none" };
+    // Same reasoning as getPlan: an unreachable Firestore is not a
+    // cancellation. Fall back to the last entitlement we actually read, so
+    // /account doesn't tell a subscriber they're on the free plan.
+    return { plan: readCacheEntry(uid)?.plan ?? "free", status: "none" };
   }
 }
 
