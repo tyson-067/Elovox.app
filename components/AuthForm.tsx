@@ -49,6 +49,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  // Signup only. A typo in a password you cannot see is the classic way to
+  // lock yourself out of an account on the very first screen, so we ask
+  // twice AND let people look at what they typed.
+  const [confirm, setConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -80,7 +85,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   };
   // New accounts go through onboarding; the RequireAuth gate would catch
   // them anyway, but routing there directly avoids a redirect bounce.
-  // (Provider sign-ins on /signup may be returning users — the gate
+  // (Provider sign-ins on /signup may be returning users, the gate
   // simply lets them straight through to the dashboard.)
   const destination = isSignup ? "/onboarding" : "/dashboard";
 
@@ -118,7 +123,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         </h1>
         <p className="mt-3 text-lg leading-7 text-on-surface-variant">
           This environment is missing the Firebase configuration, so sign-up
-          and log-in are unavailable. You can still practice — sessions stay in
+          and log-in are unavailable. You can still practice, sessions stay in
           this browser.
         </p>
         <Link
@@ -138,7 +143,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           We can&apos;t sign you up
         </h1>
         <p className="mt-3 text-lg leading-7 text-on-surface-variant">
-          {AGE_BLOCK_MESSAGE} Thanks for being honest about your age — come
+          {AGE_BLOCK_MESSAGE} Thanks for being honest about your age, come
           back when you&apos;re old enough and we&apos;ll be here.
         </p>
         <Link
@@ -151,11 +156,21 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     );
   }
 
+  // Naming a mismatch is safe here in a way that login errors are not: this
+  // is a password the visitor is CREATING, so there is no account to
+  // enumerate and nothing an attacker learns. Being vague would just leave
+  // someone stuck on a form that won't say why.
+  const mismatch = isSignup && confirm.length > 0 && confirm !== password;
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!ageOk) return; // the form's own guard; the button is disabled too
     setError("");
     setNotice("");
+    if (isSignup && password !== confirm) {
+      setError("Those passwords don't match.");
+      return;
+    }
     setBusy(true);
     try {
       if (isSignup) {
@@ -185,7 +200,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   };
 
   // Password reset always shows the same neutral notice, whether or not the
-  // address is registered — so it can't be used to discover which emails exist.
+  // address is registered, so it can't be used to discover which emails exist.
   const forgotPassword = async () => {
     setError("");
     setNotice("");
@@ -252,17 +267,53 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             )}
           </div>
         )}
-        <input
-          type="password"
-          required
-          minLength={isSignup ? 8 : undefined}
-          maxLength={128}
-          autoComplete={isSignup ? "new-password" : "current-password"}
-          placeholder={isSignup ? "Password (8+ characters)" : "Password"}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className={inputClass}
-        />
+        {/* The reveal toggle sits inside the field rather than under it, so
+            it's reachable one-handed on a phone without the layout shifting.
+            It flips BOTH boxes at once: checking that two passwords match by
+            eye only works if you can see both of them. */}
+        <div className="relative">
+          <input
+            type={showPassword ? "text" : "password"}
+            required
+            minLength={isSignup ? 8 : undefined}
+            maxLength={128}
+            autoComplete={isSignup ? "new-password" : "current-password"}
+            placeholder={isSignup ? "Password (8+ characters)" : "Password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className={`${inputClass} pr-16`}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((s) => !s)}
+            aria-pressed={showPassword}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            className="absolute inset-y-0 right-0 px-4 text-[13px] font-semibold text-primary/60 transition-colors hover:text-primary"
+          >
+            {showPassword ? "Hide" : "Show"}
+          </button>
+        </div>
+
+        {isSignup && (
+          <div>
+            <input
+              type={showPassword ? "text" : "password"}
+              required
+              maxLength={128}
+              autoComplete="new-password"
+              placeholder="Confirm password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              aria-invalid={mismatch}
+              className={`${inputClass} ${mismatch ? "border-error!" : ""}`}
+            />
+            {mismatch && (
+              <p className="mt-1.5 text-[13px] leading-5 text-error">
+                Those passwords don&apos;t match.
+              </p>
+            )}
+          </div>
+        )}
 
         {error && (
           <p role="alert" className="text-sm leading-5 text-error">
@@ -290,7 +341,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
         <button
           type="submit"
-          disabled={busy || !ageOk}
+          disabled={busy || !ageOk || mismatch}
           className="btn rounded-lg w-full bg-accent text-white font-semibold text-base px-8 py-3.5 disabled:opacity-50"
         >
           {busy ? "One moment…" : isSignup ? "Sign up free" : "Log in"}

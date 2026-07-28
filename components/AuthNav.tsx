@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { usePlan } from "@/lib/plan";
 import { signOutUser } from "@/lib/auth";
 
 // Header navigation that adapts to auth state: app links + sign out when
@@ -11,6 +12,7 @@ import { signOutUser } from "@/lib/auth";
 
 export function AuthNav() {
   const { user, loading, configured } = useAuth();
+  const { plan } = usePlan();
   const router = useRouter();
 
   if (loading) return null;
@@ -23,6 +25,12 @@ export function AuthNav() {
     </Link>
   );
 
+  // Pricing is a link for people deciding whether to pay. Once someone IS
+  // paying it is noise in the one row of chrome they see on every screen,
+  // and worse, it points at a page whose whole job is to sell them something
+  // they already own. Subscribers manage billing from /account, which still
+  // links through to /pricing as "Compare plans" for the rare case they want
+  // to see the grid.
   const pricingLink = (
     <Link href="/pricing" className="nav-link hover:text-primary">
       Pricing
@@ -67,7 +75,10 @@ export function AuthNav() {
 
   return (
     <>
-      {pricingLink}
+      {/* Only for people who could still buy something. `plan` is null while
+          it loads, so a subscriber never watches a Pricing link appear and
+          then vanish on every page load. */}
+      {plan === "free" && pricingLink}
       {appLinks}
       {/* Shown at every width. It used to be hidden below the `sm` breakpoint,
           which on a mobile-first app meant most users had no route to their
@@ -78,7 +89,7 @@ export function AuthNav() {
         title="Account settings"
         aria-label={
           needsAttention
-            ? `Account: ${label} — email not verified`
+            ? `Account: ${label}, email not verified`
             : `Account: ${label}`
         }
         className="relative flex items-center gap-2 rounded-full border border-primary/15 py-1 pl-1 pr-1 sm:pr-3 hover:border-primary/35"
