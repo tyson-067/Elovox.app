@@ -18,7 +18,7 @@ import {
   moodFor,
   nextOutfit,
   questsComplete,
-  sessionsFromToday,
+  sessionsFromDay,
   type Quest,
 } from "@/lib/quests";
 import {
@@ -350,8 +350,13 @@ function TodayScreen() {
   const [challenge, setChallenge] = useState<ChallengeState | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
-  // The local day the currently-shown challenge belongs to, so we know when
-  // midnight has rolled us onto a new one.
+  // The local day everything on screen belongs to. Held as state as well as a
+  // ref: the ref is what the midnight/focus checks compare against without
+  // re-running their effect, and the state is what makes the quests recompute
+  // when the day turns. Filtering on the clock instead meant that if the
+  // session refetch failed at midnight, yesterday's reps stayed inside
+  // "today" and a cleared quest carried over into the new day.
+  const [day, setDay] = useState<string>(() => todayKey());
   const loadedDayRef = useRef<string>("");
 
   useEffect(() => {
@@ -359,7 +364,9 @@ function TodayScreen() {
     let midnightTimer: ReturnType<typeof setTimeout>;
 
     const load = () => {
-      loadedDayRef.current = todayKey();
+      const key = todayKey();
+      loadedDayRef.current = key;
+      setDay(key);
       fetchDailyChallenge()
         .then((c) => !cancelled && setDaily(c))
         .catch(() => {});
@@ -418,7 +425,7 @@ function TodayScreen() {
     };
   }, []);
 
-  const today = useMemo(() => sessionsFromToday(sessions), [sessions]);
+  const today = useMemo(() => sessionsFromDay(sessions, day), [sessions, day]);
   const quests = useMemo(
     () => dailyQuests({ challenge, today }),
     [challenge, today]

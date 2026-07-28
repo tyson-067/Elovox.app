@@ -77,7 +77,8 @@ export function todayKey(d: Date = new Date()): string {
   return `${y}-${m}-${day}`;
 }
 
-function daysBetween(a: string, b: string): number {
+/** Whole days from day key `a` to day key `b`. Negative if `b` is earlier. */
+export function daysBetween(a: string, b: string): number {
   const [ay, am, ad] = a.split("-").map(Number);
   const [by, bm, bd] = b.split("-").map(Number);
   const ms = Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad);
@@ -342,12 +343,38 @@ export async function recordChallengeAttempt(opts: {
   const attemptNumber = prior.attempts.length + 1;
 
   // Streak advances once per day, on the first attempt only.
+  //
+  // The gap used to be tested as `=== 1 ? +1 : 1`, which quietly wiped the
+  // streak in two cases that are not a missed day:
+  //
+  //   gap === 0   we already recorded a challenge today, yet this is
+  //               attempt 1. That happens when the attempts document didn't
+  //               make it to Firestore but the stats write did, so the next
+  //               read comes back empty and the attempt numbering restarts.
+  //               Counting it as a fresh day also double-counted
+  //               challengesCompleted.
+  //   gap < 0     the local day moved backwards: a flight west, or a clock
+  //               correction. todayKey() is a local-timezone date by design,
+  //               so this is reachable without anything being wrong.
+  //
+  // Only a genuine gap of two days or more breaks a streak.
   let streakDays = raw.streakDays;
   let challengesCompleted = raw.challengesCompleted;
   if (attemptNumber === 1) {
     const gap = raw.lastChallengeDate ? daysBetween(raw.lastChallengeDate, date) : null;
-    streakDays = gap === 1 ? raw.streakDays + 1 : 1;
-    challengesCompleted += 1;
+    if (gap === null) {
+      streakDays = 1;
+      challengesCompleted += 1;
+    } else if (gap === 1) {
+      streakDays = raw.streakDays + 1;
+      challengesCompleted += 1;
+    } else if (gap <= 0) {
+      // Same day, or time went backwards. Hold everything where it is.
+      streakDays = Math.max(1, raw.streakDays);
+    } else {
+      streakDays = 1;
+      challengesCompleted += 1;
+    }
   }
 
   const { xp, reasons } = xpForChallengeAttempt({

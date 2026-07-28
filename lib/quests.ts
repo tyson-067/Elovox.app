@@ -1,8 +1,9 @@
 import type { FelixAccessory } from "@/components/FoxLogo";
 import type { Session } from "./types";
 import type { ChallengeState, UserStats } from "./daily";
-import { MAX_DAILY_ATTEMPTS } from "./daily";
+import { daysBetween, MAX_DAILY_ATTEMPTS, todayKey } from "./daily";
 import { LEVELS } from "./levels";
+import { GOOD_MIN } from "./scoring";
 
 // The dashboard's reward layer: today's quests, and the Fox Den's badges
 // and outfits.
@@ -38,15 +39,20 @@ export interface Quest {
   doneLabel: string;
 }
 
-/** Local-midnight boundary, matching todayKey() in lib/daily.ts. */
-function startOfToday(): number {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-}
-
-export function sessionsFromToday(sessions: Session[]): Session[] {
-  const from = startOfToday();
-  return sessions.filter((s) => s.createdAt >= from);
+/**
+ * Reps recorded on the given local day, defaulting to today.
+ *
+ * Takes the day key explicitly rather than reading the clock, so a caller
+ * that re-renders across midnight recomputes instead of holding a boundary
+ * captured hours ago. The dashboard passes the same key it loaded the
+ * challenge under, which keeps the quests and the attempt counter agreeing
+ * even if one of the two fetches fails.
+ */
+export function sessionsFromDay(
+  sessions: Session[],
+  dayKey: string = todayKey()
+): Session[] {
+  return sessions.filter((s) => todayKey(new Date(s.createdAt)) === dayKey);
 }
 
 /** The lowest filler count across today's reps, or null if there are none. */
@@ -135,12 +141,58 @@ export interface Badge {
   earned: boolean;
 }
 
+/**
+ * The longest run of consecutive days this user has ever practised,
+ * reconstructed from the daily-challenge reps in their history.
+ *
+ * The badges below need this rather than `stats.streakDays`, which is the
+ * run currently in progress and resets to 1 the moment someone misses a day.
+ * Reading the live counter meant Three-Day Fox and Week of Nerve un-earned
+ * themselves — you could hold a seven-day streak, collect both, skip a
+ * Tuesday, and watch them grey out. A badge that can be taken away is a
+ * status light, not an achievement, and the Den presents these as
+ * achievements ("3 / 6 badges").
+ *
+ * `currentStreak` is folded in as a floor because the session history is not
+ * a complete record on its own: saveSession is best-effort, and reps recorded
+ * before `challengeDate` existed carry no date at all.
+ *
+ * NOTE: this walks the whole history, so it is one of the two things (badges
+ * being the other) that stop the dashboard's session query being bounded to a
+ * recent window. Bounding it without addressing this would silently start
+ * un-earning badges again once someone's history outgrew the limit.
+ */
+export function longestStreak(sessions: Session[], currentStreak = 0): number {
+  const days = [
+    ...new Set(
+      sessions
+        .map((s) => s.challengeDate)
+        .filter(
+          (d): d is string =>
+            typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)
+        )
+    ),
+  ].sort();
+
+  let best = 0;
+  let run = 0;
+  let previous: string | null = null;
+  for (const day of days) {
+    run = previous !== null && daysBetween(previous, day) === 1 ? run + 1 : 1;
+    previous = day;
+    if (run > best) best = run;
+  }
+
+  return Math.max(best, currentStreak);
+}
+
 export function badgesFor(opts: {
   stats: UserStats | null;
   sessions: Session[];
 }): Badge[] {
   const stats = opts.stats;
   const sessions = opts.sessions;
+  const bestStreak = longestStreak(sessions, stats?.streakDays ?? 0);
   const best = sessions.reduce((m, s) => Math.max(m, s.analysis?.overall ?? 0), 0);
   const cleanest = sessions.length
     ? Math.min(...sessions.map((s) => s.analysis?.fillerWords ?? 99))
@@ -165,23 +217,26 @@ export function badgesFor(opts: {
     {
       id: "crowd-charmer",
       name: "Crowd Charmer",
-      hint: "Score 80 or above",
+      // Pinned to the good-tier floor, not a round number. This said 80,
+      // which lib/scoring.ts calls MIDDLING — so the report could tell you
+      // the delivery did not land while the Den handed you a badge for it.
+      hint: `Score ${GOOD_MIN} or above`,
       emoji: "✨",
-      earned: best >= 80,
+      earned: best >= GOOD_MIN,
     },
     {
       id: "three-day-fox",
       name: "Three-Day Fox",
       hint: "Practise three days running",
       emoji: "🔥",
-      earned: (stats?.streakDays ?? 0) >= 3,
+      earned: bestStreak >= 3,
     },
     {
       id: "week-of-nerve",
       name: "Week of Nerve",
       hint: "Hold a seven-day streak",
       emoji: "🗓️",
-      earned: (stats?.streakDays ?? 0) >= 7,
+      earned: bestStreak >= 7,
     },
     {
       id: "on-camera",
