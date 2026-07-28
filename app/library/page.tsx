@@ -8,6 +8,7 @@ import { Reveal } from "@/components/Reveal";
 import { WordReveal } from "@/components/WordReveal";
 import { GlowCard } from "@/components/GlowCard";
 import { PremiumBadge } from "@/components/PremiumBadge";
+import { Felix } from "@/components/FoxLogo";
 import { SPEECHES } from "@/lib/speeches";
 import { usePlan } from "@/lib/plan";
 import {
@@ -171,6 +172,7 @@ function LibraryScreen() {
     <div className="py-10 md:py-16">
       <Reveal>
         <div className="flex flex-wrap items-center gap-3">
+          <Felix mood="idle" className="h-14 w-14 shrink-0" />
           <h1 className="text-title font-headline font-semibold text-primary">
             <WordReveal text="The speech library" delay={80} step={60} />
           </h1>
@@ -178,8 +180,8 @@ function LibraryScreen() {
         </div>
         <p className="mt-3 text-lg leading-7 text-on-surface-variant max-w-[58ch]">
           {isPremium
-            ? "Eight prepared speeches, about thirty seconds each. Practice any of them as many times as you like, and when one stops teaching you anything, have Felix write you a replacement."
-            : "Eight prepared speeches, about thirty seconds each, with unlimited reps. Felix rewrites any of them once you've outgrown it. Part of Premium."}
+            ? "Nine prepared speeches, about thirty seconds each. Practice any of them as many times as you like, and when one stops teaching you anything, have Felix write you a replacement."
+            : "Nine prepared speeches, about thirty seconds each, with unlimited reps. Felix rewrites any of them once you've outgrown it. Part of Premium."}
         </p>
       </Reveal>
 

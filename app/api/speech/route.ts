@@ -142,7 +142,10 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const kind =
     body.kind === "custom" || body.kind === "interview" ? body.kind : "regenerate";
-  const durationSec = Math.min(180, Math.max(20, Number(body.durationSec) || 30));
+  // 300s ceiling, matching the longest option on /custom. A five-minute
+  // speech is ~700 words, comfortably inside the 8000-token default output
+  // budget in lib/gemini.ts, so nothing else has to move for it.
+  const durationSec = Math.min(300, Math.max(20, Number(body.durationSec) || 30));
 
   // Interview questions are a different shape entirely (a list, not a
   // speech), so this branch returns early rather than threading a union

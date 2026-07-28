@@ -20,11 +20,14 @@ import {
 // a script written for their situation, which they then practice like any
 // other speech.
 
+// Keep the top of this range in step with the clamp in /api/speech, which
+// rounds anything longer down rather than refusing it.
 const LENGTHS = [
   { label: "30 seconds", value: 30 },
   { label: "1 minute", value: 60 },
   { label: "2 minutes", value: 120 },
   { label: "3 minutes", value: 180 },
+  { label: "5 minutes", value: 300 },
 ];
 
 const TONES = [
@@ -55,6 +58,7 @@ function CustomScreen() {
   if (!isPremium) {
     return (
       <div className="py-16 max-w-[620px] mx-auto">
+        <Felix mood="coach" className="mb-4 h-24 w-24" />
         <h1 className="text-title font-headline font-semibold text-primary">
           Felix writes it for you
         </h1>
@@ -134,9 +138,12 @@ function CustomScreen() {
   return (
     <div className="py-10 md:py-16">
       <Reveal>
-        <h1 className="text-title font-headline font-semibold text-primary">
-          <WordReveal text="What do you need to say?" delay={80} step={60} />
-        </h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <Felix mood="coach" animate className="h-14 w-14 shrink-0" />
+          <h1 className="text-title font-headline font-semibold text-primary">
+            <WordReveal text="What do you need to say?" delay={80} step={60} />
+          </h1>
+        </div>
         <p className="mt-3 text-lg leading-7 text-on-surface-variant max-w-[54ch]">
           Tell Felix the real situation. The more specific you are, names,
           stakes, what you&apos;re afraid of getting wrong, the better the

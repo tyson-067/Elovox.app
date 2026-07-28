@@ -6,6 +6,11 @@
 // material, and Felix's custom-written speeches, is what Premium adds.
 // Premium users can also replace any speech here with a freshly generated
 // one on a similar or a different topic (/api/speech).
+//
+// Nine of them, and the count is load-bearing: the library renders in a
+// three-column grid, so eight left a hole in the bottom row on every desktop
+// visit. If you add or remove one, keep the total a multiple of three and
+// update the "nine" in the /library copy.
 
 export interface LibrarySpeech {
   id: string;
@@ -71,6 +76,13 @@ export const SPEECHES: LibrarySpeech[] = [
     scenario: "Ask a room to care, and to give.",
     topic: "Making a case for change",
     text: "Every night in this city, four hundred kids do homework in a library because home isn't quiet, or isn't safe, or isn't there. The library closes at eight. We want to keep the lights on until ten. That's it, that's the whole ask. Two more hours of somewhere to be. Staff, heat, light: twelve dollars keeps one kid's seat warm for a month. You've spent twelve dollars on worse. Keep the lights on with us.",
+  },
+  {
+    id: "the-ask",
+    title: "The Ask",
+    scenario: "Sitting across from your manager, asking for what you're worth.",
+    topic: "Advocating for yourself",
+    text: "Thanks for making the time. I want to talk about my compensation, and I'd rather be direct than dance around it. Over the last year I took on the migration nobody wanted, and it shipped early. I trained two people who are now running their own projects. The market rate for what I'm doing now is meaningfully above what I'm paid for it. I'm not asking you to fix that today. I'm asking what it would take, and when we can look at it properly.",
   },
 ];
 
