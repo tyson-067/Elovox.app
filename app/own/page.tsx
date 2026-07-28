@@ -6,6 +6,7 @@ import { Reveal } from "@/components/Reveal";
 import { WordReveal } from "@/components/WordReveal";
 import { GlowCard } from "@/components/GlowCard";
 import { PremiumBadge } from "@/components/PremiumBadge";
+import { Felix } from "@/components/FoxLogo";
 import { CATEGORIES } from "@/lib/categories";
 import { usePlan } from "@/lib/plan";
 
@@ -20,6 +21,7 @@ function OwnScreen() {
     <div className="py-10 md:py-16">
       <Reveal>
         <div className="flex flex-wrap items-center gap-3">
+          <Felix mood="coach" className="h-14 w-14 shrink-0" />
           <h1 className="text-title font-headline font-semibold text-primary">
             <WordReveal text="My own material" delay={80} step={60} />
           </h1>

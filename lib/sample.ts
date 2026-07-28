@@ -58,6 +58,8 @@ const OPENERS: Record<CategoryId, string> = {
     "Most teams are losing hours every week to this problem without realizing it, and that's exactly the gap we built this to close.",
   "prepared-speech":
     "I want to start with a moment that changed how I think about this, because it's the reason I'm standing here at all.",
+  "toast-tribute":
+    "I've known them long enough to have a lot of stories, and I promise I've picked the one that makes them look best.",
   "general-coaching":
     "Let me walk you through this from the beginning, because the context really matters for what I'm about to say.",
 };

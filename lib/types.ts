@@ -1,7 +1,12 @@
+// The coarse buckets analysis scores against. Not the same list as the
+// "My material" picker on /own: `job-interview` is internal, set by the
+// dedicated interview-practice mode, and is deliberately absent from the
+// picker (see lib/categories.ts).
 export type CategoryId =
   | "job-interview"
   | "sales-pitch"
   | "prepared-speech"
+  | "toast-tribute"
   | "general-coaching";
 
 export interface Category {

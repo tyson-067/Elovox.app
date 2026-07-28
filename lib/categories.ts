@@ -1,12 +1,23 @@
 import type { Category, CategoryId } from "./types";
 
+// Interview practice has its own feature, its own question banks, and its
+// own tab (/interviews). It is NOT one of the things you bring your own
+// material for: there is no such thing as a job interview you've already
+// written. It lived in this list anyway and sent people to a screen that
+// asked them to perform a prompt instead of a question, so it's out of the
+// picker and kept here only as the bucket the interview mode scores against.
+const JOB_INTERVIEW: Category = {
+  id: "job-interview",
+  name: "Job interview",
+  description:
+    "Practice answering real interview questions with a steady pace and a confident close.",
+};
+
+/**
+ * What "My own material" offers: four kinds of thing you can walk in with
+ * already written. Rendered in the order below, two columns on desktop.
+ */
 export const CATEGORIES: Category[] = [
-  {
-    id: "job-interview",
-    name: "Job interview",
-    description:
-      "Practice answering real interview questions with a steady pace and a confident close.",
-  },
   {
     id: "sales-pitch",
     name: "Sales pitch",
@@ -20,6 +31,12 @@ export const CATEGORIES: Category[] = [
       "Rehearse a talk you've written, pacing, pauses, and how your ending lands.",
   },
   {
+    id: "toast-tribute",
+    name: "Toast or tribute",
+    description:
+      "A wedding, a retirement, an award, a eulogy. Warmth and timing, where most speakers rush.",
+  },
+  {
     id: "general-coaching",
     name: "General coaching",
     description:
@@ -27,8 +44,17 @@ export const CATEGORIES: Category[] = [
   },
 ];
 
+/** Every bucket, including the internal interview one, for lookups. */
+const ALL_CATEGORIES: Category[] = [...CATEGORIES, JOB_INTERVIEW];
+
 export function getCategory(id: CategoryId | string): Category {
-  return CATEGORIES.find((c) => c.id === id) ?? CATEGORIES[3];
+  // Falls back to general coaching, which is the catch-all by design, found
+  // by id rather than by index so reordering CATEGORIES can't silently
+  // change what an unknown category resolves to.
+  return (
+    ALL_CATEGORIES.find((c) => c.id === id) ??
+    ALL_CATEGORIES.find((c) => c.id === "general-coaching")!
+  );
 }
 
 // Small static prompt bank per category (per PRD: no dynamic generation in v1)
@@ -57,7 +83,13 @@ export const PROMPTS: Record<CategoryId, string[]> = {
     "Deliver your talk as if the room just went quiet. Run as much of it as you want.",
     "Run whichever section you're least sure of, from wherever it starts.",
     "Take the part where you make your hardest argument, and make it.",
-    "Give a toast or short remarks for an occasion that matters to you.",
+    "Open with your first ninety seconds, the part that decides whether they stay with you.",
+  ],
+  "toast-tribute": [
+    "Raise your glass and give it, exactly as you'd give it on the night.",
+    "Tell the one story about them that makes your case, and let it breathe.",
+    "Say the part you're worried will land badly, and say it kindly.",
+    "Run just your closing line and the toast itself, until it stops sounding rehearsed.",
   ],
   "general-coaching": [
     "Explain something you know well to someone hearing it for the first time.",
