@@ -52,7 +52,7 @@ function fmtMoney(minorUnits: number, currency: string): string {
 
 // Billing history, straight from Stripe Invoicing. Every subscription charge
 // produces an invoice (including the $0 one that opens a trial), so this is a
-// read-only view — receipts and PDFs are Stripe-hosted links, not files we
+// read-only view, receipts and PDFs are Stripe-hosted links, not files we
 // generate. Only rendered once a Stripe customer exists.
 function BillingHistory() {
   const [rows, setRows] = useState<InvoiceRow[] | null>(null);
@@ -140,7 +140,7 @@ function BillingSection() {
     window.history.replaceState({}, "", "/account");
     // The confirming webhook can land a beat after the redirect, so poll until
     // Premium shows up rather than making the user reload. Ten seconds of
-    // polling turned out to be optimistic — delivery plus the Firestore write
+    // polling turned out to be optimistic, delivery plus the Firestore write
     // can take longer under load, and someone who gave up before it landed
     // used to be stuck (see CACHE_TTL_MS in lib/plan.ts). Keep trying for
     // ~40s, backing off, and stop the moment it flips.
@@ -185,15 +185,15 @@ function BillingSection() {
   const endsOn = fmtDate(r?.cancelAt ?? r?.trialEnd ?? r?.currentPeriodEnd);
 
   if (r?.status === "trialing" && ending) {
-    statusLine = `Premium trial — cancelled. Access continues until ${endsOn}, and you won't be charged.`;
+    statusLine = `Premium trial, cancelled. Access continues until ${endsOn}, and you won't be charged.`;
   } else if (r?.status === "trialing") {
-    statusLine = `Premium trial — free until ${fmtDate(r.trialEnd)}, then ${price}.`;
+    statusLine = `Premium trial, free until ${fmtDate(r.trialEnd)}, then ${price}.`;
   } else if (r?.status === "active" && ending) {
-    statusLine = `Premium — cancels ${endsOn}. Access continues until then.`;
+    statusLine = `Premium, cancels ${endsOn}. Access continues until then.`;
   } else if (r?.status === "active") {
-    statusLine = `Premium (${r.cycle}) — renews ${fmtDate(r.currentPeriodEnd)} at ${price}.`;
+    statusLine = `Premium (${r.cycle}), renews ${fmtDate(r.currentPeriodEnd)} at ${price}.`;
   } else if (r?.status === "past_due") {
-    statusLine = "Payment failed — update your card to keep Premium.";
+    statusLine = "Payment failed. Update your card to keep Premium.";
   } else if (r?.status === "canceled") {
     statusLine = "Your Premium subscription has ended.";
   }
@@ -215,11 +215,11 @@ function BillingSection() {
         <p className="mt-3 rounded-lg bg-accent/10 px-3.5 py-2.5 text-sm font-medium text-accent">
           {r?.status === "trialing"
             ? `Welcome to Premium! Your free trial has started${
-                r.trialEnd ? ` — free until ${fmtDate(r.trialEnd)}` : ""
+                r.trialEnd ? `, free until ${fmtDate(r.trialEnd)}` : ""
               }. Everything is unlocked.`
             : isPremium
               ? "Welcome to Premium! Everything is unlocked."
-              : "Thanks! We're confirming your subscription — this usually takes a few seconds."}
+              : "Thanks! We're confirming your subscription. This usually takes a few seconds."}
         </p>
       )}
 
@@ -296,7 +296,7 @@ function AccountScreen() {
     setVerifyBusy(true);
     try {
       await resendVerificationEmail();
-      setVerifyMsg("Verification email sent — check your inbox.");
+      setVerifyMsg("Verification email sent. Check your inbox.");
     } catch (err) {
       setVerifyMsg(accountErrorMessage(err) || "Couldn't send that. Try again.");
     } finally {
@@ -310,7 +310,7 @@ function AccountScreen() {
     try {
       const ok = await refreshVerifiedStatus();
       setVerified(ok);
-      setVerifyMsg(ok ? "" : "Not verified yet — click the link in your email first.");
+      setVerifyMsg(ok ? "" : "Not verified yet. Click the link in your email first.");
     } finally {
       setVerifyBusy(false);
     }
@@ -411,7 +411,7 @@ function AccountScreen() {
               disabled={verifyBusy}
               className="btn rounded-lg card px-6 py-3 font-semibold text-primary disabled:opacity-50"
             >
-              I&apos;ve verified — refresh
+              I&apos;ve verified. Refresh
             </button>
           </div>
         )}
@@ -559,8 +559,8 @@ function ExportDataSection() {
     <section className={cardClass}>
       <h2 className="font-headline text-lg font-semibold">Download your data</h2>
       <p className="mt-1 text-sm text-on-surface-variant">
-        A copy of everything Elovox holds for your account — your practice
-        history, scores, and settings — as a JSON file. Card details aren&apos;t
+        A copy of everything Elovox holds for your account (your practice
+        history, scores, and settings) as a JSON file. Card details aren&apos;t
         included; those live with Stripe and never reach us.
       </p>
       <button
@@ -583,7 +583,7 @@ function ExportDataSection() {
 // Permanent account erasure. Deliberately the most friction in the app: it
 // asks twice (a confirm step, then typing DELETE), states plainly what goes,
 // and re-authenticates before anything happens. Everything it promises is
-// what /api/account/delete actually does — the privacy policy points here.
+// what /api/account/delete actually does, the privacy policy points here.
 function DeleteAccountSection({ hasPassword }: { hasPassword: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);

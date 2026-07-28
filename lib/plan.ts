@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { isFirebaseConfigured, getDb, getUser } from "./firebase";
 
-// Entitlements. One flag — free or premium — read from Firestore at
+// Entitlements. One flag, free or premium, read from Firestore at
 // users/{uid}/profile/plan, cached in localStorage so gated UI doesn't
 // flash on every navigation.
 //
@@ -64,7 +64,7 @@ function readCache(uid: string): Plan | null {
     if (Date.now() - parsed.at > CACHE_TTL_MS) return null;
     return parsed.plan;
   } catch {
-    // Storage blocked, or a legacy bare-string entry — fall through to
+    // Storage blocked, or a legacy bare-string entry, fall through to
     // Firestore, which is the safe direction.
     return null;
   }
@@ -111,7 +111,7 @@ export async function getPlan(): Promise<Plan> {
     writeCache(uid, plan);
     return plan;
   } catch {
-    // Firestore unreachable — assume free rather than handing out Premium
+    // Firestore unreachable, assume free rather than handing out Premium
     return "free";
   }
 }

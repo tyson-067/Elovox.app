@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AdminStatsScreen } from "@/components/AdminStatsScreen";
 
 export const metadata: Metadata = {
-  title: "Stats — Elovox",
+  title: "Stats | Elovox",
   robots: { index: false, follow: false },
 };
 

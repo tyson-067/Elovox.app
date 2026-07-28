@@ -53,7 +53,7 @@ function OnboardingScreen() {
     } catch (err) {
       // Two ways to land here: Firestore is unreachable, or the answers doc
       // already exists and the rules refused the rewrite (onboarding is
-      // create-once). Neither should strand anyone on this screen — nothing
+      // create-once). Neither should strand anyone on this screen, nothing
       // reads the answers yet, so losing them costs nothing, while a gate
       // that never opens bounces the user between here and /dashboard.
       console.error("[onboarding] could not save answers", err);
@@ -127,7 +127,7 @@ function OnboardingScreen() {
         </div>
       </div>
 
-      {/* Question — keyed so each step re-runs the entrance animation
+      {/* Question, keyed so each step re-runs the entrance animation
           (CSS animation, so it replays on every remount) */}
       <div key={q.id} className="mt-8 stagger-in">
         <h2 className="font-headline text-[26px] leading-8 font-semibold text-primary">

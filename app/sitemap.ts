@@ -1,15 +1,15 @@
 import type { MetadataRoute } from "next";
 
 // Only the public marketing and legal pages. Anything behind auth is left out
-// on purpose — it mirrors the disallow list in robots.ts.
+// on purpose, it mirrors the disallow list in robots.ts.
 
 const BASE = process.env.NEXT_PUBLIC_APP_URL || "https://elovox.app";
 
 // Hand-maintained, and deliberately not `new Date()`.
 //
 // Build time is not modification time. Evaluating the date at build made every
-// page claim it changed on every deploy — including deploys that only touched
-// an API route — so a crawler that recrawled on the signal found the same
+// page claim it changed on every deploy, including deploys that only touched
+// an API route, so a crawler that recrawled on the signal found the same
 // bytes it already had. Do that consistently and the signal stops being read,
 // which costs us the one case it exists for: telling Google that the legal
 // pages or the pricing really did change.

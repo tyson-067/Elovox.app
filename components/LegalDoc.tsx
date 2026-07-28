@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { LEGAL } from "@/lib/legal";
 
 // Shared shell for /terms and /privacy. Long-form reading, so the column is
-// narrow and the type is a touch larger than the app's UI text — a legal
+// narrow and the type is a touch larger than the app's UI text, a legal
 // page nobody can stand to read is a legal page nobody reads.
 
 export function LegalDoc({

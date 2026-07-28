@@ -14,7 +14,7 @@ import {
 // people here and won't let them into the app until Firebase reports the
 // address as verified.
 //
-// Google accounts never see this page — Google has already verified the
+// Google accounts never see this page, Google has already verified the
 // address, so `emailVerified` is true from the first sign-in.
 //
 // Firebase caches `emailVerified` on the ID token, so clicking the link in the
@@ -33,7 +33,7 @@ export function VerifyEmailScreen() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  // Nobody signed in (or Firebase isn't configured) — nothing to verify.
+  // Nobody signed in (or Firebase isn't configured), nothing to verify.
   useEffect(() => {
     if (loading) return;
     if (configured && !user) router.replace("/login");
@@ -60,7 +60,7 @@ export function VerifyEmailScreen() {
     setBusy(true);
     try {
       await resendVerificationEmail();
-      setMessage("Sent. Check your inbox — and your spam folder.");
+      setMessage("Sent. Check your inbox, and your spam folder.");
     } catch (err) {
       setError(accountErrorMessage(err) || "Couldn't send that. Try again.");
     } finally {
@@ -98,7 +98,7 @@ export function VerifyEmailScreen() {
         </h1>
         <p className="mt-2 text-on-surface-variant">
           We sent a link to <span className="font-semibold">{user.email}</span>.
-          Click it to activate your account — it only takes a second.
+          Click it to activate your account. It only takes a second.
         </p>
         <p className="mt-3 text-sm text-on-surface-variant">
           Not there? Check your spam folder. The message comes from Firebase on
@@ -112,7 +112,7 @@ export function VerifyEmailScreen() {
             disabled={checking}
             className="btn rounded-lg bg-accent px-5 py-2.5 font-semibold text-white disabled:opacity-60"
           >
-            {checking ? "Checking…" : "I've verified — continue"}
+            {checking ? "Checking…" : "I've verified, continue"}
           </button>
           <button
             type="button"

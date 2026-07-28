@@ -6,7 +6,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { usePlan } from "@/lib/plan";
 
 // Second row of the header: one tab per feature, so the app isn't a single
-// scrolling page any more. A persistent row rather than a dropdown — these
+// scrolling page any more. A persistent row rather than a dropdown, these
 // are the six things you can do, and hiding them behind a menu is how
 // people miss half of them.
 //

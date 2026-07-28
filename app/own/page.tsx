@@ -10,7 +10,7 @@ import { CATEGORIES } from "@/lib/categories";
 import { usePlan } from "@/lib/plan";
 
 // Coaching on the user's own material (Premium). Nothing is written for
-// them here — they bring the pitch or the talk they already have, and
+// them here, they bring the pitch or the talk they already have, and
 // Felix coaches the delivery rather than the draft.
 
 function OwnScreen() {
@@ -28,7 +28,7 @@ function OwnScreen() {
         <p className="mt-3 text-lg leading-7 text-on-surface-variant max-w-[58ch]">
           Bring the pitch, the presentation, or the talk you&apos;ve already
           written. Pick the kind of thing it is, and Felix coaches how you
-          deliver it — not how you wrote it.
+          deliver it, not how you wrote it.
         </p>
       </Reveal>
 

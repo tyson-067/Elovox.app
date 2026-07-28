@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { isFirebaseConfigured, getUser } from "@/lib/firebase";
 
 // Operator dashboard. Everything here comes from Elovox's own Firestore and
-// Firebase Auth records — the questions traffic analytics can't answer (who
+// Firebase Auth records, the questions traffic analytics can't answer (who
 // signed up, who converted, who actually practises).
 //
 // The real access control is server-side in /api/admin/stats, which 404s for
@@ -191,7 +191,7 @@ export function AdminStatsScreen() {
         />
         <Stat
           label="Avg score"
-          value={v.avgScore ?? "—"}
+          value={v.avgScore ?? "n/a"}
           hint={`${v.withVideoLast30} with camera`}
         />
       </Section>

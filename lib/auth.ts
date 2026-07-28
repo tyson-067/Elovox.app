@@ -11,7 +11,7 @@ import {
 // is imported dynamically so the landing page doesn't pay for it upfront.
 //
 // SECURITY NOTE: with Firebase Auth the credentials go from the browser
-// straight to Google's servers — they never touch our own server, so there
+// straight to Google's servers, they never touch our own server, so there
 // is no server route on which to validate or hash them. Firebase owns the
 // password hashing (scrypt), the storage, and the adaptive login throttling.
 // What we CAN own, and do here, is: validate + sanitize every field before
@@ -103,7 +103,7 @@ export async function signOutUser(): Promise<void> {
 
 /**
  * Send a password-reset email. Deliberately resolves the SAME way whether or
- * not the address has an account — the caller shows one neutral message — so
+ * not the address has an account, the caller shows one neutral message, so
  * this can't be used to probe which emails are registered. (Enable "Email
  * enumeration protection" in the Firebase console to close the same leak at
  * the source, since the SDK still returns auth/user-not-found to the client.)
@@ -113,7 +113,7 @@ export async function sendPasswordReset(email: string): Promise<void> {
   const check = validateEmail(email);
   if (!check.ok) {
     reportValidationFailure("login", [check.reason ?? "email_format"]);
-    return; // stay silent — the neutral message is shown regardless
+    return; // stay silent, the neutral message is shown regardless
   }
   try {
     const { sendPasswordResetEmail } = await import("firebase/auth");
@@ -130,7 +130,7 @@ export const PASSWORD_RESET_NOTICE =
 // --- Account management (signed-in user) --------------------------------
 // Changing an email or password is a "sensitive" operation: Firebase requires
 // a recent sign-in, so we re-authenticate first. Email changes go through
-// verifyBeforeUpdateEmail — the link is sent to the NEW address and the email
+// verifyBeforeUpdateEmail, the link is sent to the NEW address and the email
 // only changes once the user clicks it, so a typo can't lock anyone out and
 // nobody can move their login to an address they don't control.
 
@@ -147,7 +147,7 @@ async function reauthenticate(user: User, currentPassword?: string): Promise<voi
     const cred = auth.EmailAuthProvider.credential(user.email, currentPassword);
     await auth.reauthenticateWithCredential(user, cred);
   } else {
-    // Google (or other federated) account — confirm via a fresh popup.
+    // Google (or other federated) account, confirm via a fresh popup.
     await auth.reauthenticateWithPopup(user, new auth.GoogleAuthProvider());
   }
 }
@@ -190,9 +190,9 @@ export async function changeEmail(
   await verifyBeforeUpdateEmail(user, check.value);
 }
 
-/** Notice shown after an email-change request — the switch is not immediate. */
+/** Notice shown after an email-change request, the switch is not immediate. */
 export const EMAIL_CHANGE_NOTICE =
-  "Check your new inbox — the change takes effect once you click the link we sent.";
+  "Check your new inbox, the change takes effect once you click the link we sent.";
 
 /**
  * Change the password on an email/password account. Re-authenticates with the
@@ -219,7 +219,7 @@ export async function changePassword(
  * Permanently delete the signed-in user: their practice history, their
  * profile, their subscription, and the login itself.
  *
- * Re-authenticates first — this is the most destructive action in the app,
+ * Re-authenticates first, this is the most destructive action in the app,
  * so an idle session someone walked away from can't trigger it. The actual
  * erasure runs server-side (/api/account/delete) because only the Admin SDK
  * can remove the plan doc and the whole subtree; the fresh ID token minted
@@ -247,7 +247,7 @@ export async function deleteAccount(currentPassword?: string): Promise<void> {
 /**
  * Error copy for the signed-in account settings screen. Unlike the sign-in
  * screen, this speaks to the account owner, so a wrong CURRENT password can be
- * named plainly — there's no enumeration risk in your own settings.
+ * named plainly, there's no enumeration risk in your own settings.
  */
 export function accountErrorMessage(err: unknown): string {
   if (err instanceof ValidationError) return err.message;
@@ -265,7 +265,7 @@ export function accountErrorMessage(err: unknown): string {
     case "auth/weak-password":
       return "Password needs to be at least 8 characters.";
     case "auth/too-many-requests":
-      return "Too many attempts — wait a moment and try again.";
+      return "Too many attempts. Wait a moment and try again.";
     case "auth/popup-closed-by-user":
     case "auth/cancelled-popup-request":
       return ""; // user backed out of the Google confirmation
@@ -283,7 +283,7 @@ export function authErrorMessage(
   err: unknown,
   mode: "login" | "signup" = "login"
 ): string {
-  // Our own local validation failure — already generic.
+  // Our own local validation failure, already generic.
   if (err instanceof ValidationError) return err.message;
 
   const code = (err as { code?: string })?.code ?? "";

@@ -72,7 +72,7 @@ function TrendChart({ sessions }: { sessions: Session[] }) {
   );
 }
 
-/** Level, XP, streak — the headline of the whole tab now. */
+/** Level, XP, streak, the headline of the whole tab now. */
 function LevelPanel({ stats }: { stats: UserStats }) {
   const { level } = stats;
   const nextTitle = LEVELS[level.level]?.title;
@@ -111,7 +111,7 @@ function LevelPanel({ stats }: { stats: UserStats }) {
       <p className="mt-2 text-[13px] text-white/75">
         {level.isMax
           ? "Top level. The work now is keeping it."
-          : `${level.xpForNextLevel} XP to Level ${level.level + 1} — ${nextTitle}`}
+          : `${level.xpForNextLevel} XP to Level ${level.level + 1}, ${nextTitle}`}
       </p>
     </GlowCard>
   );
@@ -282,7 +282,7 @@ function ProgressScreen() {
         </h1>
         <p className="mt-3 text-lg leading-7 text-on-surface-variant">
           Your first recording becomes your baseline. Everything after that is
-          progress you can see — and today&apos;s challenge is waiting.
+          progress you can see, and today&apos;s challenge is waiting.
         </p>
         <Link
           href="/practice?daily=1"
@@ -300,7 +300,7 @@ function ProgressScreen() {
         <WordReveal text="Your progress" delay={80} />
       </h1>
 
-      {/* 1. Level and streak — the running story */}
+      {/* 1. Level and streak, the running story */}
       {stats && (
         <section className="mt-8">
           <Reveal>

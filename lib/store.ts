@@ -4,8 +4,8 @@ import { isFirebaseConfigured, getDb, getUser } from "./firebase";
 
 // Session persistence. When Firebase is configured and someone is signed
 // in, sessions live in Firestore under users/{uid}/sessions/{id} (private
-// history enforced by security rules). Without Firebase config — or before
-// sign-in — the app still works, persisting to localStorage.
+// history enforced by security rules). Without Firebase config, or before
+// sign-in, the app still works, persisting to localStorage.
 
 const KEY = "elovox.sessions.v1";
 

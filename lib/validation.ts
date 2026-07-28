@@ -1,7 +1,7 @@
 // Shared, framework-agnostic validation + sanitization for anything a user
 // types that reaches auth or a server route. Runs in the browser (before the
 // Firebase client SDK is called) AND on the server (API routes), so the same
-// rules apply no matter what the HTML form did — never trust client-side
+// rules apply no matter what the HTML form did, never trust client-side
 // checks alone.
 //
 // Design rules baked in here:
@@ -14,7 +14,7 @@ export interface FieldResult {
   ok: boolean;
   /** Sanitized value, safe to forward. Only meaningful when ok is true. */
   value: string;
-  /** Machine reason for logs/monitoring only — never shown to the user. */
+  /** Machine reason for logs/monitoring only, never shown to the user. */
   reason?: string;
 }
 
@@ -27,7 +27,7 @@ const PASSWORD_MAX = 128; // cap to stop a megabyte-password DoS
 const NAME_MIN = 1;
 const NAME_MAX = 60;
 
-// Reasonably strict single-address email shape. Not a full RFC parser — it
+// Reasonably strict single-address email shape. Not a full RFC parser, it
 // rejects the obvious junk (spaces, missing @, missing TLD) and defers the
 // real check to Firebase / an actual verification email.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -103,7 +103,7 @@ export interface AuthValidation {
   ok: boolean;
   /** Sanitized, safe-to-use values (only meaningful when ok). */
   clean: { email: string; password: string; name: string };
-  /** Every failing field's machine reason — for server-side logs only. */
+  /** Every failing field's machine reason, for server-side logs only. */
   reasons: string[];
 }
 

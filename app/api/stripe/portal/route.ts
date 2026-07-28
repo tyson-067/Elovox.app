@@ -3,7 +3,7 @@ import { getStripe, appBaseUrl } from "@/lib/stripe";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { verifyUser, makeRateLimiter } from "@/lib/verify";
 
-// Opens the Stripe Customer Portal for the signed-in user — the one place
+// Opens the Stripe Customer Portal for the signed-in user, the one place
 // they cancel, switch plans (with proration), update their card, and pull
 // invoices. Plan-switch proration behavior is configured in the Portal
 // settings in the Stripe dashboard, not here (see lib/pricing.ts).
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   const db = getAdminDb();
   if (!stripe || !db) {
     console.error(
-      `[stripe] billing unconfigured — STRIPE_SECRET_KEY:${stripe ? "ok" : "MISSING"} FIREBASE_SERVICE_ACCOUNT:${db ? "ok" : "MISSING"}`
+      `[stripe] billing unconfigured, STRIPE_SECRET_KEY:${stripe ? "ok" : "MISSING"} FIREBASE_SERVICE_ACCOUNT:${db ? "ok" : "MISSING"}`
     );
     return NextResponse.json({ error: "Billing is not configured." }, { status: 503 });
   }
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No subscription to manage." }, { status: 404 });
   }
 
-  // The Portal throws if it has no configuration in this mode — a live-mode
+  // The Portal throws if it has no configuration in this mode, a live-mode
   // setup that was only ever done in test is the usual cause. Surface Stripe's
   // message instead of letting it collapse into a bare 500.
   try {

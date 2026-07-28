@@ -1,7 +1,7 @@
 import type { InterviewType, InterviewTypeId } from "./types";
 
 // Interview practice (Premium). Real questions, asked the way real panels
-// ask them — not "tell me your strengths" but the follow-up that actually
+// ask them, not "tell me your strengths" but the follow-up that actually
 // decides it. Each type has its own register: a hiring manager and a
 // college admissions officer are listening for completely different things,
 // and Felix scores accordingly.
@@ -31,7 +31,7 @@ export const INTERVIEW_TYPES: InterviewType[] = [
     description:
       "Alumni and admissions interviews. Who you are outside the transcript, and whether you can talk about it.",
     questions: [
-      "Tell me about yourself — not your resume, you.",
+      "Tell me about yourself, not your resume, you.",
       "Why this school, specifically? And don't say the campus is beautiful.",
       "What's something you've changed your mind about in the last two years?",
       "Describe a time you failed at something that mattered to you.",
@@ -79,7 +79,7 @@ export const INTERVIEW_TYPES: InterviewType[] = [
     id: "internship",
     name: "Internship / first job",
     description:
-      "Early-career interviews where you have less experience to point at — and have to show potential instead.",
+      "Early-career interviews where you have less experience to point at, and have to show potential instead.",
     questions: [
       "Tell me about yourself and why you applied here.",
       "You don't have much experience yet. Why should we take a chance on you?",
@@ -97,7 +97,7 @@ export const INTERVIEW_TYPES: InterviewType[] = [
     description:
       "Ethics-heavy panels and MMI-style stations. Judgement under pressure, said out loud.",
     questions: [
-      "Why medicine — or law — and when did you actually decide?",
+      "Why medicine, or law, and when did you actually decide?",
       "A patient refuses treatment you believe they need. Talk me through your thinking.",
       "Describe a time you saw something unethical. What did you do?",
       "How do you handle a mistake that harmed someone?",

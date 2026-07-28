@@ -36,7 +36,7 @@ async function lookupUser(
  * Whether the caller is an operator, per the ADMIN_EMAILS allow-list. Matches
  * on the verified email from the ID token rather than a uid so the list stays
  * readable, and requires emailVerified so a hostile signup can't claim an
- * operator's address. Empty/unset list means nobody is an admin — the admin
+ * operator's address. Empty/unset list means nobody is an admin, the admin
  * surfaces simply 404 rather than falling open.
  */
 export async function isAdmin(req: NextRequest): Promise<boolean> {
@@ -83,7 +83,7 @@ export async function verifyVerifiedUser(
  */
 export async function isPremiumServer(req: NextRequest, uid: string): Promise<boolean> {
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  if (!projectId) return true; // Firebase not configured — local dev, don't block
+  if (!projectId) return true; // Firebase not configured, local dev, don't block
   const token = req.headers.get("authorization")?.replace(/^Bearer /, "");
   if (!token) return false;
 
@@ -101,7 +101,7 @@ export async function isPremiumServer(req: NextRequest, uid: string): Promise<bo
 }
 
 /**
- * Best-effort per-instance rate limiting. Not a security boundary — it's a
+ * Best-effort per-instance rate limiting. Not a security boundary, it's a
  * budget guard that stops one signed-in user (or one IP) from looping a route.
  * The key is caller-supplied: pass a uid for per-user limits, or an IP for
  * per-IP limits on unauthenticated routes.

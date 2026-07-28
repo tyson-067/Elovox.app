@@ -10,7 +10,7 @@ import { makeRateLimiter, clientIp } from "@/lib/verify";
 
 export const runtime = "nodejs";
 
-// 10 requests per IP per minute — the same ceiling we'd want on a login route.
+// 10 requests per IP per minute, the same ceiling we'd want on a login route.
 const rateLimited = makeRateLimiter(10, 60 * 1000);
 
 // Only known, non-sensitive reason codes are accepted; anything else is
@@ -46,6 +46,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Always 204 — never tell the caller anything actionable.
+  // Always 204, never tell the caller anything actionable.
   return new NextResponse(null, { status: 204 });
 }

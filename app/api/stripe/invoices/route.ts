@@ -6,7 +6,7 @@ import { verifyUser, makeRateLimiter } from "@/lib/verify";
 
 // Billing history for the signed-in user. Stripe generates an invoice for
 // every subscription charge (including the $0 one that opens a trial), so
-// this is just a read of what Billing already produced — we never create or
+// this is just a read of what Billing already produced, we never create or
 // finalize invoices ourselves.
 //
 // The customer id comes from the user's own plan doc, which only the webhook
@@ -16,7 +16,7 @@ import { verifyUser, makeRateLimiter } from "@/lib/verify";
 
 export const runtime = "nodejs";
 
-// Read-only, but each call hits Stripe's API — cap it so a loop on the
+// Read-only, but each call hits Stripe's API, cap it so a loop on the
 // account screen can't burn through rate limits shared with checkout.
 const rateLimited = makeRateLimiter(60);
 
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   const db = getAdminDb();
   if (!stripe || !db) {
     console.error(
-      `[stripe] billing unconfigured — STRIPE_SECRET_KEY:${stripe ? "ok" : "MISSING"} FIREBASE_SERVICE_ACCOUNT:${db ? "ok" : "MISSING"}`
+      `[stripe] billing unconfigured, STRIPE_SECRET_KEY:${stripe ? "ok" : "MISSING"} FIREBASE_SERVICE_ACCOUNT:${db ? "ok" : "MISSING"}`
     );
     return NextResponse.json({ error: "Billing is not configured." }, { status: 503 });
   }
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
   const customerId = snap.exists
     ? (snap.data()?.stripeCustomerId as string | undefined)
     : undefined;
-  // Never subscribed — an empty history, not an error.
+  // Never subscribed, an empty history, not an error.
   if (!customerId) return NextResponse.json({ invoices: [] });
 
   // Every other Stripe route wraps its API calls; this one didn't, so a

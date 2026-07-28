@@ -9,7 +9,7 @@ import { LEGAL } from "./legal";
 //
 // Deliberately NOT stored: we ask for a date of birth, use it once to
 // compute an age, and throw it away. Keeping birth dates would mean holding
-// more personal data about minors than we need — the opposite of what the
+// more personal data about minors than we need, the opposite of what the
 // privacy policy promises. The only trace kept is the boolean below.
 //
 // This is a neutral age screen, not a security control. Anyone can type a
@@ -34,7 +34,7 @@ export function ageFromDob(dob: string, today = new Date()): number | null {
   const born = new Date(`${dob}T00:00:00`);
   if (Number.isNaN(born.getTime())) return null;
   if (born > today) return null;
-  // Sanity ceiling — a typo'd century shouldn't read as a valid age.
+  // Sanity ceiling, a typo'd century shouldn't read as a valid age.
   if (today.getFullYear() - born.getFullYear() > 120) return null;
 
   let age = today.getFullYear() - born.getFullYear();
@@ -50,14 +50,14 @@ const BLOCK_KEY = "elovox.age.blocked.v1";
 /**
  * Remember that this browser failed the age check, so the form stays closed
  * instead of inviting an immediate retry with a different date. A soft
- * deterrent — clearing site data resets it — but re-prompting a child who
+ * deterrent, clearing site data resets it, but re-prompting a child who
  * just told us their age would defeat the point of asking.
  */
 export function rememberAgeBlock(): void {
   try {
     window.localStorage.setItem(BLOCK_KEY, "1");
   } catch {
-    /* private mode / storage disabled — the gate still ran this session */
+    /* private mode / storage disabled, the gate still ran this session */
   }
   listeners.forEach((fn) => fn());
 }
@@ -91,8 +91,8 @@ export function useAgeBlocked(): boolean {
   return useSyncExternalStore(subscribe, isAgeBlocked, () => false);
 }
 
-/** Shown to anyone under the minimum age. Final — there's no retry path. */
-export const AGE_BLOCK_MESSAGE = `Sorry — you need to be at least ${MINIMUM_AGE} to use Elovox.`;
+/** Shown to anyone under the minimum age. Final, there's no retry path. */
+export const AGE_BLOCK_MESSAGE = `Sorry, you need to be at least ${MINIMUM_AGE} to use Elovox.`;
 
 /** Shown to 13–17 year olds, who may sign up with permission. */
 export const MINOR_NOTICE =

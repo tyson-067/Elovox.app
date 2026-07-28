@@ -1,5 +1,5 @@
 // Server-side Gemini client shared by the analysis, daily-challenge, and
-// speech-writing routes. Structured output only — every caller passes a
+// speech-writing routes. Structured output only, every caller passes a
 // responseSchema and gets parsed JSON back.
 //
 // gemini-3.5-flash returns "high demand" 503s (and occasionally hangs) at
@@ -8,7 +8,7 @@
 // The last two rungs matter: the flagship 3.x models share a capacity pool
 // and 503 together, and when they do, a lighter model still writes a real
 // speech instead of dropping users to the canned fallback bank. (Don't add
-// gemini-2.5-flash here — it 404s, "no longer available to new users".)
+// gemini-2.5-flash here, it 404s, "no longer available to new users".)
 
 const GEMINI_MODELS = [
   "gemini-3.5-flash",
@@ -22,7 +22,7 @@ const ATTEMPT_TIMEOUT_MS = 45_000;
 // Free-tier quotas are per-model, and the newest flagship has by far the
 // smallest daily allowance (gemini-3.5-flash: 20/day, observed). Without
 // this, every request after the 20th would still try that model first and
-// burn a guaranteed 429 — plus usually a 503 on the next rung — before
+// burn a guaranteed 429, plus usually a 503 on the next rung, before
 // reaching a model that works. Remembering the exhaustion turns those
 // wasted round-trips into an immediate skip.
 //
@@ -89,7 +89,7 @@ function available(now: number): string[] {
     return false;
   });
   // If everything is marked exhausted, try the full list anyway rather than
-  // failing outright — the block is a guess, and a real attempt is better
+  // failing outright, the block is a guess, and a real attempt is better
   // than serving the canned fallback on the strength of it.
   return open.length ? open : GEMINI_MODELS;
 }
@@ -112,7 +112,7 @@ export function geminiKey(): string | undefined {
   return process.env.GEMINI_API_KEY;
 }
 
-/** Exported for tests only — not part of this module's public surface. */
+/** Exported for tests only, not part of this module's public surface. */
 export const __internal = {
   msUntilPacificMidnight,
   noteQuotaError,

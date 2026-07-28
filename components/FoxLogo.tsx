@@ -1,6 +1,6 @@
 // Felix, the Elovox AI coach: a front-facing fox in round professor's
 // glasses and a bow tie. (The app logo itself is the real brand asset at
-// /logo.png — Felix is the coach character version of that fox, drawn to
+// /logo.png, Felix is the coach character version of that fox, drawn to
 // match its palette. Logo: no glasses. Felix: glasses.)
 
 const ORANGE = "#e8792f";

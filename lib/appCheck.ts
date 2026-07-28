@@ -1,13 +1,13 @@
 import type { FirebaseApp } from "firebase/app";
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
-// Firebase App Check — attests that a request to Firestore or Auth came from
+// Firebase App Check, attests that a request to Firestore or Auth came from
 // THIS app, not from a script someone wrote against our public config.
 //
 // Why it matters here: NEXT_PUBLIC_FIREBASE_* is, by design, visible to
 // anyone who opens devtools. firestore.rules stop a stranger from reading
 // another user's data, but they don't stop a signed-in user from talking to
-// Firestore directly with their own token — bypassing every rate limit in
+// Firestore directly with their own token, bypassing every rate limit in
 // lib/verify.ts, since those only run on our API routes. App Check closes
 // that gap: with enforcement on, Firestore rejects any request without a
 // valid attestation token, and only a real browser running our origin can
@@ -18,7 +18,7 @@ import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 // Imported statically rather than with the dynamic import() this codebase
 // uses elsewhere (see lib/auth.ts). App Check has to be initialized BEFORE
-// the first Firestore/Auth call or that call goes out with no token — which,
+// the first Firestore/Auth call or that call goes out with no token, which,
 // once enforcement is on, means an intermittent failure on page load that is
 // miserable to reproduce. Paying ~10KB up front buys that ordering guarantee.
 
@@ -36,7 +36,7 @@ let started = false;
  *
  * Deliberately a no-op when NEXT_PUBLIC_RECAPTCHA_SITE_KEY is unset, so the
  * app keeps working locally and in any environment where App Check hasn't
- * been set up — same posture as isFirebaseConfigured() in lib/firebase.ts.
+ * been set up, same posture as isFirebaseConfigured() in lib/firebase.ts.
  * That also means turning this on is a two-step rollout: ship the key, watch
  * the App Check dashboard's "unverified requests" count fall to ~zero, and
  * only THEN flip enforcement on in the Firebase console. Enforcing first
@@ -51,7 +51,7 @@ export function startAppCheck(app: FirebaseApp): void {
   // Local development can't pass reCAPTCHA against a production site key, so
   // Firebase supports a debug token instead: set NEXT_PUBLIC_APPCHECK_DEBUG to
   // "true" and the SDK prints a token to the console, which you register under
-  // App Check → Manage debug tokens. Never set this in production — a
+  // App Check → Manage debug tokens. Never set this in production, a
   // registered debug token bypasses attestation entirely.
   const debug = process.env.NEXT_PUBLIC_APPCHECK_DEBUG;
   if (debug) {

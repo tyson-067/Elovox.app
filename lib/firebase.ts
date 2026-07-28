@@ -28,7 +28,7 @@ function ensureApp(): FirebaseApp {
   if (!app) {
     app = getApps()[0] ?? initializeApp(config);
     // Before getAuth/getFirestore, so the first request out already carries
-    // an attestation token. See lib/appCheck.ts — no-op unless configured.
+    // an attestation token. See lib/appCheck.ts, no-op unless configured.
     startAppCheck(app);
     auth = getAuth(app);
     db = getFirestore(app);

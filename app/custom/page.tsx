@@ -16,7 +16,7 @@ import {
 } from "@/lib/generated";
 
 // Premium: Felix writes a speech to order. The user describes the real
-// thing they have to say — a toast, a pitch, a resignation — and gets back
+// thing they have to say, a toast, a pitch, a resignation, and gets back
 // a script written for their situation, which they then practice like any
 // other speech.
 
@@ -60,7 +60,7 @@ function CustomScreen() {
         </h1>
         <p className="mt-3 text-lg leading-7 text-on-surface-variant">
           Custom speeches are part of Premium. Tell Felix the situation and
-          he&apos;ll write the script — then coach you through delivering it.
+          he&apos;ll write the script, then coach you through delivering it.
         </p>
         <Link
           href="/dashboard"
@@ -138,8 +138,8 @@ function CustomScreen() {
           <WordReveal text="What do you need to say?" delay={80} step={60} />
         </h1>
         <p className="mt-3 text-lg leading-7 text-on-surface-variant max-w-[54ch]">
-          Tell Felix the real situation. The more specific you are — names,
-          stakes, what you&apos;re afraid of getting wrong — the better the
+          Tell Felix the real situation. The more specific you are, names,
+          stakes, what you&apos;re afraid of getting wrong, the better the
           speech comes back.
         </p>
       </Reveal>

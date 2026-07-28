@@ -12,7 +12,7 @@ import "./globals.css";
 
 // Brand type direction: geometric/deco sans (Amenti, Konnect, Fonseca).
 // Those are paid faces without web-embed licenses, so we ship their
-// closest Google equivalents — Montserrat (deco-inspired, for headlines)
+// closest Google equivalents, Montserrat (deco-inspired, for headlines)
 // and Jost (geometric, for body/UI). If the real fonts are licensed
 // later, swap them in via next/font/local and update globals.css.
 // Geist Mono stays for numbers, scores, and timestamps.
@@ -35,7 +35,7 @@ const geistMono = Geist_Mono({
 });
 
 // Elegant high-contrast serif, italic only, for the display slogan
-// ("impact.") — the calligraphic Didone counterpoint to the geometric sans.
+// ("impact."), the calligraphic Didone counterpoint to the geometric sans.
 const playfair = Playfair_Display({
   subsets: ["latin"],
   variable: "--font-playfair",
@@ -45,7 +45,10 @@ const playfair = Playfair_Display({
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://elovox.app";
 
-const TITLE = "Elovox — Speak with Impact";
+// Colon, not a comma: this is a brand plus a tagline, and it is the string
+// search results and the browser tab show. (It was an em dash before the
+// copy sweep; a comma made it read as a list.)
+const TITLE = "Elovox: Speak with Impact";
 // Leads with the product name: this string is what link previews and
 // automated reviewers quote back, and Google's OAuth review flagged the site
 // for not naming the app clearly.
@@ -128,7 +131,7 @@ export default function RootLayout({
             {children}
           </main>
           <Footer />
-          {/* Cookieless traffic analytics — pageviews, referrers, countries,
+          {/* Cookieless traffic analytics, pageviews, referrers, countries,
               devices. Sets no cookies and stores no cross-site identifier, so
               it needs no consent banner and nothing changes in the privacy
               policy's cookie stance. Served same-origin from /_vercel/insights,

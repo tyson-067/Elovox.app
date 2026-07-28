@@ -4,11 +4,11 @@ import { LegalDoc, Section, Bullets } from "@/components/LegalDoc";
 import { LEGAL, SUBPROCESSORS } from "@/lib/legal";
 
 // Privacy policy. Every claim here is meant to describe what the code in
-// this repo actually does — if the data pipeline changes (a new processor,
+// this repo actually does, if the data pipeline changes (a new processor,
 // stored audio, analytics), this page and lib/legal.ts change with it.
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Elovox",
+  title: "Privacy Policy | Elovox",
   description:
     "What Elovox collects when you practice speaking, who processes it, how long it's kept, and how to delete it.",
   alternates: { canonical: "/privacy" },
@@ -20,16 +20,16 @@ export default function PrivacyPage() {
   return (
     <LegalDoc
       title="Privacy Policy"
-      intro={`Elovox listens to you speak and gives you feedback on how you sounded. That means we handle recordings of your voice, which is personal and sometimes sensitive. This page explains exactly what happens to them — in plain language, because you should be able to tell what you're agreeing to.`}
+      intro={`Elovox listens to you speak and gives you feedback on how you sounded. That means we handle recordings of your voice, which is personal and sometimes sensitive. This page explains exactly what happens to them, in plain language, because you should be able to tell what you're agreeing to.`}
     >
       <Section heading="The short version">
         <Bullets
           items={[
             "We do not sell your data. There are no advertisers and no ad trackers on this site.",
-            "We do not keep your audio or video. Recordings are processed to produce your feedback, then discarded — we store the transcript and the coaching report, not the recording.",
+            "We do not keep your audio or video. Recordings are processed to produce your feedback, then discarded. We store the transcript and the coaching report, not the recording.",
             "We do not use your voice to identify you. Elovox does not create a voiceprint or any biometric identifier, and does not attempt to recognise who is speaking.",
             "We never see your card details. Payments run entirely through Stripe.",
-            "You can delete any practice session from your history, or erase your entire account, from your account settings — no email, no waiting.",
+            "You can delete any practice session from your history, or erase your entire account, from your account settings, no email, no waiting.",
           ]}
         />
       </Section>
@@ -37,7 +37,7 @@ export default function PrivacyPage() {
       <Section heading="Who we are">
         <p>
           {LEGAL.serviceName} is operated by {LEGAL.entity}. For anything in
-          this policy — questions, requests, complaints — email{" "}
+          this policy, whether a question, a request, or a complaint, email{" "}
           <a className="text-accent hover:underline" href={mailto}>
             {LEGAL.contactEmail}
           </a>
@@ -49,7 +49,7 @@ export default function PrivacyPage() {
         <p>
           <strong>Your account.</strong> An email address and a password. The
           password is handled by Google Firebase Authentication and stored only
-          as a salted hash — Elovox never receives or stores your actual
+          as a salted hash. Elovox never receives or stores your actual
           password. We also record whether your email has been verified.
         </p>
         <p>
@@ -72,7 +72,7 @@ export default function PrivacyPage() {
         </p>
         <p>
           <strong>Billing information.</strong> If you subscribe, we store the
-          identifiers Stripe gives us — a customer ID, a subscription ID, your
+          identifiers Stripe gives us: a customer ID, a subscription ID, your
           plan, its status, and when the current period ends. Your card number
           is entered on Stripe&apos;s own checkout page and never reaches our
           servers.
@@ -94,7 +94,7 @@ export default function PrivacyPage() {
             "Your browser records you and sends the audio to our server. It is not written to disk on our side.",
             "The audio is passed to AssemblyAI, which transcribes it and returns the words with their timings.",
             "The transcript and the timing metrics are sent to Google's Gemini API, which writes the coaching feedback.",
-            "If you recorded with the camera on (a Premium feature), a small number of still frames — no more than twelve — are sent to Gemini as well, so it can comment on posture, gestures and expression.",
+            "If you recorded with the camera on (a Premium feature), a small number of still frames, no more than twelve, are sent to Gemini as well, so it can comment on posture, gestures and expression.",
             "The transcript and the finished report are saved to your account. The audio and the video frames are not saved by Elovox.",
           ]}
         />
@@ -135,7 +135,7 @@ export default function PrivacyPage() {
               >
                 {s.name}
               </a>{" "}
-              — {s.purpose}
+              : {s.purpose}
             </li>
           ))}
         </ul>
@@ -178,8 +178,8 @@ export default function PrivacyPage() {
           <Link href="/account" className="text-accent hover:underline">
             your account settings
           </Link>{" "}
-          will permanently erase your entire account — history, profile, and
-          login — along with cancelling any subscription. For anything else,
+          will permanently erase your entire account (history, profile, and
+          login) along with cancelling any subscription. For anything else,
           email{" "}
           <a className="text-accent hover:underline" href={mailto}>
             {LEGAL.contactEmail}
@@ -213,7 +213,7 @@ export default function PrivacyPage() {
           Traffic is encrypted in transit. Practice history is stored under your
           account and protected by database security rules so that other users
           cannot read it. No system is perfectly secure, so we can&apos;t
-          promise the impossible — but we don&apos;t retain the most sensitive
+          promise the impossible, but we don&apos;t retain the most sensitive
           material (your recordings) at all, which is the strongest protection
           available.
         </p>

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
 import { isAdmin, makeRateLimiter, clientIp } from "@/lib/verify";
 
-// Operator dashboard numbers, computed from data Elovox already stores — no
+// Operator dashboard numbers, computed from data Elovox already stores, no
 // third-party analytics, no cookies, nothing that isn't already in Firestore
 // and Firebase Auth. Answers the questions Vercel Analytics can't: how many
 // accounts exist, how many convert to Premium, how many actually practise.
@@ -100,7 +100,7 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     if ((err as { code?: number })?.code !== 9) throw err;
     console.warn(
-      "[admin] sessions index missing — falling back to a full scan. Deploy firestore.indexes.json."
+      "[admin] sessions index missing, falling back to a full scan. Deploy firestore.indexes.json."
     );
     recent = await db.collectionGroup("sessions").get();
   }
@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
   let scoreCount = 0;
   let withVideo = 0;
   for (const doc of recent.docs) {
-    // users/{uid}/sessions/{id} — the uid is the grandparent document.
+    // users/{uid}/sessions/{id}, the uid is the grandparent document.
     const uid = doc.ref.parent.parent?.id;
     const d = doc.data();
     const created = typeof d.createdAt === "number" ? d.createdAt : 0;
@@ -173,7 +173,7 @@ export async function GET(req: NextRequest) {
     },
     {
       headers: {
-        // Aggregate business data — never let a proxy hold a copy, and give
+        // Aggregate business data, never let a proxy hold a copy, and give
         // the browser a short window so a refresh doesn't re-run the scan.
         "cache-control": "private, max-age=60",
       },

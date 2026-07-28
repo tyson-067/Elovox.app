@@ -3,7 +3,7 @@ import { getStripe } from "@/lib/stripe";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
 import { verifyUser, makeRateLimiter } from "@/lib/verify";
 
-// Account erasure — the self-serve half of the deletion right promised in
+// Account erasure, the self-serve half of the deletion right promised in
 // /privacy. Runs server-side because deleting a user's data needs the Admin
 // SDK: the browser can't recursively delete a subtree, and it must never be
 // able to delete the Firebase Auth record of anyone but itself.
@@ -11,7 +11,7 @@ import { verifyUser, makeRateLimiter } from "@/lib/verify";
 // Order matters. Stripe first: if we deleted the Firestore data first and
 // then failed to cancel, we'd have lost the subscription id and the user
 // would keep being billed for an account that no longer exists. Billing
-// records themselves stay with Stripe — tax and accounting law requires it,
+// records themselves stay with Stripe, tax and accounting law requires it,
 // and the privacy policy says so.
 //
 // The client re-authenticates before calling this (see deleteAccount in
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 1. Stop the money. Cancel immediately rather than at period end — the
+  // 1. Stop the money. Cancel immediately rather than at period end, the
   //    account is going away, so there's nothing left to keep access to.
   const stripe = getStripe();
   if (stripe) {
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       if (subId) await stripe.subscriptions.cancel(subId);
     } catch (err) {
       // A subscription that's already gone (or a Stripe blip) must not block
-      // erasure — the user asked to be deleted and that has to win.
+      // erasure, the user asked to be deleted and that has to win.
       console.error(`[account] stripe cancel failed for ${uid}`, err);
     }
   }
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
 
   // 3. Delete the login itself. Do this last: while the auth record exists
   //    the user could still sign in and see an empty account, which is odd
-  //    but harmless — whereas deleting it first would strand the data with
+  //    but harmless, whereas deleting it first would strand the data with
   //    no owner and no way to retry.
   const { getAuth } = await import("firebase-admin/auth");
   await getAuth(app).deleteUser(uid);

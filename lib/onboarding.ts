@@ -4,7 +4,7 @@ import { isFirebaseConfigured, getDb, getUser } from "./firebase";
 // answered once, before first dashboard access. Answers live in Firestore at
 // users/{uid}/profile/onboarding (localStorage fallback without Firebase),
 // and completion is cached in localStorage so the RequireAuth gate doesn't
-// hit Firestore on every navigation. Add/remove questions freely — the
+// hit Firestore on every navigation. Add/remove questions freely, the
 // onboarding screen renders whatever is in this list and sizes its progress
 // bar to the count.
 
@@ -22,7 +22,7 @@ export interface OnboardingQuestion {
 // signal (`experience`), the one thing to work on (`challenge`), a reason to
 // come back (`upcoming`, `practice_time`), and attribution (`source`).
 //
-// Cut, and why — so they don't creep back in one at a time:
+// Cut, and why, so they don't creep back in one at a time:
 //   age                          already collected at signup by the DOB age
 //                                gate (lib/age.ts); asking twice is duplicate
 //                                collection of a minor's data
@@ -72,7 +72,7 @@ export const ONBOARDING_QUESTIONS: OnboardingQuestion[] = [
     options: [
       "Nerves",
       "Filler words (um, like)",
-      "Pacing — I rush",
+      "Pacing, I rush",
       "A flat, monotone voice",
       "Losing my train of thought",
       "Body language",
@@ -133,7 +133,7 @@ function cacheDone(uid: string, record?: unknown): void {
     }
     window.localStorage.setItem(doneKey(uid), "1");
   } catch {
-    // storage full/blocked — Firestore is the durable record either way
+    // storage full/blocked, Firestore is the durable record either way
   }
 }
 
@@ -176,7 +176,7 @@ export async function hasCompletedOnboarding(): Promise<boolean> {
   }
   if (uid === "local") return false;
 
-  // Cache miss (new browser/device) — ask Firestore once, then cache.
+  // Cache miss (new browser/device), ask Firestore once, then cache.
   try {
     const { doc, getDoc } = await import("firebase/firestore");
     const snap = await getDoc(
@@ -188,7 +188,7 @@ export async function hasCompletedOnboarding(): Promise<boolean> {
     }
     return false;
   } catch {
-    // Firestore unreachable — don't lock the user out of the app
+    // Firestore unreachable, don't lock the user out of the app
     return true;
   }
 }

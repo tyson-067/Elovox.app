@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
 import { verifyUser, makeRateLimiter } from "@/lib/verify";
 
-// Data portability — the other half of the right that /api/account/delete
+// Data portability, the other half of the right that /api/account/delete
 // already covers. GDPR Art. 20 (and CCPA's "right to know") entitle a user to
 // a copy of their data in a machine-readable form, so this returns everything
 // under users/{uid} as a single JSON download.
@@ -10,7 +10,7 @@ import { verifyUser, makeRateLimiter } from "@/lib/verify";
 // Runs server-side with the Admin SDK for the same reason deletion does: the
 // browser can't walk a subtree, and the plan doc is deliberately unreadable
 // to the client's own credentials in places. A user can only ever export
-// their own uid — it comes from the verified token, never from the request.
+// their own uid, it comes from the verified token, never from the request.
 
 export const runtime = "nodejs";
 
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
 
   // Walk every subcollection under users/{uid} rather than naming them, so a
   // collection added later is exported without anyone remembering to edit
-  // this route — the failure mode of a hardcoded list is a silently
+  // this route, the failure mode of a hardcoded list is a silently
   // incomplete export, which is exactly what the right is meant to prevent.
   const root = db.doc(`users/${uid}`);
   const collections = await root.listCollections();
@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
       providers: user.providerData.map((p) => p.providerId),
     },
     data,
-    // Named so the file is self-explanatory to whoever receives it — a
+    // Named so the file is self-explanatory to whoever receives it, a
     // regulator, or the user moving to another service.
     note: "Every record Elovox holds for this account. Payment records live with Stripe, which retains them for tax and accounting purposes; request those from Stripe or via the billing portal.",
   };

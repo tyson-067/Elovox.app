@@ -3,7 +3,7 @@ import Stripe from "stripe";
 // Server-side Stripe client. The secret key never reaches the browser; every
 // call here runs inside an /api/stripe route handler.
 //
-// We pin nothing on apiVersion — the installed SDK (stripe@22) already targets
+// We pin nothing on apiVersion, the installed SDK (stripe@22) already targets
 // a fixed API version, and letting it own that avoids type drift on upgrades.
 
 let cached: Stripe | null = null;
@@ -25,7 +25,7 @@ export function isStripeConfigured(): boolean {
  * Base URL for Stripe return links (Checkout success/cancel, Portal return).
  *
  * These end up as `success_url`/`return_url`, which Stripe sends the browser
- * to verbatim — so the value must not be attacker-controlled. The previous
+ * to verbatim, so the value must not be attacker-controlled. The previous
  * version fell back to the request's `Origin` header before its own URL,
  * meaning a request carrying `Origin: https://evil.example` produced a
  * Checkout session that redirected there afterwards. The blast radius was

@@ -53,7 +53,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
     return (
       <div className="py-16">
         <p className="text-lg text-on-surface-variant">
-          Couldn&apos;t find that session — it may have been recorded on another
+          Couldn&apos;t find that session. It may have been recorded on another
           device.
         </p>
         <Link href="/dashboard" className="mt-4 inline-block font-semibold text-primary underline">
@@ -120,7 +120,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
 
       {analysis.isSample && (
         <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-surface-container px-3 py-1.5 text-[13px] font-semibold tracking-wide text-on-surface-variant">
-          Sample feedback — Felix&apos;s real voice analysis arrives when the
+          Sample feedback, Felix&apos;s real voice analysis arrives when the
           backend is connected
         </div>
       )}
@@ -228,7 +228,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
       </div>
 
       {/* The camera pass (Premium). Only present when they recorded with
-          video on — the body half of the delivery. */}
+          video on, the body half of the delivery. */}
       {analysis.stage && (
         <section className="mt-12">
           <Reveal>
@@ -407,7 +407,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
           className="btn rounded-lg bg-accent text-white font-semibold px-7 py-3"
         >
           {session.mode === "daily" && (session.attempt ?? 0) < 3
-            ? "Try again — beat this score"
+            ? "Try again, beat this score"
             : "Run it again"}
         </Link>
         <Link

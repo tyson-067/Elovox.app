@@ -80,7 +80,7 @@ export interface Goal {
   label: string; // "Make people trust me"
 }
 
-/** Where a rep came from — drives how it's labelled and scored in Progress. */
+/** Where a rep came from, drives how it's labelled and scored in Progress. */
 export type PracticeMode =
   | "daily" // the universal 1-minute challenge
   | "library" // the ~30s Premium speech bank

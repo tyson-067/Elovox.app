@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 // Reading-progress hairline for the sticky header: a gradient line that
 // fills left-to-right as the user scrolls the page. Drives a CSS var on
 // the element directly (no re-renders on scroll). Skips itself entirely
-// for reduced motion — it's decorative.
+// for reduced motion, it's decorative.
 
 export function ScrollProgress() {
   const ref = useRef<HTMLDivElement>(null);

@@ -13,7 +13,7 @@ import { hasCompletedOnboarding } from "@/lib/onboarding";
 // (localStorage mode), but the onboarding gate still applies.
 //
 // Unverified email/password accounts are held at /verify-email until they
-// click the link. Google accounts pass straight through — Google has already
+// click the link. Google accounts pass straight through, Google has already
 // verified the address, so `emailVerified` is true from the first sign-in.
 // The check runs before onboarding so a new signup confirms their address
 // before answering questions we'd then have to discard.

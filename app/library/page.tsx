@@ -21,7 +21,7 @@ import {
 } from "@/lib/generated";
 
 // The ~30 second speech bank (Premium): unlimited reps, and any speech you
-// have outgrown can be replaced by a fresh one from Felix — similar topic
+// have outgrown can be replaced by a fresh one from Felix, similar topic
 // to keep drilling the same muscle, or a different one to move on.
 
 function SpeechCard({
@@ -32,7 +32,7 @@ function SpeechCard({
 }: {
   slotId: string;
   speech: { title: string; scenario: string; topic: string };
-  /** Set once Felix has rewritten this slot — practice routes to it instead. */
+  /** Set once Felix has rewritten this slot, practice routes to it instead. */
   replacement?: GeneratedSpeech;
   isPremium: boolean;
 }) {
@@ -151,7 +151,7 @@ function SpeechCard({
             onClick={() => setChoosing(true)}
             className="text-[13px] font-semibold text-on-surface-variant underline underline-offset-4 hover:text-violet"
           >
-            Done with it — replace
+            Done with it, replace
           </button>
         </div>
       )}
@@ -178,7 +178,7 @@ function LibraryScreen() {
         </div>
         <p className="mt-3 text-lg leading-7 text-on-surface-variant max-w-[58ch]">
           {isPremium
-            ? "Eight prepared speeches, about thirty seconds each. Practice any of them as many times as you like — and when one stops teaching you anything, have Felix write you a replacement."
+            ? "Eight prepared speeches, about thirty seconds each. Practice any of them as many times as you like, and when one stops teaching you anything, have Felix write you a replacement."
             : "Eight prepared speeches, about thirty seconds each, with unlimited reps. Felix rewrites any of them once you've outgrown it. Part of Premium."}
         </p>
       </Reveal>
@@ -206,7 +206,7 @@ function LibraryScreen() {
               Free practice never stops
             </h2>
             <p className="mt-2 text-base leading-6 text-white/85 max-w-[56ch]">
-              The daily challenge is yours either way — a new one-minute
+              The daily challenge is yours either way, a new one-minute
               speech every day, three attempts, levels and streaks included.
             </p>
             <Link

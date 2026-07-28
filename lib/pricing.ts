@@ -1,11 +1,11 @@
-// Elovox Premium pricing — the single source of truth for the pricing page
+// Elovox Premium pricing, the single source of truth for the pricing page
 // and the Stripe checkout call.
 //
 // Freemium: Free stays free forever (the daily speech + 3 attempts). Premium
 // unlocks everything, billed on one of three cycles. Monthly and annual open
 // with a 7-day free trial; weekly is charged from day one. The cycles are priced so the effective per-week rate falls
-// as the commitment grows — weekly is the impulse rate, annual is the best
-// deal — which is what makes the longer plans the obvious value.
+// as the commitment grows, weekly is the impulse rate, annual is the best
+// deal, which is what makes the longer plans the obvious value.
 //
 // Price IDs come from the environment via `stripePriceIdFor` below; the
 // checkout button looks the plan up by cycle. The webhook then writes
@@ -18,7 +18,7 @@ export interface PricingPlan {
   label: string; // "Weekly"
   price: number; // headline charge per billing period, USD
   unit: string; // billed-every noun: "week" | "month" | "year"
-  perWeek: number; // effective cost per week — the apples-to-apples rate
+  perWeek: number; // effective cost per week, the apples-to-apples rate
   trialDays: number; // free-trial length for THIS cycle (see TRIAL_DAYS note)
   badge?: string; // short marketing tag on the toggle/card
   highlight?: boolean; // the recommended plan
@@ -29,7 +29,7 @@ export interface PricingPlan {
  * to the monthly and annual plans; the weekly plan has no trial at all (a
  * trial on a 7-day billing period is a free week that mostly never converts).
  *
- * This is the ONLY place the trial is defined — verified against the live
+ * This is the ONLY place the trial is defined, verified against the live
  * Prices, which all have `recurring.trial_period_days = null`. Checkout
  * passes the number from here, so changing it here is sufficient; don't add
  * a trial to the Prices in the dashboard or the two will fight.
@@ -67,12 +67,12 @@ export function cycleForPriceId(priceId: string): BillingCycle | undefined {
 
 // Plan switching & proration are handled by the Stripe Customer Portal
 // (see /api/stripe/portal), configured in the dashboard as: switching
-// allowed between all three prices, "Create prorations" on — so an upgrade
+// allowed between all three prices, "Create prorations" on, so an upgrade
 // (e.g. weekly → annual) charges the prorated difference immediately and a
 // downgrade credits the unused time forward. We deliberately do NOT run a
 // custom proration endpoint; the Portal is the tested path.
 
-// A month isn't four weeks — averaging avoids overstating the monthly plan's
+// A month isn't four weeks, averaging avoids overstating the monthly plan's
 // per-week rate (and thus its discount).
 const WEEKS_PER_YEAR = 52;
 const WEEKS_PER_MONTH = WEEKS_PER_YEAR / 12; // ≈ 4.333
@@ -113,7 +113,7 @@ export function planFor(cycle: BillingCycle): PricingPlan {
 }
 
 /**
- * How much cheaper this plan is, per week, than paying weekly — the number
+ * How much cheaper this plan is, per week, than paying weekly, the number
  * that makes the longer commitments obviously the better deal. 0 for weekly.
  */
 export function savingsVsWeekly(plan: PricingPlan): number {

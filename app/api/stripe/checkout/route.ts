@@ -7,11 +7,11 @@ import { PLANS, stripePriceIdFor, type BillingCycle } from "@/lib/pricing";
 // Starts a Stripe Checkout session for a signed-in user. Subscription mode
 // with card-up-front, so the trial captures a payment method and converts
 // automatically. Payment methods themselves (cards, Apple/Google Pay, Link)
-// are whatever the Stripe dashboard has enabled — we don't hardcode them.
+// are whatever the Stripe dashboard has enabled, we don't hardcode them.
 //
 // Returns { url } for the browser to redirect to. Nothing here writes the
 // entitlement; that only happens later, in the webhook, once payment setup
-// succeeds — so a user who bails at Checkout never gets Premium.
+// succeeds, so a user who bails at Checkout never gets Premium.
 
 export const runtime = "nodejs";
 
@@ -28,11 +28,11 @@ export async function POST(req: NextRequest) {
   const stripe = getStripe();
   const db = getAdminDb();
   if (!stripe || !db) {
-    // Names the missing credential in the server log — "Billing is not
+    // Names the missing credential in the server log, "Billing is not
     // configured" alone can't distinguish a missing Stripe key from a
     // missing/truncated service account, which is the usual deploy slip.
     console.error(
-      `[stripe] billing unconfigured — STRIPE_SECRET_KEY:${stripe ? "ok" : "MISSING"} FIREBASE_SERVICE_ACCOUNT:${db ? "ok" : "MISSING"}`
+      `[stripe] billing unconfigured, STRIPE_SECRET_KEY:${stripe ? "ok" : "MISSING"} FIREBASE_SERVICE_ACCOUNT:${db ? "ok" : "MISSING"}`
     );
     return NextResponse.json({ error: "Billing is not configured." }, { status: 503 });
   }
@@ -96,14 +96,14 @@ export async function POST(req: NextRequest) {
   // Everything below talks to Stripe, so a misconfiguration (a test Price ID
   // paired with a live key, an unsupported parameter) surfaces as a thrown
   // StripeError. Uncaught, that becomes a bare 500 with no JSON body, and the
-  // browser can only say "Something went wrong" — which hides the one detail
+  // browser can only say "Something went wrong", which hides the one detail
   // that would explain it. Log Stripe's own message and pass it back.
   try {
     if (!customerId) {
       // Before minting a new customer, look for one already on this email.
       //
       // Deleting an account recursively deletes users/{uid}, which takes the
-      // plan doc and the stripeCustomerId with it — but the Stripe customer
+      // plan doc and the stripeCustomerId with it, but the Stripe customer
       // survives, and so does its trial history. Without this lookup, the
       // delete → sign up again → trial again loop is free and repeatable.
       // The address is safe to match on: this route requires a verified
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
     }
 
     // What has this customer done before? Two things matter, and Stripe is the
-    // source of truth for both — a Firestore flag would drift the moment a
+    // source of truth for both, a Firestore flag would drift the moment a
     // subscription was changed from the dashboard.
     //
     //  - Already subscribed? Sending them through Checkout again bills them a
@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
     }
 
     // trial_start is set by Stripe on any subscription that opened with a
-    // trial, and it survives cancellation — which is exactly the history we
+    // trial, and it survives cancellation, which is exactly the history we
     // need. A returning customer subscribes at full price from day one.
     const hadTrial = existing.data.some((s) => s.trial_start != null);
     const grantTrial = plan.trialDays > 0 && !hadTrial;
@@ -179,7 +179,7 @@ export async function POST(req: NextRequest) {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       // Labels this flow in the Stripe dashboard so Checkout performance can be
-      // compared across integrations. Static on purpose — it identifies the
+      // compared across integrations. Static on purpose, it identifies the
       // flow, not the session.
       integration_identifier: CHECKOUT_INTEGRATION_ID,
       customer: customerId,
@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: {
         // Omitted entirely for the weekly plan, and for anyone who has already
-        // used their trial — Stripe rejects a zero-day trial, so "no trial"
+        // used their trial, Stripe rejects a zero-day trial, so "no trial"
         // has to mean "no parameter".
         ...(grantTrial ? { trial_period_days: plan.trialDays } : {}),
         metadata: { firebaseUid: uid },

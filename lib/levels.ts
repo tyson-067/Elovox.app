@@ -7,7 +7,7 @@
 //   - streaks multiply the daily challenge payout
 //
 // Levels are cumulative XP thresholds with speaking-themed titles. Both
-// free and premium users level up — the daily challenge is universal.
+// free and premium users level up, the daily challenge is universal.
 
 export interface Level {
   level: number;
@@ -35,7 +35,7 @@ const TITLES = [
 export const LEVELS: Level[] = TITLES.map((title, i) => ({
   level: i + 1,
   title,
-  // 0, 100, 230, 400, 620, ... — closed form of the 15% growth curve
+  // 0, 100, 230, 400, 620, ..., closed form of the 15% growth curve
   minXp: i === 0 ? 0 : Math.round(100 * ((Math.pow(1.15, i) - 1) / 0.15)),
 }));
 

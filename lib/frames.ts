@@ -1,7 +1,7 @@
 // Frame sampling for the Premium camera pass.
 //
 // Frames are grabbed off the live <video> element while recording rather
-// than seeked out of the finished blob — seeking inside a MediaRecorder
+// than seeked out of the finished blob, seeking inside a MediaRecorder
 // webm is unreliable across browsers (no duration in the header until the
 // stream ends), and this way the work is spread across the recording
 // instead of landing in one lump before analysis.
@@ -16,7 +16,7 @@ const JPEG_QUALITY = 0.6;
 
 export interface SampledFrame {
   timeSec: number;
-  /** Bare base64 (no data: prefix) — what the Gemini inlineData part wants. */
+  /** Bare base64 (no data: prefix), what the Gemini inlineData part wants. */
   data: string;
 }
 

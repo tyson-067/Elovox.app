@@ -2,7 +2,7 @@ import { getApps, initializeApp, cert, type App } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 
 // Server-side Firebase, initialized from a service account. This is the ONLY
-// thing allowed to write users/{uid}/profile/plan — firestore.rules makes
+// thing allowed to write users/{uid}/profile/plan, firestore.rules makes
 // that doc read-only to the user, and the Admin SDK bypasses rules. The
 // Stripe webhook is the sole caller; nothing here ever runs in the browser.
 //
@@ -15,7 +15,7 @@ function loadServiceAccount(): Record<string, string> | null {
   if (!raw) return null;
   // A truncated paste or a stray quote is the usual way this value goes wrong,
   // and JSON.parse throwing here used to propagate all the way out of
-  // getAdminDb() — so every caller's "is billing configured?" null check was
+  // getAdminDb(), so every caller's "is billing configured?" null check was
   // skipped and the route died as a bare 500 with no JSON body. Callers already
   // handle null by returning a 503 that names the missing credential; a
   // malformed value should take that same path.
@@ -25,14 +25,14 @@ function loadServiceAccount(): Record<string, string> | null {
       : Buffer.from(raw, "base64").toString("utf8");
     const parsed = JSON.parse(json);
     // Private keys often arrive with literal "\n" sequences instead of real
-    // newlines once they've been through an env var — normalize them.
+    // newlines once they've been through an env var, normalize them.
     if (typeof parsed.private_key === "string") {
       parsed.private_key = parsed.private_key.replace(/\\n/g, "\n");
     }
     return parsed;
   } catch (err) {
     console.error(
-      "[firebase-admin] FIREBASE_SERVICE_ACCOUNT is set but unparseable — expected service-account JSON, or base64 of it",
+      "[firebase-admin] FIREBASE_SERVICE_ACCOUNT is set but unparseable, expected service-account JSON, or base64 of it",
       err
     );
     return null;

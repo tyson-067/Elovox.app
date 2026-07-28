@@ -24,7 +24,7 @@ function ms(seconds: number | null | undefined): number | undefined {
  *
  * This is NOT `invoice.subscription`. That top-level field was removed from
  * the Invoice object in the Basil API release and does not exist on the
- * version this SDK targets (2026-06-24.dahlia) — it now lives under
+ * version this SDK targets (2026-06-24.dahlia), it now lives under
  * `parent.subscription_details.subscription`. The old path read as plain
  * `undefined` at runtime, which silently turned both invoice cases below into
  * no-ops: the events were received, recorded as processed, and dropped.
@@ -64,8 +64,8 @@ async function syncSubscription(
   // `customer.subscription.*` events deliver the subscription unexpanded, so
   // `sub.customer` is a bare id string and the customer-metadata fallback
   // above can never fire. That only matters for a subscription lacking our
-  // metadata — one created from the Stripe dashboard, say, to comp an
-  // account — which would otherwise be dropped outright. Fetch the customer
+  // metadata, one created from the Stripe dashboard, say, to comp an
+  // account, which would otherwise be dropped outright. Fetch the customer
   // and check there before giving up.
   if (!uid) {
     try {
@@ -82,7 +82,7 @@ async function syncSubscription(
   }
 
   if (!uid) {
-    // No mapping back to a user — nothing we can safely write.
+    // No mapping back to a user, nothing we can safely write.
     console.error(
       `[stripe] subscription ${sub.id} (customer ${customerId}) has no firebaseUid`
     );
@@ -99,14 +99,14 @@ async function syncSubscription(
     try {
       await getAuth(app).getUser(uid);
     } catch {
-      console.log(`[stripe] skipping ${sub.id} — user ${uid} was deleted`);
+      console.log(`[stripe] skipping ${sub.id}, user ${uid} was deleted`);
       return;
     }
   }
 
   // Entitlement is a property of the CUSTOMER, not of whichever subscription
   // this event happens to describe. Deriving it from `sub` alone revokes
-  // Premium from someone who still holds another live subscription — a
+  // Premium from someone who still holds another live subscription, a
   // cancellation event for one plan would write plan:"free" over an active
   // one. Checkout now refuses to create a second subscription, but accounts
   // predating that still have two, and the Portal can leave a superseded
@@ -134,7 +134,7 @@ async function syncSubscription(
             : best
         );
       } else if (all.data.length > 0) {
-        // None entitle — keep the most recent for an accurate status/date.
+        // None entitle, keep the most recent for an accurate status/date.
         source = all.data.reduce((a, b) => (b.created > a.created ? b : a));
       }
     }
@@ -154,7 +154,7 @@ async function syncSubscription(
       trialEnd: ms(source.trial_end) ?? null,
       currentPeriodEnd: ms(source.items.data[0]?.current_period_end) ?? null,
       // Two ways Stripe records "this is going to stop": the boolean, and an
-      // explicit `cancel_at` timestamp — which is what the Customer Portal
+      // explicit `cancel_at` timestamp, which is what the Customer Portal
       // actually set when the first real subscriber cancelled, leaving the
       // boolean false. Reading only the boolean told a cancelled user they
       // were about to be billed.
@@ -186,12 +186,12 @@ export async function POST(req: NextRequest) {
   try {
     event = stripe.webhooks.constructEvent(raw, sig, secret);
   } catch (err) {
-    // Shape, never content — enough to tell a stale secret from a
+    // Shape, never content, enough to tell a stale secret from a
     // whitespace-padded one without a redeploy to find out. Server log only:
     // this endpoint is public, so returning it would hand any anonymous
     // caller real characters of the signing secret.
     console.error(
-      `[stripe] bad signature — configured secret len=${secret.length} prefix=${secret.slice(0, 9)} suffix=${secret.slice(-4)}`,
+      `[stripe] bad signature, configured secret len=${secret.length} prefix=${secret.slice(0, 9)} suffix=${secret.slice(-4)}`,
       err
     );
     return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
@@ -200,8 +200,8 @@ export async function POST(req: NextRequest) {
   // Idempotency: claim the event id, and if it's already handled, ack and skip.
   //
   // The claim is deliberately two-phase. Claiming and never marking completion
-  // means any death between the claim and the end of the handler — a function
-  // timeout on a slow Stripe list call, an instance being torn down — leaves a
+  // means any death between the claim and the end of the handler, a function
+  // timeout on a slow Stripe list call, an instance being torn down, leaves a
   // claim standing for work that never happened, and Stripe's retry is then
   // rejected as a duplicate. The event is lost for good, which for
   // `checkout.session.completed` is a paying customer who never gets Premium.
@@ -227,7 +227,7 @@ export async function POST(req: NextRequest) {
       claimed = true;
     });
   } catch (err) {
-    // Couldn't even reach Firestore — 500 so Stripe retries rather than
+    // Couldn't even reach Firestore, 500 so Stripe retries rather than
     // treating an infrastructure blip as a processed event.
     console.error(`[stripe] idempotency claim failed for ${event.id}`, err);
     return NextResponse.json({ error: "Claim failed." }, { status: 500 });
@@ -270,19 +270,19 @@ export async function POST(req: NextRequest) {
         break;
       }
       default:
-        // Unhandled types are fine — we acked and recorded them.
+        // Unhandled types are fine, we acked and recorded them.
         break;
     }
   } catch (err) {
-    // Let the idempotency claim stand? No — release it so the retry can work.
+    // Let the idempotency claim stand? No, release it so the retry can work.
     console.error(`[stripe] handler error for ${event.type}`, err);
     await seenRef.delete().catch(() => {});
     return NextResponse.json({ error: "Handler error." }, { status: 500 });
   }
 
   // Only now is the claim meaningful as "this has been handled". Failing to
-  // record completion is not worth failing the event over — Stripe would
-  // retry work that already succeeded — so log and still ack.
+  // record completion is not worth failing the event over, Stripe would
+  // retry work that already succeeded, so log and still ack.
   await seenRef
     .set({ done: true, completedAt: Date.now() }, { merge: true })
     .catch((err) => console.error(`[stripe] couldn't mark ${event.id} done`, err));
