@@ -126,6 +126,36 @@ export default function AboutPage() {
         </div>
       </section>
 
+      {/* Mission statement. Sits above "Why we built it" on purpose: this is
+          the short, quotable version of the same story, so a visitor who reads
+          only one block reads this one. The three cards underneath then take
+          the argument apart at length for anyone still reading. */}
+      <section className="mt-16 md:mt-24">
+        <Reveal>
+          <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+            Our mission
+            <span className="grow-line" aria-hidden="true" />
+          </h2>
+        </Reveal>
+        <Reveal delay={100}>
+          <div className="mt-5 navy-gradient rounded-card p-7 md:p-10">
+            <p className="text-lg md:text-xl leading-8 md:leading-9 text-white/90 max-w-[62ch]">
+              We met in San Diego, Summer 2026, united by a shared realization:
+              brilliant concepts are too often silenced by a fear of public
+              speaking. This inspired us to build Elovox: an AI-powered platform
+              designed to make speech coaching accessible, effective, and
+              judgment-free.
+            </p>
+            <p className="mt-5 text-lg md:text-xl leading-8 md:leading-9 text-white max-w-[62ch]">
+              Our mission is to bridge the gap between having great thoughts and
+              articulating them with authority. We empower students, creators,
+              and professionals to conquer their nerves, master their delivery,
+              and comfortably command any room.
+            </p>
+          </div>
+        </Reveal>
+      </section>
+
       {/* Mission */}
       <section className="mt-16 md:mt-24">
         <Reveal>
