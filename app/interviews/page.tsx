@@ -26,9 +26,12 @@ function InterviewsScreen() {
           {!isPremium && <PremiumBadge />}
         </div>
         <p className="mt-3 text-lg leading-7 text-on-surface-variant max-w-[58ch]">
-          Real questions, asked the way real panels ask them — including the
+          Real questions, asked the way real panels ask them, including the
           follow-ups people fumble. Pick the room you&apos;re walking into and
-          Felix will judge the answer the way that panel would.
+          Felix will judge the answer the way that panel would. Once
+          you&apos;re in you can write your own question, or describe the
+          interview you actually have coming up and let Felix write the whole
+          set for it.
         </p>
       </Reveal>
 
@@ -76,7 +79,7 @@ function InterviewsScreen() {
               Practising for something specific?
             </h2>
             <p className="mt-2 text-base leading-6 text-white/85 max-w-[56ch]">
-              Premium adds interview practice by type, plus camera coaching —
+              Premium adds interview practice by type, plus camera coaching:
               posture, eye contact and what your hands do when you&apos;re
               thinking, which is most of what a panel actually reads.
             </p>

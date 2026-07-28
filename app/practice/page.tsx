@@ -23,19 +23,35 @@ import {
   type ChallengeState,
 } from "@/lib/daily";
 import { xpForRep } from "@/lib/levels";
-import { readGeneratedSpeech } from "@/lib/generated";
+import {
+  clearInterviewBank,
+  readGeneratedSpeech,
+  readInterviewBank,
+  requestInterviewQuestions,
+  stashInterviewBank,
+} from "@/lib/generated";
+import { sanitizeText } from "@/lib/validation";
 import type { CategoryId, GoalId, InterviewTypeId, PracticeMode } from "@/lib/types";
 
 type RecState = "idle" | "recording" | "analyzing" | "error";
 
 const FRAMES_PER_RECORDING = 10;
 
-// Hard ceiling on a single take. The analyze route rejects anything longer,
-// and a runaway recording (device left on) shouldn't silently balloon the
-// upload — so we stop cleanly and analyse what we have.
-const MAX_RECORDING_SEC = 300;
+// The daily challenge is a ONE MINUTE challenge, so sixty seconds is the
+// whole exercise, not a suggestion. It used to be advisory: the copy said "a
+// minute" while the recorder happily ran on to five, which meant a 90-second
+// take was scored against people who stopped at 60. The cutoff is now real
+// and identical for free and Premium, because the challenge is the same
+// challenge for everyone.
+const DAILY_LIMIT_SEC = 60;
 
-/** What a finished take carries into analysis — kept so a failed analysis
+// Everything else is untimed: Premium users practise a talk for as long as
+// the talk takes. This is only a runaway guard for a device left recording,
+// and it matches MAX_DURATION_SEC in /api/analyze so the client can never
+// produce a take the server would reject.
+const MAX_RECORDING_SEC = 600;
+
+/** What a finished take carries into analysis, kept so a failed analysis
  *  can be retried without making the user perform the whole thing again. */
 interface Take {
   audioBlob: Blob;
@@ -77,7 +93,7 @@ function RecordingScreen() {
           ? "custom"
           : "own";
 
-  // Analysis categories are coarser than practice modes — everything that
+  // Analysis categories are coarser than practice modes, everything that
   // is "read this script aloud" scores as a prepared speech.
   const category: CategoryId =
     mode === "interview"
@@ -105,12 +121,93 @@ function RecordingScreen() {
       ? "That speech has expired. Generate a fresh one from the dashboard."
       : "");
 
-  // Interview questions reroll on demand, so this is state rather than a memo.
-  const [question, setQuestion] = useState(() =>
-    interviewId ? pickInterviewQuestion(interviewId) : ""
+  // A static bank can only ever cover the general case. The interview people
+  // are actually walking into has specific questions in it: the gap in the
+  // resume, the reason they left, the one thing about this company. Two ways
+  // to get at those, because they suit different moments. If you already know
+  // the question that scares you, type it. If you only know the situation,
+  // describe it and Felix writes the bank.
+  //
+  // Everything the user types is sanitized before it becomes the prompt, since
+  // it is both rendered on screen and forwarded to the analysis route.
+  const OWN_QUESTION_MAX = 400;
+  const SITUATION_MAX = 600;
+
+  // A bank Felix already wrote is restored on arrival, so recording an answer
+  // and coming back from the report doesn't silently drop it and quietly cost
+  // another Gemini call to rebuild. Read during render, not in an effect: this
+  // subtree is client-only (the useSearchParams Suspense boundary), so there's
+  // no SSR snapshot to mismatch, and it's the same pattern readGeneratedSpeech
+  // already uses above.
+  const storedBank = useMemo(
+    () => (interviewId ? readInterviewBank(interviewId) : null),
+    [interviewId]
   );
 
-  // Stable for the life of the screen — a memo, not state + effect.
+  // Interview questions reroll on demand, so this is state rather than a memo.
+  const [question, setQuestion] = useState(() => {
+    if (!interviewId) return "";
+    if (storedBank) return storedBank.questions[0];
+    return pickInterviewQuestion(interviewId);
+  });
+
+  type Composer = null | "own" | "felix";
+  const [composer, setComposer] = useState<Composer>(null);
+  const [ownQuestion, setOwnQuestion] = useState("");
+  const [situation, setSituation] = useState(() => storedBank?.situation ?? "");
+  const [bankBusy, setBankBusy] = useState(false);
+  const [bankError, setBankError] = useState("");
+  // Felix's generated bank, if they asked for one. Replaces the static bank
+  // as the source for "ask me a different one".
+  const [felixBank, setFelixBank] = useState<string[] | null>(
+    storedBank?.questions ?? null
+  );
+
+  /** Next question, drawn from Felix's bank when there is one. */
+  const rerollQuestion = useCallback(() => {
+    if (felixBank && felixBank.length > 0) {
+      const pool = felixBank.filter((q) => q !== question);
+      const next = (pool.length ? pool : felixBank)[
+        Math.floor(Math.random() * (pool.length || felixBank.length))
+      ];
+      setQuestion(next);
+      return;
+    }
+    if (interviewId) setQuestion(pickInterviewQuestion(interviewId, question));
+  }, [felixBank, question, interviewId]);
+
+  const generateBank = useCallback(async () => {
+    const clean = sanitizeText(situation).slice(0, SITUATION_MAX);
+    if (!clean) return;
+    setBankBusy(true);
+    setBankError("");
+    try {
+      const questions = await requestInterviewQuestions({
+        situation: clean,
+        ...(interviewId ? { panel: getInterviewType(interviewId).name } : {}),
+      });
+      setFelixBank(questions);
+      setQuestion(questions[0]);
+      setComposer(null);
+      if (interviewId) {
+        stashInterviewBank(interviewId, {
+          questions,
+          situation: clean,
+          at: Date.now(),
+        });
+      }
+    } catch (err) {
+      setBankError(
+        err instanceof Error
+          ? err.message
+          : "Felix couldn't write those. Try again in a moment."
+      );
+    } finally {
+      setBankBusy(false);
+    }
+  }, [situation, interviewId]);
+
+  // Stable for the life of the screen, a memo, not state + effect.
   const ownPrompt = useMemo(
     () => (mode === "own" ? pickPrompt(category) : ""),
     [mode, category]
@@ -172,13 +269,17 @@ function RecordingScreen() {
   // open prompts are answered/improvised in the speaker's own words.
   const isScript = mode !== "interview" && mode !== "own" && mode !== "daily";
 
+  // The daily challenge stops dead at sixty seconds. Everything else runs
+  // until the speaker stops it, bounded only by the runaway guard.
+  const limitSec = isDaily ? DAILY_LIMIT_SEC : MAX_RECORDING_SEC;
+
   const [goalId, setGoalId] = useState<GoalId | null>(null);
   const [videoOn, setVideoOn] = useState(false);
   const [state, setState] = useState<RecState>("idle");
   const [elapsed, setElapsed] = useState(0);
   const [errorMsg, setErrorMsg] = useState("");
   // True when the last error is worth retrying with the SAME take (server
-  // busy / offline) rather than re-recording — drives the "Try again" button.
+  // busy / offline) rather than re-recording, drives the "Try again" button.
   const [canRetryTake, setCanRetryTake] = useState(false);
   const goal = GOALS.find((g) => g.id === goalId);
 
@@ -258,7 +359,7 @@ function RecordingScreen() {
   }, []);
 
   // Analyse a finished take and, only on success, persist it. A failed
-  // analysis throws (AnalysisError) — we never save a fabricated report, so
+  // analysis throws (AnalysisError), we never save a fabricated report, so
   // the take is held in lastTakeRef and the user can retry it as-is.
   const analyzeAndSave = useCallback(
     async (take: Take) => {
@@ -277,7 +378,7 @@ function RecordingScreen() {
 
       const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
-      // The daily challenge is where levelling actually happens — beating
+      // The daily challenge is where levelling actually happens, beating
       // your own previous attempt is worth far more than the rep itself.
       let xpEarned: number;
       let attemptNumber: number | undefined;
@@ -320,7 +421,7 @@ function RecordingScreen() {
   // Runs analysis for a take and drives the UI: success → report; failure →
   // an honest error with the take retained so "Try again" re-analyses the
   // very same recording. Nothing is saved and no daily attempt is spent on
-  // a failure — the user is never charged for Felix having a bad moment.
+  // a failure, the user is never charged for Felix having a bad moment.
   const runAnalysis = useCallback(
     async (take: Take) => {
       lastTakeRef.current = take;
@@ -334,7 +435,7 @@ function RecordingScreen() {
         const msg =
           err instanceof AnalysisError
             ? err.message
-            : "Something went wrong saving that. Your recording is still here — try again.";
+            : "Something went wrong saving that. Your recording is still here. Try again.";
         setErrorMsg(msg);
         setCanRetryTake(retryable);
         setState("error");
@@ -379,7 +480,7 @@ function RecordingScreen() {
             : undefined;
         samplerRef.current?.stop();
         const audioBlob = new Blob(chunks, { type: recorder.mimeType });
-        // Devices are no longer needed — release them so the mic light goes
+        // Devices are no longer needed, release them so the mic light goes
         // off while Felix works.
         streamRef.current?.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
@@ -411,7 +512,7 @@ function RecordingScreen() {
         }
       };
       // If the OS or a Bluetooth handoff ends the mic track, MediaRecorder
-      // won't necessarily stop itself — so finalise the take we have.
+      // won't necessarily stop itself, so finalise the take we have.
       stream.getAudioTracks().forEach((track) => {
         track.onended = () => {
           if (recorder.state !== "inactive") {
@@ -439,13 +540,15 @@ function RecordingScreen() {
       // blob for the whole take. This is what keeps long recordings intact —
       // if anything interrupts, we still have every second up to that point.
       recorder.start(1000);
-      // Safety net: stop cleanly at the ceiling rather than recording forever.
+      // The cutoff. For the daily challenge this IS the exercise ending at
+      // sixty seconds; for every other mode it's just the runaway guard.
+      // Either way we stop cleanly and analyse what we have.
       maxStopRef.current = setTimeout(() => {
         if (recorderRef.current?.state === "recording") {
           cancelAnimationFrame(rafRef.current);
           recorderRef.current.stop();
         }
-      }, MAX_RECORDING_SEC * 1000);
+      }, limitSec * 1000);
       setState("recording");
       draw(analyser, new Uint8Array(analyser.fftSize));
     } catch {
@@ -456,7 +559,7 @@ function RecordingScreen() {
           : "Elovox needs microphone access to hear you. Check your browser's mic permission and try again."
       );
     }
-  }, [videoOn, draw, runAnalysis, stopEverything]);
+  }, [videoOn, limitSec, draw, runAnalysis, stopEverything]);
 
   const stop = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
@@ -473,6 +576,9 @@ function RecordingScreen() {
 
   const recording = state === "recording";
   const busy = state === "analyzing";
+  // Nothing about the brief may change once a take is under way, or the
+  // report would be scored against a prompt the speaker never heard.
+  const locked = state !== "idle" && state !== "error";
 
   if (loadError) {
     return (
@@ -485,7 +591,7 @@ function RecordingScreen() {
     );
   }
 
-  // Free users get the daily challenge only — everything else is Premium.
+  // Free users get the daily challenge only, everything else is Premium.
   // The server enforces this too (the real boundary); this just avoids
   // letting a free user record a take that would be rejected. `plan === null`
   // means still loading, so we hold rather than flash the lock at a premium user.
@@ -496,7 +602,7 @@ function RecordingScreen() {
           This one&apos;s Premium
         </h1>
         <p className="mt-3 text-lg leading-7 text-on-surface-variant">
-          Your free practice is today&apos;s daily challenge — three attempts to
+          Your free practice is today&apos;s daily challenge, three attempts to
           beat your own best. The speech library, your own material, interview
           practice and camera coaching are part of Premium.
         </p>
@@ -529,7 +635,7 @@ function RecordingScreen() {
         <p className="mt-3 text-lg leading-7 text-on-surface-variant">
           Your best today was{" "}
           <span className="font-data text-primary">{challenge.bestScore}</span>. A new
-          topic arrives tomorrow — the rest is rest.
+          topic arrives tomorrow, the rest is rest.
         </p>
         <div className="mt-8 flex flex-wrap gap-4">
           <Link
@@ -575,7 +681,7 @@ function RecordingScreen() {
               </span>
               {challenge?.bestScore !== null && challenge?.bestScore !== undefined && (
                 <span className="text-[13px] font-semibold tracking-wide text-on-surface-variant">
-                  Best today: <span className="font-data text-primary">{challenge.bestScore}</span> — beat it
+                  Best today: <span className="font-data text-primary">{challenge.bestScore}</span>, beat it
                 </span>
               )}
             </>
@@ -594,7 +700,7 @@ function RecordingScreen() {
               {daily.topic}
             </p>
             <p className="mt-2 text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
-              Improvise — hit these three, in your own words
+              Improvise. Hit these three, in your own words.
             </p>
             <ul className="mt-2 space-y-2">
               {(daily.bullets ?? []).map((b, i) => (
@@ -604,6 +710,65 @@ function RecordingScreen() {
                 </li>
               ))}
             </ul>
+
+            {/* People arrive at an improv challenge with no idea what good
+                practice looks like, hit record cold, ramble, and score badly
+                for reasons that have nothing to do with speaking. This is the
+                missing instruction: how to prep, how to run the minute, and
+                what to do with the three attempts. */}
+            <div className="card mt-5 p-4">
+              <p className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
+                How to run this
+              </p>
+              <ol className="mt-2.5 space-y-2.5 text-[15px] leading-6 text-on-surface-variant">
+                <li>
+                  <span className="font-semibold text-primary">
+                    Prep for about thirty seconds, not five minutes.
+                  </span>{" "}
+                  Read the three points and decide only your first sentence and
+                  your last one. Do not write anything down and do not rehearse
+                  it. The skill being trained is thinking while speaking, so
+                  scripting it quietly defeats the exercise.
+                </li>
+                <li>
+                  <span className="font-semibold text-primary">
+                    Stand up, breathe out, then start.
+                  </span>{" "}
+                  Standing changes your voice more than any tip here. Take one
+                  full breath before you tap record so the first line is not
+                  the one you are still finding your footing on.
+                </li>
+                <li>
+                  <span className="font-semibold text-primary">
+                    Spend roughly twenty seconds on each point.
+                  </span>{" "}
+                  Say the point, give one concrete example, move on. Running
+                  long on the first point is the single most common way people
+                  lose this minute.
+                </li>
+                <li>
+                  <span className="font-semibold text-primary">
+                    When you lose your thread, pause instead of filling.
+                  </span>{" "}
+                  A held silence reads as command. An {"“"}um{"”"} reads
+                  as lost, and Felix counts them.
+                </li>
+                <li>
+                  <span className="font-semibold text-primary">
+                    Land the ending on purpose.
+                  </span>{" "}
+                  Finish your last sentence and stop talking. Trailing off
+                  costs more points than anything in the middle.
+                </li>
+                <li>
+                  <span className="font-semibold text-primary">
+                    Use the three attempts as three different takes.
+                  </span>{" "}
+                  Read the feedback, change one thing, run it again. Three
+                  identical attempts teach you nothing.
+                </li>
+              </ol>
+            </div>
           </div>
         ) : (
           <p
@@ -624,14 +789,148 @@ function RecordingScreen() {
         )}
 
         {mode === "interview" && (
-          <button
-            type="button"
-            disabled={state !== "idle" && state !== "error"}
-            onClick={() => setQuestion(pickInterviewQuestion(interviewId!, question))}
-            className="mt-3 text-[13px] font-semibold text-accent underline underline-offset-4 disabled:opacity-50"
-          >
-            Ask me a different one
-          </button>
+          <div className="mt-3">
+            <div className="flex flex-wrap items-center gap-4">
+              <button
+                type="button"
+                disabled={locked}
+                onClick={rerollQuestion}
+                className="text-[13px] font-semibold text-accent underline underline-offset-4 disabled:opacity-50"
+              >
+                Ask me a different one
+              </button>
+              <button
+                type="button"
+                disabled={locked}
+                onClick={() => {
+                  setComposer((c) => (c === "own" ? null : "own"));
+                  setOwnQuestion("");
+                }}
+                aria-expanded={composer === "own"}
+                className="text-[13px] font-semibold text-primary/70 underline underline-offset-4 hover:text-primary disabled:opacity-50"
+              >
+                {composer === "own" ? "Never mind" : "Write my own question"}
+              </button>
+              <button
+                type="button"
+                disabled={locked}
+                onClick={() => {
+                  setComposer((c) => (c === "felix" ? null : "felix"));
+                  setBankError("");
+                }}
+                aria-expanded={composer === "felix"}
+                className="text-[13px] font-semibold text-primary/70 underline underline-offset-4 hover:text-primary disabled:opacity-50"
+              >
+                {composer === "felix"
+                  ? "Never mind"
+                  : "Felix writes questions for my interview"}
+              </button>
+            </div>
+
+            {felixBank && (
+              <p className="mt-2 text-[13px] text-on-surface-variant">
+                Asking from {felixBank.length} questions Felix wrote for your
+                situation.{" "}
+                <button
+                  type="button"
+                  disabled={locked}
+                  onClick={() => {
+                    setFelixBank(null);
+                    setSituation("");
+                    if (interviewId) {
+                      clearInterviewBank(interviewId);
+                      setQuestion(pickInterviewQuestion(interviewId));
+                    }
+                  }}
+                  className="font-semibold text-primary underline underline-offset-4 disabled:opacity-50"
+                >
+                  Back to the standard bank
+                </button>
+              </p>
+            )}
+
+            {composer === "own" && (
+              <div className="mt-3 max-w-[60ch]">
+                <label
+                  htmlFor="own-question"
+                  className="block text-[13px] font-semibold tracking-wide text-on-surface-variant"
+                >
+                  The question you are actually dreading
+                </label>
+                <textarea
+                  id="own-question"
+                  rows={3}
+                  maxLength={OWN_QUESTION_MAX}
+                  value={ownQuestion}
+                  onChange={(e) => setOwnQuestion(e.target.value)}
+                  placeholder="Why did you leave your last role after only seven months?"
+                  className="card input-glow mt-1.5 w-full px-4 py-3 text-base text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none"
+                />
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={locked || !sanitizeText(ownQuestion)}
+                    onClick={() => {
+                      const clean = sanitizeText(ownQuestion).slice(0, OWN_QUESTION_MAX);
+                      if (!clean) return;
+                      setQuestion(clean);
+                      setComposer(null);
+                    }}
+                    className="btn rounded-lg bg-accent px-5 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
+                  >
+                    Ask me this
+                  </button>
+                  <span className="text-[13px] text-on-surface-variant">
+                    Felix scores your answer exactly as he would any other
+                    question for this panel.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {composer === "felix" && (
+              <div className="mt-3 max-w-[60ch]">
+                <label
+                  htmlFor="situation"
+                  className="block text-[13px] font-semibold tracking-wide text-on-surface-variant"
+                >
+                  What are you interviewing for?
+                </label>
+                <p className="mt-1 text-[13px] leading-5 text-on-surface-variant">
+                  The role, the place, and anything you think they will push
+                  on. The more specific you are, the less generic the questions.
+                </p>
+                <textarea
+                  id="situation"
+                  rows={4}
+                  maxLength={SITUATION_MAX}
+                  value={situation}
+                  onChange={(e) => setSituation(e.target.value)}
+                  placeholder="Second-round interview for a junior data analyst role at a hospital. I'm switching from retail, I have a certificate but no degree in it, and there's an eight-month gap on my resume."
+                  className="card input-glow mt-2 w-full px-4 py-3 text-base text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none"
+                />
+                {bankError && (
+                  <p role="alert" className="mt-2 text-[13px] leading-5 text-error">
+                    {bankError}
+                  </p>
+                )}
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={locked || bankBusy || !sanitizeText(situation)}
+                    onClick={generateBank}
+                    className="btn rounded-lg bg-accent px-5 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
+                  >
+                    {bankBusy ? "Felix is writing…" : "Write my questions"}
+                  </button>
+                  <span className="text-[13px] text-on-surface-variant">
+                    You will get a set to work through, and you can reroll
+                    within it.
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Coaching goal: what should this delivery do to the audience? */}
@@ -686,7 +985,7 @@ function RecordingScreen() {
             </span>
           ) : (
             <span className="text-[13px] text-on-surface-variant">
-              <span className="font-semibold text-violet">Premium</span> — add
+              <span className="font-semibold text-violet">Premium</span>, add
               body-language coaching: posture, gestures, eye contact, sway.
             </span>
           )}
@@ -728,7 +1027,7 @@ function RecordingScreen() {
                 onClick={retryAnalysis}
                 className="btn rounded-lg bg-accent text-white font-semibold px-6 py-2.5 text-sm"
               >
-                Try again — same recording
+                Try again, same recording
               </button>
             )}
           </div>
@@ -737,7 +1036,7 @@ function RecordingScreen() {
           <div className="absolute inset-0 flex items-center justify-center">
             <p className="text-accent text-base animate-pulse">
               {videoOn
-                ? "Felix is watching that back — voice and body…"
+                ? "Felix is watching that back, voice and body…"
                 : "Felix is listening back to how that landed…"}
             </p>
           </div>
@@ -745,8 +1044,20 @@ function RecordingScreen() {
       </div>
 
       <div className="mt-8 flex flex-col items-center gap-5">
-        <span className="font-data text-2xl text-primary tabular-nums" aria-live="off">
-          {formatTime(elapsed)}
+        {/* The daily challenge counts DOWN, because the sixty seconds is the
+            exercise and running out is the point. Everything else counts up,
+            because nothing is running out. */}
+        <span
+          className={`font-data text-2xl tabular-nums ${
+            isDaily && recording && elapsed > DAILY_LIMIT_SEC - 10
+              ? "text-accent"
+              : "text-primary"
+          }`}
+          aria-live="off"
+        >
+          {isDaily
+            ? formatTime(Math.max(0, DAILY_LIMIT_SEC - elapsed))
+            : formatTime(elapsed)}
         </span>
 
         <div className="relative h-24 w-24">
@@ -770,12 +1081,16 @@ function RecordingScreen() {
 
         <span className="text-[13px] font-semibold tracking-wide text-on-surface-variant">
           {recording
-            ? "Tap to finish"
+            ? isDaily
+              ? "Tap to finish, or it stops itself at zero"
+              : "Tap to finish"
             : busy
               ? "One moment"
               : state === "error"
                 ? "Tap to record again"
-                : "Tap to record"}
+                : isDaily
+                  ? "Tap to record. You get sixty seconds."
+                  : "Tap to record"}
         </span>
       </div>
     </div>
