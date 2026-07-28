@@ -1,18 +1,38 @@
 @import "tailwindcss";
 
 @theme {
-  /* Elovox brand palette: navy + orange fox, with purple/slate support
-     tones from the brand board, on a clean white surface. */
-  --color-primary: #2e3a66;
+  /* --- The Elovox palette, by name ------------------------------------
+     These nine are the brand's literal colours. Everything below is a
+     semantic alias onto them, so a component says what a colour is FOR
+     (`text-primary`, `bg-accent`) and this block decides what it IS. Use
+     the named tokens directly only when the point is the colour itself,
+     e.g. the fox's fur or a den-scene gradient stop. */
+  --color-orange: #ff8400; /* Orange, primary accent */
+  --color-orange-bright: #ff6b35; /* Bright Orange, the fox's fur */
+  --color-vista: #8fa0d8; /* Vista Bleu, soft secondary */
+  --color-lapis: #004e89; /* Lapis Blue, deep secondary */
+  --color-jazz: #1a659e; /* Jazz Blue, mid secondary */
+  --color-amande: #f9dfc6; /* Amande, warm neutral ground */
+  --color-shrimp: #f7c59f; /* Shrimp Toast, warm neutral */
+  --color-shimmer: #f7e1c6; /* Yellow Shimmer, warm neutral */
+  --color-oxford: #0b0829; /* Bleu Oxford, high-contrast dark */
+
+  /* --- Semantic aliases ------------------------------------------------ */
+  --color-primary: #004e89; /* Lapis: headings, chrome, primary buttons */
   --color-on-primary: #ffffff;
-  --color-accent: #e8792f;
-  --color-violet: #7663c4;
-  --color-slate: #5c6fa8;
-  --color-amber: #f0ad2d;
-  --color-surface: #ffffff;
+  --color-accent: #ff6b35; /* Bright Orange: the one CTA colour */
+  --color-violet: #7663c4; /* Premium / focus. The logo's purple lives on. */
+  --color-slate: #8fa0d8; /* Vista Bleu */
+  --color-amber: #ff8400; /* Orange, for "watch this" states */
+
+  /* The page is no longer white. It's a very pale Vista Bleu wash, with
+     cards left near-white so they still lift off it. Pure #fff surfaces
+     across a whole app read as unfinished, and this is a warm brand. */
+  --color-surface: #f4f7fc;
   --color-surface-lowest: #ffffff;
-  --color-surface-container: #eef0f7;
-  --color-on-surface: #232946;
+  --color-surface-container: #e4ebf6;
+  --color-surface-warm: #fdf6ee; /* Amande, thinned: warm card grounds */
+  --color-on-surface: #0b0829; /* Bleu Oxford */
   --color-on-surface-variant: #4a5068;
   --color-outline-variant: #c9cddc;
   --color-error: #ba1a1a;
@@ -36,8 +56,21 @@ html {
   overflow-x: clip;
 }
 
+/* The page ground: a cool Vista wash at the top settling into a warm
+   Amande at the bottom, so a long scroll passes through the brand rather
+   than sitting on one flat tint. Fixed attachment keeps the gradient tied
+   to the viewport instead of stretching over a 4000px page, where it would
+   flatten into two invisible bands. */
 body {
   background: var(--color-surface);
+  background-image: linear-gradient(
+    170deg,
+    #eef3fb 0%,
+    var(--color-surface) 38%,
+    #fdf6ee 78%,
+    var(--color-amande) 100%
+  );
+  background-attachment: fixed;
   color: var(--color-on-surface);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
@@ -50,21 +83,52 @@ body {
 @layer components {
   .card {
     background: var(--color-surface-lowest);
-    border: 1px solid rgba(46, 58, 102, 0.12);
+    border: 1px solid rgba(0, 78, 137, 0.13);
+    border-radius: var(--radius-card);
+  }
+  /* Warm variant, for the fox/den surfaces and anything that should feel
+     like the inside of a burrow rather than a dashboard. */
+  .card-warm {
+    background: linear-gradient(
+      160deg,
+      #fffaf4 0%,
+      var(--color-surface-warm) 55%,
+      var(--color-shimmer) 100%
+    );
+    border: 1px solid rgba(247, 197, 159, 0.75);
     border-radius: var(--radius-card);
   }
 }
 
-/* The brand navy→white gradient (from the brand board's gradient tile).
-   Used for the premium card and hero visual. */
+/* The brand gradient tile, rebuilt on the new palette: Bleu Oxford down
+   through Lapis and Jazz, out into Vista and finally Amande. Used for the
+   premium card and every dark hero surface. */
 .navy-gradient {
   background: linear-gradient(
     155deg,
-    #26315b 0%,
-    #3c4c8a 42%,
-    #93a0c9 76%,
-    #eadfe2 100%
+    #0b0829 0%,
+    #004e89 38%,
+    #1a659e 62%,
+    #8fa0d8 84%,
+    #f9dfc6 100%
   );
+}
+
+/* Sunset over the den: the warm half of the palette, for the mascot hero
+   and the quest surfaces. */
+.den-gradient {
+  background: linear-gradient(
+    150deg,
+    #ff8400 0%,
+    #ff6b35 30%,
+    #f7c59f 68%,
+    #f9dfc6 100%
+  );
+}
+
+/* Dusk: the cool half, deep enough to carry white text. */
+.dusk-gradient {
+  background: linear-gradient(150deg, #0b0829 0%, #004e89 55%, #1a659e 100%);
 }
 
 /* Buttons: subtle lift + glow on hover, settle on press, plus a soft
@@ -91,7 +155,7 @@ body {
 }
 .btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(46, 58, 102, 0.18);
+  box-shadow: 0 10px 24px rgba(0, 78, 137, 0.2);
   filter: brightness(1.06);
 }
 .btn:hover::after {
@@ -100,7 +164,7 @@ body {
 }
 .btn:active {
   transform: translateY(0);
-  box-shadow: 0 3px 10px rgba(46, 58, 102, 0.14);
+  box-shadow: 0 3px 10px rgba(0, 78, 137, 0.16);
 }
 
 /* Scroll-reveal: elements fade + rise as they enter the viewport
@@ -195,7 +259,7 @@ body {
    white surface from feeling flat. Fades out toward the bottom. */
 .dot-grid {
   background-image: radial-gradient(
-    rgba(46, 58, 102, 0.13) 1px,
+    rgba(0, 78, 137, 0.15) 1px,
     transparent 1px
   );
   background-size: 22px 22px;
@@ -221,7 +285,7 @@ body {
   transition: opacity 300ms ease;
   background: radial-gradient(
     260px circle at var(--mx, 50%) var(--my, 50%),
-    rgba(118, 99, 196, 0.1),
+    rgba(255, 132, 0, 0.13),
     transparent 70%
   );
 }
@@ -230,8 +294,8 @@ body {
 }
 .card-glow:hover {
   transform: translateY(-4px);
-  border-color: rgba(118, 99, 196, 0.35);
-  box-shadow: 0 12px 32px rgba(46, 58, 102, 0.12);
+  border-color: rgba(255, 107, 53, 0.4);
+  box-shadow: 0 12px 32px rgba(0, 78, 137, 0.14);
 }
 /* White spotlight variant for dark (navy-gradient) cards. */
 .card-glow-light::before {
@@ -275,11 +339,13 @@ body {
 }
 .pill:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(46, 58, 102, 0.1);
+  box-shadow: 0 6px 16px rgba(0, 78, 137, 0.12);
 }
 
-/* Slow shimmer across the navy gradient surfaces so they feel lit. */
-.navy-gradient {
+/* Slow shimmer across the gradient surfaces so they feel lit. */
+.navy-gradient,
+.den-gradient,
+.dusk-gradient {
   background-size: 160% 160%;
   animation: gradient-drift 12s ease-in-out infinite alternate;
 }
@@ -296,10 +362,10 @@ body {
   transition: background-size 700ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .sweep-strong {
-  background-image: linear-gradient(90deg, #e8792f, #e8792f);
+  background-image: linear-gradient(90deg, #ff6b35, #ff6b35);
 }
 .sweep-flag {
-  background-image: linear-gradient(90deg, #f0ad2d, #f0ad2d);
+  background-image: linear-gradient(90deg, #ff8400, #ff8400);
 }
 .reveal-visible .sweep,
 .sweep-visible.sweep {
@@ -307,7 +373,7 @@ body {
 }
 
 /* Generic staggered entrance for list items and options that mount
-   already in view (onboarding steps, report notes). Stagger with
+   already in view (practice screen, report notes). Stagger with
    inline animation-delay. */
 .stagger-in {
   animation: rise-in 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -500,8 +566,19 @@ body {
   .text-gradient,
   .orb-float,
   .orb-float-slow,
-  .navy-gradient {
+  .navy-gradient,
+  .den-gradient,
+  .dusk-gradient,
+  .flame,
+  .felix-idle,
+  .felix-cheer,
+  .quest-done,
+  .felix-bar,
+  .xp-bar-fill::after {
     animation: none;
+  }
+  .xp-bar-fill::after {
+    display: none;
   }
   .grow-line {
     transform: scaleX(1);
@@ -533,15 +610,106 @@ body {
 /* Transcript annotations */
 .mark-strong {
   text-decoration: underline;
-  text-decoration-color: #e8792f;
+  text-decoration-color: #ff6b35;
   text-decoration-thickness: 3px;
   text-underline-offset: 4px;
 }
 .mark-flag {
   text-decoration: underline;
-  text-decoration-color: #f0ad2d;
+  text-decoration-color: #ff8400;
   text-decoration-thickness: 3px;
   text-underline-offset: 4px;
+}
+
+/* --- Gamification -------------------------------------------------------
+   The dashboard's reward layer. All of it is decoration on top of numbers
+   that are already legible without motion, so every rule here is switched
+   off wholesale under prefers-reduced-motion. */
+
+/* Streak flame: a slow breath, faster the longer the streak (the component
+   sets --flame-speed). */
+.flame {
+  transform-origin: 50% 90%;
+  animation: flame-breathe var(--flame-speed, 2.4s) ease-in-out infinite;
+}
+@keyframes flame-breathe {
+  0%, 100% { transform: scale(1) rotate(-1.5deg); }
+  50% { transform: scale(1.1) rotate(1.5deg); }
+}
+
+/* Felix idles until you look at him. A very small sway — anything larger
+   reads as a loading spinner rather than a character. */
+.felix-idle {
+  transform-origin: 50% 100%;
+  animation: felix-sway 5s ease-in-out infinite;
+}
+@keyframes felix-sway {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-6px) rotate(1deg); }
+}
+/* The cheer, for a live streak: bigger, bouncier, still on a long loop so
+   it doesn't nag. */
+.felix-cheer {
+  transform-origin: 50% 100%;
+  animation: felix-cheer 2.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+@keyframes felix-cheer {
+  0%, 60%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  15% { transform: translateY(-14px) rotate(-4deg) scale(1.03); }
+  30% { transform: translateY(0) rotate(3deg) scale(0.99); }
+  45% { transform: translateY(-7px) rotate(-2deg) scale(1.01); }
+}
+
+/* The voice bars on Felix's chest, when he's listening back to a take.
+   Driven from components/FoxLogo.tsx, which sets the per-bar delay. */
+.felix-bar {
+  animation: felix-bar 900ms ease-in-out infinite alternate;
+}
+@keyframes felix-bar {
+  from { transform: scaleY(0.35); }
+  to { transform: scaleY(1.15); }
+}
+
+/* XP / level bar: the fill grows on mount (reusing .bar-grow) and a light
+   travels along it so a full bar still reads as "live". */
+.xp-bar-fill {
+  position: relative;
+  overflow: hidden;
+}
+.xp-bar-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 65%
+  );
+  animation: xp-sheen 2.8s ease-in-out infinite;
+}
+@keyframes xp-sheen {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(200%); }
+}
+
+/* A quest card that's been completed: a one-off pop as it settles. */
+.quest-done {
+  animation: quest-pop 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes quest-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.025); }
+  100% { transform: scale(1); }
+}
+
+/* Locked Fox Den rewards sit behind this: readable, clearly not yours yet. */
+.locked-reward {
+  filter: grayscale(0.85) opacity(0.55);
+  transition: filter 250ms ease;
+}
+.locked-reward:hover {
+  filter: grayscale(0.5) opacity(0.8);
 }
 
 /* The one indulgent element: slightly imperfect record button */

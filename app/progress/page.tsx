@@ -38,7 +38,7 @@ function TrendChart({ sessions }: { sessions: Session[] }) {
         pathLength={1}
         className="chart-draw"
         fill="none"
-        stroke="#e8792f"
+        stroke="#ff6b35"
         strokeWidth="3"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -49,7 +49,7 @@ function TrendChart({ sessions }: { sessions: Session[] }) {
           cx={x(i)}
           cy={y(p)}
           r="4"
-          fill="#2e3a66"
+          fill="#004e89"
           className="chart-dot"
           style={{
             animationDelay: `${150 + (i / (points.length - 1)) * 1300}ms`,
@@ -63,7 +63,7 @@ function TrendChart({ sessions }: { sessions: Session[] }) {
         x={x(points.length - 1)}
         y={y(points[points.length - 1]) - 10}
         fontSize="12"
-        fill="#2e3a66"
+        fill="#004e89"
         fontFamily="var(--font-geist-mono)"
         textAnchor="end"
       >

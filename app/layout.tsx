@@ -81,7 +81,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#ffffff",
+  themeColor: "#f4f7fc",
 };
 
 export default function RootLayout({
@@ -97,7 +97,7 @@ export default function RootLayout({
           Skip to content
         </a>
         <AuthProvider>
-          <header className="sticky top-0 z-40 border-b border-primary/8 bg-white/85 backdrop-blur-md">
+          <header className="sticky top-0 z-40 border-b border-primary/8 bg-surface/80 backdrop-blur-md">
             <div className="w-full px-4 md:px-10 xl:px-16 2xl:px-24 h-14 flex items-center justify-between">
               <Link
                 href="/"
