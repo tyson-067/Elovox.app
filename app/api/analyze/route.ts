@@ -6,10 +6,10 @@ import { verifyVerifiedUser, makeRateLimiter, isPremiumServer } from "@/lib/veri
 import { sanitizeText } from "@/lib/validation";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import {
-  MAX_FREE_DAILY_ATTEMPTS,
+  MAX_DAILY_ATTEMPTS,
   usageDateKey,
-  reserveFreeDailyAttempt,
-  refundFreeDailyAttempt,
+  reserveDailyAttempt,
+  refundDailyAttempt,
 } from "@/lib/quota";
 
 // The analysis pipeline (PRD §7):
@@ -34,7 +34,7 @@ const ASSEMBLYAI = "https://api.assemblyai.com/v2";
 
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // ~10+ min of webm audio
 const MAX_DURATION_SEC = 600;
-const MAX_FRAMES = 12; // vision cost scales with this — keep it tight
+const MAX_FRAMES = 12; // vision cost scales with this, keep it tight
 const MAX_FRAME_BYTES = 400 * 1024;
 const rateLimited = makeRateLimiter(12); // analyses per user per hour
 
@@ -117,11 +117,11 @@ interface Segment {
 }
 
 /**
- * Splits the real word list into readable, verbatim segments — sentence
+ * Splits the real word list into readable, verbatim segments, sentence
  * boundaries where we have them, otherwise ~22-word chunks. These are the
  * ACTUAL words the speaker said (never the model's paraphrase): the report
  * displays them as-is, and Felix only chooses which ones to mark. That's
- * the whole point — the transcript on screen must be what was spoken, not a
+ * the whole point, the transcript on screen must be what was spoken, not a
  * reconstruction the LLM is free to invent.
  */
 function buildSegments(words: AaiWord[]): Segment[] {
@@ -157,7 +157,7 @@ function numberedSegments(segments: Segment[]): string {
 
 // The six delivery dimensions Felix scores from the audio. The overall score
 // is COMPUTED from these (their mean, plus the encouragement boost) rather
-// than invented as a single number — see runGemini. Body language and eye
+// than invented as a single number, see runGemini. Body language and eye
 // contact are the other two dimensions; they can only be judged from video,
 // so they live in the camera pass (runStage), never guessed from audio.
 const VOICE_DIMENSIONS = [
@@ -169,17 +169,29 @@ const VOICE_DIMENSIONS = [
   "Audience engagement",
 ] as const;
 
-// Encouragement calibration. The model scores each dimension honestly on the
-// everyday-speaker scale below; we then add ten points before showing them.
-// A coaching product that greets a nervous first-timer with a 68 doesn't get
-// a second recording — an average practising speaker should land in the low-
-// to-mid 80s, with the 90s still to earn. Clamped so nothing exceeds 100.
+// Score calibration, expressed as the two separate decisions it actually is
+// rather than as one net number, because they were taken for different
+// reasons and may well move independently later.
+//
+// SCORE_BOOST (+10) is the original encouragement adjustment: a coaching
+// product that greets a nervous first-timer with a 68 does not get a second
+// recording. HONESTY_REDUCTION (-13) is the correction to it. The boost on
+// its own was too generous, and an inflated score is not a kindness: it
+// tells a speaker they're ready for a room they are not ready for. The model
+// is also now told to score strictly (see SYSTEM_PROMPT), so the boost was
+// sitting on top of already-generous numbers.
+//
+// Net effect is 3 points BELOW the model's honest judgement, which lands an
+// average practising speaker in the high 70s and keeps the 90s genuinely
+// hard to reach. Clamped to 0-100.
 const SCORE_BOOST = 10;
-function boost(raw: number): number {
-  return Math.max(0, Math.min(100, Math.round(raw) + SCORE_BOOST));
+const HONESTY_REDUCTION = 13;
+function calibrate(raw: number): number {
+  const adjusted = Math.round(raw) + SCORE_BOOST - HONESTY_REDUCTION;
+  return Math.max(0, Math.min(100, adjusted));
 }
 
-// Structured-output schema (Gemini responseSchema — OpenAPI subset, no
+// Structured-output schema (Gemini responseSchema, OpenAPI subset, no
 // additionalProperties). Premium reports carry two extra required sections
 // (strengths, drills) and ask for more of everything; free reports get the
 // same honest core, lighter.
@@ -188,13 +200,13 @@ function reportSchema(premium: boolean) {
     summary: {
       type: "string",
       description: premium
-        ? "Two-to-three sentence qualitative summary in the coach voice — the headline of how it landed"
+        ? "Two-to-three sentence qualitative summary in the coach voice, the headline of how it landed"
         : "One-sentence qualitative summary in the coach voice",
     },
     dimensions: {
       type: "array",
       description:
-        "Score EACH of the six dimensions 0-100 on the everyday-speaker scale. These are your honest judgement before any encouragement adjustment.",
+        "Score EACH of the six dimensions 0-100 on the everyday-speaker scale. Score strictly and honestly, and differentiate the dimensions from one another.",
       items: {
         type: "object",
         properties: {
@@ -213,8 +225,8 @@ function reportSchema(premium: boolean) {
     annotations: {
       type: "array",
       description: premium
-        ? "Thorough marks on the numbered verbatim segments — reference segments by index, never rewrite the text. Mark every segment that genuinely earns a note across the whole recording: several 'strong' and several 'flag' moments."
-        : "Marks on the numbered verbatim segments. Reference segments by their index; do NOT rewrite or quote the text. Include at least one 'strong' and at least one 'flag'. Only mark segments you have a real, specific note for — a handful, not every segment.",
+        ? "Thorough marks on the numbered verbatim segments, reference segments by index, never rewrite the text. Mark every segment that genuinely earns a note across the whole recording: several 'strong' and several 'flag' moments."
+        : "Marks on the numbered verbatim segments. Reference segments by their index; do NOT rewrite or quote the text. Include at least one 'strong' and at least one 'flag'. Only mark segments you have a real, specific note for, a handful, not every segment.",
       items: {
         type: "object",
         properties: {
@@ -226,7 +238,7 @@ function reportSchema(premium: boolean) {
           note: {
             type: "string",
             description:
-              "Coach annotation tied to what was actually said in that segment — specific, plain, actionable",
+              "Coach annotation tied to what was actually said in that segment, specific, plain, actionable",
           },
         },
         required: ["index", "mark", "note"],
@@ -259,7 +271,7 @@ function reportSchema(premium: boolean) {
     properties.strengths = {
       type: "array",
       description:
-        "3-4 specific things the speaker genuinely did well, each tied to a real moment or phrase — what to keep doing",
+        "3-4 specific things the speaker genuinely did well, each tied to a real moment or phrase, what to keep doing",
       items: { type: "string" },
     };
     properties.drills = {
@@ -284,48 +296,55 @@ function reportSchema(premium: boolean) {
   return { type: "object", properties, required };
 }
 
-const SYSTEM_PROMPT = `You are Felix, the fox coach inside Elovox, a speaking practice app. You read a transcript of someone practising out loud, plus measured delivery metrics, and produce a feedback report. Felix is a warm, sharp, lightly British delivery coach — a well-read professor in round glasses who genuinely wants the speaker to win the room.
+const SYSTEM_PROMPT = `You are Felix, the fox coach inside Elovox, a speaking practice app. You read a transcript of someone practising out loud, plus measured delivery metrics, and produce a feedback report. Felix is a warm, sharp, lightly British delivery coach, a well-read professor in round glasses who genuinely wants the speaker to win the room.
 
 HOW TO SCORE
 
-Your job is to evaluate public speaking in a way that is accurate, encouraging, and consistent. Assume the speaker is an everyday person practising communication skills — not a professional speaker, actor, or national champion. A score represents how effectively they communicate to a typical audience today. Reward authenticity, clarity, and connection more than polished performance. Do NOT compare them to elite speakers such as TED speakers, actors, or championship debaters.
+Your job is to evaluate public speaking HONESTLY. Be accurate first and kind second. An inflated score is not a kindness: it tells a speaker they are ready for a room they are not ready for. Score what you actually heard, not what you wish you had heard, and never round up to spare feelings.
+
+Assume the speaker is an everyday person practising communication skills, not a professional speaker, actor, or national champion. A score represents how effectively they communicate to a typical audience today. Reward authenticity, clarity, and connection more than polished performance. Do NOT compare them to elite speakers such as TED speakers, actors, or championship debaters.
 
 Score each dimension 0-100 on this scale:
-- 95-100: Exceptional. Engaging, confident, natural, highly effective. Only small refinements remain.
-- 90-94: Excellent. Strong delivery with a few minor improvements.
+- 95-100: Exceptional. Engaging, confident, natural, highly effective. Only small refinements remain. Almost nobody practising earns this.
+- 90-94: Excellent. Strong delivery with a few minor improvements. Rare.
 - 85-89: Very good. Clear, confident, and easy to follow, with several opportunities for improvement.
 - 80-84: Good. The audience would understand and stay engaged, though delivery has noticeable weaknesses.
 - 75-79: Average. The message is understandable, but confidence, pacing, structure, or delivery limit effectiveness.
 - 70-74: Developing. Several communication issues make the message less engaging or persuasive.
 - Below 70: Significant communication challenges interfere with understanding or audience engagement.
 
+CALIBRATION, and this is the part people get wrong: the middle of this scale is where most real practice attempts belong. If your instinct is to give a 90, ask what specifically justified it and drop it unless you can name the moment. A first attempt at an improvised minute is usually a 72 to 80 on this scale, not a 90. Reserve the top two bands for delivery you would happily put in front of a paying audience unchanged.
+
 Before assigning scores:
 1. Identify the speaker's strongest qualities.
 2. Identify the three most important improvements.
 3. Judge the overall communication experience, not isolated mistakes.
-4. Do NOT heavily penalise occasional filler words, brief pauses, or small stumbles.
-5. Reward improvement, confidence, authenticity, and audience connection.
+4. Do NOT heavily penalise occasional filler words, brief pauses, or small stumbles, but do count a persistent pattern of them.
+5. Weight confidence, authenticity, and audience connection heavily, and say plainly when they were missing.
 6. A warm, genuine speaker should often score higher than a technically polished but robotic one.
+7. Differentiate the six dimensions. Six identical scores means you have not actually listened for each one.
 
 Score these six dimensions from the audio, each 0-100 on the scale above:
-- Clarity — could a listener follow the message easily?
-- Confidence — did they sound sure of themselves?
-- Pacing — was the speed and rhythm easy to listen to? Weigh the measured pace and pauses, but never punish a natural, deliberate pause.
-- Vocal variety — pitch, emphasis, and energy, or monotone stretches?
-- Organization — did the thoughts hold together in a sensible order?
-- Audience engagement — would a listener stay with them and care?
+- Clarity, could a listener follow the message easily?
+- Confidence, did they sound sure of themselves?
+- Pacing, was the speed and rhythm easy to listen to? Weigh the measured pace and pauses, but never punish a natural, deliberate pause.
+- Vocal variety, pitch, emphasis, and energy, or monotone stretches?
+- Organization, did the thoughts hold together in a sensible order?
+- Audience engagement, would a listener stay with them and care?
 
 COACHING VOICE
 - Write like a good coach in the room: direct, warm, specific, slightly informal. A light British turn of phrase is welcome ("rather good", "do slow down there"), never a caricature.
-- Every note and tip references something concrete the speaker actually said or did, with a timestamp where possible. "Cut 'I think' at 0:42, it undercuts the claim right after it" — never "sound more confident."
+- Every note and tip references something concrete the speaker actually said or did, with a timestamp where possible. "Cut 'I think' at 0:42, it undercuts the claim right after it", never "sound more confident."
 - Banned words: insight, leverage, optimize, utilize, impactful.
-- If the speaker set a goal (e.g. "Make people trust me"), judge the delivery against that outcome specifically — the summary and audienceImpact say how close they got.
+- Never use em dashes or en dashes in anything you write. Use a comma, a full stop, or a colon instead. This applies to every field you return.
+- Be straight with the speaker about what did not work. A note that only praises is a wasted note.
+- If the speaker set a goal (e.g. "Make people trust me"), judge the delivery against that outcome specifically, the summary and audienceImpact say how close they got.
 - audienceImpact is a prediction ("A listener would…"), not a review.
 
 TRANSCRIPT ANNOTATIONS
-- The transcript is numbered, VERBATIM segments — the exact words the speaker said. You do NOT rewrite or reproduce it. Return annotations that point at segments by index.
+- The transcript is numbered, VERBATIM segments, the exact words the speaker said. You do NOT rewrite or reproduce it. Return annotations that point at segments by index.
 - Every note is about what was actually said in that specific segment; quote the speaker's own words back to them where it helps.
-- Never invent words the speaker didn't say. If a segment reads oddly, that may be a transcription slip — coach the delivery, don't fabricate content.`;
+- Never invent words the speaker didn't say. If a segment reads oddly, that may be a transcription slip, coach the delivery, don't fabricate content.`;
 
 async function runGemini(
   geminiKey: string,
@@ -342,7 +361,7 @@ async function runGemini(
 ): Promise<Omit<Analysis, "paceWpm" | "fillerWords" | "pauses">> {
   const userContent = `Practice category: ${input.category}${
     input.improv
-      ? "\nThis was IMPROVISED: the speaker was given a topic and three points to hit, with no script. Weigh Organization and thinking on their feet, and don't expect polished wording — reward a clear, connected minute made up on the spot."
+      ? "\nThis was IMPROVISED: the speaker was given a topic and three points to hit, with no script. Weigh Organization and thinking on their feet, and don't expect polished wording, reward a clear, connected minute made up on the spot."
       : ""
   }
 ${input.improv ? "Topic and points they were given" : "Prompt the speaker was responding to"}: "${input.prompt}"${
@@ -359,7 +378,7 @@ Measured delivery metrics:
       : ""
   }
 
-Numbered verbatim transcript (annotate by index — do not rewrite):
+Numbered verbatim transcript (annotate by index, do not rewrite):
 ${numberedSegments(input.segments)}`;
 
   // Shares the model fallback chain in lib/gemini with every other route:
@@ -381,20 +400,20 @@ ${numberedSegments(input.segments)}`;
   });
 
   // The overall is COMPUTED from the dimension scores, not invented: take the
-  // model's honest per-dimension scores, add the encouragement boost, and
-  // average. Keeps the headline consistent with the bars beneath it, and
-  // means the number is always defensible from the breakdown.
+  // model's honest per-dimension scores, apply the calibration, and average.
+  // Keeps the headline consistent with the bars beneath it, and means the
+  // number is always defensible from the breakdown.
   const skills = (parsed.dimensions ?? [])
     .filter((d) => VOICE_DIMENSIONS.includes(d.name as (typeof VOICE_DIMENSIONS)[number]))
-    .map((d) => ({ skill: d.name, score: boost(d.score), note: d.note }));
+    .map((d) => ({ skill: d.name, score: calibrate(d.score), note: d.note }));
   const overall =
     skills.length > 0
       ? Math.round(skills.reduce((sum, s) => sum + s.score, 0) / skills.length)
-      : 80;
+      : 77;
 
   // Build the displayed transcript from the REAL segments, folding in only
   // the marks/notes the model returned. The text on screen is always what
-  // the speaker actually said — the model can annotate it but never edit it.
+  // the speaker actually said, the model can annotate it but never edit it.
   const marks = new Map<number, { mark: "strong" | "flag"; note: string }>();
   for (const a of parsed.annotations ?? []) {
     if (
@@ -430,7 +449,7 @@ ${numberedSegments(input.segments)}`;
 // --- The camera pass (Premium) -----------------------------------------
 // Gemini reads evenly-spaced stills from the recording. Frames rather than
 // the whole video: a dozen JPEGs cost a fraction of a minute of video and
-// are enough to read posture, gesture, gaze and expression — the things
+// are enough to read posture, gesture, gaze and expression, the things
 // that actually change how a room receives you.
 
 const STAGE_SCHEMA = {
@@ -471,23 +490,26 @@ const STAGE_SCHEMA = {
   required: ["summary", "metrics", "tips"],
 } as const;
 
-const STAGE_SYSTEM = `You are Felix, the fox coach inside Elovox, watching a speaker on video. You are given still frames sampled at even intervals through one practice recording, in order, each labelled with its timestamp — plus the delivery metrics measured from the audio.
+const STAGE_SYSTEM = `You are Felix, the fox coach inside Elovox, watching a speaker on video. You are given still frames sampled at even intervals through one practice recording, in order, each labelled with its timestamp, plus the delivery metrics measured from the audio.
 
 Assume an everyday person practising, not a trained performer. Reward natural, grounded presence over theatrical polish, and don't compare them to actors or TED speakers. Score each thing 0-100 on this scale: 95-100 exceptional, 90-94 excellent, 85-89 very good, 80-84 good, 75-79 average, 70-74 developing, below 70 real problems. Don't heavily penalise small, normal movement.
+
+Score HONESTLY and strictly. Most real practice attempts belong in the middle of that scale, not the top of it. If your instinct is a 90, name the specific frame that earned it or drop the score. Six identical numbers means you have not looked at each thing separately.
 
 Score six things, honestly:
 - Posture: are they grounded and open, or closed, hunched, leaning on something?
 - Eye contact: are they addressing the camera/audience, or reading, glancing away, drifting down?
 - Hand gestures: purposeful and matched to the words, or absent, repetitive, fidgeting, hidden?
 - Facial expression: alive and matched to the content, or flat, tense, over-smiling?
-- Stillness: do they sway, rock, pace, shift weight? Compare the frames — position drift between consecutive frames is your evidence.
+- Stillness: do they sway, rock, pace, shift weight? Compare the frames, position drift between consecutive frames is your evidence.
 - Pacing & pauses: read the measured audio metrics together with what the body is doing during the gaps. A pause with a still, open body reads as command; the same pause while looking away reads as lost.
 
 Rules:
-- Reference specific frames by their timestamp. "At 0:24 your hands disappear behind your back and don't come out" — never "use more gestures."
-- You are looking at stills, so be honest about uncertainty: say "in these frames" rather than inventing continuous motion you can't see. Never claim to have heard tone — you only have the transcript metrics.
+- Reference specific frames by their timestamp. "At 0:24 your hands disappear behind your back and don't come out", never "use more gestures."
+- You are looking at stills, so be honest about uncertainty: say "in these frames" rather than inventing continuous motion you can't see. Never claim to have heard tone, you only have the transcript metrics.
 - If a frame is dark, cropped, or the speaker is out of shot, say so plainly and score what you can.
-- Warm, direct, specific. Banned words: insight, leverage, optimize, utilize, impactful.`;
+- Warm, direct, specific. Banned words: insight, leverage, optimize, utilize, impactful.
+- Never use em dashes or en dashes in anything you write. Use a comma, a full stop, or a colon instead.`;
 
 async function runStage(
   geminiKey: string,
@@ -506,7 +528,7 @@ async function runStage(
     parts: [
       {
         text: `Recording length: ${Math.round(durationSec)}s
-Measured from the audio — pace ${metrics.paceWpm} wpm, ${metrics.fillerWords} filler words, ${metrics.pauses} pauses over 1.2s${
+Measured from the audio, pace ${metrics.paceWpm} wpm, ${metrics.fillerWords} filler words, ${metrics.pauses} pauses over 1.2s${
           metrics.pauseSpots.length
             ? ` (at ${metrics.pauseSpots.slice(0, 6).join(", ")})`
             : ""
@@ -521,15 +543,15 @@ ${frames.length} frames follow, in order.`,
     ],
   });
 
-  // Same encouragement calibration as the voice report: boost each observed
+  // Same honesty calibration as the voice report: calibrate each observed
   // metric and compute presence as their mean, so the headline matches the
-  // bars and a nervous first-timer isn't greeted with a discouraging number.
-  const boosted = parsed.metrics.map((m) => ({ ...m, score: boost(m.score) }));
+  // bars and the stage score is as hard-won as the voice one.
+  const scored = parsed.metrics.map((m) => ({ ...m, score: calibrate(m.score) }));
   const overall =
-    boosted.length > 0
-      ? Math.round(boosted.reduce((sum, m) => sum + m.score, 0) / boosted.length)
-      : 80;
-  return { overall, summary: parsed.summary, metrics: boosted, tips: parsed.tips };
+    scored.length > 0
+      ? Math.round(scored.reduce((sum, m) => sum + m.score, 0) / scored.length)
+      : 77;
+  return { overall, summary: parsed.summary, metrics: scored, tips: parsed.tips };
 }
 
 /** Pulls frame0..frameN out of the form, newest API tolerant of gaps. */
@@ -538,7 +560,7 @@ function readFrames(form: FormData): { time: string; data: string }[] {
   for (let i = 0; i < MAX_FRAMES; i++) {
     const raw = form.get(`frame${i}`);
     if (typeof raw !== "string" || !raw) continue;
-    // "0:12|<base64>" — timestamp travels with the image
+    // "0:12|<base64>", timestamp travels with the image
     const sep = raw.indexOf("|");
     if (sep === -1) continue;
     const data = raw.slice(sep + 1);
@@ -560,10 +582,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "rate limited" }, { status: 429 });
   }
 
-  const form = await req.formData();
+  // A body that isn't multipart form data makes `formData()` THROW, which
+  // uncaught becomes a bare 500 with an empty body. Not exploitable (auth,
+  // verification and rate limiting have all run by now, so nothing expensive
+  // happens), but a malformed request is the caller's mistake and deserves a
+  // 400 that says so rather than a 500 that reads as our outage.
+  let form: FormData;
+  try {
+    form = await req.formData();
+  } catch {
+    return NextResponse.json(
+      { error: "bad-request", message: "Expected a multipart form upload." },
+      { status: 400 }
+    );
+  }
+
   const audio = form.get("audio");
   const category = (form.get("category") as CategoryId) ?? "general-coaching";
-  // Free text from the browser that flows into the model prompt — sanitize
+  // Free text from the browser that flows into the model prompt, sanitize
   // (strip HTML/script/control chars) and length-cap before use.
   const prompt = sanitizeText(form.get("prompt")).slice(0, 2000);
   const goal = sanitizeText(form.get("goal")).slice(0, 500);
@@ -587,7 +623,7 @@ export async function POST(req: NextRequest) {
   // Keys genuinely not configured (fresh clone / local demo) → labeled
   // sample so the app is explorable. This is the ONLY place we ever return
   // fabricated feedback: when the pipeline is wired up, a real recording
-  // always gets real analysis or an honest error — never invented words.
+  // always gets real analysis or an honest error, never invented words.
   if (!assemblyKey || !geminiKey) {
     return NextResponse.json(
       generateSampleAnalysis({ category, durationSec, goal })
@@ -596,57 +632,65 @@ export async function POST(req: NextRequest) {
 
   // --- Free-tier enforcement (server-side, tamper-proof) ----------------
   // The paid pipeline is metered here so it can't be bypassed from the
-  // browser. Free users get the daily challenge only, capped at three
-  // attempts a day; Premium is unlimited. The counter is written through
-  // the Admin SDK (rules deny every client write to users/{uid}/usage), so
-  // the number can't be forged. Without a service account (local build) we
-  // skip the count but still keep the non-daily lock.
+  // browser. Two separate rules, and they are separate on purpose:
+  //
+  //   1. Everything EXCEPT the daily challenge is Premium-only.
+  //   2. The daily challenge is capped at three attempts a day for EVERYONE,
+  //      free and Premium alike. It is one shared topic the whole userbase is
+  //      scored on, so it has to be the same number of shots for all of them.
+  //      Premium buys the other surfaces, which have no cap; it does not buy
+  //      more goes at the daily. Keep this in step with MAX_DAILY_ATTEMPTS in
+  //      lib/daily.ts, the firestore.rules cap on users/{uid}/challenges, and
+  //      the /pricing copy.
+  //
+  // The counter is written through the Admin SDK (rules deny every client
+  // write to users/{uid}/usage), so the number can't be forged. Without a
+  // service account (local build) we skip the count but keep the Premium lock.
   const isDaily = form.get("daily") === "1";
   const clientDate = String(form.get("date") ?? "");
   const db = getAdminDb();
 
-  // Entitlement is resolved once and reused for both the free-tier gate and
+  // Entitlement is resolved once and reused for both the Premium gate and
   // the camera pass below, so we never make the same lookup twice.
   const premium = uid === "local-dev" ? true : await isPremiumServer(req, uid);
 
+  if (!premium && !isDaily) {
+    return NextResponse.json(
+      {
+        error: "premium-required",
+        message:
+          "Free practice is the daily challenge. Go Premium for the speech library, your own material, interview practice and camera coaching.",
+      },
+      { status: 403 }
+    );
+  }
+
   let reservation: { date: string } | null = null;
-  if (!premium) {
-    if (!isDaily) {
-      return NextResponse.json(
-        {
-          error: "premium-required",
-          message:
-            "Free practice is the daily challenge. Go Premium for the speech library, your own material, interview practice and camera coaching.",
-        },
-        { status: 403 }
-      );
-    }
+  if (isDaily) {
     if (db) {
       const date = usageDateKey(clientDate);
-      const { ok } = await reserveFreeDailyAttempt(db, uid, date);
+      const { ok } = await reserveDailyAttempt(db, uid, date);
       if (!ok) {
         return NextResponse.json(
           {
             error: "daily-limit",
-            message: `That's all ${MAX_FREE_DAILY_ATTEMPTS} of today's attempts. Come back tomorrow for a new challenge — or go Premium for unlimited practice.`,
+            message: `That's all ${MAX_DAILY_ATTEMPTS} of today's attempts. A new challenge arrives tomorrow.`,
           },
           { status: 429 }
         );
       }
       reservation = { date };
     } else {
-      console.warn(
-        "free-tier daily cap not enforced: FIREBASE_SERVICE_ACCOUNT unset"
-      );
+      console.warn("daily cap not enforced: FIREBASE_SERVICE_ACCOUNT unset");
     }
   }
 
   try {
     const { words } = await transcribe(await audio.arrayBuffer(), assemblyKey);
     if (words.length === 0) {
-      // Nothing usable — this take didn't cost us the pipeline, so hand the
+      // Nothing usable, this take didn't cost us the pipeline, so hand the
       // reserved attempt back before telling the user plainly.
-      if (reservation && db) await refundFreeDailyAttempt(db, uid, reservation.date);
+      if (reservation && db) await refundDailyAttempt(db, uid, reservation.date);
       // Never dress this up as a scored report.
       return NextResponse.json(
         {
@@ -662,7 +706,7 @@ export async function POST(req: NextRequest) {
 
     // The camera pass is Premium and costs a second vision call, so the
     // plan is verified server-side. A free user who sends frames simply
-    // gets the voice report — no error, nothing to work around client-side.
+    // gets the voice report, no error, nothing to work around client-side.
     const frames = readFrames(form);
     const wantsStage = frames.length > 0 && premium;
 
@@ -697,17 +741,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(analysis);
   } catch (err) {
     // The pipeline failed (transcription or the model chain). We will NOT
-    // invent a score and a transcript for a real recording — that is the
+    // invent a score and a transcript for a real recording, that is the
     // one thing this app must never do. Fail honestly, and give back the
     // attempt so a busy coaching service never costs the user one of their
     // three; the client keeps the session recoverable and lets them retry.
-    if (reservation && db) await refundFreeDailyAttempt(db, uid, reservation.date);
+    if (reservation && db) await refundDailyAttempt(db, uid, reservation.date);
     console.error("analyze pipeline failed:", err);
     return NextResponse.json(
       {
         error: "analysis-failed",
         message:
-          "Felix couldn't finish analysing that one — the coaching service is busy. Your recording is safe; give it another go in a moment.",
+          "Felix couldn't finish analysing that one. The coaching service is busy, and your recording is safe, so give it another go in a moment.",
       },
       { status: 503 }
     );
