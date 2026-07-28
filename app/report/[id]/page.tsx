@@ -10,6 +10,7 @@ import { getCategory } from "@/lib/categories";
 import { Felix } from "@/components/FoxLogo";
 import { usePlan } from "@/lib/plan";
 import type { Session } from "@/lib/types";
+import { barClass } from "@/lib/scoring";
 
 function formatDate(ms: number) {
   return new Date(ms).toLocaleDateString(undefined, {
@@ -147,7 +148,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
                 </div>
                 <div className="mt-1.5 h-1.5 rounded-full bg-surface-container overflow-hidden">
                   <div
-                    className={`bar-grow h-full rounded-full ${s.score >= 75 ? "bg-accent" : "bg-amber"}`}
+                    className={`bar-grow h-full rounded-full ${barClass(s.score, "bg-accent")}`}
                     style={{
                       width: `${s.score}%`,
                       animationDelay: `${250 + i * 100}ms`,
@@ -258,7 +259,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
                 </div>
                 <div className="mt-1.5 h-1.5 rounded-full bg-surface-container overflow-hidden">
                   <div
-                    className={`bar-grow h-full rounded-full ${m.score >= 75 ? "bg-violet" : "bg-amber"}`}
+                    className={`bar-grow h-full rounded-full ${barClass(m.score, "bg-violet")}`}
                     style={{ width: `${m.score}%`, animationDelay: `${250 + i * 90}ms` }}
                   />
                 </div>

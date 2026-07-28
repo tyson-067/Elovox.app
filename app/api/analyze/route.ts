@@ -169,26 +169,27 @@ const VOICE_DIMENSIONS = [
   "Audience engagement",
 ] as const;
 
-// Score calibration, expressed as the two separate decisions it actually is
-// rather than as one net number, because they were taken for different
-// reasons and may well move independently later.
+// Round and clamp only. There is deliberately no offset here any more.
 //
-// SCORE_BOOST (+10) is the original encouragement adjustment: a coaching
-// product that greets a nervous first-timer with a 68 does not get a second
-// recording. HONESTY_REDUCTION (-13) is the correction to it. The boost on
-// its own was too generous, and an inflated score is not a kindness: it
-// tells a speaker they're ready for a room they are not ready for. The model
-// is also now told to score strictly (see SYSTEM_PROMPT), so the boost was
-// sitting on top of already-generous numbers.
+// This used to carry SCORE_BOOST (+10) and HONESTY_REDUCTION (-13), a net 3
+// points shaved off whatever the model said. That was the wrong instrument
+// for the job. A flat offset SHIFTS the distribution, it cannot SPREAD it:
+// if every score the model produces is bunched between 70 and 85, taking
+// three points off each one just moves the same bunch down to 67-82. It can
+// never make a genuinely bad delivery score in the 30s, and it drags honest
+// high scores down with it, so a speaker who earned a 90 is told 87 for no
+// reason connected to their speaking.
 //
-// Net effect is 3 points BELOW the model's honest judgement, which lands an
-// average practising speaker in the high 70s and keeps the 90s genuinely
-// hard to reach. Clamped to 0-100.
-const SCORE_BOOST = 10;
-const HONESTY_REDUCTION = 13;
+// Spread is a judgement, so it belongs in the judgement, which is the scale
+// and the calibration paragraph in SYSTEM_PROMPT (and STAGE_SYSTEM for the
+// camera pass). Those now define three tiers across the full range and press
+// the model to commit to one. If scores need to move, move the bands there.
+// Reintroducing an offset here would only re-hide the problem.
+//
+// The clamp stays: the model returns an integer it was asked to keep in
+// 0-100 and generally does, but nothing enforces that but this.
 function calibrate(raw: number): number {
-  const adjusted = Math.round(raw) + SCORE_BOOST - HONESTY_REDUCTION;
-  return Math.max(0, Math.min(100, adjusted));
+  return Math.max(0, Math.min(100, Math.round(raw)));
 }
 
 // Structured-output schema (Gemini responseSchema, OpenAPI subset, no
@@ -206,7 +207,7 @@ function reportSchema(premium: boolean) {
     dimensions: {
       type: "array",
       description:
-        "Score EACH of the six dimensions 0-100 on the everyday-speaker scale. Score strictly and honestly, and differentiate the dimensions from one another.",
+        "Score EACH of the six dimensions 0-100 on the three-tier everyday-speaker scale in the instructions. Use the full range: 87+ when it is genuinely good, 20-64 when it is bad. Differentiate the dimensions from one another.",
       items: {
         type: "object",
         properties: {
@@ -304,16 +305,25 @@ Your job is to evaluate public speaking HONESTLY. Be accurate first and kind sec
 
 Assume the speaker is an everyday person practising communication skills, not a professional speaker, actor, or national champion. A score represents how effectively they communicate to a typical audience today. Reward authenticity, clarity, and connection more than polished performance. Do NOT compare them to elite speakers such as TED speakers, actors, or championship debaters.
 
-Score each dimension 0-100 on this scale:
-- 95-100: Exceptional. Engaging, confident, natural, highly effective. Only small refinements remain. Almost nobody practising earns this.
-- 90-94: Excellent. Strong delivery with a few minor improvements. Rare.
-- 85-89: Very good. Clear, confident, and easy to follow, with several opportunities for improvement.
-- 80-84: Good. The audience would understand and stay engaged, though delivery has noticeable weaknesses.
-- 75-79: Average. The message is understandable, but confidence, pacing, structure, or delivery limit effectiveness.
-- 70-74: Developing. Several communication issues make the message less engaging or persuasive.
-- Below 70: Significant communication challenges interfere with understanding or audience engagement.
+Score each dimension 0-100 on this scale. It has three tiers, and you must be willing to use all three.
 
-CALIBRATION, and this is the part people get wrong: the middle of this scale is where most real practice attempts belong. If your instinct is to give a 90, ask what specifically justified it and drop it unless you can name the moment. A first attempt at an improvised minute is usually a 72 to 80 on this scale, not a 90. Reserve the top two bands for delivery you would happily put in front of a paying audience unchanged.
+GOOD, 87-100. The speech and the delivery genuinely work.
+- 96-100: Exceptional. You would put this in front of a paying audience unchanged.
+- 91-95: Excellent. Commanding and natural, with a couple of refinements left.
+- 87-90: Very good. Clear, confident, easy to follow. This is the floor of genuinely good speaking, not a ceiling.
+
+MIDDLING, 65-86. It communicates, but it does not land.
+- 80-86: Competent, with weaknesses a listener would notice.
+- 73-79: Middling. The message survives, the delivery does not carry it.
+- 65-72: Weak. Real problems with confidence, pace, structure, or energy.
+
+BAD, 20-64. Do not flinch from this tier when it is what you heard.
+- 50-64: Bad. A listener would struggle to stay with them or take them seriously.
+- 35-49: Very bad. The delivery actively works against the message.
+- 20-34: Awful. Barely holds together as a piece of speaking.
+- Below 20: No real attempt, inaudible, or nothing to assess.
+
+CALIBRATION, and this is the part that gets fudged: use the FULL range. Do not park everything between 70 and 85 because it feels safe. If the delivery is genuinely good, say so and give it 87 or above, without hedging it down to a 79 to seem rigorous. If it is bad, give it a bad score in the 20s, 30s, or 40s, and do not soften it into the 60s because a low number feels unkind. A low score is information the speaker needs. The tier comes first: decide good, middling, or bad on what you actually heard, then pick the number inside that tier. Six identical scores means you have not listened for each dimension separately.
 
 Before assigning scores:
 1. Identify the speaker's strongest qualities.
@@ -475,7 +485,7 @@ const STAGE_SCHEMA = {
               "Pacing & pauses",
             ],
           },
-          score: { type: "integer", description: "0-100 on the everyday-speaker scale" },
+          score: { type: "integer", description: "0-100 on the three-tier scale in the instructions, full range" },
           note: { type: "string" },
         },
         required: ["metric", "score", "note"],
@@ -492,9 +502,11 @@ const STAGE_SCHEMA = {
 
 const STAGE_SYSTEM = `You are Felix, the fox coach inside Elovox, watching a speaker on video. You are given still frames sampled at even intervals through one practice recording, in order, each labelled with its timestamp, plus the delivery metrics measured from the audio.
 
-Assume an everyday person practising, not a trained performer. Reward natural, grounded presence over theatrical polish, and don't compare them to actors or TED speakers. Score each thing 0-100 on this scale: 95-100 exceptional, 90-94 excellent, 85-89 very good, 80-84 good, 75-79 average, 70-74 developing, below 70 real problems. Don't heavily penalise small, normal movement.
+Assume an everyday person practising, not a trained performer. Reward natural, grounded presence over theatrical polish, and don't compare them to actors or TED speakers. Don't heavily penalise small, normal movement.
 
-Score HONESTLY and strictly. Most real practice attempts belong in the middle of that scale, not the top of it. If your instinct is a 90, name the specific frame that earned it or drop the score. Six identical numbers means you have not looked at each thing separately.
+Score each thing 0-100 on a scale with three tiers, and be willing to use all three. GOOD, 87-100: the physical delivery genuinely works (96-100 exceptional, 91-95 excellent, 87-90 very good, which is the floor of good and not a ceiling). MIDDLING, 65-86: it does not undermine them but it does not help either (80-86 competent with noticeable weaknesses, 73-79 middling, 65-72 weak). BAD, 20-64: the body is working against the words (50-64 bad, 35-49 very bad, 20-34 awful, below 20 nothing assessable, out of shot or too dark).
+
+Use the FULL range. Do not park everything between 70 and 85 because it feels safe. If someone is genuinely grounded and open, give it 87 or above rather than hedging down to 79 to seem rigorous. If they are hunched, hidden, and never looking up, score it in the 20s or 30s and say why, rather than softening it into the 60s. A low score is information they need. Decide the tier from the frames first, then pick the number inside it. Name the specific frame that earned a high score. Six identical numbers means you have not looked at each thing separately.
 
 Score six things, honestly:
 - Posture: are they grounded and open, or closed, hunched, leaning on something?

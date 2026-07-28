@@ -10,6 +10,7 @@ import { listSessions } from "@/lib/store";
 import { getCategory } from "@/lib/categories";
 import { getStats, MAX_DAILY_ATTEMPTS, type UserStats } from "@/lib/daily";
 import { LEVELS } from "@/lib/levels";
+import { barClass } from "@/lib/scoring";
 import type { Session } from "@/lib/types";
 
 function TrendChart({ sessions }: { sessions: Session[] }) {
@@ -348,7 +349,7 @@ function ProgressScreen() {
               </div>
               <div className="mt-1.5 h-1.5 rounded-full bg-surface-container overflow-hidden">
                 <div
-                  className={`bar-grow h-full rounded-full ${s.latest >= 75 ? "bg-accent" : "bg-amber"}`}
+                  className={`bar-grow h-full rounded-full ${barClass(s.latest, "bg-accent")}`}
                   style={{
                     width: `${s.latest}%`,
                     animationDelay: `${300 + i * 100}ms`,
@@ -384,7 +385,7 @@ function ProgressScreen() {
                 </div>
                 <div className="mt-1.5 h-1.5 rounded-full bg-surface-container overflow-hidden">
                   <div
-                    className={`bar-grow h-full rounded-full ${m.latest >= 75 ? "bg-violet" : "bg-amber"}`}
+                    className={`bar-grow h-full rounded-full ${barClass(m.latest, "bg-violet")}`}
                     style={{
                       width: `${m.latest}%`,
                       animationDelay: `${300 + i * 100}ms`,

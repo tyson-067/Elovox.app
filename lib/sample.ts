@@ -1,4 +1,5 @@
 import type { Analysis, CategoryId } from "./types";
+import { MIDDLING_MIN } from "./scoring";
 
 // Sample-feedback generator. Used as the fallback whenever the real analysis
 // pipeline (/api/analyze: AssemblyAI + Gemini) is unreachable or not yet
@@ -69,16 +70,18 @@ export function generateSampleAnalysis(opts: {
   const rand = seededRandom(Math.floor(opts.durationSec * 1000) + Date.now());
 
   const skills = SKILLS.map((skill) => {
-    // Kept in step with the real pipeline's calibration (see SCORE_BOOST and
-    // HONESTY_REDUCTION in app/api/analyze/route.ts, net 3 points below the
-    // model's honest judgement). This band puts an everyday practising
-    // speaker in the low-to-mid 70s. It only renders when the API keys are
-    // unset and it is labeled a sample, but a sample that scores 20 points
-    // above the real thing teaches the wrong expectation to anyone setting
-    // the project up for the first time.
-    const score = Math.round(64 + rand() * 18);
+    // Kept in step with the real pipeline, which now spreads scores across
+    // three tiers rather than bunching them (GOOD_MIN / MIDDLING_MIN in
+    // lib/scoring.ts, and the bands written out for the model in
+    // app/api/analyze/route.ts). This spans the middling tier and dips into
+    // the top of bad, which is what an unremarkable practice attempt should
+    // look like. It only renders when the API keys are unset and it is
+    // labeled a sample, but a sample that scores well above the real thing
+    // teaches the wrong expectation to anyone setting the project up for the
+    // first time.
+    const score = Math.round(58 + rand() * 26);
     const [good, bad] = SKILL_NOTES[skill];
-    return { skill, score, note: score >= 74 ? good : bad };
+    return { skill, score, note: score >= MIDDLING_MIN ? good : bad };
   });
   const overall = Math.round(
     skills.reduce((sum, s) => sum + s.score, 0) / skills.length
@@ -92,7 +95,7 @@ export function generateSampleAnalysis(opts: {
 
   const goalClause = opts.goal
     ? ` Against your goal, "${opts.goal.toLowerCase()}", ${
-        overall >= 73 ? "you're most of the way there" : "the gap is in the delivery, not the words"
+        overall >= MIDDLING_MIN ? "you're most of the way there" : "the gap is in the delivery, not the words"
       }.`
     : "";
 
@@ -100,7 +103,7 @@ export function generateSampleAnalysis(opts: {
     isSample: true,
     overall,
     summary:
-      (overall >= 73
+      (overall >= MIDDLING_MIN
         ? `Solid run. ${strongest.skill} carried this one, now tighten up ${weakest.skill.toLowerCase()}.`
         : `A real starting point. The content is there; the delivery work is in ${weakest.skill.toLowerCase()}.`) +
       goalClause,
@@ -130,7 +133,7 @@ export function generateSampleAnalysis(opts: {
       `Repeat the move from ${strongTime}: pause, then one concrete detail. That's when you were most convincing, build the rest around it.`,
     ],
     audienceImpact:
-      overall >= 73
+      overall >= MIDDLING_MIN
         ? "A listener would come away trusting you and remembering your middle section, that's where you sounded most like yourself. The one risk: the ending loses energy, so the last impression is softer than you deserve. Fix the close and the whole thing lands."
         : "A listener would follow you and believe you know your material, but they'd hesitate to act on it yet, the hedging reads as uncertainty, even though the content is solid. Say it plainly and the same words will move people.",
     paceWpm: Math.round(128 + rand() * 45),
