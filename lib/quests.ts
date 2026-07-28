@@ -265,7 +265,10 @@ export interface Outfit {
 
 const WARDROBE: Omit<Outfit, "unlocked">[] = [
   { id: "bow-tie", name: "The bow tie", emoji: "🎀", level: 2 },
-  { id: "glasses", name: "Professor's specs", emoji: "👓", level: 4 },
+  // NOT the professor's specs, however tempting: those are part of Felix's
+  // coach mood and a new account already sees him wearing them, so promising
+  // them at Level 4 advertised something the fox on the same screen had on.
+  { id: "mortarboard", name: "Scholar's cap", emoji: "🎓", level: 4 },
   { id: "scarf", name: "Winter scarf", emoji: "🧣", level: 6 },
   { id: "headset", name: "Broadcast headset", emoji: "🎧", level: 8 },
   { id: "laurels", name: "Laurel wreath", emoji: "🏆", level: 10 },

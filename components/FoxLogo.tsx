@@ -97,9 +97,14 @@ function Eyes({ mood }: { mood: FelixMood }) {
  * one hides them. The bars are decoration rather than information, and a
  * scarf drawn over five blue rectangles looks like a printing error.
  */
+// NOTE: glasses are deliberately NOT in this list. They belong to Felix's
+// coach mood, which is the mood a brand-new account sees — so offering them
+// as a Level 4 unlock meant the Den promised something the fox on the same
+// screen was already visibly wearing. Anything that is part of the character
+// cannot also be a reward for levelling; pick something he doesn't have.
 export type FelixAccessory =
   | "bow-tie"
-  | "glasses"
+  | "mortarboard"
   | "scarf"
   | "headset"
   | "laurels"
@@ -120,8 +125,28 @@ function Accessory({ id }: { id: FelixAccessory }) {
           <rect x="93" y="146" width="14" height="13" rx="4" />
         </g>
       );
-    case "glasses":
-      return <Glasses />;
+    case "mortarboard":
+      return (
+        <g>
+          {/* the cap under the board */}
+          <path d="M80 54 L120 54 L116 41 L84 41 Z" fill={DARK} />
+          {/* the board: a flattened diamond, wider than the head, sitting
+              between the ears so the tips still read */}
+          <path d="M100 25 L147 42 L100 59 L53 42 Z" fill={DARK} />
+          <path d="M100 25 L147 42 L100 50 L53 42 Z" fill={LAPIS} opacity="0.45" />
+          {/* Tassel in Lapis, not the gold a real one would be: it hangs
+              down over the right ear, and orange cord on orange fur was
+              invisible — the same trap the laurels fell into. */}
+          <path
+            d="M147 42 L151 63"
+            stroke={LAPIS}
+            strokeWidth="3"
+            strokeLinecap="round"
+            fill="none"
+          />
+          <circle cx="151" cy="67" r="5" fill={LAPIS} />
+        </g>
+      );
     case "scarf":
       return (
         <g>
@@ -261,10 +286,10 @@ export function Felix({
 }) {
   const fur = FUR_FILL;
   const wearingChestPiece = !!accessory && CHEST_ACCESSORIES.includes(accessory);
-  // The glasses are both a mood and an unlockable. Drawing them twice is
-  // just two identical circles on top of each other, so whichever asked
-  // first wins and the other stands down.
-  const showGlasses = mood === "coach" || accessory === "glasses";
+  // Glasses are the coach mood's whole tell, and nothing else. They used to
+  // also be an unlockable, which is what made the Den advertise them to a
+  // fox already wearing them.
+  const showGlasses = mood === "coach";
   const motion = animate
     ? mood === "cheer"
       ? "felix-cheer"
@@ -345,10 +370,8 @@ export function Felix({
         <path d="M130 117 L147 118" />
       </g>
 
-      {/* Head pieces last, so a crown or a headset sits over the ears. */}
-      {accessory && !wearingChestPiece && accessory !== "glasses" ? (
-        <Accessory id={accessory} />
-      ) : null}
+      {/* Head pieces last, so a cap or a headset sits over the ears. */}
+      {accessory && !wearingChestPiece ? <Accessory id={accessory} /> : null}
     </svg>
   );
 }
