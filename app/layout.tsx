@@ -93,6 +93,24 @@ export default function RootLayout({
       className={`${montserrat.variable} ${jost.variable} ${geistMono.variable} ${playfair.variable}`}
     >
       <body className="min-h-dvh flex flex-col">
+        {/* Marks the document as running inside the iOS/Android shell, before
+            anything paints. Apple requires that the native app never shows a
+            price or a route to buying Premium (Guideline 3.1.1), and the
+            server can't know which client it is serving — the native app loads
+            this very same deployment. So the decision is made here, in the
+            document, and `.web-only` in globals.css does the hiding.
+
+            Deliberately NOT a React state/effect: a hook would render the
+            upgrade CTA first and remove it a frame later, which is both a
+            visible flicker and exactly the thing a reviewer would screenshot.
+            Capacitor injects window.Capacitor before body scripts run, so this
+            is settled before the header ever paints. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){document.documentElement.setAttribute('data-native','1')}}catch(e){}",
+          }}
+        />
         <a href="#main" className="skip-link">
           Skip to content
         </a>

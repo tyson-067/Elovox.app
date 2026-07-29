@@ -489,7 +489,7 @@ function TodayScreen() {
             </p>
             <Link
               href="/pricing"
-              className="btn mt-4 inline-block rounded-lg bg-accent px-6 py-2.5 text-sm font-semibold text-white"
+              className="btn mt-4 inline-block rounded-lg bg-accent px-6 py-2.5 text-sm font-semibold text-white web-only"
             >
               See Premium
             </Link>

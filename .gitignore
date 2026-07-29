@@ -70,3 +70,14 @@ next-env.d.ts
 # together it is a free map of the production setup — and it goes stale in
 # ways that misdescribe the current security posture. Keep it local.
 /STRIPE-GO-LIVE.md
+
+# Capacitor / iOS.
+# The Xcode project itself is committed; generated and fetched artefacts are
+# not. ios/App/App/public is a build-time copy of native-shell/, and
+# GoogleService-Info.plist carries the Firebase iOS config — keep it local
+# rather than in a public repo.
+/ios/App/App/public/
+/ios/App/Pods/
+/ios/App/**/GoogleService-Info.plist
+/ios/DerivedData/
+/ios/App/.build/

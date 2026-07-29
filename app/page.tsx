@@ -473,7 +473,7 @@ export default function LandingPage() {
               </ul>
               <Link
                 href="/pricing"
-                className="btn rounded-lg mt-6 inline-block bg-white/15 text-white font-semibold px-6 py-3 hover:bg-white/25"
+                className="btn rounded-lg mt-6 inline-block bg-white/15 text-white font-semibold px-6 py-3 hover:bg-white/25 web-only"
               >
                 See plans &amp; pricing
               </Link>

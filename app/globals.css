@@ -853,3 +853,20 @@ body {
     opacity: 0.7;
   }
 }
+
+/* --- Native app (iOS/Android shell) ---------------------------------------
+   The native build loads this same deployment, so anything that offers a way
+   to buy Premium has to be hidden client-side. `data-native` is set on <html>
+   by the inline script in app/layout.tsx before first paint; mark any element
+   that must not appear inside the app with `web-only`.
+
+   Apple Guideline 3.1.1: a digital subscription consumed in-app must use IAP,
+   and pointing users at an external purchase counts as steering. Until Elovox
+   ships StoreKit, the app shows no price, no plan comparison, and no link to
+   /pricing. Explanatory copy about what Premium includes is fine and stays.
+
+   !important because these are utility-class-heavy elements and the rule has
+   to win regardless of what Tailwind emits alongside it. */
+html[data-native] .web-only {
+  display: none !important;
+}

@@ -36,7 +36,7 @@ export function AuthNav() {
   // links through to /pricing as "Compare plans" for the rare case they want
   // to see the grid.
   const pricingLink = (
-    <Link href="/pricing" className="nav-link hover:text-primary">
+    <Link href="/pricing" className="nav-link hover:text-primary web-only">
       Pricing
     </Link>
   );

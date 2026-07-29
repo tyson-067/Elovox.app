@@ -261,7 +261,7 @@ function BillingSection() {
             ) : (
               <Link
                 href="/pricing"
-                className="btn rounded-lg bg-accent px-6 py-3 font-semibold text-white"
+                className="btn rounded-lg bg-accent px-6 py-3 font-semibold text-white web-only"
               >
                 See Premium plans
               </Link>
@@ -269,7 +269,7 @@ function BillingSection() {
             {isPremium && (
               <Link
                 href="/pricing"
-                className="btn rounded-lg card px-6 py-3 font-semibold text-primary"
+                className="btn rounded-lg card px-6 py-3 font-semibold text-primary web-only"
               >
                 Compare plans
               </Link>

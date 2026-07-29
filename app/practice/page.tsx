@@ -612,7 +612,7 @@ function RecordingScreen() {
         <div className="mt-8 flex flex-wrap gap-4">
           <Link
             href="/pricing"
-            className="btn rounded-lg bg-accent text-white font-semibold px-7 py-3"
+            className="btn rounded-lg bg-accent text-white font-semibold px-7 py-3 web-only"
           >
             See Premium
           </Link>

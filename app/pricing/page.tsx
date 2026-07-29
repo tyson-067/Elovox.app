@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { isNativeApp } from "@/lib/native";
 import { Reveal } from "@/components/Reveal";
 import { Parallax } from "@/components/Parallax";
 import { GlowCard } from "@/components/GlowCard";
@@ -84,6 +85,16 @@ const FAQ = [
 
 export default function PricingPage() {
   const router = useRouter();
+  // Nothing in the native build links here (every route to it carries
+  // `web-only`), but the route still exists and a deep link or a stale
+  // in-app history entry could land on it. A price grid inside the app is
+  // the one thing Guideline 3.1.1 cannot tolerate, so bounce rather than
+  // rely on there being no way in. See lib/native.ts and CAPACITOR.md.
+  const native = isNativeApp();
+  useEffect(() => {
+    if (native) router.replace("/dashboard");
+  }, [native, router]);
+
   const { user, configured } = useAuth();
   const { record } = usePlanRecord();
   const [cycle, setCycle] = useState<BillingCycle>("annual");
@@ -172,7 +183,11 @@ export default function PricingPage() {
   };
 
   return (
-    <div className="pb-24">
+    // web-only as well as the redirect above: this route is prerendered, so
+    // the price grid exists in the HTML the webview receives and would be
+    // painted for the frame or two before hydration runs the replace(). The
+    // CSS rule is already in effect at first paint, the effect is not.
+    <div className="pb-24 web-only">
       {/* Hero */}
       <section className="relative pt-16 md:pt-24 text-center">
         <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">

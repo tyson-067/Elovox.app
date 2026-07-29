@@ -91,8 +91,45 @@ export async function signInWithEmail(
   );
 }
 
+/**
+ * Ask the native Google account picker for an ID token.
+ *
+ * Only reachable on iOS/Android. Returns the raw Google ID token, which the
+ * caller exchanges for a Firebase session on the JS side — we deliberately do
+ * NOT let the native layer own the session, so App Check, the Firestore rules,
+ * and `verifyVerifiedUser` in the API routes all keep seeing exactly the same
+ * user object they see on the web.
+ */
+async function nativeGoogleIdToken(): Promise<string> {
+  const { FirebaseAuthentication } = await import(
+    "@capacitor-firebase/authentication"
+  );
+  const result = await FirebaseAuthentication.signInWithGoogle();
+  const idToken = result.credential?.idToken;
+  // No token means the user backed out of the system sheet. Not an error
+  // worth reporting, but the caller still needs a rejected promise.
+  if (!idToken) throw new Error("Google sign-in was cancelled.");
+  return idToken;
+}
+
 export async function signInWithGoogle(): Promise<void> {
-  const { GoogleAuthProvider, signInWithPopup } = await import("firebase/auth");
+  const { GoogleAuthProvider, signInWithPopup, signInWithCredential } =
+    await import("firebase/auth");
+
+  // Popups do not exist in a WKWebView, and Google increasingly refuses OAuth
+  // inside embedded webviews outright (disallowed_useragent). signInWithRedirect
+  // is no better: it leans on cross-origin storage that Safari's ITP degrades.
+  // So native gets the system account picker, web keeps the popup that works.
+  const { Capacitor } = await import("@capacitor/core");
+  if (Capacitor.isNativePlatform()) {
+    const idToken = await nativeGoogleIdToken();
+    await signInWithCredential(
+      getAuthInstance(),
+      GoogleAuthProvider.credential(idToken)
+    );
+    return;
+  }
+
   await signInWithPopup(getAuthInstance(), new GoogleAuthProvider());
 }
 
@@ -147,7 +184,19 @@ async function reauthenticate(user: User, currentPassword?: string): Promise<voi
     const cred = auth.EmailAuthProvider.credential(user.email, currentPassword);
     await auth.reauthenticateWithCredential(user, cred);
   } else {
-    // Google (or other federated) account, confirm via a fresh popup.
+    // Google (or other federated) account, confirm via a fresh sign-in.
+    // Same webview constraint as signInWithGoogle: no popup on native. Miss
+    // this branch and change-email, change-password and delete-account all
+    // hang silently on iOS for anyone who signed up with Google.
+    const { Capacitor } = await import("@capacitor/core");
+    if (Capacitor.isNativePlatform()) {
+      const idToken = await nativeGoogleIdToken();
+      await auth.reauthenticateWithCredential(
+        user,
+        auth.GoogleAuthProvider.credential(idToken)
+      );
+      return;
+    }
     await auth.reauthenticateWithPopup(user, new auth.GoogleAuthProvider());
   }
 }

@@ -27,7 +27,7 @@ export function Footer() {
             className="flex flex-col gap-2 text-sm text-on-surface-variant sm:flex-row sm:gap-6"
           >
             <FooterAboutLink className={linkClass} />
-            <Link href="/pricing" className={linkClass}>
+            <Link href="/pricing" className={`${linkClass} web-only`}>
               Pricing
             </Link>
             <Link href="/terms" className={linkClass}>
