@@ -62,6 +62,20 @@ export interface ChallengeState {
 export interface UserStats {
   xp: number;
   streakDays: number;
+  /**
+   * The best streak this user has ever held, as a high-water mark that only
+   * ever goes up. `streakDays` is the run in progress and drops back to 1 on
+   * a missed day; this is the one the Fox Den's streak badges are allowed to
+   * read, because an achievement that can be taken away is a status light.
+   *
+   * Deliberately NOT backfilled. Existing users start from whatever streak
+   * they are on right now, and `longestStreak()` in lib/quests.ts still walks
+   * the session history for anything earlier, so nobody loses a badge they
+   * already have. It exists so that bounding the dashboard's session query to
+   * a recent window later on cannot silently un-earn those badges: the floor
+   * survives in the stats doc even when the history behind it is out of view.
+   */
+  longestStreak: number;
   lastChallengeDate: string | null;
   challengesCompleted: number;
   level: LevelProgress;
@@ -239,6 +253,7 @@ const STATS_KEY = "elovox.stats.v1";
 const EMPTY_STATS = {
   xp: 0,
   streakDays: 0,
+  longestStreak: 0,
   lastChallengeDate: null as string | null,
   challengesCompleted: 0,
 };
@@ -413,6 +428,10 @@ export async function recordChallengeAttempt(opts: {
   const nextStats: RawStats = {
     xp: raw.xp + xp,
     streakDays,
+    // A high-water mark, so it can only ever go up. Written on every attempt
+    // rather than only on the first of the day, because it costs nothing and
+    // the streak it tracks is already settled by this point.
+    longestStreak: Math.max(raw.longestStreak ?? 0, streakDays),
     lastChallengeDate: date,
     challengesCompleted,
   };

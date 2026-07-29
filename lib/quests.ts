@@ -153,16 +153,20 @@ export interface Badge {
  * status light, not an achievement, and the Den presents these as
  * achievements ("3 / 6 badges").
  *
- * `currentStreak` is folded in as a floor because the session history is not
- * a complete record on its own: saveSession is best-effort, and reps recorded
- * before `challengeDate` existed carry no date at all.
+ * `floor` is folded in because the session history is not a complete record
+ * on its own: saveSession is best-effort, and reps recorded before
+ * `challengeDate` existed carry no date at all. Callers pass the larger of
+ * `stats.streakDays` (the run in progress) and `stats.longestStreak` (the
+ * persisted high-water mark, see lib/daily.ts).
  *
- * NOTE: this walks the whole history, so it is one of the two things (badges
- * being the other) that stop the dashboard's session query being bounded to a
- * recent window. Bounding it without addressing this would silently start
- * un-earning badges again once someone's history outgrew the limit.
+ * NOTE: this still walks the whole history, so it remains one of the two
+ * things (badges being the other) that stop the dashboard's session query
+ * being bounded to a recent window. The difference is that the damage is now
+ * capped: `stats.longestStreak` records every streak earned from the day it
+ * shipped onward, so a bounded query can only lose streaks that predate it,
+ * not silently un-earn everything past the window.
  */
-export function longestStreak(sessions: Session[], currentStreak = 0): number {
+export function longestStreak(sessions: Session[], floor = 0): number {
   const days = [
     ...new Set(
       sessions
@@ -183,7 +187,7 @@ export function longestStreak(sessions: Session[], currentStreak = 0): number {
     if (run > best) best = run;
   }
 
-  return Math.max(best, currentStreak);
+  return Math.max(best, floor);
 }
 
 export function badgesFor(opts: {
@@ -192,7 +196,10 @@ export function badgesFor(opts: {
 }): Badge[] {
   const stats = opts.stats;
   const sessions = opts.sessions;
-  const bestStreak = longestStreak(sessions, stats?.streakDays ?? 0);
+  const bestStreak = longestStreak(
+    sessions,
+    Math.max(stats?.streakDays ?? 0, stats?.longestStreak ?? 0)
+  );
   const best = sessions.reduce((m, s) => Math.max(m, s.analysis?.overall ?? 0), 0);
   const cleanest = sessions.length
     ? Math.min(...sessions.map((s) => s.analysis?.fillerWords ?? 99))

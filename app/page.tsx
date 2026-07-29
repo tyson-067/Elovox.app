@@ -189,7 +189,7 @@ const FEATURES: {
   // feel like it's shouting.
   {
     title: "Interviews that ask like the real thing",
-    body: "Jobs, college admissions, scholarships, grad school, med and law. Real questions, and the follow-ups that actually decide it. Premium.",
+    body: "Jobs, college admissions, scholarships, grad school, med and law. Real questions, and the follow-ups that actually decide it.",
   },
 ];
 
