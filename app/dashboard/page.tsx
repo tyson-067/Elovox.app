@@ -43,7 +43,7 @@ import {
 //      screen is what made this page feel loud, and it taught people the
 //      header wasn't worth reading.
 //   2. A wall. Everything below is on the day: what Felix makes of where
-//      you are, the challenge itself, three quests, and the Den. The
+//      you are, the Daily Minute itself, three quests, and the Den. The
 //      features live on their own pages and are reached from the tabs.
 //
 // Everything gamified here is derived, never stored. See lib/quests.ts.
@@ -145,7 +145,7 @@ function FelixHero({
   );
 }
 
-/** The universal daily challenge, the same topic for everyone, every day. */
+/** The Daily Minute, the same topic for everyone, every day. */
 function DailyCard({
   challenge,
   state,
@@ -160,7 +160,7 @@ function DailyCard({
     <GlowCard className="card card-glow-light dusk-gradient border-none! h-full p-6 text-white md:p-8">
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-white">
-          Today&apos;s challenge · 1 minute
+          The Daily Minute · 60 seconds
         </span>
         {challenge?.theme && (
           <span className="text-[13px] font-semibold tracking-wide text-white/70">
@@ -214,7 +214,7 @@ function DailyCard({
           className="btn mt-6 inline-block rounded-lg bg-accent px-7 py-3.5 font-semibold text-white"
         >
           {used === 0
-            ? "Start today's challenge"
+            ? "Start your Daily Minute"
             : `Attempt ${used + 1}, beat ${state?.bestScore}`}
         </Link>
       )}
@@ -386,7 +386,7 @@ function TodayScreen() {
 
     // Roll over exactly at the user's local midnight. Everything keys off
     // todayKey() (a local-timezone date), so a fresh load past midnight pulls
-    // the next day's challenge and a clean attempt count.
+    // the next day's Daily Minute and a clean attempt count.
     const scheduleMidnight = () => {
       const now = new Date();
       const nextMidnight = new Date(

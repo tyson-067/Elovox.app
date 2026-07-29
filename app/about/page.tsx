@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Felix } from "@/components/FoxLogo";
 import { Reveal } from "@/components/Reveal";
 import { Parallax } from "@/components/Parallax";
-import { GlowCard } from "@/components/GlowCard";
 import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
 
 // Marketing "about" page: why Elovox exists, and who builds it. Part of the
@@ -30,13 +28,13 @@ export const metadata: Metadata = {
     url: "/about",
     title: `${TITLE} | Elovox`,
     description: DESCRIPTION,
-    images: ["/icon.png"],
+    images: ["/logo.png"],
   },
   twitter: {
     card: "summary",
     title: `${TITLE} | Elovox`,
     description: DESCRIPTION,
-    images: ["/icon.png"],
+    images: ["/logo.png"],
   },
 };
 
@@ -52,15 +50,6 @@ const ABOUT_SCHEMA = {
   mainEntity: { "@id": `${SITE}/#organization` },
 };
 
-// The mission, in three beats: the gap, why the existing tools don't close it,
-// and what we built instead. Kept as data so the section is one map and the
-// paragraphs stay the same length on screen.
-const MISSION = [
-  "Getting better at speaking takes someone willing to tell you the truth about how you sounded. That is the part almost nobody has. Coaches cost money, teachers are split across thirty students, and friends round everything up to \"that was great.\" So most people practice alone, in front of a mirror or a phone camera, guessing at the one thing they cannot judge from the inside: what it was actually like to sit in the audience.",
-  "The tools that existed did not close that gap. They transcribe you, count your filler words, and clock your pace. Those are the easy things to measure, and they are not what decides whether a room believes you. Nothing was reading warmth, confidence, or authority. Nothing was telling you which word to lean on, where to leave a silence, or why your ending lost the audience.",
-  "So we built the listener we each wanted. You speak for a minute, and Felix tells you how it landed and what to change on the next take, the way a good coach would. Every day, for anyone, whether or not there is someone in your life whose job it is to listen.",
-];
-
 // Names and roles only. The page leads with the mission; a wall of biography
 // underneath it would bury the thing a visitor came to read.
 //
@@ -70,8 +59,8 @@ const MISSION = [
 // retired without touching anyone's inbox.
 const TEAM = [
   { name: "Tyson Youm", role: "Head of Product Development" },
-  { name: "Aanya Iyer Us", role: "Head of Marketing" },
-  { name: "Kelley Guo", role: "Head of Operations" },
+  { name: "Aanya Iyer", role: "Head of Marketing" },
+  { name: "Kelley Gou", role: "Head of Operations" },
   { name: "Arad Mehrabian", role: "Head of Sales" },
 ];
 
@@ -86,7 +75,11 @@ export default function AboutPage() {
       <RedirectIfAuthed />
 
       {/* Intro */}
-      <section className="relative pt-16 md:pt-24 grid grid-cols-1 md:grid-cols-12 gap-10 items-center">
+      {/* No longer a two-column split. The Felix panel that used to sit on the
+          right ("Felix does the coaching…") is gone, so the intro is one
+          column and the copy keeps its own measure rather than being stretched
+          across the full width. */}
+      <section className="relative pt-16 md:pt-24">
         <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
           <div className="dot-grid absolute -inset-x-10 -top-16 bottom-0" />
           <Parallax speed={0.28} className="absolute -top-8 right-[8%]">
@@ -94,42 +87,26 @@ export default function AboutPage() {
           </Parallax>
         </div>
 
-        <div className="md:col-span-7">
-          <Reveal>
-            <span className="inline-flex items-center gap-2 text-[13px] font-semibold tracking-[0.08em] uppercase text-violet">
-              About us
-            </span>
-            <h1 className="mt-4 text-display-sm font-headline font-bold text-primary">
-              Everyone should have{" "}
-              <span className="text-gradient">someone listening</span>.
-            </h1>
-            <p className="mt-5 text-lg md:text-xl leading-8 text-on-surface-variant max-w-[54ch]">
-              We compete at speaking, in debate rounds, speech and oratory
-              tournaments, case and economics competitions, and startup
-              pitches. We built Elovox because the feedback that actually makes
-              you better is the feedback almost nobody can get.
-            </p>
-          </Reveal>
-        </div>
-        <div className="md:col-span-5">
-          <Reveal delay={150}>
-            <Parallax speed={0.08}>
-              <div className="navy-gradient rounded-card p-8 flex flex-col items-center">
-                <Felix className="h-40 w-40" />
-                <p className="mt-4 text-center text-white/90 text-base leading-6 max-w-[30ch]">
-                  Felix does the coaching. We do everything that gets him in
-                  front of you.
-                </p>
-              </div>
-            </Parallax>
-          </Reveal>
-        </div>
+        <Reveal>
+          <span className="inline-flex items-center gap-2 text-[13px] font-semibold tracking-[0.08em] uppercase text-violet">
+            About us
+          </span>
+          <h1 className="mt-4 text-display-sm font-headline font-bold text-primary">
+            Everyone should have{" "}
+            <span className="text-gradient">someone listening</span>.
+          </h1>
+          <p className="mt-5 text-lg md:text-xl leading-8 text-on-surface-variant max-w-[54ch]">
+            We compete at speaking, in debate rounds, speech and oratory
+            tournaments, case and economics competitions, and startup pitches.
+            We built Elovox because the feedback that actually makes you better
+            is the feedback almost nobody can get.
+          </p>
+        </Reveal>
       </section>
 
-      {/* Mission statement. Sits above "Why we built it" on purpose: this is
-          the short, quotable version of the same story, so a visitor who reads
-          only one block reads this one. The three cards underneath then take
-          the argument apart at length for anyone still reading. */}
+      {/* Mission statement. The short, quotable version of the story, and now
+          the only version: the three "Why we built it" cards that used to sit
+          underneath said the same thing at four times the length. */}
       <section className="mt-16 md:mt-24">
         <Reveal>
           <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
@@ -154,30 +131,6 @@ export default function AboutPage() {
             </p>
           </div>
         </Reveal>
-      </section>
-
-      {/* Mission */}
-      <section className="mt-16 md:mt-24">
-        <Reveal>
-          <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
-            Why we built it
-            <span className="grow-line" aria-hidden="true" />
-          </h2>
-        </Reveal>
-        <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
-          {MISSION.map((paragraph, i) => (
-            <Reveal key={i} delay={i * 120} className="h-full">
-              <GlowCard className="card h-full p-5 md:p-6">
-                <span className="font-data text-sm text-violet">
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <p className="mt-2 text-base leading-7 text-on-surface-variant">
-                  {paragraph}
-                </p>
-              </GlowCard>
-            </Reveal>
-          ))}
-        </div>
       </section>
 
       {/* Team */}

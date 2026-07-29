@@ -671,7 +671,7 @@ export async function POST(req: NextRequest) {
       {
         error: "premium-required",
         message:
-          "Free practice is the daily challenge. Go Premium for the speech library, your own material, interview practice and camera coaching.",
+          "Free practice is the Daily Minute. Go Premium for the speech library, your own material, interview practice and camera coaching.",
       },
       { status: 403 }
     );

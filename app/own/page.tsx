@@ -82,7 +82,7 @@ function OwnScreen() {
               href="/dashboard"
               className="btn rounded-lg mt-5 inline-block bg-accent text-white font-semibold px-7 py-3.5"
             >
-              Go to today&apos;s challenge
+              Go to the Daily Minute
             </Link>
           </div>
         </Reveal>

@@ -181,7 +181,7 @@ const FEATURES: {
   },
   {
     title: "Camera coaching, not just audio",
-    body: "Turn the camera on and Felix reads the other half of delivery: posture, sway, hand gestures, facial expression, eye contact, and what your body does during the pauses. Premium.",
+    body: "Turn the camera on and Felix reads the other half of delivery: posture, sway, hand gestures, facial expression, eye contact, and what your body does during the pauses.",
   },
   // "One speech a day, three attempts" used to sit here. It said the same
   // thing as steps 01 and 02 above, on the same page, six hundred pixels
@@ -434,7 +434,7 @@ export default function LandingPage() {
                 $0 / forever
               </p>
               <ul className="mt-4 space-y-2 text-base leading-6 text-on-surface">
-                <li>The daily 1-minute speech, new every day, written by Felix</li>
+                <li>The Daily Minute, a new topic every day, set by Felix</li>
                 <li>3 attempts a day to beat your own best score</li>
                 <li>Full Felix feedback report on every attempt</li>
                 <li>Levels, XP and streaks</li>
@@ -469,7 +469,7 @@ export default function LandingPage() {
                   Coaching on your own material, and custom speeches Felix
                   writes for your actual situation
                 </li>
-                <li>Everything in Free, including the daily challenge</li>
+                <li>Everything in Free, including the Daily Minute</li>
               </ul>
               <Link
                 href="/pricing"
@@ -511,7 +511,7 @@ export default function LandingPage() {
             href="/signup"
             className="btn rounded-lg mt-8 inline-block bg-accent text-white font-semibold px-8 py-3.5"
           >
-            Take today&apos;s challenge
+            Start your Daily Minute
           </Link>
         </Reveal>
       </section>

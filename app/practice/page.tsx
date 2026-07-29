@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Felix } from "@/components/FoxLogo";
+import { AnalyzingLoader } from "@/components/AnalyzingLoader";
 import { getCategory, pickPrompt } from "@/lib/categories";
 import { getSpeech } from "@/lib/speeches";
 import { getInterviewType, pickInterviewQuestion } from "@/lib/interviews";
@@ -38,12 +39,12 @@ type RecState = "idle" | "recording" | "analyzing" | "error";
 
 const FRAMES_PER_RECORDING = 10;
 
-// The daily challenge is a ONE MINUTE challenge, so sixty seconds is the
+// The Daily Minute is a ONE MINUTE exercise, so sixty seconds is the
 // whole exercise, not a suggestion. It used to be advisory: the copy said "a
 // minute" while the recorder happily ran on to five, which meant a 90-second
 // take was scored against people who stopped at 60. The cutoff is now real
-// and identical for free and Premium, because the challenge is the same
-// challenge for everyone.
+// and identical for free and Premium, because the Daily Minute is the
+// same exercise for everyone.
 const DAILY_LIMIT_SEC = 60;
 
 // Everything else is untimed: Premium users practise a talk for as long as
@@ -68,7 +69,7 @@ function formatTime(sec: number) {
 
 /**
  * What the user is practicing, resolved from the query string:
- *   ?daily=1              the universal 1-minute challenge (free + premium)
+ *   ?daily=1              the Daily Minute (free + premium)
  *   ?speech=<id>          a speech from the Premium library
  *   ?gen=<key>            a speech Felix just wrote (sessionStorage handoff)
  *   ?interview=<type>     interview practice
@@ -224,14 +225,14 @@ function RecordingScreen() {
         setChallenge(s);
       })
       .catch(() => {
-        if (!cancelled) setDailyError("Couldn't load today's challenge. Try again in a moment.");
+        if (!cancelled) setDailyError("Couldn't load today's Daily Minute. Try again in a moment.");
       });
     return () => {
       cancelled = true;
     };
   }, [isDaily]);
 
-  // What the user performs, and its heading. The daily challenge is improv:
+  // What the user performs, and its heading. The Daily Minute is improv:
   // there's no script, so `script` becomes the brief we send to Felix (topic
   // + the three points to hit) and the screen renders those as prompts, not
   // as lines to read.
@@ -251,7 +252,7 @@ function RecordingScreen() {
           : ownPrompt;
 
   const heading = isDaily
-    ? (daily?.title ?? "Today's challenge")
+    ? (daily?.title ?? "The Daily Minute")
     : speech
       ? speech.title
       : generated
@@ -266,11 +267,11 @@ function RecordingScreen() {
       ? speech.scenario
       : generated?.scenario;
 
-  // Scripts are read verbatim; the daily challenge, interview questions and
+  // Scripts are read verbatim; the Daily Minute, interview questions and
   // open prompts are answered/improvised in the speaker's own words.
   const isScript = mode !== "interview" && mode !== "own" && mode !== "daily";
 
-  // The daily challenge stops dead at sixty seconds. Everything else runs
+  // The Daily Minute stops dead at sixty seconds. Everything else runs
   // until the speaker stops it, bounded only by the runaway guard.
   const limitSec = isDaily ? DAILY_LIMIT_SEC : MAX_RECORDING_SEC;
 
@@ -379,7 +380,7 @@ function RecordingScreen() {
 
       const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
-      // The daily challenge is where levelling actually happens, beating
+      // The Daily Minute is where levelling actually happens, beating
       // your own previous attempt is worth far more than the rep itself.
       let xpEarned: number;
       let attemptNumber: number | undefined;
@@ -541,7 +542,7 @@ function RecordingScreen() {
       // blob for the whole take. This is what keeps long recordings intact —
       // if anything interrupts, we still have every second up to that point.
       recorder.start(1000);
-      // The cutoff. For the daily challenge this IS the exercise ending at
+      // The cutoff. For the Daily Minute this IS the exercise ending at
       // sixty seconds; for every other mode it's just the runaway guard.
       // Either way we stop cleanly and analyse what we have.
       maxStopRef.current = setTimeout(() => {
@@ -592,7 +593,7 @@ function RecordingScreen() {
     );
   }
 
-  // Free users get the daily challenge only, everything else is Premium.
+  // Free users get the Daily Minute only, everything else is Premium.
   // The server enforces this too (the real boundary); this just avoids
   // letting a free user record a take that would be rejected. `plan === null`
   // means still loading, so we hold rather than flash the lock at a premium user.
@@ -604,7 +605,7 @@ function RecordingScreen() {
           This one&apos;s Premium
         </h1>
         <p className="mt-3 text-lg leading-7 text-on-surface-variant">
-          Your free practice is today&apos;s daily challenge, three attempts to
+          Your free practice is today&apos;s Daily Minute, three attempts to
           beat your own best. The speech library, your own material, interview
           practice and camera coaching are part of Premium.
         </p>
@@ -619,14 +620,14 @@ function RecordingScreen() {
             href="/practice?daily=1"
             className="pill rounded-[0.375rem] border border-primary/20 text-primary font-semibold px-7 py-3 hover:border-primary/40"
           >
-            Today&apos;s challenge
+            The Daily Minute
           </Link>
         </div>
       </div>
     );
   }
 
-  // Daily challenge, already used up: the point is three focused attempts,
+  // Daily Minute, already used up: the point is three focused attempts,
   // not grinding. Premium users have the library for unlimited reps.
   if (isDaily && challenge?.complete) {
     return (
@@ -1022,19 +1023,11 @@ function RecordingScreen() {
                 )}
               </div>
             )}
-            {busy && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <p className="text-accent text-base animate-pulse">
-                  {videoOn
-                    ? "Felix is watching that back, voice and body…"
-                    : "Felix is listening back to how that landed…"}
-                </p>
-              </div>
-            )}
+            {busy && <AnalyzingLoader withVideo={videoOn} />}
           </div>
 
           <div className="mt-8 flex flex-col items-center gap-5">
-            {/* The daily challenge counts DOWN, because the sixty seconds is the
+            {/* The Daily Minute counts DOWN, because the sixty seconds is the
                 exercise and running out is the point. Everything else counts up,
                 because nothing is running out. */}
             <span
@@ -1083,14 +1076,16 @@ function RecordingScreen() {
                       : "Tap to record"}
             </span>
 
-            {/* Felix, waiting on you. He shuts his eyes and his chest bars come
-                alive while the take is being analysed, which is the one moment
-                on this screen with nothing else to look at. */}
-            <Felix
-              mood={busy ? "listening" : recording ? "idle" : "coach"}
-              animate={!recording && !busy}
-              className="h-20 w-20 opacity-90"
-            />
+            {/* Felix, waiting on you. He steps aside while a take is being
+                analysed: AnalyzingLoader puts him inside the ring up on the
+                stage, and two of him on one screen is one too many. */}
+            {!busy && (
+              <Felix
+                mood={recording ? "idle" : "coach"}
+                animate={!recording}
+                className="h-20 w-20 opacity-90"
+              />
+            )}
           </div>
         </div>
       </div>

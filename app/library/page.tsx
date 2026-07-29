@@ -208,14 +208,14 @@ function LibraryScreen() {
               Free practice never stops
             </h2>
             <p className="mt-2 text-base leading-6 text-white/85 max-w-[56ch]">
-              The daily challenge is yours either way, a new one-minute
+              The Daily Minute is yours either way, a new one-minute
               speech every day, three attempts, levels and streaks included.
             </p>
             <Link
               href="/dashboard"
               className="btn rounded-lg mt-5 inline-block bg-accent text-white font-semibold px-7 py-3.5"
             >
-              Go to today&apos;s challenge
+              Go to the Daily Minute
             </Link>
           </div>
         </Reveal>

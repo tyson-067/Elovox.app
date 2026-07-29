@@ -85,7 +85,7 @@ export function dailyQuests(opts: {
   return [
     {
       id: "daily-minute",
-      title: "The daily minute",
+      title: "The Daily Minute",
       detail: "Improvise for sixty seconds on today's topic.",
       progress: Math.min(1, used),
       target: 1,

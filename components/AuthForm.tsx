@@ -13,6 +13,7 @@ import {
   signUpWithEmail,
 } from "@/lib/auth";
 import { startCheckout } from "@/lib/checkout";
+import { useReturnReset } from "@/lib/useReturnReset";
 import type { BillingCycle } from "@/lib/pricing";
 import {
   AGE_BLOCK_MESSAGE,
@@ -58,6 +59,16 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
+  // Under COOP the opener can't observe the Google popup closing, so when
+  // someone dismisses it `signInWithPopup` never settles: there is no
+  // rejection to catch, and the buttons stay disabled for good. When focus
+  // comes back to this window with still nobody signed in, let them retry.
+  // `user` is the honest test, and it stays null right up until an auth
+  // actually lands, so a successful sign-in mid-redirect is never undone.
+  useReturnReset(busy, () => {
+    if (!user) setBusy(false);
+  });
+
   const isSignup = mode === "signup";
 
   // --- Age gate (signup only) ---------------------------------------------
@@ -85,7 +96,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   };
   // Straight into the app, new account or returning. Signing up used to
   // detour through a run of onboarding questions; there is nothing between
-  // making an account and today's challenge any more.
+  // making an account and the Daily Minute any more.
   const destination = "/dashboard";
 
   // After a successful auth, either resume Checkout (if the user came from a

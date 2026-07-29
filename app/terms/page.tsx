@@ -68,7 +68,7 @@ export default function TermsPage() {
 
       <Section heading="Free and Premium">
         <p>
-          The free plan gives you the daily challenge with a limited number of
+          The free plan gives you the Daily Minute with a limited number of
           attempts each day. Premium removes the limits and adds the speech
           library, interview practice, camera coaching, and coaching on your own
           material. Current plans:

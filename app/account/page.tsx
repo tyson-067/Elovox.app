@@ -13,6 +13,7 @@ import {
   type InvoiceRow,
 } from "@/lib/checkout";
 import { planFor, formatUSD } from "@/lib/pricing";
+import { useReturnReset } from "@/lib/useReturnReset";
 import {
   accountErrorMessage,
   changeEmail,
@@ -159,6 +160,10 @@ function BillingSection() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The portal is a full-page redirect, so coming back from Stripe without
+  // changing anything used to leave "Manage billing" disabled for good.
+  useReturnReset(busy, () => setBusy(false));
 
   const manage = async () => {
     setError("");

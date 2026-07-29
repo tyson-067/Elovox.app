@@ -9,6 +9,7 @@ import { GlowCard } from "@/components/GlowCard";
 import { useAuth } from "@/components/AuthProvider";
 import { startCheckout, openBillingPortal } from "@/lib/checkout";
 import { usePlanRecord } from "@/lib/plan";
+import { useReturnReset } from "@/lib/useReturnReset";
 import {
   PLANS,
   TRIAL_DAYS,
@@ -36,7 +37,7 @@ import {
 // toggle and the comparison grid stay live for them.
 
 const FREE_FEATURES = [
-  "The daily 1-minute speech, new every day, written by Felix",
+  "The Daily Minute, a new topic every day, set by Felix",
   "3 attempts a day to beat your own best score",
   "Full Felix feedback report on every attempt",
   "Levels, XP, and streaks",
@@ -45,12 +46,12 @@ const FREE_FEATURES = [
 
 const PREMIUM_FEATURES = [
   // This line used to read "Everything in Free, unlimited: no daily attempt
-  // cap", which was not true and is not the product. The daily challenge is
+  // cap", which was not true and is not the product. The Daily Minute is
   // three attempts a day on EVERY plan, deliberately: it's one shared topic
   // the whole userbase is scored on. What Premium actually removes is the
   // lock on the other modes, and those have no caps. See MAX_DAILY_ATTEMPTS
   // in lib/daily.ts, and the FAQ entry below that says so outright.
-  "Everything in Free, plus unlimited practice beyond the daily challenge",
+  "Everything in Free, plus unlimited practice beyond the Daily Minute",
   "Camera coaching: posture, gestures, eye contact, expression",
   "The full ~30-second speech library, unlimited reps",
   "Interview practice: jobs, college, scholarships, grad school",
@@ -72,8 +73,8 @@ const FAQ = [
     a: "Any time. Switch between weekly, monthly, and annual whenever you like, and cancel in a couple of clicks, no email, no phone call.",
   },
   {
-    q: "Does Premium give me more daily challenge attempts?",
-    a: "No, and that one is on purpose. The daily challenge is three attempts a day on every plan, because it's the same topic for everybody and the scores are only comparable if everyone gets the same number of goes at it. What Premium unlocks is everything else: the speech library, your own material, interview practice and custom speeches, none of which have a daily cap.",
+    q: "Does Premium give me more Daily Minute attempts?",
+    a: "No, and that one is on purpose. The Daily Minute is three attempts a day on every plan, because it's the same topic for everybody and the scores are only comparable if everyone gets the same number of goes at it. What Premium unlocks is everything else: the speech library, your own material, interview practice and custom speeches, none of which have a daily cap.",
   },
   {
     q: "Is the Free plan really free forever?",
@@ -90,6 +91,11 @@ export default function PricingPage() {
   const [error, setError] = useState("");
   const plan = planFor(cycle);
   const saved = savingsVsWeekly(plan);
+
+  // Both CTAs below hand the page over to Stripe. Coming back (Back button,
+  // or bfcache restoring this very page) used to return a permanently
+  // greyed-out button, because nothing ever cleared `busy`.
+  useReturnReset(busy, () => setBusy(false));
 
   // `plan === "premium"` is the entitlement bit the webhook derives from the
   // live Stripe status, true while trialing, active, or past_due, and false

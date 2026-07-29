@@ -68,13 +68,13 @@ export const metadata: Metadata = {
     url: "/",
     title: TITLE,
     description: DESCRIPTION,
-    images: ["/icon.png"],
+    images: ["/logo.png"],
   },
   twitter: {
     card: "summary",
     title: TITLE,
     description: DESCRIPTION,
-    images: ["/icon.png"],
+    images: ["/logo.png"],
   },
 };
 

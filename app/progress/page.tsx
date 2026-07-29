@@ -94,7 +94,7 @@ function LevelPanel({ stats }: { stats: UserStats }) {
           </div>
           <div>
             <div className="font-data text-2xl">{stats.challengesCompleted}</div>
-            <div className="text-[12px] text-white/70">challenges</div>
+            <div className="text-[12px] text-white/70">daily minutes</div>
           </div>
           <div>
             <div className="font-data text-2xl">{level.xp}</div>
@@ -119,7 +119,7 @@ function LevelPanel({ stats }: { stats: UserStats }) {
 }
 
 /**
- * Daily challenges, grouped by day, showing all three attempts. This is
+ * Daily Minutes, grouped by day, showing all three attempts. This is
  * where improvement actually shows: same topic, three goes, did the
  * number move?
  */
@@ -137,7 +137,7 @@ function ChallengeHistory({ sessions }: { sessions: Session[] }) {
         const scores = ordered.map((r) => r.analysis.overall);
         return {
           date,
-          title: ordered[0]?.speechTitle ?? "Daily challenge",
+          title: ordered[0]?.speechTitle ?? "Daily Minute",
           reps: ordered,
           best: Math.max(...scores),
           gain: scores.length > 1 ? scores[scores.length - 1] - scores[0] : null,
@@ -151,7 +151,7 @@ function ChallengeHistory({ sessions }: { sessions: Session[] }) {
     <section className="mt-12">
       <Reveal>
         <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
-          Daily challenges
+          Daily Minutes
           <span className="grow-line" aria-hidden="true" />
         </h2>
       </Reveal>
@@ -283,13 +283,13 @@ function ProgressScreen() {
         </h1>
         <p className="mt-3 text-lg leading-7 text-on-surface-variant">
           Your first recording becomes your baseline. Everything after that is
-          progress you can see, and today&apos;s challenge is waiting.
+          progress you can see, and your Daily Minute is waiting.
         </p>
         <Link
           href="/practice?daily=1"
           className="btn rounded-lg mt-8 inline-block bg-accent text-white font-semibold px-8 py-3.5"
         >
-          Start today&apos;s challenge
+          Start your Daily Minute
         </Link>
       </div>
     );
@@ -323,7 +323,7 @@ function ProgressScreen() {
         </Reveal>
       </section>
 
-      {/* 3. Daily challenge attempts, day by day */}
+      {/* 3. Daily Minute attempts, day by day */}
       <ChallengeHistory sessions={sessions} />
 
       {/* 4. Voice skill breakdown */}
