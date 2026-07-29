@@ -389,3 +389,41 @@ Step 0 (start the Xcode download **first thing**, it runs unattended) →
 step 1 and 2 decisions written down while it downloads → steps 3–5 →
 step 6 → step 8 on the simulator → step 7 → step 8 on device.
 TestFlight can wait for day two; a real recording on a real device cannot.
+
+---
+
+## The native UI
+
+The app loads the same deployment as the website, but it does not look like
+it. Everything is scoped to `html[data-native]`, which the inline script in
+`app/layout.tsx` stamps before first paint, so the browser is untouched.
+
+What changes:
+
+- **Entry.** `/` is a router inside the app, not a screen —
+  `components/NativeEntry` replaces it with `/dashboard` or `/login`. An app
+  that opens on a marketing landing page is a Guideline 4.2 problem.
+- **Chrome.** The header, the sub-nav, and the footer are `native-hide`.
+  `components/NativeShell` puts an iOS title bar (large title collapsing on
+  scroll, back chevron on pushed screens) and a bottom dock in their place.
+- **The dock.** Today · Progress · record · Library · Account. The record node
+  is the signature element and the only saturated colour in the interface; it
+  goes straight to `/practice?daily=1`. The Premium sections that lost a tab
+  are cards on Today (`components/NativeSections`).
+- **Dark mode.** Native only, `data-theme` on `<html>`, chosen in Account and
+  defaulting to the phone's setting. It re-defines the semantic colour tokens
+  and nothing else — no screen has a dark variant.
+- **Touch.** Tap highlights, latching hover states, overscroll, and text
+  selection on chrome are all switched off in `globals.css`; safe-area insets
+  come from `viewportFit: "cover"`.
+
+To work on any of it without Xcode, run the dev server and open
+`http://localhost:3000/dashboard?native=1`. The override is compiled out of
+production builds.
+
+### Checks worth repeating on device
+
+- [ ] Launch goes straight to Today (or Log in), never the landing page
+- [ ] The dock clears the home indicator, and the title bar clears the notch
+- [ ] Dark mode survives a cold launch with no flash of light
+- [ ] Tapping a card leaves no stuck hover state behind

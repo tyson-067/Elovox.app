@@ -173,7 +173,7 @@ function LibraryScreen() {
       <Reveal>
         <div className="flex flex-wrap items-center gap-3">
           <Felix mood="idle" className="h-14 w-14 shrink-0" />
-          <h1 className="text-title font-headline font-semibold text-primary">
+          <h1 className="native-hide text-title font-headline font-semibold text-primary">
             <WordReveal text="The speech library" delay={80} step={60} />
           </h1>
           {!isPremium && <PremiumBadge />}

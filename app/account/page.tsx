@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { RequireAuth } from "@/components/RequireAuth";
+import { NativeAccountSection } from "@/components/NativeAccountSection";
 import { useAuth } from "@/components/AuthProvider";
 import { usePlanRecord, refreshPlan, type PlanRecord } from "@/lib/plan";
 import {
@@ -371,7 +372,10 @@ function AccountScreen() {
 
   return (
     <div className="stagger-in py-12 md:py-16 max-w-[560px] mx-auto space-y-6">
-      <div>
+      {/* native-hide: inside the app the title bar already says "Account",
+          and a page repeating its own name under a nav bar is the giveaway
+          that a screen was designed for a browser tab. */}
+      <div className="native-hide">
         <h1 className="text-title font-headline font-semibold text-primary">
           Account
         </h1>
@@ -526,6 +530,10 @@ function AccountScreen() {
           </p>
         )}
       </section>
+
+      {/* Appearance and the legal rows the footer used to carry. Native
+          only — the web still has a footer. */}
+      <NativeAccountSection />
 
       <ExportDataSection />
 

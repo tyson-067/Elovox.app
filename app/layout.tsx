@@ -7,6 +7,7 @@ import { AuthNav } from "@/components/AuthNav";
 import { SubNav } from "@/components/SubNav";
 import { ScrollProgress } from "@/components/ScrollProgress";
 import { Footer } from "@/components/Footer";
+import { NativeShell } from "@/components/NativeShell";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
@@ -81,7 +82,17 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#f4f7fc",
+  // The native chrome runs under the status bar and the home indicator and
+  // insets itself with env(safe-area-inset-*). Without viewport-fit=cover
+  // those insets are all 0 and the layout sits in a letterboxed safe box,
+  // which is the single most obvious "this is a webview" tell there is.
+  viewportFit: "cover",
+  // Browsers keep the pale Vista wash. The native app paints its own
+  // background behind the status bar, so the dark entry matches the booth.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f4f7fc" },
+    { media: "(prefers-color-scheme: dark)", color: "#0d0a20" },
+  ],
 };
 
 export default function RootLayout({
@@ -90,6 +101,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      // The inline script below stamps data-native and data-theme onto this
+      // element before React hydrates, which is the whole point of it — the
+      // server cannot know which client is asking. React sees attributes it
+      // didn't render and warns; this says the difference is intentional. It
+      // suppresses the warning for <html>'s own attributes only, not for the
+      // tree inside it.
+      suppressHydrationWarning
       className={`${montserrat.variable} ${jost.variable} ${geistMono.variable} ${playfair.variable}`}
     >
       <body className="min-h-dvh flex flex-col">
@@ -105,17 +123,42 @@ export default function RootLayout({
             visible flicker and exactly the thing a reviewer would screenshot.
             Capacitor injects window.Capacitor before body scripts run, so this
             is settled before the header ever paints. */}
+        {/* The same script also settles the theme, and for the same reason:
+            dark mode is native-only, and a React effect would paint the whole
+            app white and correct itself a frame later. A saved choice wins;
+            with none, the app follows the phone. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){document.documentElement.setAttribute('data-native','1')}}catch(e){}",
+              "try{var d=document.documentElement;" +
+              "if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){" +
+              "d.setAttribute('data-native','1');" +
+              "var t=null;try{t=localStorage.getItem('elovox.theme')}catch(e){}" +
+              "if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}" +
+              "d.setAttribute('data-theme',t)}}catch(e){}" +
+              // Dev only, and compiled out of production entirely: `?native=1`
+              // paints the native UI in a desktop browser so it can be worked
+              // on without a rebuild-and-deploy cycle through Xcode. It sticks
+              // for the tab so client-side navigation keeps it.
+              (process.env.NODE_ENV === "production"
+                ? ""
+                : "try{var q=location.search.indexOf('native=1')>=0;" +
+                  "if(q)sessionStorage.setItem('elovox.devNative','1');" +
+                  "if(q||sessionStorage.getItem('elovox.devNative')){" +
+                  "var e2=document.documentElement;e2.setAttribute('data-native','1');" +
+                  "if(!e2.getAttribute('data-theme'))e2.setAttribute('data-theme'," +
+                  "localStorage.getItem('elovox.theme')||'dark')}}catch(e){}"),
           }}
         />
         <a href="#main" className="skip-link">
           Skip to content
         </a>
         <AuthProvider>
-          <header className="sticky top-0 z-40 border-b border-primary/8 bg-surface/80 backdrop-blur-md">
+          {/* The website's header. `native-hide` because a logo, a row of
+              text links, and a horizontally-scrolling tab strip is browser
+              chrome — inside the app, NativeShell puts a title bar and a dock
+              in its place. */}
+          <header className="native-hide sticky top-0 z-40 border-b border-primary/8 bg-surface/80 backdrop-blur-md">
             <div className="w-full px-4 md:px-10 xl:px-16 2xl:px-24 h-14 flex items-center justify-between">
               <Link
                 href="/"
@@ -158,10 +201,16 @@ export default function RootLayout({
             <SubNav />
             <ScrollProgress />
           </header>
+          <NativeShell />
           <main id="main" className="flex-1 w-full px-4 md:px-10 xl:px-16 2xl:px-24">
             {children}
           </main>
-          <Footer />
+          {/* No app has a footer. Pricing / Terms / Privacy / About stacked at
+              the bottom of a scroll is the most website-shaped thing in the
+              product; inside the app those live as rows in Account. */}
+          <div className="native-hide">
+            <Footer />
+          </div>
           {/* Cookieless traffic analytics, pageviews, referrers, countries,
               devices. Sets no cookies and stores no cross-site identifier, so
               it needs no consent banner and nothing changes in the privacy

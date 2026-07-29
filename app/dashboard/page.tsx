@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { RequireAuth } from "@/components/RequireAuth";
+import { NativeSections } from "@/components/NativeSections";
 import { Reveal } from "@/components/Reveal";
 import { WordReveal } from "@/components/WordReveal";
 import { GlowCard } from "@/components/GlowCard";
@@ -473,6 +474,10 @@ function TodayScreen() {
           ))}
         </div>
       </section>
+
+      {/* The sections that lost their tab when the sub-nav became a dock.
+          Native only. */}
+      <NativeSections />
 
       {plan === "free" && (
         <Reveal>

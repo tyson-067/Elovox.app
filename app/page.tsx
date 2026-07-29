@@ -8,6 +8,7 @@ import { GlowCard } from "@/components/GlowCard";
 import { GOALS } from "@/lib/goals";
 import { LEVELS } from "@/lib/levels";
 import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
+import { NativeEntry } from "@/components/NativeEntry";
 
 // Marketing landing page. The app itself lives behind /dashboard.
 
@@ -195,13 +196,16 @@ const FEATURES: {
 
 export default function LandingPage() {
   return (
-    <div className="pb-20">
+    // native-hide: inside the app this page is a redirect, not a screen.
+    // See components/NativeEntry.
+    <div className="native-hide pb-20">
       <script
         type="application/ld+json"
         // Not executable script, a data block crawlers and reviewers parse.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(SITE_SCHEMA) }}
       />
       <RedirectIfAuthed />
+      <NativeEntry />
       {/* Hero */}
       <section className="relative pt-16 md:pt-24 grid grid-cols-1 md:grid-cols-12 gap-10 items-center">
         {/* Brand circles drifting at different depths behind the hero, plus

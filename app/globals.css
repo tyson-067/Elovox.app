@@ -870,3 +870,398 @@ body {
 html[data-native] .web-only {
   display: none !important;
 }
+
+/* ===========================================================================
+   NATIVE APP UI
+   ===========================================================================
+   Everything below is scoped to html[data-native] and changes nothing in the
+   browser. The web app is a website and should look like one; the iOS app is
+   an app and should not.
+
+   The direction: a recording booth. The app's single job is to get you to
+   speak out loud for two minutes, so the chrome goes quiet and dark, and the
+   one hot colour in the whole interface is the record node in the dock. That
+   node is the signature element — deliberately off-round (it reuses the
+   .record-blob radius) so the one thing you actually DO is the one thing that
+   isn't a rectangle.
+
+   Structure, top to bottom:
+     - a title bar that runs under the status bar (safe-area inset, no border
+       until you scroll)
+     - the page
+     - a floating dock in the thumb zone, above the home indicator
+   --------------------------------------------------------------------------- */
+
+/* Chrome that belongs to the website, not to the app. */
+html[data-native] .native-hide {
+  display: none !important;
+}
+
+/* --- Dark theme ------------------------------------------------------------
+   Only the token values change. Every screen already speaks in semantic
+   tokens (bg-surface, text-primary, .card), and Tailwind v4 compiles those to
+   var() references, so redefining the variables here re-themes the whole app
+   without touching a single page.
+
+   --color-primary is the load-bearing one: it means "headings and chrome", so
+   in the dark it becomes chalk, and --color-on-primary flips to the deep navy
+   so that `bg-primary text-on-primary` buttons stay legible inverted. */
+html[data-native][data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-surface: #0d0a20; /* Booth: the ground */
+  --color-surface-lowest: #171331; /* Panel: cards */
+  --color-surface-container: #241d47; /* Rail: wells and tracks */
+  --color-surface-warm: #1d1636;
+  --color-on-surface: #f2f0ff;
+  --color-on-surface-variant: #a6a2c8;
+  --color-outline-variant: #322b57;
+
+  --color-primary: #cbd8ff; /* Chalk */
+  --color-on-primary: #0b0829;
+  --color-accent: #ff6b35; /* Signal. Unchanged from the web: white-on-orange
+                              is a hair over the 3:1 large-text floor there and
+                              lifting it any further pushed the CTA under it. */
+  --color-violet: #9b8ae0;
+  --color-amber: #ff9426;
+  --color-slate: #8fa0d8;
+  --color-error: #ffb4ab;
+}
+
+html[data-native][data-theme="dark"] body {
+  background: var(--color-surface);
+  /* Light falls from the top of the booth and dies out toward the dock. */
+  background-image: linear-gradient(
+    172deg,
+    #16112f 0%,
+    var(--color-surface) 45%,
+    #0a0819 100%
+  );
+}
+
+html[data-native][data-theme="dark"] .card {
+  background: var(--color-surface-lowest);
+  border-color: rgba(203, 216, 255, 0.11);
+}
+
+html[data-native][data-theme="dark"] .card-warm {
+  background: linear-gradient(160deg, #201835 0%, #1b1530 55%, #241a33 100%);
+  border-color: rgba(255, 132, 0, 0.22);
+}
+
+html[data-native][data-theme="dark"] .dot-grid {
+  background-image: radial-gradient(
+    rgba(203, 216, 255, 0.13) 1px,
+    transparent 1px
+  );
+}
+
+html[data-native][data-theme="dark"] .input-glow:focus {
+  border-color: rgba(155, 138, 224, 0.65);
+  box-shadow: 0 0 0 4px rgba(155, 138, 224, 0.18);
+}
+
+html[data-native][data-theme="dark"] .loader-track {
+  border-color: rgba(155, 138, 224, 0.24);
+}
+
+/* Card lift on a dark ground can't come from a drop shadow — nothing is
+   darker than the booth. It comes from a hairline of light on the top edge
+   instead, which is how a real panel catches a ceiling light. */
+html[data-native][data-theme="dark"] .card,
+html[data-native][data-theme="dark"] .card-warm {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* --- Touch behaviour -------------------------------------------------------
+   The tells that make a webview feel like a webview. None of these are
+   visible individually; together they are most of the difference. */
+html[data-native] {
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+html[data-native] body {
+  overscroll-behavior: none;
+  /* The gradient must scroll with the page here: a fixed attachment inside a
+     webview detaches during rubber-band and shows a seam at the top. */
+  background-attachment: scroll;
+}
+
+/* Chrome is furniture, not a document — long-pressing a tab label should not
+   raise a text-selection loupe. Body copy stays selectable on purpose, since
+   people do copy their transcripts and Felix's notes. */
+html[data-native] nav,
+html[data-native] button,
+html[data-native] a,
+html[data-native] label,
+html[data-native] h1,
+html[data-native] h2,
+html[data-native] h3 {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Hover states latch on iOS: tap a card and the lift/glow sticks until you
+   tap somewhere else, which reads as a bug. Every hover affordance is
+   switched off and replaced with a press response, which is what a touch
+   interface actually wants. */
+html[data-native] .btn:hover,
+html[data-native] .card-glow:hover,
+html[data-native] .pill:hover {
+  transform: none;
+  box-shadow: none;
+  filter: none;
+  border-color: inherit;
+}
+html[data-native] .card-glow:hover::before {
+  opacity: 0;
+}
+html[data-native] .btn::after {
+  display: none;
+}
+html[data-native] .btn:active,
+html[data-native] .card-glow:active,
+html[data-native] .pill:active {
+  transform: scale(0.975);
+  transition: transform 90ms ease-out;
+}
+
+/* --- Layout ---------------------------------------------------------------- */
+
+/* Room for the dock. The dock floats, so the page has to reserve its height
+   or the last card sits underneath it. */
+html[data-native] body {
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+/* No dock on the auth screens, so no reserved space either. */
+html[data-native] body:not(:has(.native-dock)) {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Screens were spaced for a page that begins at the top of a browser window.
+   Under a title bar that already reserves 44px plus the status bar, that same
+   py-12 leaves the first card floating in the middle of nowhere. Only the top
+   is reclaimed — the bottom padding is still doing real work above the dock. */
+html[data-native] #main > * {
+  padding-top: 4px !important;
+}
+
+/* Marketing pages cap their measure at 560–640px and centre it, which on a
+   phone is just the full width with a wasted `mx-auto`. Nothing to do there —
+   but app screens do need the gutter to stay 16px, never the desktop 40px. */
+html[data-native] #main {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+/* --- Title bar -------------------------------------------------------------
+   Runs under the status bar. No border and no fill at rest; both fade in once
+   the page scrolls, so the title bar reads as part of the page until content
+   needs separating from it. */
+.native-bar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  padding-top: env(safe-area-inset-top);
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease,
+    backdrop-filter 200ms ease;
+}
+.native-bar-scrolled {
+  /* 90% for the same reason as the dock: the blur is the nice part, the
+     tint is the part that has to work on its own. At 80% the line of body
+     copy passing behind the bar was still readable, which reads as a bug. */
+  background: color-mix(in oklab, var(--color-surface) 90%, transparent);
+  backdrop-filter: saturate(1.6) blur(16px);
+  -webkit-backdrop-filter: saturate(1.6) blur(16px);
+  border-bottom-color: color-mix(in oklab, var(--color-primary) 12%, transparent);
+}
+.native-bar-row {
+  position: relative; /* the collapsed title centres against this, not the gap */
+  height: 44px; /* the iOS nav bar height, which people read without noticing */
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+}
+/* The large title. Sits below the 44px row and slides up into it on scroll,
+   collapsing to the small centred title — the one piece of iOS grammar worth
+   copying exactly, because breaking it is what makes an app feel foreign. */
+.native-title-lg {
+  font-family: var(--font-headline);
+  font-weight: 800;
+  font-size: 30px;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--color-primary);
+  padding: 0 16px 10px;
+  transform-origin: left bottom;
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.native-bar-scrolled .native-title-lg {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.9);
+  pointer-events: none;
+  height: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+}
+.native-title-sm {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  color: var(--color-primary);
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+.native-bar-scrolled .native-title-sm {
+  opacity: 1;
+}
+
+/* Bar controls: back chevron, theme switch. 44px targets, no chrome of their
+   own — the icon is the whole control. */
+.native-bar-btn {
+  height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--color-primary);
+  border-radius: 12px;
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+.native-bar-btn:active {
+  opacity: 0.5;
+  transform: scale(0.94);
+}
+
+/* --- The dock --------------------------------------------------------------
+   Four destinations and one action. The destinations are hairline icons with
+   10px labels and no colour at all; the action is the only saturated thing in
+   the interface. That asymmetry is the point: places you look versus the
+   thing you do. */
+.native-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 45;
+  padding-bottom: env(safe-area-inset-bottom);
+  /* 95%, not the 70-ish a pure glass dock would use: if backdrop-filter
+     is unavailable the tint is the only thing separating the dock from the
+     page, and at 80% the text underneath stayed legible through it. */
+  background: color-mix(in oklab, var(--color-surface) 95%, transparent);
+  backdrop-filter: saturate(1.7) blur(24px);
+  -webkit-backdrop-filter: saturate(1.7) blur(20px);
+  border-top: 1px solid color-mix(in oklab, var(--color-primary) 10%, transparent);
+}
+.native-dock-row {
+  height: 56px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: center;
+}
+.native-tab {
+  position: relative;
+  height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: var(--color-on-surface-variant);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: color 160ms ease, transform 120ms ease;
+}
+.native-tab:active {
+  transform: scale(0.92);
+}
+.native-tab[aria-current="page"] {
+  color: var(--color-primary);
+}
+/* Active marker: a 3px dot over the icon. Not a pill, not a fill — the label
+   and icon already changed colour, and a second treatment would be shouting. */
+.native-tab[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  height: 3px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--color-accent);
+}
+/* Premium sections a free user can't open yet, marked the same way the web
+   sub-nav marks them. */
+.native-tab-lock {
+  position: absolute;
+  top: 9px;
+  right: 50%;
+  margin-right: -16px;
+  height: 5px;
+  width: 5px;
+  border-radius: 999px;
+  background: var(--color-violet);
+}
+
+/* The record node. Lifted out of the dock, off-round, haloed — the single
+   place in the app where the brand orange appears at full strength. */
+.native-record {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 56px;
+}
+.native-record-blob {
+  position: absolute;
+  bottom: 8px;
+  height: 58px;
+  width: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  border-radius: 47% 53% 52% 48% / 51% 49% 52% 48%;
+  background: linear-gradient(150deg, #ff8400 0%, #ff6b35 62%, #f7623a 100%);
+  box-shadow:
+    0 8px 22px rgba(255, 107, 53, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.native-record:active .native-record-blob {
+  transform: scale(0.92);
+}
+/* A slow breath, so the one action in the app is never quite still. */
+.native-record-blob::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+  background: radial-gradient(
+    circle,
+    rgba(255, 107, 53, 0.3) 0%,
+    rgba(255, 107, 53, 0) 70%
+  );
+  animation: loader-halo 3.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .native-record-blob::after {
+    animation: none;
+  }
+  .native-title-lg,
+  .native-title-sm,
+  .native-bar {
+    transition: none;
+  }
+}
