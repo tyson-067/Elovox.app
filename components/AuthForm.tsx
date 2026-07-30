@@ -14,6 +14,7 @@ import {
 } from "@/lib/auth";
 import { startCheckout } from "@/lib/checkout";
 import { useReturnReset } from "@/lib/useReturnReset";
+import { DobPicker, dobPartsToIso, type DobParts } from "@/components/DobPicker";
 import type { BillingCycle } from "@/lib/pricing";
 import {
   AGE_BLOCK_MESSAGE,
@@ -98,7 +99,16 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   // Asked before an account can be created by ANY route, including Google —
   // otherwise the provider button would be a way around the check. The date
   // itself is never sent anywhere; see lib/age.ts.
-  const [dob, setDob] = useState("");
+  // Held as three wheel selections and only assembled into a date once all
+  // three are set — see components/DobPicker.tsx. `dob` is "" until then, so
+  // a partly-filled picker is indistinguishable from an empty one and can't
+  // be read as an age.
+  const [dobParts, setDobParts] = useState<DobParts>({
+    day: "",
+    month: "",
+    year: "",
+  });
+  const dob = dobPartsToIso(dobParts);
 
   const age = isSignup && dob ? ageFromDob(dob) : null;
   // Enough to submit with: a date we can actually read. Whether it clears the
@@ -114,7 +124,9 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const wasBlocked = useAgeBlocked();
   const blocked = isSignup && wasBlocked;
 
-  const onDobChange = (value: string) => setDob(value);
+  // Stores the selection and nothing else. No validation, no navigation — the
+  // date isn't an answer until it's submitted and then confirmed.
+  const onDobChange = (next: DobParts) => setDobParts(next);
   // Straight into the app, new account or returning. Signing up used to
   // detour through a run of onboarding questions; there is nothing between
   // making an account and the Daily Minute any more.
@@ -196,6 +208,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   // The one place an account actually gets created or entered. Everything
   // else either validates first or waits behind the confirmation screen.
   const runAuth = async (method: "email" | "google") => {
+    // Belt and braces. Nothing should be able to reach here under-age — the
+    // confirmation screen doesn't offer the path — but this is the function
+    // that creates accounts, so it checks for itself rather than trusting
+    // every caller to have checked.
+    if (isSignup && age !== null && age < MINIMUM_AGE) return;
     setError("");
     setNotice("");
     setBusy(true);
@@ -218,18 +235,17 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     }
   };
 
-  // The age answer is judged once, here, when the visitor submits it — the
-  // point at which a date on screen becomes something they're actually
-  // telling us. Returns true if the gate is closed. Under-age answers are
-  // recorded and stay recorded; `blocked` picks it up and swaps the screen.
-  const ageGateClosed = () => {
-    if (!isSignup) return false;
-    if (age !== null && age < MINIMUM_AGE) {
-      rememberAgeBlock();
-      return true;
-    }
-    return false;
-  };
+  // True once the date on screen reads as under-age. A description of the
+  // field, nothing more — it decides what the confirmation screen says, and
+  // deliberately does NOT record anything or close any door. Recording is
+  // what `confirmAge` does, one deliberate tap later.
+  //
+  // Submitting used to record the block itself, which put it a full step
+  // ahead of the screen built to catch exactly this: someone who typed 2016
+  // for 1916 was locked out permanently at the moment they were one tap from
+  // fixing it, and the confirmation screen they never reached was the thing
+  // that would have shown them the mistake. See lib/age.ts.
+  const underAge = isSignup && age !== null && age < MINIMUM_AGE;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -245,7 +261,6 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       setError("Those passwords don't match.");
       return;
     }
-    if (ageGateClosed()) return;
     // Details are in and valid. Signing up stops here for an explicit age
     // confirmation; logging in has nothing to confirm and goes straight on.
     if (isSignup) {
@@ -265,7 +280,6 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       setError(DOB_PROMPT);
       return;
     }
-    if (ageGateClosed()) return;
     if (isSignup) {
       setPending("google");
       return;
@@ -307,13 +321,21 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             {formatDob(dob)}
           </span>
           , which makes you{" "}
-          <span className="font-semibold text-on-surface">{age}</span>. Please
-          confirm that&apos;s right before we create your account.
+          <span className="font-semibold text-on-surface">{age}</span>.{" "}
+          {underAge
+            ? // Said plainly, and before anything is recorded. The visitor who
+              // meant this reads a true statement about what happens next; the
+              // one who fat-fingered a year sees their mistake spelled out in
+              // words while the way back is still open.
+              `That's under ${MINIMUM_AGE}, so we can't create an account. If that date isn't right, go back and fix it.`
+            : "Please confirm that's right before we create your account."}
         </p>
-        <p className="mt-3 text-base leading-6 text-on-surface-variant">
-          You need to be at least {MINIMUM_AGE} to use Elovox.
-        </p>
-        {age !== null && age < 18 && (
+        {!underAge && (
+          <p className="mt-3 text-base leading-6 text-on-surface-variant">
+            You need to be at least {MINIMUM_AGE} to use Elovox.
+          </p>
+        )}
+        {!underAge && age !== null && age < 18 && (
           <p className="mt-3 text-[13px] leading-5 text-on-surface-variant">
             {MINOR_NOTICE}
           </p>
@@ -328,15 +350,26 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         <div className="mt-8 space-y-3">
           <button
             type="button"
-            onClick={() => void runAuth(pending)}
+            onClick={() => {
+              // The only place an age block is ever written. It takes a
+              // confirmed answer to a date the visitor has just been shown
+              // back to them, which is the whole reason this screen exists.
+              if (underAge) {
+                rememberAgeBlock();
+                return;
+              }
+              void runAuth(pending);
+            }}
             disabled={busy}
             className="btn rounded-lg w-full bg-accent text-white font-semibold text-base px-8 py-3.5 disabled:opacity-50"
           >
             {busy
               ? "One moment…"
-              : pending === "google"
-                ? `Yes, I'm ${age} — continue with Google`
-                : `Yes, I'm ${age} — create my account`}
+              : underAge
+                ? `Yes, I'm ${age}`
+                : pending === "google"
+                  ? `Yes, I'm ${age} — continue with Google`
+                  : `Yes, I'm ${age} — create my account`}
           </button>
           <button
             type="button"
@@ -388,26 +421,30 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         />
         {isSignup && (
           <div>
-            <label
-              htmlFor="dob"
+            {/* A group label, not a `for=` on one field: the control below is
+                three wheels and there's no single input for this to point at.
+                Each wheel carries its own hidden label. */}
+            <span
+              id="dob-label"
               className="block text-sm font-medium text-on-surface-variant"
             >
               Date of birth
-            </label>
-            <input
-              id="dob"
-              type="date"
-              required
-              // Deliberately no `max`. It refused under-age dates with a
-              // native "must be 07/30/2013 or earlier" tooltip, which both
-              // hands over the exact cutoff to anyone who wants to type
-              // around it and stops the form ever reaching our own gate.
-              // The check below owns this answer now.
-              value={dob}
-              onChange={(e) => onDobChange(e.target.value)}
-              className={`${inputClass} mt-1.5`}
-            />
-            <p className="mt-1.5 text-[13px] leading-5 text-on-surface-variant">
+            </span>
+            <div role="group" aria-labelledby="dob-label">
+              {/* Deliberately no upper bound on the wheels. Refusing under-age
+                  dates in the control itself hands the exact cutoff to anyone
+                  who wants to type around it, and stops the form ever reaching
+                  our own gate. The confirmation screen owns this answer. */}
+              <DobPicker
+                value={dobParts}
+                onChange={onDobChange}
+                describedBy="dob-note"
+              />
+            </div>
+            <p
+              id="dob-note"
+              className="mt-1.5 text-[13px] leading-5 text-on-surface-variant"
+            >
               We use this once to check your age, and don&apos;t store it.
             </p>
             {/* The under-18 notice used to sit here, keyed off the field as

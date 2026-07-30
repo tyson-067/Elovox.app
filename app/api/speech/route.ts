@@ -119,8 +119,21 @@ export async function POST(req: NextRequest) {
   //
   // 403 with the same "premium-required" code /api/analyze returns, so the
   // client can treat both the same way.
-  const premium = uid === "local-dev" ? true : await isPremiumServer(req, uid);
-  if (!premium) {
+  const entitlement =
+    uid === "local-dev" ? "premium" : await isPremiumServer(req, uid);
+  // Same distinction /api/analyze draws: a plan read that failed is not a
+  // free account, and must not be answered with the upgrade pitch.
+  if (entitlement === "unknown") {
+    return NextResponse.json(
+      {
+        error: "entitlement-unavailable",
+        message:
+          "Couldn't check your subscription just now. Try again in a moment.",
+      },
+      { status: 503 }
+    );
+  }
+  if (entitlement !== "premium") {
     return NextResponse.json(
       {
         error: "premium-required",

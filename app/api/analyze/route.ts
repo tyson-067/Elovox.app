@@ -664,7 +664,24 @@ export async function POST(req: NextRequest) {
 
   // Entitlement is resolved once and reused for both the Premium gate and
   // the camera pass below, so we never make the same lookup twice.
-  const premium = uid === "local-dev" ? true : await isPremiumServer(req, uid);
+  const entitlement =
+    uid === "local-dev" ? "premium" : await isPremiumServer(req, uid);
+  const premium = entitlement === "premium";
+
+  // We couldn't find out. Say so, and let the take be retried — the recording
+  // is still in the browser and nothing has been spent. Answering the paywall
+  // here is what showed subscribers "Go Premium" on a feature they pay for,
+  // on every non-daily surface at once, whenever the plan read hiccuped.
+  if (entitlement === "unknown" && !isDaily) {
+    return NextResponse.json(
+      {
+        error: "entitlement-unavailable",
+        message:
+          "Couldn't check your subscription just now. Your recording is safe — try again in a moment.",
+      },
+      { status: 503 }
+    );
+  }
 
   if (!premium && !isDaily) {
     return NextResponse.json(

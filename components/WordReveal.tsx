@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
+import { useRevealOnView } from "@/lib/useReveal";
 
 // Word-by-word text entrance: each word rises out of a blur with a
 // small stagger the first time the element scrolls into view. Pure CSS
@@ -20,23 +21,9 @@ export function WordReveal({
   className?: string;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          io.disconnect();
-        }
-      },
-      { threshold: 0.3 }
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
+  // Headlines are the worst thing to lose to a stuck observer — a page whose
+  // heading never appears reads as "didn't load". See lib/useReveal.ts.
+  const visible = useRevealOnView(ref, { threshold: 0.3 });
 
   return (
     <span

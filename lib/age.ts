@@ -48,18 +48,48 @@ export function ageFromDob(dob: string, today = new Date()): number | null {
 // picker wheels pass through, so adults scrolling back to their birth year
 // were locked out in transit. Those flags are not honest answers and don't
 // get to stand.
-const BLOCK_KEY = "elovox.age.blocked.v3";
-const STALE_BLOCK_KEYS = ["elovox.age.blocked.v1", "elovox.age.blocked.v2"];
+//
+// v3 is retired for the same reason one layer up. It recorded the block at
+// submit — i.e. *before* the "Confirm your age" screen the whole flow is
+// built around — so a mistyped year locked the browser out for good at the
+// moment the visitor was one tap away from correcting it. Nothing written by
+// that version can be trusted to be a considered answer either. Anyone still
+// carrying a v3 flag has been staring at "We can't sign you up" ever since,
+// with no way back, which is the bug this pass exists to end; dropping the
+// key hands them the form back.
+const BLOCK_KEY = "elovox.age.blocked.v4";
+const STALE_BLOCK_KEYS = [
+  "elovox.age.blocked.v1",
+  "elovox.age.blocked.v2",
+  "elovox.age.blocked.v3",
+];
+
+/**
+ * How long a block stands before the question gets asked again.
+ *
+ * It used to stand forever, which is a heavier thing than it looks: the
+ * screen it produces has no retry, no appeal and no explanation beyond the
+ * message, so *any* wrong answer — a typo, a phone handed to a child for
+ * five minutes, a shared family laptop — permanently removed the ability to
+ * create an account in that browser. The deterrent only ever needed to stop
+ * an immediate second guess at the date; that job is done long before a
+ * month is out, and re-asking after one is not "re-prompting a child", it's
+ * asking a question again a month later and honouring whatever comes back.
+ */
+const BLOCK_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
  * Remember that this browser failed the age check, so the form stays closed
  * instead of inviting an immediate retry with a different date. A soft
- * deterrent, clearing site data resets it, but re-prompting a child who
- * just told us their age would defeat the point of asking.
+ * deterrent — clearing site data resets it, and so does {@link BLOCK_TTL_MS}
+ * — but re-prompting straight away would defeat the point of asking.
+ *
+ * Call this only for an answer the visitor has explicitly confirmed. See
+ * the note on v3 above for what happens when it's called any earlier.
  */
 export function rememberAgeBlock(): void {
   try {
-    window.localStorage.setItem(BLOCK_KEY, "1");
+    window.localStorage.setItem(BLOCK_KEY, JSON.stringify({ at: Date.now() }));
   } catch {
     /* private mode / storage disabled, the gate still ran this session */
   }
@@ -68,7 +98,14 @@ export function rememberAgeBlock(): void {
 
 function isAgeBlocked(): boolean {
   try {
-    return window.localStorage.getItem(BLOCK_KEY) === "1";
+    const raw = window.localStorage.getItem(BLOCK_KEY);
+    if (!raw) return false;
+    const at = (JSON.parse(raw) as { at?: unknown })?.at;
+    // Unreadable or undated: it isn't evidence of anything, so don't block on
+    // it. (This read has to stay pure for useSyncExternalStore, so nothing is
+    // cleaned up here — a stale entry is simply ignored from now on.)
+    if (typeof at !== "number") return false;
+    return Date.now() - at < BLOCK_TTL_MS;
   } catch {
     return false;
   }

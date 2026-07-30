@@ -137,6 +137,39 @@ async function syncSubscription(
         // None entitle, keep the most recent for an accurate status/date.
         source = all.data.reduce((a, b) => (b.created > a.created ? b : a));
       }
+
+      // Nobody is meant to hold two Elovox subscriptions at once, and until
+      // now nothing enforced that — the code above merely picked the best of
+      // them for the entitlement and left the rest running. So a monthly
+      // subscriber who moved to annual kept paying for BOTH: the plan doc
+      // said "premium, annual", the app looked correct, and Stripe quietly
+      // billed the old monthly alongside it every month. (Reported by a real
+      // subscriber who switched; the note above already knew the Portal
+      // "can leave a superseded subscription behind" and stopped at reading
+      // around it.)
+      //
+      // Cancel the leftovers, keeping the one entitlement is derived from.
+      // Immediately, not at period end: the whole problem is a charge for
+      // something already replaced, and letting it ride to the end of the
+      // period is another month of exactly the bug. Money already taken is a
+      // refund decision, which stays with a human in the Stripe dashboard —
+      // this only stops the bleeding.
+      if (entitling.length > 1) {
+        const superseded = entitling.filter((s) => s.id !== source.id);
+        console.warn(
+          `[stripe] customer ${customerId} held ${entitling.length} live subscriptions; keeping ${source.id}, cancelling ${superseded.map((s) => s.id).join(", ")}`
+        );
+        for (const dupe of superseded) {
+          try {
+            await stripe.subscriptions.cancel(dupe.id);
+          } catch (err) {
+            // Already gone, or cancelled by a concurrent delivery of this
+            // same event. Not worth failing the webhook and replaying it —
+            // the entitlement write below is the part that must land.
+            console.error(`[stripe] couldn't cancel duplicate ${dupe.id}`, err);
+          }
+        }
+      }
     }
   } catch (err) {
     console.error(`[stripe] couldn't list subscriptions for ${customerId}`, err);
