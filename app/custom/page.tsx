@@ -53,7 +53,19 @@ function CustomScreen() {
   const [error, setError] = useState("");
   const [speech, setSpeech] = useState<GeneratedSpeech | null>(null);
 
-  if (plan === null) return null;
+  // Held rather than rendered free-then-premium, so the paywall never flashes
+  // at a subscriber. Held with something on screen, though: a blank tab is
+  // how "it didn't load" starts.
+  if (plan === null) {
+    return (
+      <div className="py-16 flex flex-col items-center gap-4 text-center">
+        <Felix mood="coach" className="felix-idle h-16 w-16" />
+        <p className="text-lg text-on-surface-variant" role="status">
+          One moment…
+        </p>
+      </div>
+    );
+  }
 
   if (!isPremium) {
     return (

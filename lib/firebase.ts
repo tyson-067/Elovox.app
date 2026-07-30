@@ -47,16 +47,64 @@ export function getAuthInstance(): Auth {
 }
 
 /**
+ * How long to wait for Firebase to report an initial auth state before
+ * answering with whatever it already has.
+ *
+ * This promise sits under nearly everything the app loads — getSession,
+ * saveSession, listSessions, getPlan, and the auth header on the analyze
+ * call all await it — and it had no way to end other than Firebase deciding
+ * to speak. `onAuthStateChanged` delivers its first callback behind the SDK's
+ * internal `_initializationPromise`, so if that never settles (IndexedDB
+ * unavailable in some private-browsing modes, persistence wedged, the auth
+ * endpoint unreachable) the callback never fires, this never resolves, and
+ * every caller waits forever. The screens above it render `null` while they
+ * wait, which is how a page ends up permanently blank with a reload as the
+ * only way out.
+ *
+ * Six seconds is far longer than a healthy resolve (milliseconds, from cache)
+ * and short enough that nobody sits looking at nothing.
+ */
+const AUTH_READY_TIMEOUT_MS = 6000;
+
+/**
  * Resolves with the signed-in user, or null if nobody is signed in (or
- * Firebase isn't configured). Waits for the initial auth state to load.
+ * Firebase isn't configured). Waits for the initial auth state to load, but
+ * not indefinitely — see {@link AUTH_READY_TIMEOUT_MS}.
  */
 export function getUser(): Promise<User | null> {
   if (!isFirebaseConfigured()) return Promise.resolve(null);
   ensureApp();
   return new Promise((resolve) => {
-    const unsubscribe = onAuthStateChanged(auth!, (user) => {
-      unsubscribe();
+    let settled = false;
+    // Assigned by the listener registration below. Declared first because the
+    // callback closes over it and must not touch it before it exists.
+    let unsubscribe: (() => void) | undefined = undefined;
+
+    const finish = (user: User | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      unsubscribe?.();
       resolve(user);
-    });
+    };
+
+    // `auth.currentUser` is the SDK's own last known answer. After a restored
+    // session it is already correct; before one it is null, which is the same
+    // thing a signed-out visitor gets. Either way it beats hanging.
+    const timer = setTimeout(() => {
+      console.warn("[firebase] auth state timed out; using currentUser");
+      finish(auth?.currentUser ?? null);
+    }, AUTH_READY_TIMEOUT_MS);
+
+    unsubscribe = onAuthStateChanged(
+      auth!,
+      (user) => finish(user),
+      // An error on the listener is an answer too: without this the promise
+      // outlived the subscription that was supposed to settle it.
+      () => finish(auth?.currentUser ?? null)
+    );
+    // Registration itself can resolve the promise synchronously in the error
+    // path above, in which case the listener is already redundant.
+    if (settled) unsubscribe();
   });
 }

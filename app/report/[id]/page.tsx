@@ -48,7 +48,21 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
     };
   }, [id]);
 
-  if (session === undefined) return null;
+  // Arriving here is not a choice — analysis finishes and pushes you straight
+  // in — so this screen has to account for itself while it fetches. It used to
+  // render `null`, which is indistinguishable from a page that failed to load,
+  // and that is exactly what a slow read looked like: a blank screen after a
+  // take you just spent a minute on, with a reload as the only way forward.
+  if (session === undefined) {
+    return (
+      <div className="py-16 flex flex-col items-center gap-4 text-center">
+        <Felix mood="coach" className="felix-idle h-16 w-16" />
+        <p className="text-lg text-on-surface-variant" role="status">
+          Fetching your report…
+        </p>
+      </div>
+    );
+  }
 
   if (session === null) {
     return (

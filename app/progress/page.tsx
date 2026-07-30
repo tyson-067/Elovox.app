@@ -6,6 +6,7 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { Reveal } from "@/components/Reveal";
 import { WordReveal } from "@/components/WordReveal";
 import { GlowCard } from "@/components/GlowCard";
+import { Felix } from "@/components/FoxLogo";
 import { listSessions } from "@/lib/store";
 import { getCategory } from "@/lib/categories";
 import { getStats, MAX_DAILY_ATTEMPTS, type UserStats } from "@/lib/daily";
@@ -273,7 +274,21 @@ function ProgressScreen() {
     }));
   }, [sessions]);
 
-  if (sessions === null) return null;
+  // Same reasoning as the report screen: a tab you clicked has to show you
+  // something. Rendering `null` here meant Progress opened as an empty page
+  // and stayed that way for as long as the history took to come back, which
+  // reads as "it didn't load" and sends people clicking around to make it
+  // appear.
+  if (sessions === null) {
+    return (
+      <div className="py-16 flex flex-col items-center gap-4 text-center">
+        <Felix mood="coach" className="felix-idle h-16 w-16" />
+        <p className="text-lg text-on-surface-variant" role="status">
+          Pulling up your practice history…
+        </p>
+      </div>
+    );
+  }
 
   if (sessions.length === 0) {
     return (
