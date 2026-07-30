@@ -110,10 +110,21 @@ export function makeRateLimiter(limit: number, windowMs = 60 * 60 * 1000) {
   const buckets = new Map<string, number[]>();
   return function rateLimited(key: string): boolean {
     const now = Date.now();
-    const hits = (buckets.get(key) ?? []).filter((t) => t > now - windowMs);
+    const cutoff = now - windowMs;
+    const hits = (buckets.get(key) ?? []).filter((t) => t > cutoff);
     if (hits.length >= limit) return true;
     hits.push(now);
     buckets.set(key, hits);
+
+    // Evict keys whose window has fully expired. Without this the map only
+    // ever grew: every uid and every IP the instance had ever seen kept an
+    // entry for the life of the process, because expired timestamps were
+    // filtered on read but the empty bucket was never dropped.
+    if (buckets.size > 1000) {
+      for (const [k, times] of buckets) {
+        if (k !== key && times.every((t) => t <= cutoff)) buckets.delete(k);
+      }
+    }
     return false;
   };
 }

@@ -22,10 +22,34 @@ function localList(): Session[] {
   }
 }
 
+/**
+ * Signed-out history lives in localStorage, which is a few megabytes and
+ * never gets any bigger. Each session carries a full analysis, so a regular
+ * user WILL reach the quota — and an unguarded write throws
+ * QuotaExceededError right out of saveSession, surfacing as "something went
+ * wrong saving that" on a take that recorded and analysed perfectly.
+ *
+ * So: on a full store, drop the oldest sessions and keep the new one. Losing
+ * the tail of a local history beats losing the rep just finished, and anyone
+ * signed in has the real history in Firestore regardless.
+ */
 function localSave(session: Session): void {
   const sessions = localList().filter((s) => s.id !== session.id);
   sessions.push(session);
-  window.localStorage.setItem(KEY, JSON.stringify(sessions));
+  // Newest first, so trimming from the end drops the oldest.
+  sessions.sort((a, b) => b.createdAt - a.createdAt);
+
+  for (let keep = sessions.length; keep > 0; keep--) {
+    try {
+      window.localStorage.setItem(KEY, JSON.stringify(sessions.slice(0, keep)));
+      return;
+    } catch {
+      // Full. Halve what we're trying to keep and try again, never dropping
+      // below the session we were asked to save.
+      if (keep === 1) return; // even one won't fit; nothing more we can do
+      keep = Math.ceil(keep / 2) + 1; // +1, the loop decrements
+    }
+  }
 }
 
 // --- Firestore -------------------------------------------------------------

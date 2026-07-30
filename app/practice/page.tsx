@@ -480,7 +480,12 @@ function RecordingScreen() {
           videoOn && samplerRef.current
             ? samplerRef.current.collect(FRAMES_PER_RECORDING)
             : undefined;
-        samplerRef.current?.stop();
+        // `dispose`, not `stop`: the frames have been collected, and the
+        // sampler was holding every one it buffered — up to 150 base64 JPEGs
+        // — alive for the rest of the session. Stopping the timer never
+        // released them.
+        samplerRef.current?.dispose();
+        samplerRef.current = null;
         const audioBlob = new Blob(chunks, { type: recorder.mimeType });
         // Devices are no longer needed, release them so the mic light goes
         // off while Felix works.
@@ -553,12 +558,27 @@ function RecordingScreen() {
       }, limitSec * 1000);
       setState("recording");
       draw(analyser, new Uint8Array(analyser.fftSize));
-    } catch {
+    } catch (err) {
+      // Hand the devices back. Only the getUserMedia call itself is a
+      // permission problem; anything after it (AudioContext, MediaRecorder,
+      // the camera preview) throws with the stream already open, and
+      // returning without releasing it left the mic and camera lights on
+      // with no take running and no way to turn them off but a reload.
+      stopEverything();
+      const denied =
+        err instanceof DOMException &&
+        (err.name === "NotAllowedError" || err.name === "SecurityError");
       setState("error");
       setErrorMsg(
-        videoOn
-          ? "Elovox needs microphone and camera access for this. Check your browser permissions and try again."
-          : "Elovox needs microphone access to hear you. Check your browser's mic permission and try again."
+        denied
+          ? videoOn
+            ? "Elovox needs microphone and camera access for this. Check your browser permissions and try again."
+            : "Elovox needs microphone access to hear you. Check your browser's mic permission and try again."
+          : // Not a permission problem: no device at all, one already held by
+            // another app, or a browser that couldn't start the recorder.
+            // Telling these people to check permissions they have already
+            // granted just sends them round in circles.
+            "Couldn't start recording. Make sure no other app is using your microphone, then try again."
       );
     }
   }, [videoOn, limitSec, draw, runAnalysis, stopEverything]);
@@ -569,7 +589,17 @@ function RecordingScreen() {
       clearTimeout(maxStopRef.current);
       maxStopRef.current = null;
     }
-    recorderRef.current?.stop();
+    // Only a live recorder can be stopped — calling stop() on an inactive
+    // one throws InvalidStateError. Reachable by tapping Stop at the same
+    // moment the sixty-second cutoff fires, or just after the mic track
+    // ended on its own, which threw straight out of the click handler.
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      try {
+        recorderRef.current.stop();
+      } catch {
+        /* it finished between the check and the call */
+      }
+    }
   }, []);
 
   const retryAnalysis = useCallback(() => {

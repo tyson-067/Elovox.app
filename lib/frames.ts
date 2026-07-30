@@ -80,6 +80,12 @@ export class FrameSampler {
     const all = this.frames;
     if (all.length === 0) return [];
 
+    // `count - 1` is a divisor, so asking for a single frame would divide by
+    // zero and index the array with NaN. Not reachable at the current
+    // FRAMES_PER_RECORDING of 10, but it's a crash waiting on a one-token
+    // change to that constant.
+    if (count <= 1) return [all[0]].map((f) => `${formatTime(f.timeSec)}|${f.data}`);
+
     const chosen =
       all.length <= count
         ? all
