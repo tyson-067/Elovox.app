@@ -20,7 +20,6 @@ import {
   MINIMUM_AGE,
   MINOR_NOTICE,
   ageFromDob,
-  latestAllowedDob,
   rememberAgeBlock,
   useAgeBlocked,
 } from "@/lib/age";
@@ -38,6 +37,26 @@ function checkoutIntent(): BillingCycle | null {
 
 // Shared onboarding form for /login and /signup: email + password, plus
 // Google. Already-signed-in visitors are bounced straight to the dashboard.
+
+/**
+ * "1994-05-20" → "20 May 1994". The confirmation screen is asking someone to
+ * check a date, so it has to read like a date and not like the ISO string the
+ * input happens to hold. Parsed as local noon, not midnight UTC, or a browser
+ * behind UTC renders the day before — the one mistake that would make an
+ * accurate date look wrong on the screen asking you to confirm it.
+ */
+function formatDob(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  return new Date(y, m - 1, d, 12).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+/** Shown when the date of birth is missing or unreadable at submit time. */
+const DOB_PROMPT = "Please enter your date of birth.";
 
 const inputClass =
   "card input-glow w-full px-4 py-3 text-base text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none";
@@ -82,22 +101,20 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [dob, setDob] = useState("");
 
   const age = isSignup && dob ? ageFromDob(dob) : null;
-  const ageOk = !isSignup || (age !== null && age >= MINIMUM_AGE);
+  // Enough to submit with: a date we can actually read. Whether it clears the
+  // floor is decided at submit, NOT here — see below.
+  const ageOk = !isSignup || age !== null;
 
-  // Both halves of the gate are derived, not stored: `wasBlocked` reads the
-  // persisted flag straight from localStorage, and an under-age date blocks
-  // on the spot. Nothing here needs an effect.
+  // Only the persisted flag blocks. A half-finished date must never do it:
+  // on iOS the date field reports every intermediate value as the wheels
+  // move, so someone spinning towards 1994 passes through today's date and
+  // a run of recent years on the way. Judging the field as it changes read
+  // those fly-past values as real answers and locked out adults mid-scroll,
+  // permanently, before they had finished typing their own birthday.
   const wasBlocked = useAgeBlocked();
-  const tooYoung = age !== null && age < MINIMUM_AGE;
-  const blocked = isSignup && (wasBlocked || tooYoung);
+  const blocked = isSignup && wasBlocked;
 
-  // Under-age answers stop here and stay stopped for this browser. Recorded
-  // from the change handler, so it happens once, when the answer is given.
-  const onDobChange = (value: string) => {
-    setDob(value);
-    const next = ageFromDob(value);
-    if (next !== null && next < MINIMUM_AGE) rememberAgeBlock();
-  };
+  const onDobChange = (value: string) => setDob(value);
   // Straight into the app, new account or returning. Signing up used to
   // detour through a run of onboarding questions; there is nothing between
   // making an account and the Daily Minute any more.
@@ -192,21 +209,43 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       }
       await finishAuth();
     } catch (err) {
+      // Stay on whichever screen they're on — the confirmation screen shows
+      // the same error and has its own way back to the form. Throwing them
+      // out of it meant a cancelled Google sheet silently lost the step they
+      // had already completed and made them submit the form again.
       setError(authErrorMessage(err, mode));
-      setPending(null); // back to the form, with the message visible
       setBusy(false);
     }
   };
 
+  // The age answer is judged once, here, when the visitor submits it — the
+  // point at which a date on screen becomes something they're actually
+  // telling us. Returns true if the gate is closed. Under-age answers are
+  // recorded and stay recorded; `blocked` picks it up and swaps the screen.
+  const ageGateClosed = () => {
+    if (!isSignup) return false;
+    if (age !== null && age < MINIMUM_AGE) {
+      rememberAgeBlock();
+      return true;
+    }
+    return false;
+  };
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!ageOk) return; // the form's own guard; the button is disabled too
     setError("");
     setNotice("");
+    // A date the browser accepted but we can't read as an age (a future date,
+    // a typo'd century). Say so rather than returning in silence.
+    if (!ageOk) {
+      setError(DOB_PROMPT);
+      return;
+    }
     if (isSignup && password !== confirm) {
       setError("Those passwords don't match.");
       return;
     }
+    if (ageGateClosed()) return;
     // Details are in and valid. Signing up stops here for an explicit age
     // confirmation; logging in has nothing to confirm and goes straight on.
     if (isSignup) {
@@ -217,9 +256,16 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   };
 
   const withProvider = () => async () => {
-    if (!ageOk) return; // signing up with Google clears the same gate
     setError("");
     setNotice("");
+    // Google clears the same gate. This button isn't a submit, so there's no
+    // native validation to lean on — an empty date has to be named here or
+    // the button appears to do nothing at all.
+    if (!ageOk) {
+      setError(DOB_PROMPT);
+      return;
+    }
+    if (ageGateClosed()) return;
     if (isSignup) {
       setPending("google");
       return;
@@ -232,6 +278,15 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const forgotPassword = async () => {
     setError("");
     setNotice("");
+    // With the field empty this used to answer "if that email is registered,
+    // you will receive a reset link" — a promise about an address nobody
+    // gave us, and people then sat waiting for a mail that was never sent.
+    // Asking for the address is not an enumeration leak: it says nothing
+    // about which addresses exist.
+    if (!email.trim()) {
+      setError("Enter your email address first, then tap Forgot password.");
+      return;
+    }
     await sendPasswordReset(email);
     setNotice(PASSWORD_RESET_NOTICE);
   };
@@ -248,9 +303,12 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         </h1>
         <p className="mt-3 text-base leading-6 text-on-surface-variant">
           You told us you were born on{" "}
-          <span className="font-semibold text-on-surface">{dob}</span>, which
-          makes you <span className="font-semibold text-on-surface">{age}</span>
-          . Please confirm that&apos;s right before we create your account.
+          <span className="font-semibold text-on-surface">
+            {formatDob(dob)}
+          </span>
+          , which makes you{" "}
+          <span className="font-semibold text-on-surface">{age}</span>. Please
+          confirm that&apos;s right before we create your account.
         </p>
         <p className="mt-3 text-base leading-6 text-on-surface-variant">
           You need to be at least {MINIMUM_AGE} to use Elovox.
@@ -340,7 +398,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               id="dob"
               type="date"
               required
-              max={latestAllowedDob()}
+              // Deliberately no `max`. It refused under-age dates with a
+              // native "must be 07/30/2013 or earlier" tooltip, which both
+              // hands over the exact cutoff to anyone who wants to type
+              // around it and stops the form ever reaching our own gate.
+              // The check below owns this answer now.
               value={dob}
               onChange={(e) => onDobChange(e.target.value)}
               className={`${inputClass} mt-1.5`}
@@ -348,11 +410,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             <p className="mt-1.5 text-[13px] leading-5 text-on-surface-variant">
               We use this once to check your age, and don&apos;t store it.
             </p>
-            {age !== null && age >= MINIMUM_AGE && age < 18 && (
-              <p className="mt-1.5 text-[13px] leading-5 text-on-surface-variant">
-                {MINOR_NOTICE}
-              </p>
-            )}
+            {/* The under-18 notice used to sit here, keyed off the field as
+                it changed — on iOS it flickered in and out while the picker
+                wheels moved through the teens. It lives on the confirmation
+                screen now, where the date has actually been settled on. */}
           </div>
         )}
         {/* The reveal toggle sits inside the field rather than under it, so
@@ -427,9 +488,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           </div>
         )}
 
+        {/* Only `busy` disables this. Greying it out for a missing date of
+            birth or a password mismatch left people pressing a dead button
+            with nothing telling them why — the field is `required`, so
+            letting the press through gets them the browser's own "please
+            fill this in", pointed at the field that needs it. */}
         <button
           type="submit"
-          disabled={busy || !ageOk || mismatch}
+          disabled={busy}
           className="btn rounded-lg w-full bg-accent text-white font-semibold text-base px-8 py-3.5 disabled:opacity-50"
         >
           {busy ? "One moment…" : isSignup ? "Sign up free" : "Log in"}
@@ -446,7 +512,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         <button
           type="button"
           onClick={withProvider()}
-          disabled={busy || !ageOk}
+          disabled={busy}
           className="card pill w-full px-4 py-3 text-base font-semibold text-primary hover:border-primary/30 disabled:opacity-50"
         >
           Continue with Google

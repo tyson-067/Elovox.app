@@ -19,13 +19,6 @@ import { LEGAL } from "./legal";
 
 export const MINIMUM_AGE = LEGAL.minimumAge;
 
-/** Youngest date of birth that still clears the minimum age, as YYYY-MM-DD. */
-export function latestAllowedDob(today = new Date()): string {
-  const d = new Date(today);
-  d.setFullYear(d.getFullYear() - MINIMUM_AGE);
-  return d.toISOString().slice(0, 10);
-}
-
 /**
  * Whole years between `dob` and today, or null if the input isn't a usable
  * date. Counts a birthday as reached only once the day arrives.
@@ -46,11 +39,17 @@ export function ageFromDob(dob: string, today = new Date()): number | null {
 }
 
 // Bumping this version resets every existing lockout: browsers still holding
-// the old flag no longer match the key we read, so they get the signup form
-// back and a fresh run at the age question. v1 was cleared deliberately —
-// don't move back to it, and bump again if the lockouts ever need clearing.
-const BLOCK_KEY = "elovox.age.blocked.v2";
-const STALE_BLOCK_KEYS = ["elovox.age.blocked.v1"];
+// an old flag no longer match the key we read, so they get the signup form
+// back and a fresh run at the age question. Bump again, and retire the old
+// key below, whenever the lockouts need clearing.
+//
+// v2 is retired because it collected false positives: the signup form used
+// to judge the date field as it changed, and iOS reports every value the
+// picker wheels pass through, so adults scrolling back to their birth year
+// were locked out in transit. Those flags are not honest answers and don't
+// get to stand.
+const BLOCK_KEY = "elovox.age.blocked.v3";
+const STALE_BLOCK_KEYS = ["elovox.age.blocked.v1", "elovox.age.blocked.v2"];
 
 /**
  * Remember that this browser failed the age check, so the form stays closed
