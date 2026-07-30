@@ -22,8 +22,7 @@ export const LEGAL = {
    * whole of the venture's obligations. Forming an LLC is the usual fix, and
    * would replace this line with the company name. Ask a lawyer.
    */
-  entity:
-    "Tyson Youm, Arad Mehrabian, Aanya Iyer Us, and Kelley (Ka Ling) Guo",
+  entity: "Tyson Youm, Arad Mehrabian, Aanya Iyer, and Kelley Gou",
 
   /** Governing law and the courts that hear disputes. */
   jurisdiction: "the State of New York, USA",
