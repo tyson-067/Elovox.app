@@ -45,7 +45,12 @@ export function ageFromDob(dob: string, today = new Date()): number | null {
   return age;
 }
 
-const BLOCK_KEY = "elovox.age.blocked.v1";
+// Bumping this version resets every existing lockout: browsers still holding
+// the old flag no longer match the key we read, so they get the signup form
+// back and a fresh run at the age question. v1 was cleared deliberately —
+// don't move back to it, and bump again if the lockouts ever need clearing.
+const BLOCK_KEY = "elovox.age.blocked.v2";
+const STALE_BLOCK_KEYS = ["elovox.age.blocked.v1"];
 
 /**
  * Remember that this browser failed the age check, so the form stays closed
@@ -77,6 +82,13 @@ function isAgeBlocked(): boolean {
 const listeners = new Set<() => void>();
 
 function subscribe(onChange: () => void): () => void {
+  // Drop the retired flags on the way past. Done here rather than in the
+  // snapshot read, which has to stay pure and gets called often.
+  try {
+    STALE_BLOCK_KEYS.forEach((k) => window.localStorage.removeItem(k));
+  } catch {
+    /* storage disabled; the stale key is inert either way */
+  }
   listeners.add(onChange);
   // Catch the flag being set in another tab as well as in this one.
   window.addEventListener("storage", onChange);

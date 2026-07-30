@@ -58,6 +58,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  // Signup only. Holds the sign-in method whose details are filled in and
+  // validated but not yet acted on, because the age confirmation screen is
+  // standing in front of it. Null means no account creation is pending.
+  const [pending, setPending] = useState<null | "email" | "google">(null);
 
   // Under COOP the opener can't observe the Google popup closing, so when
   // someone dismisses it `signInWithPopup` never settles: there is no
@@ -172,6 +176,28 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   // someone stuck on a form that won't say why.
   const mismatch = isSignup && confirm.length > 0 && confirm !== password;
 
+  // The one place an account actually gets created or entered. Everything
+  // else either validates first or waits behind the confirmation screen.
+  const runAuth = async (method: "email" | "google") => {
+    setError("");
+    setNotice("");
+    setBusy(true);
+    try {
+      if (method === "google") {
+        await signInWithGoogle();
+      } else if (isSignup) {
+        await signUpWithEmail(name, email, password);
+      } else {
+        await signInWithEmail(email, password);
+      }
+      await finishAuth();
+    } catch (err) {
+      setError(authErrorMessage(err, mode));
+      setPending(null); // back to the form, with the message visible
+      setBusy(false);
+    }
+  };
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!ageOk) return; // the form's own guard; the button is disabled too
@@ -181,32 +207,24 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       setError("Those passwords don't match.");
       return;
     }
-    setBusy(true);
-    try {
-      if (isSignup) {
-        await signUpWithEmail(name, email, password);
-      } else {
-        await signInWithEmail(email, password);
-      }
-      await finishAuth();
-    } catch (err) {
-      setError(authErrorMessage(err, mode));
-      setBusy(false);
+    // Details are in and valid. Signing up stops here for an explicit age
+    // confirmation; logging in has nothing to confirm and goes straight on.
+    if (isSignup) {
+      setPending("email");
+      return;
     }
+    await runAuth("email");
   };
 
-  const withProvider = (signIn: () => Promise<void>) => async () => {
+  const withProvider = () => async () => {
     if (!ageOk) return; // signing up with Google clears the same gate
     setError("");
     setNotice("");
-    setBusy(true);
-    try {
-      await signIn();
-      await finishAuth();
-    } catch (err) {
-      setError(authErrorMessage(err, mode));
-      setBusy(false);
+    if (isSignup) {
+      setPending("google");
+      return;
     }
+    await runAuth("google");
   };
 
   // Password reset always shows the same neutral notice, whether or not the
@@ -217,6 +235,66 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     await sendPasswordReset(email);
     setNotice(PASSWORD_RESET_NOTICE);
   };
+
+  // Details are entered and the date of birth clears the floor, but nothing
+  // has been created yet: the age answer gets said back to the visitor and
+  // has to be confirmed on purpose. Going back returns them to a form that
+  // still has everything they typed, since none of it was cleared.
+  if (pending) {
+    return (
+      <div className="stagger-in py-12 md:py-16 max-w-[420px] mx-auto">
+        <h1 className="text-title font-headline font-semibold text-primary">
+          Confirm your age
+        </h1>
+        <p className="mt-3 text-base leading-6 text-on-surface-variant">
+          You told us you were born on{" "}
+          <span className="font-semibold text-on-surface">{dob}</span>, which
+          makes you <span className="font-semibold text-on-surface">{age}</span>
+          . Please confirm that&apos;s right before we create your account.
+        </p>
+        <p className="mt-3 text-base leading-6 text-on-surface-variant">
+          You need to be at least {MINIMUM_AGE} to use Elovox.
+        </p>
+        {age !== null && age < 18 && (
+          <p className="mt-3 text-[13px] leading-5 text-on-surface-variant">
+            {MINOR_NOTICE}
+          </p>
+        )}
+
+        {error && (
+          <p role="alert" className="mt-4 text-sm leading-5 text-error">
+            {error}
+          </p>
+        )}
+
+        <div className="mt-8 space-y-3">
+          <button
+            type="button"
+            onClick={() => void runAuth(pending)}
+            disabled={busy}
+            className="btn rounded-lg w-full bg-accent text-white font-semibold text-base px-8 py-3.5 disabled:opacity-50"
+          >
+            {busy
+              ? "One moment…"
+              : pending === "google"
+                ? `Yes, I'm ${age} — continue with Google`
+                : `Yes, I'm ${age} — create my account`}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setError("");
+              setPending(null);
+            }}
+            disabled={busy}
+            className="card pill w-full px-4 py-3 text-base font-semibold text-primary hover:border-primary/30 disabled:opacity-50"
+          >
+            Go back and edit
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="stagger-in py-12 md:py-16 max-w-[420px] mx-auto">
@@ -367,7 +445,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       <div className="mt-4 space-y-3">
         <button
           type="button"
-          onClick={withProvider(signInWithGoogle)}
+          onClick={withProvider()}
           disabled={busy || !ageOk}
           className="card pill w-full px-4 py-3 text-base font-semibold text-primary hover:border-primary/30 disabled:opacity-50"
         >
