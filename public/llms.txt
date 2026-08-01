@@ -2,7 +2,7 @@
 
 > Elovox is a speaking practice app. You record yourself giving a speech, a pitch, or an interview answer, and Elovox returns coaching on your delivery: pace, filler words, pauses, clarity, confidence, vocal variety, and how an audience is likely to perceive you. With the camera on, it also reads body language: posture, gestures, eye contact, and expression. The mascot and coach is Felix, a fox.
 
-Elovox is free forever with a daily one-minute speaking challenge (three attempts a day, on every plan). Premium adds unlimited practice, camera coaching, a speech library, interview practice, social-skills practice, coaching on your own material, and custom speeches written to your situation.
+Elovox is free forever with a daily one-minute speaking challenge (three attempts a day, on every plan). Premium adds practice with no three-a-day limit, camera coaching, a speech library, interview practice, social-skills practice, coaching on your own material, and custom speeches written to your situation.
 
 ## Pages
 

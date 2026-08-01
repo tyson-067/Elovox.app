@@ -23,10 +23,12 @@ import { levelFromXp, xpForChallengeAttempt, type LevelProgress } from "./levels
  * Three attempts at the daily challenge, for EVERYONE, free and Premium
  * alike. This is deliberate and is not a paywall: the daily challenge is one
  * shared topic that the whole userbase is scored on, so an uncapped run at it
- * would make the scores incomparable and turn a habit into a grind. Premium's
- * "unlimited" is about the other surfaces (the speech library, your own
- * material, interview practice, social skills, custom speeches), which have
- * no cap at all.
+ * would make the scores incomparable and turn a habit into a grind. What
+ * Premium lifts is the three-a-day limit on the OTHER surfaces (the speech
+ * library, your own material, interview practice, social skills, custom
+ * speeches). Those aren't literally uncapped: a high fair-use ceiling
+ * (PREMIUM_ANALYSES_PER_DAY in the analyze route) stops scripted abuse, but
+ * no real subscriber reaches it, so the copy never promises "unlimited".
  *
  * Keep this in step with the /pricing copy: Premium must never be sold as
  * removing THIS cap, because it does not.

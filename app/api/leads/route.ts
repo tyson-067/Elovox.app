@@ -30,6 +30,12 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
+  // `JSON.parse("null")` and `JSON.parse("[]")` parse fine but aren't the
+  // object the rest of this handler reads; guard before touching properties
+  // so a `null`/array body is a clean 400, not an unhandled 500.
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json({ error: "Bad request." }, { status: 400 });
+  }
 
   // Honeypot: the form hides this field, so anything in it is a bot. Answer
   // success so the bot moves on, write nothing.

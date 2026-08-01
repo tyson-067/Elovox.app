@@ -91,7 +91,15 @@ export async function currentUsageStreak(
     .get();
 
   // Doc ids are YYYY-MM-DD, so descending id order is descending date order.
+  // Count a day ONLY if it has a real daily-challenge attempt on it
+  // (dailyAnalyses > 0), not merely because a usage doc exists. Other writes
+  // now touch this doc — a metered session deletion, a premium analysis — and
+  // a bare doc created by one of those would otherwise count as a practice
+  // day, letting someone earn the free-Premium comp week (which this streak
+  // grants) without practicing. The query already fetches full docs, so
+  // reading the field costs no extra reads.
   const days = snap.docs
+    .filter((d) => Number(d.data()?.dailyAnalyses ?? 0) > 0)
     .map((d) => d.id)
     .filter((id) => DATE_RE.test(id))
     .filter((id) => !opts.anchor || daysBetween(opts.anchor, id) > 0);

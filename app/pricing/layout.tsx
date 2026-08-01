@@ -19,7 +19,7 @@ const SITE = "https://elovox.app";
 
 const TITLE = "Pricing | Elovox";
 const DESCRIPTION =
-  "Elovox pricing. Free forever with a daily speech and three attempts a day, or Premium from $1.54/week for unlimited practice, camera coaching, the speech library, and interview practice. Monthly and annual start with a 7-day free trial.";
+  "Elovox pricing. Free forever with a daily speech and three attempts a day, or Premium from $1.54/week for practice with no three-a-day limit, camera coaching, the speech library, and interview practice. Monthly and annual start with a 7-day free trial.";
 
 export const metadata: Metadata = {
   title: TITLE,

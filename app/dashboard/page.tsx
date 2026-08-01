@@ -613,10 +613,10 @@ function TodayScreen() {
               Practice as much as you want
             </h3>
             <p className="mt-2 max-w-[56ch] text-base leading-6 text-white/85">
-              Premium adds the speech library with unlimited reps, interview
-              practice by type, everyday social skills, coaching on your own
-              material, custom speeches written by Felix, camera feedback on
-              posture, gestures, eye contact and sway, plus Felix&apos;s
+              Premium adds the speech library with no three-a-day limit,
+              interview practice by type, everyday social skills, coaching on
+              your own material, custom speeches written by Felix, camera
+              feedback on posture, gestures, eye contact and sway, plus Felix&apos;s
               deepest, most thorough breakdown of every recording.
             </p>
             <Link

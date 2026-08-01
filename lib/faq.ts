@@ -24,10 +24,10 @@ export const FAQ: FaqItem[] = [
   },
   {
     q: "Does Premium give me more Daily Minute attempts?",
-    a: "No, and that one is on purpose. The Daily Minute is three attempts a day on every plan, because it's the same topic for everybody and the scores are only comparable if everyone gets the same number of goes at it. What Premium unlocks is everything else: the speech library, your own material, interview practice, social skills and custom speeches, none of which have a daily cap.",
+    a: "No, and that one is on purpose. The Daily Minute is three attempts a day on every plan, because it's the same topic for everybody and the scores are only comparable if everyone gets the same number of goes at it. What Premium unlocks is everything else: the speech library, your own material, interview practice, social skills and custom speeches, with no three-a-day limit like the Daily Minute. There's a generous fair-use ceiling to stop automated abuse, set well above a full day of real practice, so you'll never meet it by actually practicing.",
   },
   {
     q: "Is the Free plan really free forever?",
-    a: "Yes. The daily speech, three attempts, and your full feedback report stay free for as long as you want them. Premium adds the other coaching modes and takes the caps off those.",
+    a: "Yes. The daily speech, three attempts, and your full feedback report stay free for as long as you want them. Premium adds the other coaching modes and lifts the three-a-day limit on them.",
   },
 ];

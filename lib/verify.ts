@@ -213,13 +213,25 @@ export function makeRateLimiter(limit: number, windowMs = 60 * 60 * 1000) {
 }
 
 /**
- * Best-effort client IP for per-IP rate limiting. Reads the proxy headers set
- * by the host (Vercel/most platforms set x-forwarded-for). Falls back to a
- * constant bucket so a missing header fails safe (shared limit) rather than
- * disabling the limiter. Never used for anything but rate-limit keying.
+ * Best-effort client IP for per-IP rate limiting. Never used for anything but
+ * rate-limit keying.
+ *
+ * The header choice is a security decision, not a formatting one. A client can
+ * send any X-Forwarded-For it likes; the platform APPENDS the real connecting
+ * IP to the right of whatever the client sent. So the LEFTMOST entry is
+ * attacker-controlled (rotating it defeats a per-IP limit entirely), and the
+ * RIGHTMOST is the trustworthy platform value. Prefer x-real-ip (Vercel sets
+ * it to the real peer and it can't be spoofed the same way), then fall back to
+ * the rightmost x-forwarded-for entry. A missing header fails safe to one
+ * shared bucket rather than disabling the limiter.
  */
 export function clientIp(req: NextRequest): string {
+  const real = req.headers.get("x-real-ip")?.trim();
+  if (real) return real;
   const fwd = req.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0]!.trim();
-  return req.headers.get("x-real-ip")?.trim() || "unknown";
+  if (fwd) {
+    const parts = fwd.split(",").map((s) => s.trim()).filter(Boolean);
+    return parts[parts.length - 1] || "unknown";
+  }
+  return "unknown";
 }

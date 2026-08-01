@@ -206,7 +206,7 @@ function LibraryScreen() {
         </div>
         <p className="mt-3 text-lg leading-7 text-on-surface-variant max-w-[58ch]">
           {plan === "free"
-            ? "Nine speeches, about thirty seconds each, unlimited reps, and you can swap any of them out. Part of Premium."
+            ? "Nine speeches, about thirty seconds each, practice them as much as you like, and you can swap any of them out. Part of Premium."
             : "Nine speeches, about thirty seconds each. Run any of them as often as you want, and swap out the ones you're bored of."}
         </p>
       </Reveal>

@@ -67,8 +67,19 @@ export async function POST(req: NextRequest) {
     // fall through to the checks below
   }
   // Doc ids are client-minted (base36 + random); bound and sanity-check
-  // rather than pattern-match so older ids never become undeletable.
-  if (!sessionId || sessionId.length > 64 || sessionId.includes("/")) {
+  // rather than pattern-match so older ids never become undeletable. The
+  // three excluded shapes are Firestore-RESERVED ids ("." / ".." / "__x__")
+  // that throw INVALID_ARGUMENT at db.doc() — a real base36 id is never any
+  // of them, so nothing legitimate becomes undeletable, and a crafted one is
+  // a clean 400 instead of an unhandled 500.
+  if (
+    !sessionId ||
+    sessionId.length > 64 ||
+    sessionId.includes("/") ||
+    sessionId === "." ||
+    sessionId === ".." ||
+    /^__.*__$/.test(sessionId)
+  ) {
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
   if (!REASONS.has(reason)) {

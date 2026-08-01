@@ -51,11 +51,13 @@ const PREMIUM_FEATURES = [
   // cap", which was not true and is not the product. The Daily Minute is
   // three attempts a day on EVERY plan, deliberately: it's one shared topic
   // the whole userbase is scored on. What Premium actually removes is the
-  // lock on the other modes, and those have no caps. See MAX_DAILY_ATTEMPTS
-  // in lib/daily.ts, and the FAQ entry below that says so outright.
-  "Everything in Free, plus unlimited practice beyond the Daily Minute",
+  // three-a-day lock on the OTHER modes. It is not literally uncapped: a
+  // generous fair-use ceiling (PREMIUM_ANALYSES_PER_DAY in the analyze route)
+  // stops scripted abuse, so the copy says "as much as you need", not
+  // "unlimited", which would be false. See the FAQ entry, which is explicit.
+  "Everything in Free, plus as much practice as you need beyond the Daily Minute",
   "Camera coaching: posture, gestures, eye contact, expression",
-  "The full ~30-second speech library, unlimited reps",
+  "The full ~30-second speech library, practice them as much as you like",
   "Interview practice: jobs, college, scholarships, grad school",
   "Social skills practice: small talk, boundaries, apologies",
   "Coaching on your own material: pitches, talks, presentations",
@@ -223,9 +225,9 @@ export default function PricingPage() {
           </h1>
           <p className="mx-auto mt-5 max-w-[54ch] text-lg leading-8 text-on-surface-variant">
             Try every Premium feature free for {TRIAL_DAYS} days on the monthly
-            and annual plans. Keep the free plan forever, or unlock unlimited
-            reps and coaching, the longer you commit, the less you pay each
-            week.
+            and annual plans. Keep the free plan forever, or unlock all the
+            coaching modes with no three-a-day limit, the longer you commit,
+            the less you pay each week.
           </p>
         </Reveal>
       </section>

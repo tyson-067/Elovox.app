@@ -184,7 +184,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const body = await req.json().catch(() => ({}));
+  const raw = await req.json().catch(() => ({}));
+  // A `null`/array body parses without throwing, so the .catch above doesn't
+  // cover it; normalize to {} before reading properties (unhandled 500 → the
+  // graceful "regenerate" default).
+  const body = raw && typeof raw === "object" ? raw : {};
   const kind =
     body.kind === "custom" || body.kind === "interview" ? body.kind : "regenerate";
   // 300s ceiling, matching the longest option on /custom. A five-minute

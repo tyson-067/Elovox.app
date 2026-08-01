@@ -38,6 +38,10 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
+  // A `null`/array body parses fine but isn't the object we read below;
+  // normalize so a malformed body falls through to "no action matched"
+  // rather than throwing an unhandled 500 on property access.
+  if (!body || typeof body !== "object") body = {};
 
   const item = typeof body.item === "string" ? body.item : null;
 

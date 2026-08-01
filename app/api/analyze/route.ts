@@ -16,13 +16,18 @@ import {
   refundMeteredUse,
 } from "@/lib/quota";
 
-// A durable per-user daily ceiling on the premium analysis pipeline. The
-// in-memory rate limiter is per-serverless-instance (so the effective cap is
-// instances × 12/hr and resets on cold start); this is the real backstop
+// A durable per-user daily FAIR-USE ceiling on the premium analysis pipeline.
+// The in-memory rate limiter is per-serverless-instance (so the effective cap
+// is instances × 12/hr and resets on cold start); this is the real backstop
 // against a scripted premium account driving unbounded paid AssemblyAI +
-// Gemini calls. Set far above any honest user's day, so it never bites a
-// real subscriber — it only stops abuse.
-const PREMIUM_ANALYSES_PER_DAY = 60;
+// Gemini calls.
+//
+// This is anti-abuse, NOT a product limit, and the /pricing + FAQ copy is
+// worded to match (see the fair-use note there rather than any "unlimited"
+// claim). 120 full record-and-analyze cycles is well over two hours of
+// continuous practice, so no real subscriber reaches it, but a script does.
+// If this ever needs to change, the pricing copy has to move with it.
+const PREMIUM_ANALYSES_PER_DAY = 120;
 
 // The analysis pipeline (PRD §7):
 //   1. Browser posts the recording here (keys stay server-side).
