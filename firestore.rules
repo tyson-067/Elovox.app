@@ -76,9 +76,18 @@ service cloud.firestore {
     // block. Firestore ORs together every rule whose path matches, so a
     // narrower deny never overrides a broader allow — the wildcard would
     // simply grant the write anyway. (Verified: it did.)
+    // Write is limited to `stats`, the one profile doc the browser keeps (the
+    // optimistic xp/streak/totals mirror). `plan` stays server-only (the
+    // entitlement), and no other profile doc is client-written — so an
+    // allow-list of exactly `stats` is both sufficient and strictly safer than
+    // the old `!= "plan"`: it also stops a user minting arbitrary unbounded
+    // docs under their own profile/. `stats` is never trusted for ranking (the
+    // record lives in score/progress and usage/, both deny-all above; see
+    // lib/leaderboardServer.ts), so its contents don't need field validation
+    // here — only its identity does.
     match /users/{uid}/profile/{docId} {
       allow read: if isOwner(uid);
-      allow write: if isOwner(uid) && docId != "plan";
+      allow write: if isOwner(uid) && docId == "stats";
     }
 
     // Server-authoritative XP (users/{uid}/score/progress). Same shape as the

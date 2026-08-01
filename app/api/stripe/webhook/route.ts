@@ -131,7 +131,9 @@ async function syncSubscription(
       });
       // Prefer any subscription that grants access; among those, the one
       // running longest, so the record reflects the access actually held.
-      const entitling = all.data.filter((s) => isEntitled(s.status));
+      const entitling = all.data.filter((s) =>
+        isEntitled(s.status, s.items.data[0]?.current_period_end)
+      );
       if (entitling.length > 0) {
         source = entitling.reduce((best, s) =>
           (s.items.data[0]?.current_period_end ?? 0) >
@@ -208,7 +210,10 @@ async function syncSubscription(
   }
 
   const priceId = source.items.data[0]?.price?.id;
-  const entitled = isEntitled(source.status);
+  const entitled = isEntitled(
+    source.status,
+    source.items.data[0]?.current_period_end
+  );
 
   await db.doc(`users/${uid}/profile/plan`).set(
     {

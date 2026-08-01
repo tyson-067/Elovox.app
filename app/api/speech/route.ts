@@ -181,7 +181,24 @@ export async function POST(req: NextRequest) {
   const db = getAdminDb();
   const meteredUid = uid;
   async function chargeGeneration(): Promise<NextResponse | null> {
-    if (!db || meteredUid === "local-dev") return null;
+    // Fail closed in production: without the Admin SDK the durable speech meter
+    // can't be enforced, and this route has no refund path, so running
+    // unmetered would be unbounded paid Gemini spend on a misconfigured deploy.
+    // (local dev has no API key and returns the sample before ever reaching
+    // here, so this only bites a broken production service account.)
+    if (!db) {
+      if (process.env.NODE_ENV === "production") {
+        return NextResponse.json(
+          {
+            error: "unavailable",
+            message: "Couldn't reach the server just now. Try again in a moment.",
+          },
+          { status: 503 }
+        );
+      }
+      return null;
+    }
+    if (meteredUid === "local-dev") return null;
     const { ok } = await reserveMeteredUse(
       db,
       meteredUid,

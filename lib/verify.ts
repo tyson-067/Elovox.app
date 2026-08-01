@@ -35,6 +35,12 @@ async function lookupUser(
   const data = await res.json();
   const record = data.users?.[0];
   if (!record?.localId) return null;
+  // An account disabled in the Firebase console must lose API access, not keep
+  // it until its ID token happens to expire. accounts:lookup still returns the
+  // record for a disabled user, so check the flag explicitly and treat it as no
+  // valid caller. (Firebase Auth already refuses to mint NEW tokens for them;
+  // this closes the ≤1h window on tokens minted just before the ban.)
+  if (record.disabled === true) return null;
   return {
     uid: record.localId,
     email: typeof record.email === "string" ? record.email : "",

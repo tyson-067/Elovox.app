@@ -43,11 +43,32 @@ export function appBaseUrl(req: Request): string {
 }
 
 /**
- * Maps a Stripe subscription status to our single entitlement bit. Trialing
- * and active both grant Premium; `past_due` keeps access during Stripe's
- * retry window (a short grace period) so a transient card failure doesn't
- * instantly lock someone out. Everything else is unentitled.
+ * Bound on how long a `past_due` subscription keeps Premium after its period
+ * ends. Covers Stripe's typical Smart Retries dunning window (~2 weeks) and
+ * then expires, so access can't outlive a genuinely dead card.
  */
-export function isEntitled(status: Stripe.Subscription.Status): boolean {
-  return status === "trialing" || status === "active" || status === "past_due";
+const PAST_DUE_GRACE_MS = 14 * 24 * 60 * 60 * 1000;
+
+/**
+ * Maps a Stripe subscription to our single entitlement bit. Trialing and active
+ * both grant Premium. `past_due` keeps access during Stripe's retry window so a
+ * transient card failure doesn't instantly lock someone out — but only for a
+ * BOUNDED grace period past the period end. Without that bound, an account
+ * whose card permanently fails, on a Stripe account whose dunning is configured
+ * to leave subscriptions `past_due` (rather than cancel or mark unpaid), would
+ * keep Premium forever, for free. If we don't know the period end we can't
+ * bound it, so we deny rather than grant indefinitely.
+ *
+ * @param currentPeriodEndSec Stripe's `current_period_end` in epoch SECONDS.
+ */
+export function isEntitled(
+  status: Stripe.Subscription.Status,
+  currentPeriodEndSec?: number
+): boolean {
+  if (status === "trialing" || status === "active") return true;
+  if (status === "past_due") {
+    if (typeof currentPeriodEndSec !== "number") return false;
+    return Date.now() < currentPeriodEndSec * 1000 + PAST_DUE_GRACE_MS;
+  }
+  return false;
 }
