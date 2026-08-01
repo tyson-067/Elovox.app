@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Felix } from "@/components/FoxLogo";
+import type { LiveMetrics } from "@/lib/analyze";
 
 // What the user sees while a finished take is being analyzed.
 //
@@ -12,12 +13,13 @@ import { Felix } from "@/components/FoxLogo";
 // names what is happening and keeps changing, which is the honest version of
 // a progress bar for work whose duration we cannot predict.
 //
-// The stages are time-driven rather than event-driven on purpose. The API is
-// one request with no intermediate reporting, so a "real" bar would be a lie
-// with extra steps; these are the phases the request actually goes through,
-// paced to how long each one usually takes. The last stage has no successor,
-// so a slow analysis settles on "putting your notes together" and stays
-// there rather than completing to 100% and sitting at a finished bar.
+// The stages are time-driven rather than event-driven — with ONE real event
+// now wired in: the moment transcription lands, the analyze stream sends the
+// measured metrics, and the parent passes them in as `metrics`. That flips the
+// caption to the model stage and shows the actual pace/filler/pause numbers, so
+// the back half of the wait is spent looking at real results instead of a
+// spinner. Everything before that first event is still paced to how long each
+// phase usually takes, because the request reports nothing until then.
 
 interface Stage {
   /** Milliseconds from the start of analysis when this stage takes over. */
@@ -38,7 +40,15 @@ const STAGES: Stage[] = [
   { at: 22000, label: "Putting your notes together" },
 ];
 
-export function AnalyzingLoader({ withVideo = false }: { withVideo?: boolean }) {
+export function AnalyzingLoader({
+  withVideo = false,
+  metrics = null,
+}: {
+  withVideo?: boolean;
+  /** Delivery numbers streamed the instant transcription finishes. Null until
+   *  then; once set, the loader shows them and jumps to the model stage. */
+  metrics?: LiveMetrics | null;
+}) {
   const [stage, setStage] = useState(0);
 
   useEffect(() => {
@@ -50,7 +60,12 @@ export function AnalyzingLoader({ withVideo = false }: { withVideo?: boolean }) 
     return () => timers.forEach(clearTimeout);
   }, []);
 
-  const current = STAGES[stage];
+  // Metrics arriving IS transcription finishing, so don't let a slow timer hold
+  // the caption on "Listening back" while the real numbers are already on
+  // screen — jump to at least the model stage (index 2, "Reading your
+  // delivery"). Never move backwards if the timers are already further along.
+  const effectiveStage = metrics ? Math.max(stage, 2) : stage;
+  const current = STAGES[effectiveStage];
   const label = (withVideo && current.videoLabel) || current.label;
 
   return (
@@ -73,9 +88,9 @@ export function AnalyzingLoader({ withVideo = false }: { withVideo?: boolean }) 
       </div>
 
       <div className="flex flex-col items-center gap-2.5">
-        {/* `key` restarts the fade whenever the stage changes. */}
+        {/* `key` restarts the fade whenever the caption changes. */}
         <p
-          key={stage}
+          key={effectiveStage}
           className="loader-caption font-headline text-lg font-semibold text-white"
         >
           {label}
@@ -85,17 +100,51 @@ export function AnalyzingLoader({ withVideo = false }: { withVideo?: boolean }) 
           {STAGES.map((s, i) => (
             <span
               key={s.at}
-              className={`loader-step ${i <= stage ? "loader-step-on" : ""}`}
-              style={{ width: i === stage ? 22 : 10 }}
+              className={`loader-step ${i <= effectiveStage ? "loader-step-on" : ""}`}
+              style={{ width: i === effectiveStage ? 22 : 10 }}
             />
           ))}
         </div>
 
-        <p className="text-[13px] leading-5 text-white/55 max-w-[34ch]">
-          This takes a few seconds. Stay on this page, your report opens by
-          itself.
-        </p>
+        {metrics ? (
+          // Real numbers, the moment they exist — the honest "we've heard you"
+          // signal that the coaching is now being written on top of these.
+          <div className="mt-1 flex items-stretch gap-2.5">
+            <Stat value={metrics.paceWpm} unit="wpm" label="pace" />
+            <Stat value={metrics.fillerWords} label="fillers" />
+            <Stat value={metrics.pauses} label="pauses" />
+          </div>
+        ) : (
+          <p className="text-[13px] leading-5 text-white/55 max-w-[34ch]">
+            This takes a few seconds. Stay on this page, your report opens by
+            itself.
+          </p>
+        )}
       </div>
+    </div>
+  );
+}
+
+// One metric tile in the loader's early-results row. Light-on-dark to match the
+// stage panel it sits on.
+function Stat({
+  value,
+  unit,
+  label,
+}: {
+  value: number;
+  unit?: string;
+  label: string;
+}) {
+  return (
+    <div className="flex min-w-[64px] flex-col items-center rounded-lg bg-white/10 px-3 py-2">
+      <span className="font-data text-lg font-bold leading-none text-white">
+        {value}
+        {unit ? <span className="ml-0.5 text-xs font-medium text-white/70">{unit}</span> : null}
+      </span>
+      <span className="mt-1 text-[11px] uppercase tracking-wide text-white/55">
+        {label}
+      </span>
     </div>
   );
 }
