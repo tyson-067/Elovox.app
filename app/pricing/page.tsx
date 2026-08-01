@@ -238,7 +238,7 @@ export default function PricingPage() {
           <div
             role="tablist"
             aria-label="Billing cycle"
-            className="card inline-flex items-center gap-1 p-1"
+            className="card inline-flex flex-wrap items-center justify-center gap-1 p-1"
           >
             {PLANS.map((p) => {
               const active = p.cycle === cycle;

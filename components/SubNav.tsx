@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
@@ -52,6 +53,15 @@ export function SubNav() {
   const { user, loading, configured } = useAuth();
   const { isPremium } = usePlan();
 
+  // Bring the active tab into view when it lands off-screen in the scroll
+  // strip (with 9 tabs only 3-4 fit at 375px, so a right-side section like
+  // /shop or /own would otherwise show no visible active tab). block:nearest
+  // so it never scrolls the whole page vertically.
+  const activeRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }, [pathname]);
+
   const inApp = APP_ROUTES.some(
     (r) => pathname === r || pathname.startsWith(`${r}/`)
   );
@@ -66,14 +76,17 @@ export function SubNav() {
         className="w-full px-4 md:px-10 xl:px-16 2xl:px-24"
       >
         {/* Horizontal scroll rather than wrapping: keeps the header one row
-            tall on a phone, and the active tab is scrolled into view. */}
-        <ul className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+            tall on a phone, and the active tab is scrolled into view (effect
+            above). pb-0.5 gives the active-tab underline room: overflow-x:auto
+            forces overflow-y:auto too, so a 1px-below indicator would be
+            clipped by the vertical overflow. */}
+        <ul className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
           {ITEMS.map((item) => {
             const active =
               pathname === item.href || pathname.startsWith(`${item.href}/`);
             const locked = item.premium && !isPremium;
             return (
-              <li key={item.href} className="shrink-0">
+              <li key={item.href} ref={active ? activeRef : undefined} className="shrink-0">
                 <Link
                   href={item.href}
                   aria-current={active ? "page" : undefined}
@@ -94,7 +107,7 @@ export function SubNav() {
                   {active && (
                     <span
                       aria-hidden="true"
-                      className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-accent"
+                      className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-accent"
                     />
                   )}
                 </Link>

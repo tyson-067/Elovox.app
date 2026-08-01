@@ -344,7 +344,10 @@ export default function LandingPage() {
             {/* The slogan, single line: "Speak with" in the geometric sans,
                 "impact." in the calligraphic serif. The subline underneath
                 carries the concrete what-you-get answer. */}
-            <h1 className="hero-slogan mt-4 font-headline font-bold text-primary whitespace-nowrap">
+            {/* nowrap keeps it one line where it fits; below 360px the clamp
+                floors out and one line would overflow into the page's
+                overflow-x:clip (lost, not scrollable), so let it wrap there. */}
+            <h1 className="hero-slogan mt-4 font-headline font-bold text-primary whitespace-nowrap max-[360px]:whitespace-normal">
               <WordReveal text="Speak with" delay={100} className="slogan-sans" />
               <WordReveal text="impact." delay={280} className="slogan-serif text-gradient" />
             </h1>

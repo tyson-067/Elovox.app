@@ -356,7 +356,7 @@ function DenWidget({
             </div>
             <span
               role="tooltip"
-              className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1.5 w-max max-w-[11rem] -translate-x-1/2 rounded-lg bg-oxford px-2.5 py-1.5 text-[11px] leading-4 text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+              className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1.5 w-max max-w-[min(11rem,calc(100vw-2rem))] -translate-x-1/2 rounded-lg bg-oxford px-2.5 py-1.5 text-[11px] leading-4 text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
             >
               {b.earned ? `Earned: ${b.hint.toLowerCase()}` : b.hint}
             </span>
