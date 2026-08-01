@@ -21,7 +21,8 @@ const MODIFIED: Record<string, string> = {
   "/about": "2026-07-28", // new page: team + why Elovox exists
   "/pricing": "2026-07-27", // subscriber CTAs → Customer Portal
   "/terms": "2026-07-23",
-  "/privacy": "2026-07-23",
+  "/privacy": "2026-07-31", // tips-list disclosure
+
   "/for/job-candidates": "2026-07-31", // per-audience landing pages
   "/for/students": "2026-07-31",
   "/for/founders": "2026-07-31",

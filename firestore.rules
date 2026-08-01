@@ -5,15 +5,20 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == uid;
     }
 
-    // Each user can only touch their own sessions. Reads and deletes are
-    // unconditional for the owner; creates/updates carry light field-integrity
-    // checks so a scripted client can't poison the fields the operator
-    // dashboard trusts (a non-numeric or out-of-range `overall`, or a
-    // future-dated `createdAt`, would corrupt the aggregate stats query). The
-    // checks are deliberately tolerant of the Analysis schema growing — they
-    // only constrain the handful of fields that are actually read in bulk.
+    // Each user can only touch their own sessions. Reads are unconditional
+    // for the owner; creates/updates carry light field-integrity checks so a
+    // scripted client can't poison the fields the operator dashboard trusts
+    // (a non-numeric or out-of-range `overall`, or a future-dated
+    // `createdAt`, would corrupt the aggregate stats query). The checks are
+    // deliberately tolerant of the Analysis schema growing — they only
+    // constrain the handful of fields that are actually read in bulk.
+    //
+    // Deletes go through /api/session/delete (Admin SDK) ONLY: deletion is
+    // capped per day so history can't be curated into a highlight reel, and
+    // a client-side delete can't be counted.
     match /users/{uid}/sessions/{sessionId} {
-      allow read, delete: if isOwner(uid);
+      allow read: if isOwner(uid);
+      allow delete: if false;
       allow create, update: if isOwner(uid)
         && request.resource.data.createdAt is number
         && request.resource.data.createdAt > 0

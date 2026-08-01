@@ -28,7 +28,11 @@ export const LEGAL = {
   jurisdiction: "the State of New York, USA",
 
   /** NEEDS REVIEW: keep in sync with each substantive edit. */
-  lastUpdated: "July 23, 2026",
+  // Per-document, because they change independently and each page prints its
+  // own: bumping one date must never make the other claim a change it didn't
+  // have. Same stale-but-honest rule as the sitemap.
+  privacyUpdated: "July 31, 2026", // added the tips-list disclosure
+  termsUpdated: "July 23, 2026",
 
   contactEmail: "elovox.app@gmail.com",
   instagramHandle: "elovox.app",

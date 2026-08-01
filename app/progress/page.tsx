@@ -12,9 +12,9 @@ import { Felix } from "@/components/FoxLogo";
 import { Biome } from "@/components/Biome";
 import { BIOMES } from "@/lib/coins";
 import { fetchShopState, type ShopState } from "@/lib/shop";
-import { listSessions } from "@/lib/store";
+import { listSessions, deleteSession, type DeleteReason } from "@/lib/store";
 import { getCategory } from "@/lib/categories";
-import { getStats, MAX_DAILY_ATTEMPTS, type UserStats } from "@/lib/daily";
+import { getStats, type UserStats } from "@/lib/daily";
 import { LEVELS } from "@/lib/levels";
 import { barClass } from "@/lib/scoring";
 import type { Session } from "@/lib/types";
@@ -239,106 +239,162 @@ function BiomeProgress({ shop }: { shop: ShopState | null }) {
   );
 }
 
-/**
- * Daily Minutes, grouped by day, showing all three attempts. This is
- * where improvement actually shows: same topic, three goes, did the
- * number move?
- */
-function ChallengeHistory({ sessions }: { sessions: Session[] }) {
-  const days = useMemo(() => {
-    const byDate = new Map<string, Session[]>();
-    for (const s of sessions) {
-      if (s.mode !== "daily" || !s.challengeDate) continue;
-      byDate.set(s.challengeDate, [...(byDate.get(s.challengeDate) ?? []), s]);
-    }
-    return [...byDate.entries()]
-      .sort((a, b) => b[0].localeCompare(a[0]))
-      .map(([date, reps]) => {
-        const ordered = [...reps].sort((a, b) => (a.attempt ?? 0) - (b.attempt ?? 0));
-        const scores = ordered.map((r) => r.analysis.overall);
-        return {
-          date,
-          title: ordered[0]?.speechTitle ?? "Daily Minute",
-          reps: ordered,
-          best: Math.max(...scores),
-          gain: scores.length > 1 ? scores[scores.length - 1] - scores[0] : null,
-        };
-      });
-  }, [sessions]);
 
-  if (days.length === 0) return null;
+/** The reasons a user can pick when deleting; labels here, codes to the API. */
+const DELETE_REASONS: { code: DeleteReason; label: string }[] = [
+  { code: "mic-test", label: "Just testing the mic" },
+  { code: "interrupted", label: "I got interrupted" },
+  { code: "wrong-scenario", label: "Wrong scenario" },
+  { code: "privacy", label: "I'd rather not keep it" },
+  { code: "other", label: "Something else" },
+];
+
+/**
+ * One row of the Past sessions list. The whole row opens the report; the X
+ * opens a confirm that asks why (same pattern as the library card's swap).
+ * Daily reps carry a small sun icon by the score — the separate Daily
+ * Minutes section this replaces used to explain itself with a heading, so
+ * the icon's tooltip carries that job now.
+ */
+function SessionRow({
+  session: s,
+  onDeleted,
+}: {
+  session: Session;
+  onDeleted: (id: string) => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const remove = async (reason: DeleteReason) => {
+    setBusy(true);
+    setError("");
+    const result = await deleteSession(s.id, reason);
+    setBusy(false);
+    if (result.ok) {
+      onDeleted(s.id);
+      return;
+    }
+    setError(result.message ?? "Couldn't delete that just now.");
+  };
 
   return (
-    <section className="mt-12">
-      <Reveal>
-        <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
-          Daily Minutes
-          <InfoTip label="What is this list?" className="ml-2 align-middle">
-            Every day you did the Daily Minute, with all three attempts. Tap a
-            score to open that report.
-          </InfoTip>
-          <span className="grow-line" aria-hidden="true" />
-        </h2>
-      </Reveal>
-      <ul className="mt-4 space-y-3">
-        {days.map((day, i) => (
-          <li
-            key={day.date}
-            className="stagger-in"
-            style={{ animationDelay: `${200 + Math.min(i, 8) * 80}ms` }}
-          >
-            <GlowCard className="card p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <span className="block truncate text-base font-medium text-primary">
-                    {day.title}
-                  </span>
-                  <span className="mt-0.5 block text-[13px] font-semibold tracking-wide text-on-surface-variant">
-                    {new Date(`${day.date}T12:00:00`).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                    <span className="mx-1.5">·</span>
-                    best <span className="font-data text-primary">{day.best}</span>
-                    {day.gain !== null && day.gain !== 0 && (
-                      <>
-                        <span className="mx-1.5">·</span>
-                        <span className={day.gain > 0 ? "text-accent" : "text-amber"}>
-                          {day.gain > 0 ? "+" : ""}
-                          {day.gain} across attempts
-                        </span>
-                      </>
-                    )}
-                  </span>
+    <GlowCard className="card relative">
+      <Link href={`/report/${s.id}`} className="flex items-center gap-4 p-4 pr-12">
+        <span className="flex w-14 shrink-0 items-center justify-end gap-1.5">
+          {s.mode === "daily" && (
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              className="shrink-0 text-accent"
+              aria-label="Daily Minute: the shared one-minute challenge, three attempts a day"
+              role="img"
+            >
+              <title>
+                Daily Minute: the shared one-minute challenge, three attempts a day
+              </title>
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1" />
+            </svg>
+          )}
+          <span className="font-data text-xl text-primary">{s.analysis.overall}</span>
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-base text-on-surface">{s.prompt}</span>
+          <span className="mt-0.5 block text-[13px] font-semibold tracking-wide text-on-surface-variant">
+            <span className="text-violet">
+              {s.speechTitle ?? getCategory(s.category).name}
+            </span>
+            {s.mode === "daily" && s.attempt && (
+              <>
+                <span className="mx-1.5">·</span>
+                attempt {s.attempt}
+              </>
+            )}
+            {s.withVideo && (
+              <>
+                <span className="mx-1.5">·</span>
+                <span className="text-accent">camera</span>
+              </>
+            )}
+            <span className="mx-1.5">·</span>
+            {new Date(s.createdAt).toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
+        </span>
+        <span aria-hidden="true" className="text-on-surface-variant">→</span>
+      </Link>
+
+      <button
+        type="button"
+        onClick={() => {
+          setError("");
+          setConfirming(true);
+        }}
+        aria-label={`Delete this session, scored ${s.analysis.overall}`}
+        title="Delete this attempt"
+        className="absolute top-3 right-3 grid h-8 w-8 place-items-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </button>
+
+      {confirming && (
+        <div className="absolute inset-0 z-10 grid place-items-center rounded-[inherit] bg-surface/95 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm text-center">
+            <p className="text-base font-medium text-primary">
+              {busy ? "Removing…" : "Delete this attempt? Tell us why:"}
+            </p>
+            {!busy && (
+              <>
+                <div className="mt-3 flex flex-wrap justify-center gap-2">
+                  {DELETE_REASONS.map((r) => (
+                    <button
+                      key={r.code}
+                      type="button"
+                      onClick={() => void remove(r.code)}
+                      className="pill rounded-full border border-primary/20 px-3.5 py-1.5 text-[13px] font-semibold text-primary hover:border-error hover:text-error"
+                    >
+                      {r.label}
+                    </button>
+                  ))}
                 </div>
-                <div className="flex items-center gap-2">
-                  {Array.from({ length: MAX_DAILY_ATTEMPTS }, (_, slot) => {
-                    const rep = day.reps[slot];
-                    return rep ? (
-                      <Link
-                        key={slot}
-                        href={`/report/${rep.id}`}
-                        className="inline-flex h-9 min-w-9 items-center justify-center rounded-full bg-primary px-3 font-data text-sm text-white transition-opacity hover:opacity-80"
-                        aria-label={`Attempt ${slot + 1}, score ${rep.analysis.overall}`}
-                      >
-                        {rep.analysis.overall}
-                      </Link>
-                    ) : (
-                      <span
-                        key={slot}
-                        className="inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-primary/20 px-3 font-data text-sm text-on-surface-variant"
-                      >
-                        –
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            </GlowCard>
-          </li>
-        ))}
-      </ul>
-    </section>
+                <button
+                  type="button"
+                  onClick={() => setConfirming(false)}
+                  className="mt-3 text-[13px] font-semibold text-on-surface-variant underline underline-offset-2 hover:text-primary"
+                >
+                  Keep it
+                </button>
+                {error && (
+                  <p role="alert" className="mt-2 text-[13px] font-medium text-error">
+                    {error}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </GlowCard>
   );
 }
 
@@ -477,8 +533,10 @@ function ProgressScreen() {
         </Reveal>
       </section>
 
-      {/* 3. Daily Minute attempts, day by day */}
-      <ChallengeHistory sessions={sessions} />
+      {/* The separate Daily Minutes section used to sit here. Gone on
+          purpose: it repeated sessions the Past sessions list already shows,
+          six hundred pixels apart. Daily reps now carry a small icon in that
+          list instead. */}
 
       {/* 4. Voice skill breakdown */}
       <section className="mt-12">
@@ -588,42 +646,12 @@ function ProgressScreen() {
               className="stagger-in"
               style={{ animationDelay: `${250 + Math.min(i, 8) * 80}ms` }}
             >
-              <GlowCard className="card">
-                <Link
-                  href={`/report/${s.id}`}
-                  className="flex items-center gap-4 p-4"
-                >
-                <span className="font-data text-xl text-primary w-12 shrink-0 text-right">
-                  {s.analysis.overall}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-base text-on-surface">{s.prompt}</span>
-                  <span className="mt-0.5 block text-[13px] font-semibold tracking-wide text-on-surface-variant">
-                    <span className="text-violet">
-                      {s.speechTitle ?? getCategory(s.category).name}
-                    </span>
-                    {s.mode === "daily" && s.attempt && (
-                      <>
-                        <span className="mx-1.5">·</span>
-                        attempt {s.attempt}
-                      </>
-                    )}
-                    {s.withVideo && (
-                      <>
-                        <span className="mx-1.5">·</span>
-                        <span className="text-accent">camera</span>
-                      </>
-                    )}
-                    <span className="mx-1.5">·</span>
-                    {new Date(s.createdAt).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </span>
-                </span>
-                <span aria-hidden="true" className="text-on-surface-variant">→</span>
-                </Link>
-              </GlowCard>
+              <SessionRow
+                session={s}
+                onDeleted={(id) =>
+                  setSessions((prev) => prev?.filter((x) => x.id !== id) ?? prev)
+                }
+              />
             </li>
           ))}
         </ul>

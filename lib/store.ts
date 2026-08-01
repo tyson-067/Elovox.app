@@ -100,7 +100,28 @@ export async function saveSession(session: Session): Promise<void> {
   await setDoc(doc(col, session.id), JSON.parse(JSON.stringify(session)));
 }
 
-export async function deleteSession(id: string): Promise<void> {
+/** Why a session was deleted; mirrors the closed set /api/session/delete accepts. */
+export type DeleteReason =
+  | "mic-test"
+  | "interrupted"
+  | "wrong-scenario"
+  | "privacy"
+  | "other";
+
+/**
+ * Deletes one session, with the reason the user picked. Signed in, this goes
+ * through /api/session/delete — firestore.rules denies client deletes so the
+ * small daily cap can actually be counted. Signed out, history is only
+ * localStorage on this device: nothing ranked, nothing shared, so it's a
+ * plain local remove with no cap.
+ *
+ * Resolves to ok:false with a human message rather than throwing, because
+ * "you've used today's delete" is an answer, not an error.
+ */
+export async function deleteSession(
+  id: string,
+  reason: DeleteReason
+): Promise<{ ok: boolean; message?: string }> {
   const user = await firestoreUser();
   if (!user) {
     if (typeof window !== "undefined") {
@@ -109,9 +130,27 @@ export async function deleteSession(id: string): Promise<void> {
         JSON.stringify(localList().filter((s) => s.id !== id))
       );
     }
-    return;
+    return { ok: true };
   }
-  const { doc, deleteDoc } = await import("firebase/firestore");
-  const col = await sessionsCollection(user);
-  await deleteDoc(doc(col, id));
+  try {
+    const res = await fetch("/api/session/delete", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${await user.getIdToken()}`,
+      },
+      body: JSON.stringify({ sessionId: id, reason }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok || res.status === 404) {
+      // 404 = already gone; from the user's side that IS deleted.
+      return { ok: true };
+    }
+    return {
+      ok: false,
+      message: data.message || data.error || "Couldn't delete that just now.",
+    };
+  } catch {
+    return { ok: false, message: "Couldn't delete that just now." };
+  }
 }

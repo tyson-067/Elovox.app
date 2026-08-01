@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { LEGAL } from "@/lib/legal";
 
 // Shared shell for /terms and /privacy. Long-form reading, so the column is
 // narrow and the type is a touch larger than the app's UI text, a legal
@@ -8,10 +7,14 @@ import { LEGAL } from "@/lib/legal";
 export function LegalDoc({
   title,
   intro,
+  updated,
   children,
 }: {
   title: string;
   intro: string;
+  /** That document's own date (LEGAL.privacyUpdated / termsUpdated) — the
+   *  two change independently, so they can't share one stamp. */
+  updated: string;
   children: ReactNode;
 }) {
   return (
@@ -20,7 +23,7 @@ export function LegalDoc({
         {title}
       </h1>
       <p className="mt-2 text-sm text-on-surface-variant">
-        Last updated {LEGAL.lastUpdated}
+        Last updated {updated}
       </p>
       <p className="mt-6 text-base leading-relaxed text-on-surface">{intro}</p>
       <div className="mt-10 flex flex-col gap-8">{children}</div>

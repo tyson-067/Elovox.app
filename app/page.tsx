@@ -9,6 +9,7 @@ import { LEVELS } from "@/lib/levels";
 import { TESTIMONIALS } from "@/lib/testimonials";
 import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
 import { NativeEntry } from "@/components/NativeEntry";
+import { EmailCapture } from "@/components/EmailCapture";
 
 // Marketing landing page. The app itself lives behind /dashboard.
 
@@ -762,6 +763,28 @@ export default function LandingPage() {
             </GlowCard>
           </Reveal>
         </div>
+      </section>
+
+      {/* The soft exit: an email instead of nothing. For the visitor who got
+          this far and still isn't ready for an account — the feedback said as
+          much, in those words. Sits between pricing and the closing CTA so it
+          reads as the alternative to buying, not a competitor to it. */}
+      <section className="mt-16 md:mt-20">
+        <Reveal swipe>
+          <div className="card p-6 md:p-7">
+            <h2 className="font-headline text-2xl font-semibold text-primary">
+              Not ready yet?
+            </h2>
+            <p className="mt-2 max-w-[52ch] text-base leading-6 text-on-surface-variant">
+              Leave your email and we&apos;ll send the occasional speaking tip
+              when we have one worth sending. No spam, and you can drop off
+              the list any time.
+            </p>
+            <div className="mt-4">
+              <EmailCapture />
+            </div>
+          </div>
+        </Reveal>
       </section>
 
       {/* Closing CTA */}

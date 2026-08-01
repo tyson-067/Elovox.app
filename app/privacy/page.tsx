@@ -20,11 +20,11 @@ export const metadata: Metadata = {
 const mailto = `mailto:${LEGAL.contactEmail}`;
 
 // Same literal the rest of the site's JSON-LD uses, so @id refs resolve to one
-// entity graph. lastUpdated is a human string ("July 23, 2026"); parse it to
-// ISO for dateModified, and omit the field rather than emit a bad date.
+// entity graph. privacyUpdated is a human string ("July 31, 2026"); parse it
+// to ISO for dateModified, and omit the field rather than emit a bad date.
 const SITE = "https://elovox.app";
 const modified = (() => {
-  const d = new Date(LEGAL.lastUpdated);
+  const d = new Date(LEGAL.privacyUpdated);
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString().slice(0, 10);
 })();
 
@@ -49,6 +49,7 @@ export default function PrivacyPage() {
       />
       <LegalDoc
       title="Privacy Policy"
+      updated={LEGAL.privacyUpdated}
       intro={`Elovox listens to you speak and gives you feedback on how you sounded. That means we handle recordings of your voice, which is personal and sometimes sensitive. This page explains exactly what happens to them, in plain language, because you should be able to tell what you're agreeing to.`}
     >
       <Section heading="The short version">
@@ -80,6 +81,16 @@ export default function PrivacyPage() {
           password is handled by Google Firebase Authentication and stored only
           as a salted hash. Elovox never receives or stores your actual
           password. We also record whether your email has been verified.
+        </p>
+        <p>
+          <strong>The tips list.</strong> If you leave your email on our
+          speaking-tips form, we store that address and use it only to send
+          those tips. It is never sold or shared, and you can come off the
+          list any time by emailing{" "}
+          <a className="text-accent hover:underline" href={mailto}>
+            {LEGAL.contactEmail}
+          </a>
+          .
         </p>
         <p>
           <strong>Your recordings.</strong> When you practice, your browser

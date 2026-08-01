@@ -21,10 +21,10 @@ export const metadata: Metadata = {
 const mailto = `mailto:${LEGAL.contactEmail}`;
 
 // Same literal the rest of the site's JSON-LD uses, so @id refs resolve to one
-// entity graph. lastUpdated is a human string; parse to ISO for dateModified.
+// entity graph. termsUpdated is a human string; parse to ISO for dateModified.
 const SITE = "https://elovox.app";
 const modified = (() => {
-  const d = new Date(LEGAL.lastUpdated);
+  const d = new Date(LEGAL.termsUpdated);
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString().slice(0, 10);
 })();
 
@@ -49,6 +49,7 @@ export default function TermsPage() {
       />
       <LegalDoc
       title="Terms of Service"
+      updated={LEGAL.termsUpdated}
       intro={`These terms are the agreement between you and ${LEGAL.entity} for the use of Elovox. By creating an account or using the service you accept them, so it's worth the five minutes it takes to read.`}
     >
       <Section heading="What Elovox is">
