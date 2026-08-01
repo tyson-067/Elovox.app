@@ -1041,13 +1041,17 @@ function RecordingScreen() {
             >
               <span
                 aria-hidden="true"
-                className={`relative inline-block h-5 w-9 shrink-0 rounded-full transition-colors ${
+                className={`relative inline-block h-6 w-11 shrink-0 rounded-full transition-colors ${
                   videoOn ? "bg-violet" : "bg-primary/20 group-hover:bg-primary/30"
                 }`}
               >
+                {/* Knob: pinned at left-0.5, top-0.5, and slid right by exactly
+                    its own travel (20px = translate-x-5) when on. Explicit
+                    left, and a standard translate step rather than an arbitrary
+                    value, so it starts and lands predictably. */}
                 <span
-                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
-                    videoOn ? "translate-x-[18px]" : "translate-x-0.5"
+                  className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${
+                    videoOn ? "translate-x-5" : "translate-x-0"
                   }`}
                 />
               </span>

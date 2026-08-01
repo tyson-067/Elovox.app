@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 // A small "?" in the corner of a card that explains what the card is for.
 //
@@ -38,12 +39,22 @@ export function InfoTip({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number; above: boolean } | null>(
     null
   );
   const wrapRef = useRef<HTMLSpanElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const tipRef = useRef<HTMLSpanElement>(null);
   const id = useId();
+
+  // createPortal needs document.body, which only exists on the client. This
+  // one-shot flip after mount is the standard SSR portal guard, not a render
+  // loop (the rule over-flags it).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -65,10 +76,15 @@ export function InfoTip({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
-    // Any tap elsewhere dismisses it. Without this, an open tip on touch
-    // sticks around until you find the "?" again.
+    // Any tap outside BOTH the trigger and the bubble dismisses it. The bubble
+    // is portaled to <body>, so it is no longer a DOM descendant of the
+    // wrapper — it has to be checked separately or tapping the bubble itself
+    // (e.g. to select its text) would close it.
     const onDown = (e: PointerEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (!wrapRef.current?.contains(t) && !tipRef.current?.contains(t)) {
+        setOpen(false);
+      }
     };
     document.addEventListener("keydown", onKey);
     document.addEventListener("pointerdown", onDown);
@@ -110,20 +126,30 @@ export function InfoTip({
         ?
       </button>
 
-      {open && pos && (
-        <span
-          id={id}
-          role="tooltip"
-          style={{
-            top: pos.top,
-            left: pos.left,
-            transform: pos.above ? "translateY(-100%)" : undefined,
-          }}
-          className="card fixed z-50 w-60 p-3 text-left text-[13px] leading-5 font-normal normal-case tracking-normal text-on-surface-variant shadow-[0_10px_28px_rgba(11,8,41,0.18)]"
-        >
-          {children}
-        </span>
-      )}
+      {/* Portaled to <body> so it escapes BOTH overflow-clipping ancestors
+          AND transformed ancestors. A `position: fixed` element is positioned
+          relative to the nearest ancestor with a transform/filter/perspective,
+          not the viewport — and this page is full of them (reveal animations,
+          GlowCard hover, Tilt, Parallax), which is why a fixed bubble left in
+          place landed off-screen. At <body> there is no such ancestor, so the
+          viewport coordinates computed above are correct. */}
+      {mounted && open && pos &&
+        createPortal(
+          <span
+            ref={tipRef}
+            id={id}
+            role="tooltip"
+            style={{
+              top: pos.top,
+              left: pos.left,
+              transform: pos.above ? "translateY(-100%)" : undefined,
+            }}
+            className="card fixed z-[60] w-60 p-3 text-left text-[13px] leading-5 font-normal normal-case tracking-normal text-on-surface-variant shadow-[0_10px_28px_rgba(11,8,41,0.18)]"
+          >
+            {children}
+          </span>,
+          document.body
+        )}
     </span>
   );
 }
