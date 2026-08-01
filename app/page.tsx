@@ -10,6 +10,7 @@ import { TESTIMONIALS } from "@/lib/testimonials";
 import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
 import { NativeEntry } from "@/components/NativeEntry";
 import { EmailCapture } from "@/components/EmailCapture";
+import { StoryDeck } from "@/components/StoryDeck";
 
 // Marketing landing page. The app itself lives behind /dashboard.
 
@@ -458,7 +459,7 @@ export default function LandingPage() {
       {/* Who it's for. Directly under the hero so a stranger can find
           themself on the page before a single feature is explained. */}
       <section className="mt-20 md:mt-28">
-        <Reveal swipe>
+        <Reveal>
           <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
             Who it&apos;s for
             <span className="grow-line" aria-hidden="true" />
@@ -466,7 +467,7 @@ export default function LandingPage() {
         </Reveal>
         <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
           {AUDIENCES.map((a, i) => (
-            <Reveal swipe key={a.who} delay={i * 120} className="h-full">
+            <Reveal key={a.who} delay={i * 120} className="h-full">
               <GlowCard className="card h-full">
                 <Link href={a.href} className="block h-full p-5 md:p-6">
                   <h3 className="font-headline text-xl font-semibold text-primary">
@@ -491,7 +492,7 @@ export default function LandingPage() {
           report" anchor, hence the id and the scroll margin for the sticky
           header. */}
       <section id="report" className="scroll-mt-24 mt-20 md:mt-28">
-        <Reveal swipe>
+        <Reveal>
           <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
             What comes back
             <span className="grow-line" aria-hidden="true" />
@@ -503,7 +504,7 @@ export default function LandingPage() {
         </Reveal>
         <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
           {REPORT.map((r, i) => (
-            <Reveal swipe key={r.title} delay={i * 110} className="h-full">
+            <Reveal key={r.title} variant="zoom" delay={i * 110} className="h-full">
               <GlowCard className="card h-full p-5 md:p-6">
                 <h3 className="font-headline text-xl font-semibold text-primary">
                   {r.title}
@@ -517,7 +518,7 @@ export default function LandingPage() {
         </div>
         <div className="mt-4 flex flex-wrap gap-2.5">
           {VOICE_DIMENSIONS.map((d, i) => (
-            <Reveal swipe key={d} delay={i * 60}>
+            <Reveal key={d} delay={i * 60}>
               <span className="pill inline-block rounded-full border border-primary/20 px-4 py-2 text-[15px] font-medium text-primary">
                 {d}
               </span>
@@ -528,7 +529,7 @@ export default function LandingPage() {
 
       {/* How it works */}
       <section className="mt-20 md:mt-28">
-        <Reveal swipe>
+        <Reveal>
           <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
             How it works
             <span className="grow-line" aria-hidden="true" />
@@ -536,7 +537,7 @@ export default function LandingPage() {
         </Reveal>
         <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
           {STEPS.map((s, i) => (
-            <Reveal swipe key={s.n} delay={i * 120} className="h-full">
+            <Reveal key={s.n} delay={i * 120} className="h-full">
               <GlowCard className="card h-full p-5 md:p-6">
                 <span className="font-data text-sm text-violet">{s.n}</span>
                 <h3 className="mt-2 font-headline text-xl font-semibold text-primary">
@@ -553,7 +554,7 @@ export default function LandingPage() {
 
       {/* Goals */}
       <section className="mt-16 md:mt-20">
-        <Reveal swipe>
+        <Reveal>
           <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
             Tell Felix what you&apos;re going for
             <span className="grow-line" aria-hidden="true" />
@@ -565,7 +566,7 @@ export default function LandingPage() {
         </Reveal>
         <div className="mt-5 flex flex-wrap gap-2.5">
           {GOALS.map((g, i) => (
-            <Reveal swipe key={g.id} delay={i * 60}>
+            <Reveal key={g.id} delay={i * 60}>
               <span className="pill inline-block rounded-full border border-primary/20 text-primary text-[15px] font-medium px-4 py-2 hover:border-accent hover:text-accent">
                 {g.label}
               </span>
@@ -576,7 +577,7 @@ export default function LandingPage() {
 
       {/* The modes */}
       <section className="mt-16 md:mt-20">
-        <Reveal swipe>
+        <Reveal>
           <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
             Six ways to practice
             <span className="grow-line" aria-hidden="true" />
@@ -589,7 +590,7 @@ export default function LandingPage() {
         </Reveal>
         <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
           {MODES.map((m, i) => (
-            <Reveal swipe key={m.title} delay={i * 100} className="h-full">
+            <Reveal key={m.title} variant="swipe" delay={i * 100} className="h-full">
               <GlowCard className="card h-full p-5 md:p-6">
                 <div className="flex items-start justify-between gap-2">
                   <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-container text-primary">
@@ -615,34 +616,14 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Felix's story. Below the product, not above it. */}
-      <section className="mt-16 md:mt-20">
-        <Reveal swipe>
-          <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
-            How a nervous fox got his voice
-            <span className="grow-line" aria-hidden="true" />
-          </h2>
-        </Reveal>
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-4">
-          {STORY.map((beat, i) => (
-            <Reveal swipe key={beat.title} delay={i * 130} className="h-full">
-              <div className="card-warm flex h-full flex-col p-5 md:p-6">
-                <Felix mood={beat.mood} className="h-20 w-20" />
-                <h3 className="mt-3 font-headline text-lg font-semibold text-primary">
-                  {beat.title}
-                </h3>
-                <p className="mt-1.5 text-[15px] leading-6 text-on-surface-variant">
-                  {beat.body}
-                </p>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-      </section>
+      {/* Felix's story. Below the product, not above it. The one animated
+          set piece on the page: a pinned card deck that swipes beat to beat
+          as you scroll, holding you until the story is told. */}
+      <StoryDeck beats={STORY} />
 
       {/* Levels */}
       <section className="mt-16 md:mt-20">
-        <Reveal swipe>
+        <Reveal>
           <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
             Twelve levels, earned out loud
             <span className="grow-line" aria-hidden="true" />
@@ -654,7 +635,7 @@ export default function LandingPage() {
         </Reveal>
         <div className="mt-5 flex flex-wrap gap-2.5">
           {LEVELS.map((l, i) => (
-            <Reveal swipe key={l.level} delay={i * 40}>
+            <Reveal key={l.level} delay={i * 40}>
               <span className="pill inline-flex items-center gap-2 rounded-full border border-primary/20 px-4 py-2 text-[15px] hover:border-violet">
                 <span className="font-data text-[13px] text-violet">{l.level}</span>
                 <span className="font-medium text-primary">{l.title}</span>
@@ -675,7 +656,7 @@ export default function LandingPage() {
           hands out manual actions for. */}
       {TESTIMONIALS.length > 0 && (
         <section className="mt-16 md:mt-20">
-          <Reveal swipe>
+          <Reveal>
             <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
               What people say
               <span className="grow-line" aria-hidden="true" />
@@ -683,7 +664,7 @@ export default function LandingPage() {
           </Reveal>
           <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
             {TESTIMONIALS.map((t, i) => (
-              <Reveal swipe key={t.name + i} delay={i * 110} className="h-full">
+              <Reveal key={t.name + i} delay={i * 110} className="h-full">
                 <GlowCard className="card flex h-full flex-col p-5 md:p-6">
                   <blockquote className="font-headline text-lg leading-7 text-primary">
                     &ldquo;{t.quote}&rdquo;
@@ -701,14 +682,14 @@ export default function LandingPage() {
 
       {/* Pricing */}
       <section className="mt-16 md:mt-20">
-        <Reveal swipe>
+        <Reveal>
           <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
             Pricing
             <span className="grow-line" aria-hidden="true" />
           </h2>
         </Reveal>
         <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-          <Reveal swipe className="h-full">
+          <Reveal className="h-full">
             <GlowCard className="card h-full p-6">
               <h3 className="font-headline text-2xl font-semibold text-primary">
                 Free
@@ -731,7 +712,7 @@ export default function LandingPage() {
               </Link>
             </GlowCard>
           </Reveal>
-          <Reveal swipe delay={120} className="h-full">
+          <Reveal delay={120} className="h-full">
             <GlowCard className="card card-glow-light h-full p-6 navy-gradient border-none! text-white">
               <h3 className="font-headline text-2xl font-semibold">Premium</h3>
               <p className="mt-1 font-data text-sm text-white/70">
@@ -770,7 +751,7 @@ export default function LandingPage() {
           much, in those words. Sits between pricing and the closing CTA so it
           reads as the alternative to buying, not a competitor to it. */}
       <section className="mt-16 md:mt-20">
-        <Reveal swipe>
+        <Reveal>
           <div className="card p-6 md:p-7">
             <h2 className="font-headline text-2xl font-semibold text-primary">
               Not ready yet?
@@ -794,7 +775,7 @@ export default function LandingPage() {
             <div className="orb-float h-36 w-36 rounded-full bg-orange/15 blur-xl" />
           </Parallax>
         </div>
-        <Reveal swipe>
+        <Reveal>
           <Felix mood="cheer" animate className="mb-4 h-24 w-24" />
           <h2 className="text-display-sm font-headline font-bold text-primary">
             <WordReveal text="The room goes quiet." step={90} />

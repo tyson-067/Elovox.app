@@ -40,17 +40,27 @@ function ensureDirListener() {
   );
 }
 
+export type RevealVariant = "rise" | "swipe" | "zoom";
+
 export function Reveal({
   children,
   delay = 0,
   className = "",
   swipe = false,
+  variant,
 }: {
   children: React.ReactNode;
   delay?: number;
   className?: string;
+  /** Back-compat shorthand for variant="swipe". */
   swipe?: boolean;
+  /** "rise" (default) fades up; "swipe" slides in following scroll
+   *  direction; "zoom" scales up out of a slight blur. Different sections
+   *  earn different entrances — a page where everything moves the same way
+   *  reads as a template. */
+  variant?: RevealVariant;
 }) {
+  const kind: RevealVariant = variant ?? (swipe ? "swipe" : "rise");
   const ref = useRef<HTMLDivElement>(null);
   const visible = useRevealOnView(ref, { threshold: 0.15 });
 
@@ -58,7 +68,7 @@ export function Reveal({
   // stop caring the moment it has revealed (the stamped direction is then
   // frozen, which is exactly right: it entered the way the user was moving).
   useEffect(() => {
-    if (!swipe || visible) return;
+    if (kind !== "swipe" || visible) return;
     const el = ref.current;
     if (!el) return;
     ensureDirListener();
@@ -68,13 +78,16 @@ export function Reveal({
     };
     window.addEventListener("scroll", sync, { passive: true });
     return () => window.removeEventListener("scroll", sync);
-  }, [swipe, visible]);
+  }, [kind, visible]);
+
+  const variantClass =
+    kind === "swipe" ? "reveal-swipe" : kind === "zoom" ? "reveal-zoom" : "";
 
   return (
     <div
       ref={ref}
       style={delay ? { transitionDelay: `${delay}ms` } : undefined}
-      className={`reveal ${swipe ? "reveal-swipe" : ""} ${visible ? "reveal-visible" : ""} ${className}`}
+      className={`reveal ${variantClass} ${visible ? "reveal-visible" : ""} ${className}`}
     >
       {children}
     </div>

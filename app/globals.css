@@ -198,6 +198,31 @@ body {
   transform: none;
 }
 
+/* Zoom variant: scales up out of a slight blur, for the sections that show
+   what the product produces (the report cards) — arriving into focus is the
+   point. filter is animated, so it joins the transition list here. */
+.reveal-zoom {
+  transform: scale(0.92);
+  filter: blur(6px);
+  transition:
+    opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 700ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal-visible.reveal-zoom {
+  transform: none;
+  filter: none;
+}
+
+/* The story deck (components/StoryDeck.tsx): cards move only via these
+   transitions; the scroll handler just picks which card is active. */
+.deck-card {
+  transition:
+    transform 550ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 450ms ease;
+  will-change: transform;
+}
+
 /* Word-by-word headline entrance (driven by components/WordReveal.tsx).
    Each word rises out of a slight blur with a per-word delay. */
 .wr .wr-word {
@@ -643,6 +668,14 @@ body {
   .reveal-swipe,
   .reveal-swipe[data-dir="up"] {
     transform: none;
+    transition: none;
+  }
+  .reveal-zoom {
+    transform: none;
+    filter: none;
+    transition: none;
+  }
+  .deck-card {
     transition: none;
   }
   .btn,

@@ -12,6 +12,17 @@ import { useEffect, useId, useRef, useState } from "react";
 // shell is a phone. So it opens on hover for a mouse and on tap/click for
 // everything, which means the mouse path has to ignore the synthetic
 // mouseenter that fires on tap or the tap would open and immediately close it.
+//
+// The bubble is position:FIXED and placed from the trigger's screen rect,
+// not absolutely inside the card. Absolute positioning was clipped or buried
+// by whatever the card happened to be: an overflow-hidden ancestor cut it
+// off (the Daily Minute card on smaller laptops), and a later sibling card
+// with its own stacking context could paint over it. Fixed coordinates,
+// clamped to the viewport and flipped above the trigger when there's no room
+// below, escape every ancestor context at once.
+
+const BUBBLE_W = 240; // matches w-60
+const MARGIN = 8;
 
 export function InfoTip({
   label,
@@ -27,11 +38,30 @@ export function InfoTip({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number; above: boolean } | null>(
+    null
+  );
   const wrapRef = useRef<HTMLSpanElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
   const id = useId();
 
   useEffect(() => {
     if (!open) return;
+
+    const place = () => {
+      const r = btnRef.current?.getBoundingClientRect();
+      if (!r) return;
+      // Right-align to the trigger, then clamp inside the viewport.
+      const left = Math.min(
+        Math.max(MARGIN, r.right - BUBBLE_W),
+        window.innerWidth - BUBBLE_W - MARGIN
+      );
+      // ~180px is a tall bubble; if that doesn't fit below, open upward.
+      const above = r.bottom + 188 > window.innerHeight;
+      setPos({ top: above ? r.top - MARGIN : r.bottom + MARGIN, left, above });
+    };
+    place();
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
@@ -42,9 +72,14 @@ export function InfoTip({
     };
     document.addEventListener("keydown", onKey);
     document.addEventListener("pointerdown", onDown);
+    // Fixed coordinates go stale the moment the page moves under them.
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
     return () => {
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
     };
   }, [open]);
 
@@ -58,6 +93,7 @@ export function InfoTip({
       onPointerLeave={(e) => e.pointerType === "mouse" && setOpen(false)}
     >
       <button
+        ref={btnRef}
         type="button"
         aria-label={label}
         aria-expanded={open}
@@ -74,12 +110,16 @@ export function InfoTip({
         ?
       </button>
 
-      {open && (
+      {open && pos && (
         <span
           id={id}
           role="tooltip"
-          // Anchored to the right edge so a corner tip never runs off screen.
-          className="card absolute right-0 top-7 z-30 w-60 p-3 text-left text-[13px] leading-5 font-normal normal-case tracking-normal text-on-surface-variant shadow-[0_10px_28px_rgba(11,8,41,0.18)]"
+          style={{
+            top: pos.top,
+            left: pos.left,
+            transform: pos.above ? "translateY(-100%)" : undefined,
+          }}
+          className="card fixed z-50 w-60 p-3 text-left text-[13px] leading-5 font-normal normal-case tracking-normal text-on-surface-variant shadow-[0_10px_28px_rgba(11,8,41,0.18)]"
         >
           {children}
         </span>

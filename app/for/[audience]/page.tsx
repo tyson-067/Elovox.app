@@ -121,7 +121,7 @@ export default async function AudiencePage({
       {/* The tailored pitch */}
       <section className="mt-16 md:mt-20 max-w-[62ch]">
         {a.body.map((para, i) => (
-          <Reveal key={i} swipe delay={i * 90}>
+          <Reveal key={i} delay={i * 90}>
             <p className="mt-4 text-lg leading-8 text-on-surface first:mt-0">
               {para}
             </p>
@@ -131,7 +131,7 @@ export default async function AudiencePage({
 
       {/* The modes that matter to this person */}
       <section className="mt-16 md:mt-20">
-        <Reveal swipe>
+        <Reveal>
           <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
             What you&apos;d use
             <span className="grow-line" aria-hidden="true" />
@@ -139,7 +139,7 @@ export default async function AudiencePage({
         </Reveal>
         <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
           {a.modes.map((m, i) => (
-            <Reveal swipe key={m.title} delay={i * 100} className="h-full">
+            <Reveal variant="swipe" key={m.title} delay={i * 100} className="h-full">
               <GlowCard className="card h-full p-5 md:p-6">
                 <h3 className="font-headline text-xl font-semibold text-primary">
                   {m.title}
@@ -155,7 +155,7 @@ export default async function AudiencePage({
 
       {/* Close */}
       <section className="mt-20 md:mt-28">
-        <Reveal swipe>
+        <Reveal>
           <div className="card navy-gradient border-none! p-8 text-white md:p-10">
             <Felix mood="cheer" animate className="mb-4 h-20 w-20" />
             <h2 className="font-headline text-3xl font-semibold md:text-4xl">
