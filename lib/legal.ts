@@ -33,6 +33,7 @@ export const LEGAL = {
   // have. Same stale-but-honest rule as the sitemap.
   privacyUpdated: "July 31, 2026", // added the tips-list disclosure
   termsUpdated: "July 23, 2026",
+  accessibilityUpdated: "August 1, 2026", // first published
 
   contactEmail: "elovox.app@gmail.com",
   instagramHandle: "elovox.app",

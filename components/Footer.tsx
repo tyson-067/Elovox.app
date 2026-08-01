@@ -25,9 +25,12 @@ export function Footer() {
             </p>
           </div>
 
+          {/* sm:flex-wrap since Accessibility made this seven items: on a
+              narrow tablet the row overran the footer's right edge rather than
+              wrapping, which pushed Instagram off the page. */}
           <nav
             aria-label="Footer"
-            className="flex flex-col gap-2 text-sm text-on-surface-variant sm:flex-row sm:gap-6"
+            className="flex flex-col gap-2 text-sm text-on-surface-variant sm:flex-row sm:flex-wrap sm:gap-x-6 sm:gap-y-2"
           >
             <FooterAboutLink className={linkClass} />
             <Link href="/pricing" className={`${linkClass} web-only`}>
@@ -38,6 +41,9 @@ export function Footer() {
             </Link>
             <Link href="/privacy" className={linkClass}>
               Privacy
+            </Link>
+            <Link href="/accessibility" className={linkClass}>
+              Accessibility
             </Link>
             <a href={`mailto:${LEGAL.contactEmail}`} className={linkClass}>
               Contact

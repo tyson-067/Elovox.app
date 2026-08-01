@@ -22,6 +22,7 @@ const MODIFIED: Record<string, string> = {
   "/pricing": "2026-07-27", // subscriber CTAs → Customer Portal
   "/terms": "2026-07-23",
   "/privacy": "2026-07-31", // tips-list disclosure
+  "/accessibility": "2026-08-01", // new page: accessibility statement
 
   "/for/job-candidates": "2026-07-31", // per-audience landing pages
   "/for/students": "2026-07-31",
@@ -35,6 +36,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/pricing": 0.8,
     "/terms": 0.3,
     "/privacy": 0.3,
+    "/accessibility": 0.3,
     "/for/job-candidates": 0.7,
     "/for/students": 0.7,
     "/for/founders": 0.7,
