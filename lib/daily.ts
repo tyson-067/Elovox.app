@@ -25,7 +25,8 @@ import { levelFromXp, xpForChallengeAttempt, type LevelProgress } from "./levels
  * shared topic that the whole userbase is scored on, so an uncapped run at it
  * would make the scores incomparable and turn a habit into a grind. Premium's
  * "unlimited" is about the other surfaces (the speech library, your own
- * material, interview practice, custom speeches), which have no cap at all.
+ * material, interview practice, social skills, custom speeches), which have
+ * no cap at all.
  *
  * Keep this in step with the /pricing copy: Premium must never be sold as
  * removing THIS cap, because it does not.
@@ -167,7 +168,7 @@ export async function fetchDailyChallenge(
     return generated;
   }
 
-  const { doc, getDoc, setDoc } = await import("firebase/firestore");
+  const { doc, getDoc } = await import("firebase/firestore");
   const ref = doc(getDb(), "dailyChallenges", date);
 
   try {
@@ -184,33 +185,42 @@ export async function fetchDailyChallenge(
     // unreadable, fall through and generate a local-only one
   }
 
+  // Not published yet: generateChallenge hits /api/daily, which now writes
+  // the shared doc server-side (Admin SDK) so everyone else reads the same
+  // copy. Clients are read-only on dailyChallenges (firestore.rules), so
+  // there is no client publish to do here any more — that path let any
+  // signed-in account seed arbitrary, permanent content for every future day.
   const fresh = await generateChallenge(date);
   cacheChallenge(fresh);
-  // Publish for everyone else today. Failure is fine: the next user tries.
-  // A fallback is never published, it would hand the whole user base
-  // canned content for the day, and the doc can't be rewritten afterwards.
-  // (If an old-format doc already exists, this write is denied by rules and
-  // harmlessly caught; we still use our freshly generated one.)
-  if (fresh.generated !== false) setDoc(ref, fresh).catch(() => {});
   return fresh;
 }
 
 // --- this user's attempts ------------------------------------------------
 
-const attemptsCacheKey = (date: string) => `elovox.daily.attempts.${date}`;
+// Keyed by uid when signed in, so two accounts on one device don't share a
+// cache (the signed-out fallback keeps the bare key). Mirrors lib/plan.ts.
+const attemptsCacheKey = (date: string, uid: string | null) =>
+  uid ? `elovox.daily.attempts.${date}.${uid}` : `elovox.daily.attempts.${date}`;
 
-function localAttempts(date: string): ChallengeAttempt[] {
+function localAttempts(date: string, uid: string | null): ChallengeAttempt[] {
   try {
-    const raw = window.localStorage.getItem(attemptsCacheKey(date));
+    const raw = window.localStorage.getItem(attemptsCacheKey(date, uid));
     return raw ? (JSON.parse(raw) as ChallengeAttempt[]) : [];
   } catch {
     return [];
   }
 }
 
-function saveLocalAttempts(date: string, attempts: ChallengeAttempt[]): void {
+function saveLocalAttempts(
+  date: string,
+  uid: string | null,
+  attempts: ChallengeAttempt[]
+): void {
   try {
-    window.localStorage.setItem(attemptsCacheKey(date), JSON.stringify(attempts));
+    window.localStorage.setItem(
+      attemptsCacheKey(date, uid),
+      JSON.stringify(attempts)
+    );
   } catch {
     // non-fatal
   }
@@ -231,7 +241,7 @@ export async function getChallengeState(
   date: string = todayKey()
 ): Promise<ChallengeState> {
   const uid = await currentUid();
-  if (!uid) return toState(date, localAttempts(date));
+  if (!uid) return toState(date, localAttempts(date, null));
 
   try {
     const { doc, getDoc } = await import("firebase/firestore");
@@ -239,16 +249,19 @@ export async function getChallengeState(
     const attempts = snap.exists()
       ? ((snap.data().attempts ?? []) as ChallengeAttempt[])
       : [];
-    saveLocalAttempts(date, attempts);
+    saveLocalAttempts(date, uid, attempts);
     return toState(date, attempts);
   } catch {
-    return toState(date, localAttempts(date));
+    return toState(date, localAttempts(date, uid));
   }
 }
 
 // --- stats / levelling ---------------------------------------------------
 
-const STATS_KEY = "elovox.stats.v1";
+// Keyed by uid when signed in (bare key for signed-out), so one device with
+// two accounts doesn't cross-contaminate the mirror. Same as lib/plan.ts.
+const statsKey = (uid: string | null) =>
+  uid ? `elovox.stats.v1.${uid}` : "elovox.stats.v1";
 
 const EMPTY_STATS = {
   xp: 0,
@@ -260,18 +273,18 @@ const EMPTY_STATS = {
 
 type RawStats = typeof EMPTY_STATS;
 
-function localStats(): RawStats {
+function localStats(uid: string | null): RawStats {
   try {
-    const raw = window.localStorage.getItem(STATS_KEY);
+    const raw = window.localStorage.getItem(statsKey(uid));
     return raw ? { ...EMPTY_STATS, ...JSON.parse(raw) } : { ...EMPTY_STATS };
   } catch {
     return { ...EMPTY_STATS };
   }
 }
 
-function saveLocalStats(stats: RawStats): void {
+function saveLocalStats(uid: string | null, stats: RawStats): void {
   try {
-    window.localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+    window.localStorage.setItem(statsKey(uid), JSON.stringify(stats));
   } catch {
     // non-fatal
   }
@@ -279,23 +292,57 @@ function saveLocalStats(stats: RawStats): void {
 
 async function readRawStats(): Promise<RawStats> {
   const uid = await currentUid();
-  if (!uid) return localStats();
+  if (!uid) return localStats(null);
   try {
     const { doc, getDoc } = await import("firebase/firestore");
-    const snap = await getDoc(doc(getDb(), "users", uid, "profile", "stats"));
-    const stats = snap.exists()
-      ? ({ ...EMPTY_STATS, ...snap.data() } as RawStats)
+    const db = getDb();
+    // Two docs, and which one wins matters.
+    //
+    //   profile/stats   the user can write this. It's the optimistic mirror
+    //                   that makes "+34 XP" appear the instant a report lands.
+    //   score/progress  the server writes this, inside /api/analyze, off a
+    //                   real score. Deny-all to the client in firestore.rules.
+    //
+    // Once the server doc exists it is the truth, because it is the number
+    // the leaderboard ranks on and the dashboard must not disagree with the
+    // board. It won't exist for a brand-new account until their first scored
+    // rep, or at all without a service account configured, so the mirror is
+    // still the fallback rather than dead code.
+    const [mirror, server] = await Promise.all([
+      getDoc(doc(db, "users", uid, "profile", "stats")),
+      getDoc(doc(db, "users", uid, "score", "progress")).catch(() => null),
+    ]);
+    const stats = mirror.exists()
+      ? ({ ...EMPTY_STATS, ...mirror.data() } as RawStats)
       : { ...EMPTY_STATS };
-    saveLocalStats(stats);
+
+    if (server?.exists()) {
+      const s = server.data() as Partial<RawStats>;
+      // lastChallengeDate stays local: it's a LOCAL-midnight day key driving
+      // this device's streak arithmetic, and the server's is a UTC-ish one
+      // from lib/quota.ts. Mixing them would break the streak either side of
+      // midnight for anyone not on UTC.
+      stats.xp = Number(s.xp ?? stats.xp);
+      stats.streakDays = Number(s.streakDays ?? stats.streakDays);
+      stats.longestStreak = Math.max(
+        Number(s.longestStreak ?? 0),
+        stats.longestStreak ?? 0
+      );
+      stats.challengesCompleted = Number(
+        s.challengesCompleted ?? stats.challengesCompleted
+      );
+    }
+
+    saveLocalStats(uid, stats);
     return stats;
   } catch {
-    return localStats();
+    return localStats(uid);
   }
 }
 
 async function writeRawStats(stats: RawStats): Promise<void> {
-  saveLocalStats(stats);
   const uid = await currentUid();
+  saveLocalStats(uid, stats);
   if (!uid) return;
   try {
     const { doc, setDoc } = await import("firebase/firestore");
@@ -312,7 +359,7 @@ export async function getStats(): Promise<UserStats> {
   return { ...raw, level: levelFromXp(raw.xp) };
 }
 
-/** XP for a rep that isn't the daily challenge (library, own material, interview). */
+/** XP for a rep that isn't the daily challenge (library, own material, interview, social). */
 export async function awardPracticeXp(amount: number): Promise<UserStats> {
   const raw = await readRawStats();
   const next = { ...raw, xp: raw.xp + amount };
@@ -408,9 +455,9 @@ export async function recordChallengeAttempt(opts: {
   };
 
   const attempts = [...prior.attempts, attempt];
-  saveLocalAttempts(date, attempts);
-
   const uid = await currentUid();
+  saveLocalAttempts(date, uid, attempts);
+
   if (uid) {
     try {
       const { doc, setDoc } = await import("firebase/firestore");

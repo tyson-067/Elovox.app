@@ -76,7 +76,7 @@ function AppearanceCard() {
         Appearance
       </h2>
       <p className="mt-1 text-sm text-on-surface-variant">
-        Dark is easier on the eyes when you practise at night.
+        Dark is easier on the eyes when you practice at night.
       </p>
       <div className="mt-4 flex gap-3">
         {option("light", "Light")}

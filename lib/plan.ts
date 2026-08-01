@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { isFirebaseConfigured, getDb, getUser } from "./firebase";
+import { isFirebaseConfigured, getDb, getUser, getAuthInstance } from "./firebase";
 
 // Entitlements. One flag, free or premium, read from Firestore at
 // users/{uid}/profile/plan, cached in localStorage so gated UI doesn't
@@ -21,6 +21,7 @@ export type SubStatus =
   | "trialing"
   | "active"
   | "past_due"
+  | "unpaid" // dunning exhausted: card never recovered, Premium is paused
   | "canceled"
   | "none";
 
@@ -35,6 +36,31 @@ export interface PlanRecord {
   cancelAt?: number; // epoch ms access ends, when Stripe set an explicit date
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
+
+  // --- comped access, nothing to do with Stripe --------------------------
+  /**
+   * Epoch ms a granted Premium window closes — currently only the week a free
+   * user earns for a 21-day streak (lib/streakReward.ts). Deliberately NOT
+   * folded into `plan`: that field mirrors the Stripe subscription and the
+   * webhook is its only writer, so a grant written there would be wiped by the
+   * next subscription event. Entitlement is the OR of the two (see
+   * `entitlementFrom` below), and this one expires on its own with no
+   * cancellation call and no $0 invoice in the books.
+   */
+  premiumUntil?: number;
+  grantReason?: "streak-21";
+  streakRewardsGranted?: number;
+}
+
+/** True while a comped window is open. */
+export function hasComp(record: PlanRecord | null, now = Date.now()): boolean {
+  return typeof record?.premiumUntil === "number" && record.premiumUntil > now;
+}
+
+/** The entitlement a plan doc implies: paid subscription OR an open comp. */
+function entitlementFrom(data: Partial<PlanRecord> | undefined): Plan {
+  if (data?.plan === "premium") return "premium";
+  return hasComp(data as PlanRecord) ? "premium" : "free";
 }
 
 const cacheKey = (uid: string) => `elovox.plan.${uid}`;
@@ -62,11 +88,18 @@ function readCacheEntry(uid: string): CacheEntry | null {
     const raw = window.localStorage.getItem(cacheKey(uid));
     if (!raw) return null;
     // Entries written before the TTL existed are bare strings; they carry no
-    // timestamp, so treat them as infinitely stale rather than discarding
-    // them: stale is still a better answer than a wrong "free".
-    const parsed = JSON.parse(raw) as { plan?: unknown; at?: unknown };
-    if (parsed?.plan !== "premium" && parsed?.plan !== "free") return null;
-    return { plan: parsed.plan, at: typeof parsed.at === "number" ? parsed.at : 0 };
+    // timestamp, so treat them as infinitely stale (at: 0) rather than
+    // discarding them: stale is still a better answer than a wrong "free" on
+    // the failure-path fallbacks below. Two legacy forms exist — the raw
+    // string ("premium", which JSON.parse would throw on) and the
+    // JSON-stringified string ('"premium"'), handled by the string branch.
+    if (raw === "premium" || raw === "free") return { plan: raw, at: 0 };
+    const parsed = JSON.parse(raw) as { plan?: unknown; at?: unknown } | string;
+    const plan = typeof parsed === "string" ? parsed : parsed?.plan;
+    if (plan !== "premium" && plan !== "free") return null;
+    const at =
+      typeof parsed === "object" && typeof parsed?.at === "number" ? parsed.at : 0;
+    return { plan, at };
   } catch {
     // Storage blocked, or a malformed entry.
     return null;
@@ -110,6 +143,11 @@ async function currentUid(): Promise<string> {
  * they used to fire four or five identical reads on every cold navigation.
  */
 let inFlight: { uid: string; promise: Promise<Plan> } | null = null;
+// Bumped by refreshPlan so a read that was already in flight when the cache
+// was cleared can't re-stamp the cache with its now-stale value or clobber
+// the newer in-flight record. A read captures the epoch at its start and
+// stands down if it no longer matches.
+let readEpoch = 0;
 
 /** Mounted `usePlan` consumers, so a refresh reaches all of them at once. */
 const planListeners = new Set<(plan: Plan) => void>();
@@ -121,7 +159,7 @@ function broadcast(plan: Plan): void {
 async function readPlanFromFirestore(uid: string): Promise<Plan> {
   const { doc, getDoc } = await import("firebase/firestore");
   const snap = await getDoc(doc(getDb(), "users", uid, "profile", "plan"));
-  return snap.exists() && snap.data().plan === "premium" ? "premium" : "free";
+  return snap.exists() ? entitlementFrom(snap.data() as PlanRecord) : "free";
 }
 
 export async function getPlan(): Promise<Plan> {
@@ -136,11 +174,19 @@ export async function getPlan(): Promise<Plan> {
 
   if (inFlight?.uid === uid) return inFlight.promise;
 
+  const epoch = readEpoch;
   const promise = (async () => {
     try {
       const plan = await readPlanFromFirestore(uid);
-      writeCache(uid, plan);
-      return plan;
+      // If refreshPlan ran while this read was in flight, this value predates
+      // the cleared cache: don't re-stamp it. Return the refreshed cached
+      // value if one landed, otherwise this (the caller still gets an answer,
+      // just not one that overwrites fresher state).
+      if (epoch === readEpoch) {
+        writeCache(uid, plan);
+        return plan;
+      }
+      return readCacheEntry(uid)?.plan ?? plan;
     } catch {
       // Firestore unreachable. This used to return "free", which is where
       // Premium visibly disappeared mid-session: one flaky read after the
@@ -157,7 +203,9 @@ export async function getPlan(): Promise<Plan> {
       // route regardless of what this returns.
       return readCacheEntry(uid)?.plan ?? "free";
     } finally {
-      if (inFlight?.uid === uid) inFlight = null;
+      // Only clear the in-flight record if it's still ours: a refresh may have
+      // replaced it with a newer read, which this stale one must not null out.
+      if (epoch === readEpoch && inFlight?.uid === uid) inFlight = null;
     }
   })();
 
@@ -178,6 +226,7 @@ export async function refreshPlan(): Promise<Plan> {
     // non-fatal
   }
   inFlight = null;
+  readEpoch++;
   const plan = await getPlan();
   // Push it to every mounted consumer, so returning from Checkout unlocks
   // the header, the sub-nav and the page body together rather than
@@ -199,6 +248,7 @@ export function usePlan(): { plan: Plan | null; isPremium: boolean } {
 
   useEffect(() => {
     let cancelled = false;
+    let unsub: (() => void) | undefined;
     const onChange = (p: Plan) => {
       if (cancelled) return;
       resolved.current = true;
@@ -206,19 +256,46 @@ export function usePlan(): { plan: Plan | null; isPremium: boolean } {
     };
     planListeners.add(onChange);
 
-    getPlan()
-      .then(onChange)
-      // getPlan resolves rather than rejects on a Firestore failure, so this
-      // only fires if Firebase itself fails to load. Even then, don't assert
-      // "free" over an entitlement we've already shown: hold the last known
-      // answer and let the next navigation try again.
-      .catch(() => {
-        if (!cancelled && !resolved.current) setPlan("free");
+    const fetch = () => {
+      getPlan()
+        .then(onChange)
+        // getPlan resolves rather than rejects on a Firestore failure, so this
+        // only fires if Firebase itself fails to load. Even then, don't assert
+        // "free" over an entitlement we've already shown: hold the last known
+        // answer and let the next navigation try again.
+        .catch(() => {
+          if (!cancelled && !resolved.current) setPlan("free");
+        });
+    };
+
+    fetch();
+
+    // Re-fetch when the signed-in user changes, so persistent chrome (AuthNav,
+    // SubNav, NativeShell) doesn't keep showing the previous user's plan after
+    // a sign-out/sign-in on the same mounted tree. The listener's initial
+    // synchronous fire is skipped so it doesn't duplicate the mount fetch;
+    // setPlan(null) restores the "hold still while loading" contract for the
+    // new user before their answer lands.
+    if (isFirebaseConfigured()) {
+      import("firebase/auth").then(({ onAuthStateChanged }) => {
+        if (cancelled) return;
+        let first = true;
+        unsub = onAuthStateChanged(getAuthInstance(), () => {
+          if (first) {
+            first = false;
+            return;
+          }
+          resolved.current = false;
+          setPlan(null);
+          fetch();
+        });
       });
+    }
 
     return () => {
       cancelled = true;
       planListeners.delete(onChange);
+      unsub?.();
     };
   }, []);
 
@@ -243,7 +320,7 @@ export async function getPlanRecord(): Promise<PlanRecord> {
     const snap = await getDoc(doc(getDb(), "users", uid, "profile", "plan"));
     if (!snap.exists()) return { plan: "free", status: "none" };
     const data = snap.data() as PlanRecord;
-    return { ...data, plan: data.plan === "premium" ? "premium" : "free" };
+    return { ...data, plan: entitlementFrom(data) };
   } catch {
     // Same reasoning as getPlan: an unreachable Firestore is not a
     // cancellation. Fall back to the last entitlement we actually read, so

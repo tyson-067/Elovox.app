@@ -11,7 +11,7 @@ export const INTERVIEW_TYPES: InterviewType[] = [
     id: "job",
     name: "Job interview",
     description:
-      "Hiring managers and panels. Behavioural questions, failure stories, and the ones people fumble.",
+      "Hiring managers and panels. Behavioral questions, failure stories, and the ones people fumble.",
     questions: [
       "Tell me about a time you disagreed with your manager. What happened?",
       "Walk me through your background in about ninety seconds.",
@@ -88,7 +88,7 @@ export const INTERVIEW_TYPES: InterviewType[] = [
       "What's a skill you've taught yourself, and how?",
       "How do you handle being told you're wrong?",
       "What do you want to get out of this internship, specifically?",
-      "Tell me about something you built, organised, or started.",
+      "Tell me about something you built, organized, or started.",
     ],
   },
   {

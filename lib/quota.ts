@@ -94,3 +94,57 @@ export async function refundDailyAttempt(
     // and self-heals at midnight when the counter resets.
   }
 }
+
+/**
+ * A durable per-user daily ceiling for the PREMIUM pipeline, on the same
+ * Admin-SDK-only usage doc. The in-memory rate limiter (lib/verify.ts) is
+ * per-serverless-instance, so under concurrency the effective limit is
+ * (instances × limit) and every cold start resets to zero. For free daily
+ * attempts the Firestore counter above is the real backstop; the premium
+ * modes had no durable one, so a compromised or scripted premium account
+ * could drive unbounded paid AssemblyAI/Gemini calls. This adds a generous
+ * ceiling no honest user reaches, written into a distinct field so it never
+ * touches the daily-attempt count.
+ *
+ * `field` is a fixed literal from the caller (e.g. "premiumAnalyses"), never
+ * user input. Returns ok:false without incrementing once the ceiling is hit.
+ */
+export async function reserveMeteredUse(
+  db: Firestore,
+  uid: string,
+  date: string,
+  field: string,
+  ceiling: number
+): Promise<{ ok: boolean; used: number }> {
+  const ref = usageRef(db, uid, date);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const used = snap.exists ? Number(snap.data()?.[field] ?? 0) : 0;
+    if (used >= ceiling) return { ok: false, used };
+    tx.set(
+      ref,
+      { [field]: used + 1, updatedAt: FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+    return { ok: true, used: used + 1 };
+  });
+}
+
+/** Give back a reserved metered use when the work didn't complete. */
+export async function refundMeteredUse(
+  db: Firestore,
+  uid: string,
+  date: string,
+  field: string
+): Promise<void> {
+  const ref = usageRef(db, uid, date);
+  try {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const used = snap.exists ? Number(snap.data()?.[field] ?? 0) : 0;
+      if (used > 0) tx.set(ref, { [field]: used - 1 }, { merge: true });
+    });
+  } catch {
+    // Best-effort, same reasoning as refundDailyAttempt.
+  }
+}

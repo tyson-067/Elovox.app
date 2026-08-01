@@ -1,14 +1,21 @@
 import type { Metadata } from "next";
+import { FAQ } from "@/lib/faq";
 
-// Exists only to carry metadata. `page.tsx` is a client component, it needs
-// useState for the cycle toggle and useAuth for the subscriber CTAs, and a
-// client component cannot export `metadata`. Without this file the route
-// silently inherits the root layout's title and description, so every search
-// result and link preview for /pricing read as the homepage.
+// Exists to carry metadata AND the page's structured data. `page.tsx` is a
+// client component, it needs useState for the cycle toggle and useAuth for the
+// subscriber CTAs, and a client component cannot export `metadata`. Without
+// this file the route silently inherits the root layout's title and
+// description, so every search result and link preview for /pricing read as
+// the homepage.
 //
 // A layout is the smallest fix: the alternative is splitting page.tsx into a
 // server shell wrapping a client body, which buys nothing here because the
-// whole page is interactive.
+// whole page is interactive. It's also the server-side home for the FAQPage
+// JSON-LD below, which a client page can't emit cleanly for a crawler.
+
+// Same literal the homepage/about JSON-LD uses, so the @id cross-references
+// (publisher -> #organization) resolve to the same entity graph-wide.
+const SITE = "https://elovox.app";
 
 const TITLE = "Pricing | Elovox";
 const DESCRIPTION =
@@ -34,8 +41,33 @@ export const metadata: Metadata = {
   },
 };
 
+// FAQPage structured data, built from the same lib/faq.ts the page renders, so
+// the rich result Google may show can never quote an answer the page doesn't.
+const FAQ_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "@id": `${SITE}/pricing#faq`,
+  url: `${SITE}/pricing`,
+  isPartOf: { "@id": `${SITE}/#website` },
+  publisher: { "@id": `${SITE}/#organization` },
+  mainEntity: FAQ.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 export default function PricingLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  return children;
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        // A data block for crawlers and AI search, not executable script.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_SCHEMA) }}
+      />
+      {children}
+    </>
+  );
 }

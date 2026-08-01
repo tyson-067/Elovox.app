@@ -7,11 +7,12 @@ import { usePlan } from "@/lib/plan";
 /**
  * The rest of the app, on Today.
  *
- * The web puts six sections in a scrolling tab strip. A dock holds four, and
- * three of the six are Premium — so a free user would have been staring at a
- * dock that was half locked. Interviews, Felix writes it, and My material
- * become cards here instead, which is the better information architecture
- * anyway: they are things you go and do, not places you live.
+ * The web puts its sections in a scrolling tab strip. A dock holds four, and
+ * most of the rest are Premium — so a free user would have been staring at a
+ * dock that was half locked. The Premium modules (Interviews, Social skills,
+ * Felix writes it, My material) become cards here instead, which is the
+ * better information architecture anyway: they are things you go and do, not
+ * places you live.
  *
  * Native only. The web keeps its sub-nav.
  */
@@ -44,6 +45,17 @@ const SECTIONS: Section[] = [
     ),
   },
   {
+    href: "/social",
+    label: "Social skills",
+    blurb: "Small talk, saying no, saying sorry",
+    glyph: (
+      <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
+        <path d="M3.5 4.5h11v7.5H8.5l-5 3.5z" />
+        <path d="M21 10h-6v6.5h2.5l3.5 3z" />
+      </svg>
+    ),
+  },
+  {
     href: "/custom",
     label: "Felix writes it",
     blurb: "Give him the situation, get the script",
@@ -69,13 +81,13 @@ const SECTIONS: Section[] = [
 
 export function NativeSections() {
   const native = useIsNative();
-  const { isPremium } = usePlan();
+  const { plan } = usePlan();
   if (!native) return null;
 
   return (
     <section className="mt-10">
       <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
-        More ways to practise
+        More ways to practice
       </h2>
       <div className="mt-3 flex flex-col gap-2.5">
         {SECTIONS.map((s) => (
@@ -92,7 +104,7 @@ export function NativeSections() {
                 <span className="font-headline text-[15px] font-semibold text-primary">
                   {s.label}
                 </span>
-                {!isPremium && (
+                {plan === "free" && (
                   <span
                     aria-label="Premium"
                     title="Premium"

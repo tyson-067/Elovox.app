@@ -57,8 +57,9 @@ export async function POST(req: NextRequest) {
   }
 
   let cycle: BillingCycle;
+  let skipTrial: unknown;
   try {
-    ({ cycle } = await req.json());
+    ({ cycle, skipTrial } = await req.json());
   } catch {
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
@@ -173,8 +174,10 @@ export async function POST(req: NextRequest) {
     // trial_start is set by Stripe on any subscription that opened with a
     // trial, and it survives cancellation, which is exactly the history we
     // need. A returning customer subscribes at full price from day one.
+    // `skipTrial` is the user's own opt-out from the pricing page: they'd
+    // rather be billed today than remember a conversion date.
     const hadTrial = existing.data.some((s) => s.trial_start != null);
-    const grantTrial = plan.trialDays > 0 && !hadTrial;
+    const grantTrial = plan.trialDays > 0 && !hadTrial && skipTrial !== true;
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -195,7 +198,7 @@ export async function POST(req: NextRequest) {
       allow_promotion_codes: true,
       // The webhook is the source of truth; these just route the browser back.
       success_url: `${appBaseUrl(req)}/account?checkout=success`,
-      cancel_url: `${appBaseUrl(req)}/pricing?checkout=cancelled`,
+      cancel_url: `${appBaseUrl(req)}/pricing?checkout=canceled`,
     });
 
     return NextResponse.json({ url: session.url });

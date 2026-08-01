@@ -5,6 +5,7 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { Reveal } from "@/components/Reveal";
 import { WordReveal } from "@/components/WordReveal";
 import { GlowCard } from "@/components/GlowCard";
+import { InfoTip } from "@/components/InfoTip";
 import { PremiumBadge } from "@/components/PremiumBadge";
 import { Felix } from "@/components/FoxLogo";
 import { INTERVIEW_TYPES } from "@/lib/interviews";
@@ -25,15 +26,16 @@ function InterviewsScreen() {
           <h1 className="native-hide text-title font-headline font-semibold text-primary">
             <WordReveal text="Interview practice" delay={80} step={60} />
           </h1>
-          {!isPremium && <PremiumBadge />}
+          {plan === "free" && <PremiumBadge />}
+          <InfoTip label="How does interview practice work?">
+            Every type has its own question bank. Felix asks one, you answer
+            out loud, and he scores it the way that room would — a hiring panel
+            and an admissions officer want different things.
+          </InfoTip>
         </div>
         <p className="mt-3 text-lg leading-7 text-on-surface-variant max-w-[58ch]">
-          Real questions, asked the way real panels ask them, including the
-          follow-ups people fumble. Pick the room you&apos;re walking into and
-          Felix will judge the answer the way that panel would. Once
-          you&apos;re in you can write your own question, or describe the
-          interview you actually have coming up and let Felix write the whole
-          set for it.
+          Pick the room you&apos;re walking into. Felix asks real questions and
+          judges your answer the way that panel would.
         </p>
       </Reveal>
 
@@ -49,12 +51,9 @@ function InterviewsScreen() {
                   <span className="mt-1.5 block text-base leading-6 text-on-surface-variant">
                     {t.description}
                   </span>
-                  <span className="mt-3 inline-block text-[13px] font-semibold text-accent">
-                    {t.questions.length} questions →
-                  </span>
                 </Link>
               </GlowCard>
-            ) : (
+            ) : plan === "free" ? (
               <div className="card h-full p-5 opacity-70">
                 <div className="flex items-start justify-between gap-2">
                   <span className="font-headline text-xl font-medium text-primary block">
@@ -66,7 +65,19 @@ function InterviewsScreen() {
                   {t.description}
                 </span>
                 <span className="mt-3 inline-block text-[13px] font-semibold text-on-surface-variant">
-                  {t.questions.length} questions · unlocks with Premium
+                  Unlocks with Premium
+                </span>
+              </div>
+            ) : (
+              // plan === null: still loading. Render a neutral card, no lock and
+              // no badge, so a premium subscriber never sees a flash of the
+              // paywalled state before their plan resolves.
+              <div className="card h-full p-5">
+                <span className="font-headline text-xl font-medium text-primary block">
+                  {t.name}
+                </span>
+                <span className="mt-1.5 block text-base leading-6 text-on-surface-variant">
+                  {t.description}
                 </span>
               </div>
             )}
@@ -78,7 +89,7 @@ function InterviewsScreen() {
         <Reveal>
           <div className="card mt-10 p-6 navy-gradient border-none! text-white">
             <h2 className="font-headline text-2xl font-semibold">
-              Practising for something specific?
+              Practicing for something specific?
             </h2>
             <p className="mt-2 text-base leading-6 text-white/85 max-w-[56ch]">
               Premium adds interview practice by type, plus camera coaching:

@@ -7,8 +7,8 @@ import { usePlan } from "@/lib/plan";
 
 // Second row of the header: one tab per feature, so the app isn't a single
 // scrolling page any more. A persistent row rather than a dropdown, these
-// are the six things you can do, and hiding them behind a menu is how
-// people miss half of them.
+// are the things you can do, and hiding them behind a menu is how people
+// miss half of them.
 //
 // Only renders inside the app. Marketing and auth screens keep the plain
 // header, so nothing here leaks to signed-out visitors.
@@ -23,9 +23,12 @@ const ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Today" },
   { href: "/library", label: "Speech library", premium: true },
   { href: "/interviews", label: "Interviews", premium: true },
+  { href: "/social", label: "Social skills", premium: true },
   { href: "/custom", label: "Felix writes it", premium: true },
   { href: "/own", label: "My material", premium: true },
   { href: "/progress", label: "Progress" },
+  { href: "/leaderboard", label: "Leaderboard" },
+  { href: "/shop", label: "Shop" },
 ];
 
 /** Routes that are part of the app shell (everything else is marketing/auth). */
@@ -33,9 +36,12 @@ const APP_ROUTES = [
   "/dashboard",
   "/library",
   "/interviews",
+  "/social",
   "/custom",
   "/own",
   "/progress",
+  "/leaderboard",
+  "/shop",
   "/practice",
   "/report",
   "/account",

@@ -80,7 +80,7 @@ export async function analyzeRecording(opts: {
     body.message ??
       (retryable
         ? "Felix is busy right now. Your recording is safe. Try again in a moment."
-        : "Felix couldn't analyse that recording. Please try again."),
+        : "Felix couldn't analyze that recording. Please try again."),
     retryable
   );
 }

@@ -87,7 +87,7 @@ export function AuthNav() {
           href="/signup"
           className="btn rounded-full bg-primary text-on-primary px-4 py-1.5"
         >
-          Get started
+          Start free
         </Link>
       </>
     );

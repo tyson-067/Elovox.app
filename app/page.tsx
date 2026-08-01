@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { Felix, FoxDen, type FelixMood } from "@/components/FoxLogo";
+import { Felix, type FelixMood } from "@/components/FoxLogo";
 import { Reveal } from "@/components/Reveal";
 import { Parallax } from "@/components/Parallax";
 import { WordReveal } from "@/components/WordReveal";
-import { Tilt } from "@/components/Tilt";
 import { GlowCard } from "@/components/GlowCard";
 import { GOALS } from "@/lib/goals";
 import { LEVELS } from "@/lib/levels";
+import { TESTIMONIALS } from "@/lib/testimonials";
 import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
 import { NativeEntry } from "@/components/NativeEntry";
 
@@ -86,7 +86,7 @@ const APP_SCHEMA = {
       price: "11.99",
       priceCurrency: "USD",
       description:
-        "Unlimited practice, camera coaching, the full speech library, and interview practice.",
+        "Unlimited practice, camera coaching, the full speech library, interview practice, and social skills.",
     },
   ],
 };
@@ -95,6 +95,40 @@ const SITE_SCHEMA = {
   "@context": "https://schema.org",
   "@graph": [ORGANIZATION, WEBSITE, APP_SCHEMA],
 };
+
+// What a report actually contains. Every line here is a real thing the
+// pipeline produces — the six dimensions and the pause threshold are lifted
+// from app/api/analyze/route.ts. If the analysis changes, this changes.
+const REPORT = [
+  {
+    title: "Six scores, not one",
+    body: "Each one out of 100, and the overall is their average, so you can see which one is dragging the rest down.",
+  },
+  {
+    title: "Your own words, marked up",
+    body: "Felix marks the words to stress, the places to pause, and where to slow down, and says what each change does to the room.",
+  },
+  {
+    title: "The numbers you can't hear yourself",
+    body: "Words per minute, every filler counted, and every pause over 1.2 seconds with the spot it happened.",
+  },
+  {
+    title: "How you came across",
+    body: "Whether you sounded trusted or doubted, in charge or just presenting, and whether your ending lost energy.",
+  },
+];
+
+// The six dimensions Felix scores from the audio, named on the page so the
+// scoring isn't a black box before you sign up. Kept in step with
+// VOICE_DIMENSIONS in app/api/analyze/route.ts.
+const VOICE_DIMENSIONS = [
+  "Clarity",
+  "Confidence",
+  "Pacing",
+  "Vocal variety",
+  "Organization",
+  "Audience engagement",
+];
 
 const STEPS = [
   {
@@ -129,7 +163,7 @@ const STORY: { mood: FelixMood; title: string; body: string }[] = [
   },
   {
     mood: "coach",
-    title: "So he practised out loud",
+    title: "So he practiced out loud",
     body: "Every evening, one minute, in the den with the light on. Not reading. Speaking, badly at first, and listening back to it.",
   },
   {
@@ -144,53 +178,114 @@ const STORY: { mood: FelixMood; title: string; body: string }[] = [
   },
 ];
 
-const FEATURES: {
-  title: string;
-  body: string;
-  demo?: React.ReactNode;
-}[] = [
+// Who the app is for, directly below the hero. Each card names the modes
+// that serve that room, so the claim is checkable further down the page, and
+// links through to that audience's own page (/for/<slug>, lib/audiences.ts).
+const AUDIENCES: { who: string; body: string; via: string; href: string }[] = [
   {
-    title: "Voice feedback, not grammar feedback",
-    body: "Warmth, confidence, authority, enthusiasm, authenticity, plus pace, pitch variation, monotone stretches, fillers, and awkward pauses.",
+    who: "Job candidates",
+    body: "Walk in having already answered the hard questions out loud, with the hedges cut and the close rehearsed.",
+    via: "Interview practice · Camera coaching",
+    href: "/for/job-candidates",
   },
   {
-    title: "Delivery coaching on the words",
-    body: "Which words to emphasize, where to pause, where to slow down, where to change inflection, and why each change moves the audience.",
-    // Live sample of Felix's line-by-line marks: the underlines sweep
-    // across the words as the card scrolls into view.
-    demo: (
-      <p className="mt-3 text-base leading-7 text-on-surface rounded-lg bg-surface-container/60 px-4 py-3">
-        We{" "}
-        <span className="sweep sweep-strong" style={{ transitionDelay: "400ms" }}>
-          didn&apos;t just meet
-        </span>{" "}
-        the goal, we{" "}
-        <span className="sweep sweep-strong" style={{ transitionDelay: "700ms" }}>
-          doubled
-        </span>{" "}
-        it,{" "}
-        <span className="sweep sweep-flag" style={{ transitionDelay: "1000ms" }}>
-          um, basically
-        </span>{" "}
-        ahead of schedule.
-      </p>
+    who: "Students",
+    body: "Admissions interviews, scholarship panels, class presentations, without the shaky first minute.",
+    via: "College & scholarship interviews · The Daily Minute",
+    href: "/for/students",
+  },
+  {
+    who: "Founders",
+    body: "Pitch it until the nerves are gone and the ask is clean.",
+    via: "Your material · Custom speeches",
+    href: "/for/founders",
+  },
+];
+
+// One stroke style for every mode glyph, same vocabulary as the native
+// section cards.
+const stroke = {
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.6,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+};
+
+// The six ways to practice, one card each, outcome first. This replaced a
+// wall of feature paragraphs: the report section above already says what
+// comes back, so each mode only has to say what you'd use it for.
+const MODES: {
+  title: string;
+  body: string;
+  tag: "Free" | "Premium";
+  glyph: React.ReactNode;
+}[] = [
+  {
+    title: "The Daily Minute",
+    body: "A fresh topic every morning, one improvised minute, three tries to beat your own best.",
+    tag: "Free",
+    glyph: (
+      <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 7.5V12l3 2" />
+      </svg>
     ),
   },
   {
-    title: "Audience impact prediction",
-    body: "Felix predicts how listeners will perceive you: trusted or doubted, leader or presenter, and whether your ending loses energy.",
+    title: "Interview practice",
+    body: "Real panel questions: jobs, college admissions, scholarships, grad school, med and law.",
+    tag: "Premium",
+    glyph: (
+      <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
+        <path d="M4 5.5h16v10H9l-5 4z" />
+        <path d="M9 10h6" />
+      </svg>
+    ),
   },
   {
-    title: "Camera coaching, not just audio",
-    body: "Turn the camera on and Felix reads the other half of delivery: posture, sway, hand gestures, facial expression, eye contact, and what your body does during the pauses.",
+    title: "Social skills",
+    body: "Small talk, saying no, saying sorry. Practice for the speaking you do every day.",
+    tag: "Premium",
+    glyph: (
+      <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
+        <path d="M3.5 4.5h11v7.5H8.5l-5 3.5z" />
+        <path d="M21 10h-6v6.5h2.5l3.5 3z" />
+      </svg>
+    ),
   },
-  // "One speech a day, three attempts" used to sit here. It said the same
-  // thing as steps 01 and 02 above, on the same page, six hundred pixels
-  // apart. Repeating a feature doesn't reinforce it, it just makes the page
-  // feel like it's shouting.
   {
-    title: "Interviews that ask like the real thing",
-    body: "Jobs, college admissions, scholarships, grad school, med and law. Real questions, and the follow-ups that actually decide it.",
+    title: "Camera coaching",
+    body: "Posture, gestures, eye contact, sway. The half of delivery you can't hear.",
+    tag: "Premium",
+    glyph: (
+      <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
+        <rect x="3.5" y="6.5" width="12" height="11" rx="2" />
+        <path d="M15.5 10.5 20.5 8v8l-5-2.5" />
+      </svg>
+    ),
+  },
+  {
+    title: "The speech library",
+    body: "Nine short speeches for pace and emphasis, and you can swap any of them for a fresh one.",
+    tag: "Premium",
+    glyph: (
+      <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
+        <path d="M4 5.5c2.5-1.2 5-1.2 8 .5 3-1.7 5.5-1.7 8-.5V18c-2.5-1.2-5-1.2-8 .5-3-1.7-5.5-1.7-8-.5z" />
+        <path d="M12 6v12.5" />
+      </svg>
+    ),
+  },
+  {
+    title: "Your material",
+    body: "Rehearse the talk you already have, or give Felix the situation and perform the speech he writes.",
+    tag: "Premium",
+    glyph: (
+      <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
+        <path d="M5 4.5h8l6 6V19a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19z" />
+        <path d="M13 4.5v6h6" />
+      </svg>
+    ),
   },
 ];
 
@@ -216,7 +311,7 @@ export default function LandingPage() {
             a per-word headline reveal. Individually each is subtle; together
             they meant nothing on the page was ever still, which is what made
             a first visit feel busy. Two orbs at lower opacity keeps the depth
-            and the brand colour without the whole background breathing.
+            and the brand color without the whole background breathing.
             (Anyone with prefers-reduced-motion set already got none of it;
             see the media query in globals.css.) */}
         <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
@@ -232,6 +327,8 @@ export default function LandingPage() {
         </div>
 
         <div className="md:col-span-7">
+          {/* The hero mounts already in view, so it keeps the plain rise —
+              swipe direction only means something once the user is scrolling. */}
           <Reveal>
             {/* Names the product in plain text directly above the headline.
                 The <h1> is "Speak with impact.", a slogan that never says
@@ -242,77 +339,187 @@ export default function LandingPage() {
             <span className="inline-flex items-center gap-2 text-[13px] font-semibold tracking-[0.08em] uppercase text-violet">
               Elovox, your speaking practice partner
             </span>
+            {/* The slogan, single line: "Speak with" in the geometric sans,
+                "impact." in the calligraphic serif. The subline underneath
+                carries the concrete what-you-get answer. */}
             <h1 className="hero-slogan mt-4 font-headline font-bold text-primary whitespace-nowrap">
               <WordReveal text="Speak with" delay={100} className="slogan-sans" />
               <WordReveal text="impact." delay={280} className="slogan-serif text-gradient" />
             </h1>
+            {/* Says what the product does, in the first sentence, in nouns.
+                This used to be "tells you exactly how it landed on the
+                audience's ears", which signed-out visitors read as a slogan
+                and not as an answer to "what do I actually get?". */}
             <p className="mt-5 text-lg md:text-xl leading-8 text-on-surface-variant max-w-[52ch]">
-              Elovox listens while you practice out loud: a speech, a pitch, an
-              interview answer. Felix, your fox of a coach, tells you exactly
-              how it landed on the audience&apos;s ears.
+              Record a speech, a pitch or an interview answer. Elovox scores
+              it out of 100, marks the words to stress, and counts every
+              filler you didn&apos;t hear yourself say.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Link
                 href="/signup"
                 className="btn rounded-lg bg-accent text-white font-semibold text-base px-8 py-3.5"
               >
-                Get started free
+                Start free
               </Link>
-              <Link
-                href="/login"
+              {/* Low-commitment second step: scrolls to the report section
+                  rather than asking for an account. Log in lives in the
+                  header, it doesn't need a second seat here. */}
+              <a
+                href="#report"
                 className="text-base font-semibold text-primary underline underline-offset-4 decoration-primary/30 transition-colors hover:decoration-primary"
               >
-                Log in
-              </Link>
+                See a sample report
+              </a>
             </div>
           </Reveal>
         </div>
         <div className="md:col-span-5">
           <Reveal delay={150}>
-            <Parallax speed={0.08}>
-              <Tilt>
-                {/* Felix at home rather than Felix on a swatch. The den is a
-                    place, which gives the mascot somewhere to be and the
-                    story below somewhere to happen; he leans out of the
-                    doorway so the character still reads at small sizes. */}
-                <div className="relative">
-                  <FoxDen className="w-full rounded-card" />
-                  <Felix
-                    mood="cheer"
-                    animate
-                    className="absolute -bottom-6 -right-4 h-28 w-28 drop-shadow-[0_12px_24px_rgba(11,8,41,0.35)] md:h-32 md:w-32"
-                  />
+            {/* The signature piece: a report assembling itself over a take,
+                on the same dark stage the real recorder uses. Bars listen,
+                Felix's marks sweep onto the sentence, the note lands, the
+                score pops. It is the product doing its job in five seconds,
+                where the FoxDen postcard used to sit (the den still opens
+                Felix's story further down). All of it freezes at the final
+                frame under prefers-reduced-motion. */}
+            <div className="relative">
+              <div
+                className="demo-card pop-in rounded-card p-5 text-white dusk-gradient md:p-6"
+                style={{ animationDelay: "250ms" }}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2 text-[13px] font-semibold tracking-wide text-white/80">
+                    <span className="rec-dot h-2.5 w-2.5 rounded-full bg-accent" aria-hidden="true" />
+                    Recording
+                  </span>
+                  <span className="flex items-center gap-3">
+                    <span className="eq" aria-hidden="true">
+                      {[0, 1, 2, 3, 4].map((i) => (
+                        <span
+                          key={i}
+                          className="eq-bar"
+                          style={{ animationDelay: `${i * 130}ms` }}
+                        />
+                      ))}
+                    </span>
+                    <span className="font-data text-sm text-white/80">0:31</span>
+                  </span>
                 </div>
-              </Tilt>
-            </Parallax>
-            <p className="mt-8 text-base leading-6 text-on-surface-variant">
-              Meet <span className="font-semibold text-primary">Felix</span>,
-              the coach who hears you the way your audience does.
+                <p className="mt-4 text-lg leading-8 text-white/95">
+                  We{" "}
+                  <span className="sweep sweep-strong sweep-run" style={{ animationDelay: "1100ms" }}>
+                    didn&apos;t just meet
+                  </span>{" "}
+                  the goal, we{" "}
+                  <span className="sweep sweep-strong sweep-run" style={{ animationDelay: "1500ms" }}>
+                    doubled
+                  </span>{" "}
+                  it,{" "}
+                  <span className="sweep sweep-flag sweep-run" style={{ animationDelay: "1900ms" }}>
+                    um, basically
+                  </span>{" "}
+                  ahead of schedule.
+                </p>
+                <p
+                  className="pop-in mt-3 text-[15px] leading-6 text-white/75"
+                  style={{ animationDelay: "2400ms" }}
+                >
+                  Cut &ldquo;um, basically&rdquo; at 0:27, it undercuts the win
+                  right before it.
+                </p>
+                <div
+                  className="pop-in mt-4 flex flex-wrap items-center gap-2.5"
+                  style={{ animationDelay: "2900ms" }}
+                >
+                  <span className="rounded-full bg-white/15 px-3 py-1 text-[13px] font-semibold">
+                    <span className="font-data text-accent">86</span> / 100
+                  </span>
+                  <span className="text-[13px] font-semibold text-white/80">
+                    Strong close. Lose the hedge.
+                  </span>
+                </div>
+              </div>
+              <Felix
+                mood="listening"
+                animate
+                className="absolute -bottom-6 -right-3 h-24 w-24 drop-shadow-[0_12px_24px_rgba(11,8,41,0.35)] md:h-28 md:w-28"
+              />
+            </div>
+            <p className="mt-9 text-base leading-6 text-on-surface-variant">
+              <span className="font-semibold text-primary">Felix</span> hears
+              you the way your audience does.
             </p>
           </Reveal>
         </div>
       </section>
 
-      {/* Felix's story */}
+      {/* Who it's for. Directly under the hero so a stranger can find
+          themself on the page before a single feature is explained. */}
       <section className="mt-20 md:mt-28">
-        <Reveal>
+        <Reveal swipe>
           <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
-            How a nervous fox got his voice
+            Who it&apos;s for
             <span className="grow-line" aria-hidden="true" />
           </h2>
         </Reveal>
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-4">
-          {STORY.map((beat, i) => (
-            <Reveal key={beat.title} delay={i * 130} className="h-full">
-              <div className="card-warm flex h-full flex-col p-5 md:p-6">
-                <Felix mood={beat.mood} className="h-20 w-20" />
-                <h3 className="mt-3 font-headline text-lg font-semibold text-primary">
-                  {beat.title}
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+          {AUDIENCES.map((a, i) => (
+            <Reveal swipe key={a.who} delay={i * 120} className="h-full">
+              <GlowCard className="card h-full">
+                <Link href={a.href} className="block h-full p-5 md:p-6">
+                  <h3 className="font-headline text-xl font-semibold text-primary">
+                    {a.who}
+                  </h3>
+                  <p className="mt-1.5 text-base leading-6 text-on-surface-variant">
+                    {a.body}
+                  </p>
+                  <p className="mt-3 text-[13px] font-semibold tracking-wide text-violet">
+                    {a.via} <span aria-hidden="true">→</span>
+                  </p>
+                </Link>
+              </GlowCard>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* What you actually get. Right after who-it's-for, because the one
+          complaint from signed-out visitors was that the page was vague about
+          what the product does. Also the target of the hero's "See a sample
+          report" anchor, hence the id and the scroll margin for the sticky
+          header. */}
+      <section id="report" className="scroll-mt-24 mt-20 md:mt-28">
+        <Reveal swipe>
+          <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
+            What comes back
+            <span className="grow-line" aria-hidden="true" />
+          </h2>
+          <p className="mt-3 max-w-[56ch] text-lg leading-7 text-on-surface-variant">
+            Every recording gets the same report, and it takes about a minute
+            to arrive.
+          </p>
+        </Reveal>
+        <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
+          {REPORT.map((r, i) => (
+            <Reveal swipe key={r.title} delay={i * 110} className="h-full">
+              <GlowCard className="card h-full p-5 md:p-6">
+                <h3 className="font-headline text-xl font-semibold text-primary">
+                  {r.title}
                 </h3>
-                <p className="mt-1.5 text-[15px] leading-6 text-on-surface-variant">
-                  {beat.body}
+                <p className="mt-1.5 text-base leading-6 text-on-surface-variant">
+                  {r.body}
                 </p>
-              </div>
+              </GlowCard>
+            </Reveal>
+          ))}
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2.5">
+          {VOICE_DIMENSIONS.map((d, i) => (
+            <Reveal swipe key={d} delay={i * 60}>
+              <span className="pill inline-block rounded-full border border-primary/20 px-4 py-2 text-[15px] font-medium text-primary">
+                {d}
+              </span>
             </Reveal>
           ))}
         </div>
@@ -320,7 +527,7 @@ export default function LandingPage() {
 
       {/* How it works */}
       <section className="mt-20 md:mt-28">
-        <Reveal>
+        <Reveal swipe>
           <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
             How it works
             <span className="grow-line" aria-hidden="true" />
@@ -328,7 +535,7 @@ export default function LandingPage() {
         </Reveal>
         <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
           {STEPS.map((s, i) => (
-            <Reveal key={s.n} delay={i * 120} className="h-full">
+            <Reveal swipe key={s.n} delay={i * 120} className="h-full">
               <GlowCard className="card h-full p-5 md:p-6">
                 <span className="font-data text-sm text-violet">{s.n}</span>
                 <h3 className="mt-2 font-headline text-xl font-semibold text-primary">
@@ -345,7 +552,7 @@ export default function LandingPage() {
 
       {/* Goals */}
       <section className="mt-16 md:mt-20">
-        <Reveal>
+        <Reveal swipe>
           <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
             Tell Felix what you&apos;re going for
             <span className="grow-line" aria-hidden="true" />
@@ -357,7 +564,7 @@ export default function LandingPage() {
         </Reveal>
         <div className="mt-5 flex flex-wrap gap-2.5">
           {GOALS.map((g, i) => (
-            <Reveal key={g.id} delay={i * 60}>
+            <Reveal swipe key={g.id} delay={i * 60}>
               <span className="pill inline-block rounded-full border border-primary/20 text-primary text-[15px] font-medium px-4 py-2 hover:border-accent hover:text-accent">
                 {g.label}
               </span>
@@ -366,31 +573,67 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features */}
+      {/* The modes */}
       <section className="mt-16 md:mt-20">
-        <Reveal>
+        <Reveal swipe>
           <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
-            Why it stands out
+            Six ways to practice
             <span className="grow-line" aria-hidden="true" />
           </h2>
           <p className="mt-3 text-lg leading-7 text-on-surface-variant max-w-[58ch]">
-            Most speaking apps count your filler words and stop. Elovox coaches
-            emotional perception and audience response: how you make people
-            feel, and what they&apos;ll do about it.
+            Most speaking apps count your filler words and stop. Every mode
+            here ends in the same honest report: how you made the room feel,
+            and what to change.
           </p>
         </Reveal>
         <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
-          {FEATURES.map((f, i) => (
-            <Reveal key={f.title} delay={i * 120} className="h-full">
+          {MODES.map((m, i) => (
+            <Reveal swipe key={m.title} delay={i * 100} className="h-full">
               <GlowCard className="card h-full p-5 md:p-6">
-                <h3 className="font-headline text-xl font-semibold text-primary">
-                  {f.title}
+                <div className="flex items-start justify-between gap-2">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-container text-primary">
+                    {m.glyph}
+                  </span>
+                  <span
+                    className={`text-[11px] font-semibold uppercase tracking-[0.08em] ${
+                      m.tag === "Free" ? "text-accent" : "text-violet"
+                    }`}
+                  >
+                    {m.tag}
+                  </span>
+                </div>
+                <h3 className="mt-3 font-headline text-xl font-semibold text-primary">
+                  {m.title}
                 </h3>
                 <p className="mt-1.5 text-base leading-6 text-on-surface-variant">
-                  {f.body}
+                  {m.body}
                 </p>
-                {f.demo}
               </GlowCard>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* Felix's story. Below the product, not above it. */}
+      <section className="mt-16 md:mt-20">
+        <Reveal swipe>
+          <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
+            How a nervous fox got his voice
+            <span className="grow-line" aria-hidden="true" />
+          </h2>
+        </Reveal>
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-4">
+          {STORY.map((beat, i) => (
+            <Reveal swipe key={beat.title} delay={i * 130} className="h-full">
+              <div className="card-warm flex h-full flex-col p-5 md:p-6">
+                <Felix mood={beat.mood} className="h-20 w-20" />
+                <h3 className="mt-3 font-headline text-lg font-semibold text-primary">
+                  {beat.title}
+                </h3>
+                <p className="mt-1.5 text-[15px] leading-6 text-on-surface-variant">
+                  {beat.body}
+                </p>
+              </div>
             </Reveal>
           ))}
         </div>
@@ -398,7 +641,7 @@ export default function LandingPage() {
 
       {/* Levels */}
       <section className="mt-16 md:mt-20">
-        <Reveal>
+        <Reveal swipe>
           <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
             Twelve levels, earned out loud
             <span className="grow-line" aria-hidden="true" />
@@ -410,7 +653,7 @@ export default function LandingPage() {
         </Reveal>
         <div className="mt-5 flex flex-wrap gap-2.5">
           {LEVELS.map((l, i) => (
-            <Reveal key={l.level} delay={i * 40}>
+            <Reveal swipe key={l.level} delay={i * 40}>
               <span className="pill inline-flex items-center gap-2 rounded-full border border-primary/20 px-4 py-2 text-[15px] hover:border-violet">
                 <span className="font-data text-[13px] text-violet">{l.level}</span>
                 <span className="font-medium text-primary">{l.title}</span>
@@ -420,16 +663,51 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* What people say. Hidden entirely until there is something real to
+          put here — an empty "Loved by speakers everywhere" heading over
+          nothing is worse than no section at all. Add quotes in
+          lib/testimonials.ts and this appears on its own.
+
+          Deliberately NOT emitted as schema.org Review/aggregateRating: that
+          markup is for ratings collected on the site, and inventing one to
+          win stars in search results is exactly the kind of thing Google
+          hands out manual actions for. */}
+      {TESTIMONIALS.length > 0 && (
+        <section className="mt-16 md:mt-20">
+          <Reveal swipe>
+            <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+              What people say
+              <span className="grow-line" aria-hidden="true" />
+            </h2>
+          </Reveal>
+          <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
+            {TESTIMONIALS.map((t, i) => (
+              <Reveal swipe key={t.name + i} delay={i * 110} className="h-full">
+                <GlowCard className="card flex h-full flex-col p-5 md:p-6">
+                  <blockquote className="font-headline text-lg leading-7 text-primary">
+                    &ldquo;{t.quote}&rdquo;
+                  </blockquote>
+                  <p className="mt-3 text-[15px] text-on-surface-variant">
+                    <span className="font-semibold text-primary">{t.name}</span>
+                    {t.context && <span> · {t.context}</span>}
+                  </p>
+                </GlowCard>
+              </Reveal>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Pricing */}
       <section className="mt-16 md:mt-20">
-        <Reveal>
+        <Reveal swipe>
           <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
             Pricing
             <span className="grow-line" aria-hidden="true" />
           </h2>
         </Reveal>
         <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-          <Reveal className="h-full">
+          <Reveal swipe className="h-full">
             <GlowCard className="card h-full p-6">
               <h3 className="font-headline text-2xl font-semibold text-primary">
                 Free
@@ -452,7 +730,7 @@ export default function LandingPage() {
               </Link>
             </GlowCard>
           </Reveal>
-          <Reveal delay={120} className="h-full">
+          <Reveal swipe delay={120} className="h-full">
             <GlowCard className="card card-glow-light h-full p-6 navy-gradient border-none! text-white">
               <h3 className="font-headline text-2xl font-semibold">Premium</h3>
               <p className="mt-1 font-data text-sm text-white/70">
@@ -468,7 +746,7 @@ export default function LandingPage() {
                   <span className="font-semibold">Camera coaching</span>: posture,
                   sway, gestures, eye contact, expression
                 </li>
-                <li>The nine-speech library, plus interview practice by type</li>
+                <li>The nine-speech library, plus interview and social skills practice</li>
                 <li>
                   Coaching on your own material, and custom speeches Felix
                   writes for your actual situation
@@ -493,7 +771,7 @@ export default function LandingPage() {
             <div className="orb-float h-36 w-36 rounded-full bg-orange/15 blur-xl" />
           </Parallax>
         </div>
-        <Reveal>
+        <Reveal swipe>
           <Felix mood="cheer" animate className="mb-4 h-24 w-24" />
           <h2 className="text-display-sm font-headline font-bold text-primary">
             <WordReveal text="The room goes quiet." step={90} />

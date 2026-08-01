@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Felix } from "@/components/FoxLogo";
 
-// What the user sees while a finished take is being analysed.
+// What the user sees while a finished take is being analyzed.
 //
 // This replaced a single pulsing line of text. Analysis genuinely takes a
 // while (the upload, then transcription, then the model), and one unchanging
@@ -54,7 +54,7 @@ export function AnalyzingLoader({ withVideo = false }: { withVideo?: boolean }) 
   const label = (withVideo && current.videoLabel) || current.label;
 
   return (
-    // Sits on the dark stage panel (bg-oxford), so every colour here is a
+    // Sits on the dark stage panel (bg-oxford), so every color here is a
     // light-on-dark one, and it covers the frozen waveform (or the last
     // camera frame) still sitting underneath rather than competing with it.
     <div

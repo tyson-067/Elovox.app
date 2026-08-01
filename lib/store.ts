@@ -27,7 +27,7 @@ function localList(): Session[] {
  * never gets any bigger. Each session carries a full analysis, so a regular
  * user WILL reach the quota — and an unguarded write throws
  * QuotaExceededError right out of saveSession, surfacing as "something went
- * wrong saving that" on a take that recorded and analysed perfectly.
+ * wrong saving that" on a take that recorded and analyzed perfectly.
  *
  * So: on a full store, drop the oldest sessions and keep the new one. Losing
  * the tail of a local history beats losing the rep just finished, and anyone

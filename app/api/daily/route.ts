@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateJson, geminiKey } from "@/lib/gemini";
 import { makeRateLimiter, clientIp } from "@/lib/verify";
+import { getAdminDb } from "@/lib/firebaseAdmin";
 
 // Writes the improv challenge of the day. Called once per day by whichever
-// client opens the app first; that client publishes the result to Firestore
-// so everybody else reads the shared copy. Nobody has to press anything.
+// client opens the app first; the SERVER publishes the result to Firestore
+// (via the Admin SDK) so everybody else reads the shared copy. Nobody has to
+// press anything, and no client can write the shared doc — that would let any
+// signed-in account seed every future day with arbitrary content that rules
+// then made permanent (firestore.rules denies all client writes here).
 //
 // The challenge is a topic plus three talking points, NOT a script to read.
 // The speaker improvises about a minute off the cuff, hitting the three
 // points in their own words. That trains the thing reading a speech aloud
-// can't: thinking on your feet, organising thoughts, and cutting filler.
+// can't: thinking on your feet, organizing thoughts, and cutting filler.
 //
 // Variety without memory: the theme, audience, and register are picked
 // from the date itself using coprime strides through each list, so
@@ -113,7 +117,7 @@ const SCHEMA = {
 
 const SYSTEM = `You are Felix, the fox coach inside Elovox, writing today's IMPROV challenge. Every user gets the same topic and the same three talking points, and speaks for about a minute off the cuff, in their own words, with no script. Three attempts, trying to beat their own score.
 
-The whole point is to train what reading a speech aloud cannot: thinking on your feet, organising thoughts in real time, and cutting filler. So you are NOT writing a speech, you are setting up a prompt they improvise around.
+The whole point is to train what reading a speech aloud cannot: thinking on your feet, organizing thoughts in real time, and cutting filler. So you are NOT writing a speech, you are setting up a prompt they improvise around.
 
 What makes a good one:
 - A topic an everyday person can have an opinion on immediately, with no research or expertise. Relatable, a little provocative, easy to feel something about.
@@ -235,9 +239,42 @@ function fallbackFor(date: string): DailyChallenge {
   return { date, ...pick, generated: false };
 }
 
+/**
+ * Publish the shared challenge doc for a date, create-only. `create()` fails
+ * with ALREADY_EXISTS (code 6) once a day has been published, which we
+ * swallow: the first writer's copy stays, matching the "a day can't be
+ * rewritten" rule. Admin SDK bypasses firestore.rules, so this is the only
+ * writer now that clients are read-only on dailyChallenges.
+ */
+async function publishChallenge(challenge: DailyChallenge): Promise<void> {
+  const db = getAdminDb();
+  if (!db) return; // no service account (local dev): client-read path still works
+  try {
+    await db.doc(`dailyChallenges/${challenge.date}`).create(challenge);
+  } catch (err) {
+    if ((err as { code?: number })?.code !== 6) {
+      console.error("[daily] publish failed:", err);
+    }
+  }
+}
+
 export async function GET(req: NextRequest) {
   const date = req.nextUrl.searchParams.get("date") ?? "";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return NextResponse.json({ error: "bad date" }, { status: 400 });
+  }
+
+  // Bound the date to within one UTC day of now. The route is unauthenticated
+  // and each novel date past the memo forces a paid Gemini generation, so
+  // without this an attacker cycling "0001-01-01".."9999-12-31" gets a new
+  // generation per request (and the memo Map grows unbounded). Honest clients
+  // only ever ask for their local today, always within +/-1 day of server
+  // UTC (see todayKey). Reject rather than clamp: a returned date that
+  // differs from the query param would desync the client's date-keyed cache.
+  const today = new Date().toISOString().slice(0, 10);
+  const drift =
+    Date.parse(`${date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`);
+  if (Number.isNaN(drift) || Math.abs(drift) > 86_400_000) {
     return NextResponse.json({ error: "bad date" }, { status: 400 });
   }
 
@@ -285,6 +322,12 @@ Write today's one-minute speech.`,
 
     const challenge: DailyChallenge = { date, theme, ...result, generated: true };
     memo.set(date, challenge);
+    // Publish the shared copy server-side, create-only so the first
+    // generation of the day wins and is never rewritten (the old semantics,
+    // now enforced by the Admin SDK instead of trusting the client). A blip
+    // here is harmless: the client still gets its copy, and the next request
+    // republishes. Never publish a fallback (generated === false).
+    await publishChallenge(challenge);
     return NextResponse.json(challenge);
   } catch (err) {
     // Deliberately not memoized: the next request should retry generation

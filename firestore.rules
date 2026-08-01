@@ -5,9 +5,26 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == uid;
     }
 
-    // Each user can only touch their own sessions.
+    // Each user can only touch their own sessions. Reads and deletes are
+    // unconditional for the owner; creates/updates carry light field-integrity
+    // checks so a scripted client can't poison the fields the operator
+    // dashboard trusts (a non-numeric or out-of-range `overall`, or a
+    // future-dated `createdAt`, would corrupt the aggregate stats query). The
+    // checks are deliberately tolerant of the Analysis schema growing — they
+    // only constrain the handful of fields that are actually read in bulk.
     match /users/{uid}/sessions/{sessionId} {
-      allow read, write: if isOwner(uid);
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid)
+        && request.resource.data.createdAt is number
+        && request.resource.data.createdAt > 0
+        && request.resource.data.createdAt <= request.time.toMillis() + 5 * 60 * 1000
+        && request.resource.data.analysis is map
+        && (!('overall' in request.resource.data.analysis)
+            || (request.resource.data.analysis.overall is number
+                && request.resource.data.analysis.overall >= 0
+                && request.resource.data.analysis.overall <= 100))
+        && (!('withVideo' in request.resource.data)
+            || request.resource.data.withVideo is bool);
     }
 
     // Daily-challenge attempts: three per day, per user, for EVERYONE. The
@@ -54,14 +71,60 @@ service cloud.firestore {
       allow write: if isOwner(uid) && docId != "plan";
     }
 
-    // The speech of the day is shared by everybody. Any signed-in user may
-    // publish the day that is missing, but nobody may rewrite or delete a
-    // day that already exists — otherwise one user could swap the speech
-    // out from under everyone mid-day, or wipe scores' comparability.
+    // Server-authoritative XP (users/{uid}/score/progress). Same shape as the
+    // usage meter above and for the same reason: this is the number that
+    // ranks people against each other, so it is written ONLY by the Admin SDK
+    // inside /api/analyze, at the moment a real score exists.
+    //
+    // Note this is a DIFFERENT doc from users/{uid}/profile/stats, which the
+    // owner can still write and which drives their own progress bar. That one
+    // is a UI mirror. This one is the record. Never rank anything on the
+    // mirror — see the header of lib/leaderboardServer.ts.
+    match /users/{uid}/score/{docId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    // Who this user is friends with. Server-written only, because the whole
+    // point of a friends board is that you can't add yourself to someone
+    // else's. The referral flow is the only thing that creates these.
+    match /users/{uid}/friends/{friendUid} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    // The public leaderboard row: handle, XP, level, streak. Readable by any
+    // signed-in user — that is what a leaderboard is — and writable by none of
+    // them. Even the handle goes through /api/leaderboard/handle so it can be
+    // validated before strangers see it.
+    //
+    // Deliberately does NOT contain the signup name. That is a real legal
+    // name, often a minor's, and it never leaves the account it belongs to.
+    match /leaderboard/{uid} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Invite codes (invites/{code} → the uid that owns it). Deny-all, both
+    // ways, and stated explicitly rather than left to the catch-all at the
+    // bottom because the reason matters: a readable code→uid map would let
+    // anyone walk the collection and tie every invite link that has ever been
+    // shared back to an account. Redemption goes through
+    // /api/leaderboard/referral, which reads it with the Admin SDK.
+    match /invites/{code} {
+      allow read, write: if false;
+    }
+
+    // The speech of the day is shared by everybody, and is now written ONLY
+    // by the server (Admin SDK, in /api/daily), which bypasses these rules.
+    // Clients may read but never write: the old `create: if request.auth`
+    // let any signed-in account seed every future date with arbitrary
+    // content that `update/delete: if false` then made permanent, poisoning
+    // the shared home screen for the whole userbase with no way to correct
+    // it from a client. Integrity no longer depends on any client.
     match /dailyChallenges/{date} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update, delete: if false;
+      allow write: if false;
     }
 
     // Everything else is locked down.

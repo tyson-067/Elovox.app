@@ -1,0 +1,102 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
+import { isAdmin, makeRateLimiter, clientIp } from "@/lib/verify";
+
+// The user list behind /admin: who has an account, who is Premium, and on
+// what terms. Exists so the team can see name/email/plan without anyone
+// needing access to the Firebase console or Stripe dashboard.
+//
+// Same access story as /api/admin/stats: the ADMIN_EMAILS allow-list, a flat
+// 404 for everyone else so the endpoint's existence isn't advertised, and
+// nothing served at all without the Admin SDK. This returns personal data
+// (names, emails), which is why it 404s rather than 403s and why the
+// response is marked private, no-store for proxies.
+//
+// SCALE NOTE: reads every auth record and every plan doc per request, which
+// is fine at launch scale and cached for a minute in the browser. Past a few
+// thousand accounts, serve auth.listUsers pages instead of the whole list.
+
+export const runtime = "nodejs";
+
+const rateLimited = makeRateLimiter(30);
+
+interface Row {
+  uid: string;
+  name: string | null;
+  email: string | null;
+  verified: boolean;
+  createdAt: number | null;
+  premium: boolean;
+  /** What grants the entitlement: a Stripe subscription, or the 21-day
+   *  streak comp window. Null for free accounts. */
+  source: "paid" | "comp" | null;
+  status: string | null; // webhook-written: trialing / active / past_due / canceled / none
+  cycle: string | null; // weekly / monthly / annual
+  canceling: boolean; // cancelAtPeriodEnd: still premium, ending at period end
+  premiumUntil: number | null; // comp window end, only when source === "comp"
+}
+
+export async function GET(req: NextRequest) {
+  const app = getAdminApp();
+  const db = getAdminDb();
+  if (!app || !db) {
+    return NextResponse.json({ error: "Not available." }, { status: 503 });
+  }
+  if (rateLimited(clientIp(req))) {
+    return NextResponse.json({ error: "Slow down." }, { status: 429 });
+  }
+  if (!(await isAdmin(req))) {
+    return new NextResponse("Not found", { status: 404 });
+  }
+
+  const now = Date.now();
+
+  // Plan docs first: one collection-group scan into a uid-keyed map beats a
+  // document read per user. Same trick as /api/admin/stats.
+  const plans = new Map<string, Record<string, unknown>>();
+  const profile = await db.collectionGroup("profile").get();
+  for (const doc of profile.docs) {
+    if (doc.id !== "plan") continue;
+    const uid = doc.ref.parent.parent?.id;
+    if (uid) plans.set(uid, doc.data());
+  }
+
+  const { getAuth } = await import("firebase-admin/auth");
+  const auth = getAuth(app);
+
+  const rows: Row[] = [];
+  let pageToken: string | undefined;
+  do {
+    const page = await auth.listUsers(1000, pageToken);
+    for (const u of page.users) {
+      const p = plans.get(u.uid);
+      const paid = p?.plan === "premium";
+      const premiumUntil =
+        typeof p?.premiumUntil === "number" ? p.premiumUntil : null;
+      const comp = !paid && premiumUntil !== null && premiumUntil > now;
+      rows.push({
+        uid: u.uid,
+        name: u.displayName ?? null,
+        email: u.email ?? null,
+        verified: u.emailVerified,
+        createdAt: u.metadata.creationTime
+          ? Date.parse(u.metadata.creationTime)
+          : null,
+        premium: paid || comp,
+        source: paid ? "paid" : comp ? "comp" : null,
+        status: typeof p?.status === "string" ? p.status : null,
+        cycle: typeof p?.cycle === "string" ? p.cycle : null,
+        canceling: !!p?.cancelAtPeriodEnd,
+        premiumUntil: comp ? premiumUntil : null,
+      });
+    }
+    pageToken = page.pageToken;
+  } while (pageToken);
+
+  rows.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+
+  return NextResponse.json(
+    { generatedAt: now, users: rows },
+    { headers: { "cache-control": "private, max-age=60" } }
+  );
+}

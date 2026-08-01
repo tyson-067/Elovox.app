@@ -11,7 +11,16 @@ async function lookupUser(
   req: NextRequest
 ): Promise<{ uid: string; email: string; emailVerified: boolean } | null> {
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-  if (!apiKey) return { uid: "local-dev", email: "", emailVerified: true }; // Firebase not configured
+  // Firebase not configured: a `next dev` convenience so the app is usable
+  // without credentials. Gated on NODE_ENV so a misconfigured production or
+  // preview deploy (secrets present, NEXT_PUBLIC_ client vars missing) can
+  // never fall into this branch and serve the paid pipeline to anyone with
+  // no token at all. On Vercel, NODE_ENV is "production" for prod AND preview.
+  if (!apiKey) {
+    return process.env.NODE_ENV !== "production"
+      ? { uid: "local-dev", email: "", emailVerified: true }
+      : null;
+  }
   const token = req.headers.get("authorization")?.replace(/^Bearer /, "");
   if (!token) return null;
   const res = await fetch(
@@ -96,6 +105,16 @@ export async function verifyVerifiedUser(
 export type Entitlement = "premium" | "free" | "unknown";
 
 /**
+ * Whether a comped Premium window is still open. Accepts the raw value from
+ * either Firestore path — the Admin SDK hands back a number, the REST API a
+ * numeric string — and treats anything else as no grant at all.
+ */
+function isGrantOpen(raw: unknown, now: number = Date.now()): boolean {
+  const until = typeof raw === "string" ? Number(raw) : raw;
+  return typeof until === "number" && Number.isFinite(until) && until > now;
+}
+
+/**
  * Server-side entitlement check, for the routes where Premium costs real
  * money (the camera pass runs a second vision call).
  *
@@ -111,7 +130,11 @@ export async function isPremiumServer(
   uid: string
 ): Promise<Entitlement> {
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  if (!projectId) return "premium"; // Firebase not configured, local dev, don't block
+  // Firebase not configured: grant premium in local dev so every feature is
+  // explorable, but never on a real deploy. In production/preview a missing
+  // project id returns "unknown", which routes into the existing 503
+  // "couldn't check your subscription" path rather than handing out Premium.
+  if (!projectId) return process.env.NODE_ENV !== "production" ? "premium" : "unknown";
 
   const db = getAdminDb();
   if (db) {
@@ -119,7 +142,12 @@ export async function isPremiumServer(
       const snap = await db.doc(`users/${uid}/profile/plan`).get();
       // A missing doc is a real answer: this account has never subscribed.
       if (!snap.exists) return "free";
-      return snap.data()?.plan === "premium" ? "premium" : "free";
+      const data = snap.data();
+      if (data?.plan === "premium") return "premium";
+      // A comped week from a 21-day streak (lib/streakReward.ts) is real
+      // Premium for as long as it lasts, and it is NOT reflected in `plan` —
+      // that field mirrors Stripe and only the webhook writes it.
+      return isGrantOpen(data?.premiumUntil) ? "premium" : "free";
     } catch (err) {
       // Firestore unreachable, credential rejected. We know nothing.
       console.error("[entitlement] admin plan read failed", uid, err);
@@ -143,7 +171,12 @@ export async function isPremiumServer(
       return "unknown";
     }
     const data = await res.json();
-    return data.fields?.plan?.stringValue === "premium" ? "premium" : "free";
+    if (data.fields?.plan?.stringValue === "premium") return "premium";
+    // REST encodes numbers as integerValue (a string) or doubleValue.
+    const until = data.fields?.premiumUntil;
+    return isGrantOpen(until?.integerValue ?? until?.doubleValue)
+      ? "premium"
+      : "free";
   } catch (err) {
     console.error("[entitlement] REST plan read threw", uid, err);
     return "unknown";

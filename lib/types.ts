@@ -7,7 +7,8 @@ export type CategoryId =
   | "sales-pitch"
   | "prepared-speech"
   | "toast-tribute"
-  | "general-coaching";
+  | "general-coaching"
+  | "conversation";
 
 export interface Category {
   id: CategoryId;
@@ -85,12 +86,13 @@ export interface Goal {
   label: string; // "Make people trust me"
 }
 
-/** Where a rep came from, drives how it's labelled and scored in Progress. */
+/** Where a rep came from, drives how it's labeled and scored in Progress. */
 export type PracticeMode =
   | "daily" // the universal 1-minute challenge
   | "library" // the ~30s Premium speech bank
   | "own" // the user's own material
   | "interview" // interview practice
+  | "social" // social skills practice
   | "custom"; // a speech Felix wrote for this user
 
 export interface Session {
@@ -100,10 +102,11 @@ export interface Session {
   prompt: string;
   goal?: string; // goal label the speaker asked Felix to judge against
   speechId?: string; // set when practicing a library speech
-  speechTitle?: string;
+  speechTitle?: string; // library/custom/daily title, or the social skill name
   challengeDate?: string; // YYYY-MM-DD, set on daily-challenge reps
   attempt?: number; // 1-3, set on daily-challenge reps
   interviewType?: InterviewTypeId;
+  socialSkillId?: SocialSkillId;
   withVideo?: boolean; // camera was on (Premium)
   xpEarned?: number;
   createdAt: number; // epoch ms
@@ -124,4 +127,26 @@ export interface InterviewType {
   name: string;
   description: string;
   questions: string[];
+}
+
+export type SocialSkillId =
+  | "small-talk"
+  | "ending-conversations"
+  | "excusing-yourself"
+  | "boundaries"
+  | "disagreeing"
+  | "compliments"
+  | "awkward-silence"
+  | "joining-groups"
+  | "apologies"
+  | "declining-invitations"
+  | "asking-for-help"
+  | "receiving-criticism"
+  | "reconnecting";
+
+export interface SocialSkill {
+  id: SocialSkillId;
+  name: string;
+  description: string;
+  prompts: string[]; // concrete moments, spoken back to in the user's own words
 }

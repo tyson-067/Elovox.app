@@ -5,7 +5,7 @@ import { isAdmin, makeRateLimiter, clientIp } from "@/lib/verify";
 // Operator dashboard numbers, computed from data Elovox already stores, no
 // third-party analytics, no cookies, nothing that isn't already in Firestore
 // and Firebase Auth. Answers the questions Vercel Analytics can't: how many
-// accounts exist, how many convert to Premium, how many actually practise.
+// accounts exist, how many convert to Premium, how many actually practice.
 //
 // Access is the ADMIN_EMAILS allow-list (see isAdmin). Unauthorized callers
 // get a flat 404 rather than 403, so the endpoint's existence isn't
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
   let premium = 0;
   let trialing = 0;
   let activePaid = 0;
-  let cancelling = 0;
+  let canceling = 0;
   const byCycle: Record<string, number> = { weekly: 0, monthly: 0, annual: 0 };
   for (const doc of plans.docs) {
     if (doc.id !== "plan") continue;
@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
     premium++;
     if (d.status === "trialing") trialing++;
     if (d.status === "active") activePaid++;
-    if (d.cancelAtPeriodEnd) cancelling++;
+    if (d.cancelAtPeriodEnd) canceling++;
     if (typeof d.cycle === "string" && d.cycle in byCycle) byCycle[d.cycle]++;
   }
 
@@ -154,7 +154,7 @@ export async function GET(req: NextRequest) {
         premium,
         trialing,
         activePaid,
-        cancelling,
+        canceling,
         byCycle,
         conversionPct: pct(premium, total),
       },

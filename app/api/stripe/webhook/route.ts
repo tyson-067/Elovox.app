@@ -98,7 +98,13 @@ async function syncSubscription(
     const { getAuth } = await import("firebase-admin/auth");
     try {
       await getAuth(app).getUser(uid);
-    } catch {
+    } catch (err) {
+      // Only "user-not-found" means the account is really gone and this event
+      // should be skipped. A transient admin-auth failure must rethrow so
+      // POST's handler-error path releases the idempotency claim and returns
+      // 500 for Stripe to retry, rather than silently dropping a real
+      // subscription event and stranding a paying user without entitlement.
+      if ((err as { code?: string }).code !== "auth/user-not-found") throw err;
       console.log(`[stripe] skipping ${sub.id}, user ${uid} was deleted`);
       return;
     }
@@ -151,22 +157,48 @@ async function syncSubscription(
       // Cancel the leftovers, keeping the one entitlement is derived from.
       // Immediately, not at period end: the whole problem is a charge for
       // something already replaced, and letting it ride to the end of the
-      // period is another month of exactly the bug. Money already taken is a
-      // refund decision, which stays with a human in the Stripe dashboard —
-      // this only stops the bleeding.
+      // period is another month of exactly the bug.
+      //
+      // prorate + invoice_now: the unused time becomes a customer-balance
+      // credit that auto-applies to the surviving subscription's next
+      // invoice, rather than silently keeping the double-charged money (both
+      // subs share one Stripe customer, so the credit lands on the right
+      // account). A durable billingAlerts doc is written per canceled sub so
+      // the case is queryable from the admin side and any residual refund
+      // decision isn't lost in the logs. Keyed by the canceled sub id, so a
+      // webhook redelivery is idempotent.
       if (entitling.length > 1) {
         const superseded = entitling.filter((s) => s.id !== source.id);
         console.warn(
-          `[stripe] customer ${customerId} held ${entitling.length} live subscriptions; keeping ${source.id}, cancelling ${superseded.map((s) => s.id).join(", ")}`
+          `[stripe] customer ${customerId} held ${entitling.length} live subscriptions; keeping ${source.id}, canceling ${superseded.map((s) => s.id).join(", ")}`
         );
         for (const dupe of superseded) {
           try {
-            await stripe.subscriptions.cancel(dupe.id);
+            await stripe.subscriptions.cancel(dupe.id, {
+              prorate: true,
+              invoice_now: true,
+            });
           } catch (err) {
-            // Already gone, or cancelled by a concurrent delivery of this
+            // Already gone, or canceled by a concurrent delivery of this
             // same event. Not worth failing the webhook and replaying it —
             // the entitlement write below is the part that must land.
             console.error(`[stripe] couldn't cancel duplicate ${dupe.id}`, err);
+          }
+          try {
+            await db.doc(`billingAlerts/${dupe.id}`).set(
+              {
+                kind: "duplicate-subscription",
+                uid: uid ?? null,
+                customerId,
+                keptSubId: source.id,
+                canceledSubId: dupe.id,
+                at: Date.now(),
+                resolved: false,
+              },
+              { merge: true }
+            );
+          } catch (err) {
+            console.error(`[stripe] couldn't record billing alert for ${dupe.id}`, err);
           }
         }
       }
@@ -188,8 +220,8 @@ async function syncSubscription(
       currentPeriodEnd: ms(source.items.data[0]?.current_period_end) ?? null,
       // Two ways Stripe records "this is going to stop": the boolean, and an
       // explicit `cancel_at` timestamp, which is what the Customer Portal
-      // actually set when the first real subscriber cancelled, leaving the
-      // boolean false. Reading only the boolean told a cancelled user they
+      // actually set when the first real subscriber canceled, leaving the
+      // boolean false. Reading only the boolean told a canceled user they
       // were about to be billed.
       cancelAtPeriodEnd:
         (source.cancel_at_period_end ?? false) || source.cancel_at != null,
@@ -206,7 +238,8 @@ export async function POST(req: NextRequest) {
   const db = getAdminDb();
   // Trimmed: a value pasted into a dashboard field is the likeliest place for
   // stray whitespace, and it costs a redeploy to discover.
-  const secret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+  const rawSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const secret = rawSecret?.trim();
   if (!stripe || !db || !secret) {
     return NextResponse.json({ error: "Webhook not configured." }, { status: 503 });
   }
@@ -219,12 +252,20 @@ export async function POST(req: NextRequest) {
   try {
     event = stripe.webhooks.constructEvent(raw, sig, secret);
   } catch (err) {
-    // Shape, never content, enough to tell a stale secret from a
-    // whitespace-padded one without a redeploy to find out. Server log only:
-    // this endpoint is public, so returning it would hand any anonymous
-    // caller real characters of the signing secret.
+    // Shape and a hash, never the secret's own characters. This endpoint is
+    // public and unauthenticated before verification, so anyone can trigger
+    // this branch at will; logging real prefix/suffix characters of the
+    // signing secret would leak them to anyone with log access. len +
+    // hadWhitespace still catches a padded paste, and sha8 lets the operator
+    // compare against a hash of the dashboard value to spot a stale secret.
+    const { createHash } = await import("node:crypto");
     console.error(
-      `[stripe] bad signature, configured secret len=${secret.length} prefix=${secret.slice(0, 9)} suffix=${secret.slice(-4)}`,
+      `[stripe] bad signature, configured secret len=${secret.length} hasWhsecPrefix=${secret.startsWith(
+        "whsec_"
+      )} hadWhitespace=${rawSecret !== secret} sha8=${createHash("sha256")
+        .update(secret)
+        .digest("hex")
+        .slice(0, 8)}`,
       err
     );
     return NextResponse.json({ error: "Invalid signature." }, { status: 400 });

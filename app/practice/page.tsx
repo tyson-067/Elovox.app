@@ -9,6 +9,7 @@ import { AnalyzingLoader } from "@/components/AnalyzingLoader";
 import { getCategory, pickPrompt } from "@/lib/categories";
 import { getSpeech } from "@/lib/speeches";
 import { getInterviewType, pickInterviewQuestion } from "@/lib/interviews";
+import { getSocialSkill, pickSocialPrompt } from "@/lib/social";
 import { GOALS } from "@/lib/goals";
 import { usePlan } from "@/lib/plan";
 import { analyzeRecording, AnalysisError } from "@/lib/analyze";
@@ -33,7 +34,13 @@ import {
   stashInterviewBank,
 } from "@/lib/generated";
 import { sanitizeText } from "@/lib/validation";
-import type { CategoryId, GoalId, InterviewTypeId, PracticeMode } from "@/lib/types";
+import type {
+  CategoryId,
+  GoalId,
+  InterviewTypeId,
+  PracticeMode,
+  SocialSkillId,
+} from "@/lib/types";
 
 type RecState = "idle" | "recording" | "analyzing" | "error";
 
@@ -47,7 +54,7 @@ const FRAMES_PER_RECORDING = 10;
 // same exercise for everyone.
 const DAILY_LIMIT_SEC = 60;
 
-// Everything else is untimed: Premium users practise a talk for as long as
+// Everything else is untimed: Premium users practice a talk for as long as
 // the talk takes. This is only a runaway guard for a device left recording,
 // and it matches MAX_DURATION_SEC in /api/analyze so the client can never
 // produce a take the server would reject.
@@ -73,6 +80,7 @@ function formatTime(sec: number) {
  *   ?speech=<id>          a speech from the Premium library
  *   ?gen=<key>            a speech Felix just wrote (sessionStorage handoff)
  *   ?interview=<type>     interview practice
+ *   ?social=<skill>       social skills practice
  *   ?category=<id>        the user's own material
  */
 function RecordingScreen() {
@@ -83,6 +91,7 @@ function RecordingScreen() {
   const isDaily = params.get("daily") === "1";
   const speech = getSpeech(params.get("speech") ?? "");
   const interviewId = params.get("interview") as InterviewTypeId | null;
+  const socialId = params.get("social") as SocialSkillId | null;
   const genKey = params.get("gen");
 
   const mode: PracticeMode = isDaily
@@ -91,18 +100,22 @@ function RecordingScreen() {
       ? "library"
       : interviewId
         ? "interview"
-        : genKey
-          ? "custom"
-          : "own";
+        : socialId
+          ? "social"
+          : genKey
+            ? "custom"
+            : "own";
 
   // Analysis categories are coarser than practice modes, everything that
   // is "read this script aloud" scores as a prepared speech.
   const category: CategoryId =
     mode === "interview"
       ? "job-interview"
-      : mode === "own"
-        ? ((params.get("category") ?? "general-coaching") as CategoryId)
-        : "prepared-speech";
+      : mode === "social"
+        ? "conversation"
+        : mode === "own"
+          ? ((params.get("category") ?? "general-coaching") as CategoryId)
+          : "prepared-speech";
   const cat = getCategory(category);
 
   const [daily, setDaily] = useState<DailyChallenge | null>(null);
@@ -146,11 +159,15 @@ function RecordingScreen() {
     [interviewId]
   );
 
-  // Interview questions reroll on demand, so this is state rather than a memo.
+  // Interview questions and social moments reroll on demand, so this is
+  // state rather than a memo.
   const [question, setQuestion] = useState(() => {
-    if (!interviewId) return "";
-    if (storedBank) return storedBank.questions[0];
-    return pickInterviewQuestion(interviewId);
+    if (interviewId) {
+      if (storedBank) return storedBank.questions[0];
+      return pickInterviewQuestion(interviewId);
+    }
+    if (socialId) return pickSocialPrompt(socialId);
+    return "";
   });
 
   type Composer = null | "own" | "felix";
@@ -167,6 +184,10 @@ function RecordingScreen() {
 
   /** Next question, drawn from Felix's bank when there is one. */
   const rerollQuestion = useCallback(() => {
+    if (mode === "social" && socialId) {
+      setQuestion(pickSocialPrompt(socialId, question));
+      return;
+    }
     if (felixBank && felixBank.length > 0) {
       const pool = felixBank.filter((q) => q !== question);
       const next = (pool.length ? pool : felixBank)[
@@ -176,7 +197,7 @@ function RecordingScreen() {
       return;
     }
     if (interviewId) setQuestion(pickInterviewQuestion(interviewId, question));
-  }, [felixBank, question, interviewId]);
+  }, [felixBank, question, interviewId, mode, socialId]);
 
   const generateBank = useCallback(async () => {
     const clean = sanitizeText(situation).slice(0, SITUATION_MAX);
@@ -247,7 +268,7 @@ function RecordingScreen() {
       ? speech.text
       : generated
         ? generated.text
-        : mode === "interview"
+        : mode === "interview" || mode === "social"
           ? question
           : ownPrompt;
 
@@ -259,7 +280,9 @@ function RecordingScreen() {
         ? generated.title
         : mode === "interview"
           ? getInterviewType(interviewId!).name
-          : cat.name;
+          : mode === "social"
+            ? getSocialSkill(socialId!).name
+            : cat.name;
 
   const scenario = isDaily
     ? daily?.scenario
@@ -267,9 +290,10 @@ function RecordingScreen() {
       ? speech.scenario
       : generated?.scenario;
 
-  // Scripts are read verbatim; the Daily Minute, interview questions and
-  // open prompts are answered/improvised in the speaker's own words.
-  const isScript = mode !== "interview" && mode !== "own" && mode !== "daily";
+  // Scripts are read verbatim; the Daily Minute, interview questions, social
+  // moments and open prompts are answered/improvised in the speaker's own words.
+  const isScript =
+    mode !== "interview" && mode !== "social" && mode !== "own" && mode !== "daily";
 
   // The Daily Minute stops dead at sixty seconds. Everything else runs
   // until the speaker stops it, bounded only by the runaway guard.
@@ -408,6 +432,11 @@ function RecordingScreen() {
           ? { challengeDate: todayKey(), speechTitle: daily?.title, attempt: attemptNumber }
           : {}),
         ...(interviewId ? { interviewType: interviewId } : {}),
+        // The skill name doubles as the session title, so Progress reads
+        // "Setting boundaries", not the catch-all "Conversation" bucket.
+        ...(mode === "social" && socialId
+          ? { socialSkillId: socialId, speechTitle: getSocialSkill(socialId).name }
+          : {}),
         ...(frames?.length ? { withVideo: true } : {}),
         xpEarned,
         createdAt: Date.now(),
@@ -417,7 +446,7 @@ function RecordingScreen() {
 
       router.push(`/report/${id}`);
     },
-    [category, script, goal, speech, generated, daily, isDaily, interviewId, mode, router]
+    [category, script, goal, speech, generated, daily, isDaily, interviewId, socialId, mode, router]
   );
 
   // Runs analysis for a take and drives the UI: success → report; failure →
@@ -549,7 +578,7 @@ function RecordingScreen() {
       recorder.start(1000);
       // The cutoff. For the Daily Minute this IS the exercise ending at
       // sixty seconds; for every other mode it's just the runaway guard.
-      // Either way we stop cleanly and analyse what we have.
+      // Either way we stop cleanly and analyze what we have.
       maxStopRef.current = setTimeout(() => {
         if (recorderRef.current?.state === "recording") {
           cancelAnimationFrame(rafRef.current);
@@ -637,7 +666,7 @@ function RecordingScreen() {
         <p className="mt-3 text-lg leading-7 text-on-surface-variant">
           Your free practice is today&apos;s Daily Minute, three attempts to
           beat your own best. The speech library, your own material, interview
-          practice and camera coaching are part of Premium.
+          practice, social skills and camera coaching are part of Premium.
         </p>
         <div className="mt-8 flex flex-wrap gap-4">
           <Link
@@ -805,6 +834,19 @@ function RecordingScreen() {
             <p className="mt-3 text-base leading-6 text-accent max-w-[60ch]">
               Felix is watching for: {daily.focus}
             </p>
+          )}
+
+          {mode === "social" && (
+            <div className="mt-3">
+              <button
+                type="button"
+                disabled={locked}
+                onClick={rerollQuestion}
+                className="text-[13px] font-semibold text-accent underline underline-offset-4 disabled:opacity-50"
+              >
+                Give me a different one
+              </button>
+            </div>
           )}
 
           {mode === "interview" && (
@@ -983,20 +1025,35 @@ function RecordingScreen() {
             </div>
           </div>
 
-          {/* Camera: Premium. Body language is the other half of delivery. */}
+          {/* Camera: Premium. Body language is the other half of delivery.
+              Rendered as a labeled SWITCH, not a pill whose label changes:
+              "Practice with camera" as a button read like a separate mode you
+              enter, when it has always been an option on the same take. The
+              label stays put; only the switch moves. */}
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <button
               type="button"
+              role="switch"
+              aria-checked={videoOn}
               disabled={!isPremium || (state !== "idle" && state !== "error")}
               onClick={() => setVideoOn((v) => !v)}
-              aria-pressed={videoOn}
-              className={`pill rounded-full border px-4 py-2 text-[13px] font-semibold tracking-wide disabled:opacity-50 disabled:cursor-not-allowed ${
-                videoOn
-                  ? "border-violet bg-violet text-white"
-                  : "border-primary/20 text-primary hover:border-violet/60"
-              }`}
+              className="group flex items-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {videoOn ? "Camera on" : "Practice with camera"}
+              <span
+                aria-hidden="true"
+                className={`relative inline-block h-5 w-9 shrink-0 rounded-full transition-colors ${
+                  videoOn ? "bg-violet" : "bg-primary/20 group-hover:bg-primary/30"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                    videoOn ? "translate-x-[18px]" : "translate-x-0.5"
+                  }`}
+                />
+              </span>
+              <span className="text-[13px] font-semibold tracking-wide text-primary">
+                Practice with camera
+              </span>
             </button>
             {isPremium ? (
               <span className="text-[13px] text-on-surface-variant">
@@ -1107,7 +1164,7 @@ function RecordingScreen() {
             </span>
 
             {/* Felix, waiting on you. He steps aside while a take is being
-                analysed: AnalyzingLoader puts him inside the ring up on the
+                analyzed: AnalyzingLoader puts him inside the ring up on the
                 stage, and two of him on one screen is one too many. */}
             {!busy && (
               <Felix

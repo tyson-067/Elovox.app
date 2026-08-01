@@ -142,7 +142,7 @@ export interface Badge {
 }
 
 /**
- * The longest run of consecutive days this user has ever practised,
+ * The longest run of consecutive days this user has ever practiced,
  * reconstructed from the daily-challenge reps in their history.
  *
  * The badges below need this rather than `stats.streakDays`, which is the
@@ -234,7 +234,7 @@ export function badgesFor(opts: {
     {
       id: "three-day-fox",
       name: "Three-Day Fox",
-      hint: "Practise three days running",
+      hint: "Practice three days running",
       emoji: "🔥",
       earned: bestStreak >= 3,
     },
@@ -248,7 +248,7 @@ export function badgesFor(opts: {
     {
       id: "on-camera",
       name: "On Camera",
-      hint: "Practise once with the camera on",
+      hint: "Practice once with the camera on",
       emoji: "🎬",
       earned: withCamera,
     },
@@ -317,7 +317,7 @@ export function moodFor(opts: {
 
   if (used >= MAX_DAILY_ATTEMPTS || streak >= 3) return "cheer";
   if (used > 0) return "idle";
-  // Practised before, but not lately: the ears go down. Never shown to
+  // Practiced before, but not lately: the ears go down. Never shown to
   // someone brand new, who has done nothing wrong.
   if ((opts.stats?.challengesCompleted ?? 0) > 0 && streak === 0) return "sleepy";
   return "coach";

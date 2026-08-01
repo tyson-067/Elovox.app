@@ -8,18 +8,46 @@ import { PLANS, formatUSD, hasTrial } from "@/lib/pricing";
 // so the prices and trial lengths quoted here can never contradict what
 // checkout actually charges.
 
+const TITLE = "Terms of Service | Elovox";
+const DESCRIPTION =
+  "The agreement between you and Elovox: what the service does, how subscriptions and trials work, and the limits of AI coaching feedback.";
+
 export const metadata: Metadata = {
-  title: "Terms of Service | Elovox",
-  description:
-    "The agreement between you and Elovox: what the service does, how subscriptions and trials work, and the limits of AI coaching feedback.",
+  title: TITLE,
+  description: DESCRIPTION,
   alternates: { canonical: "/terms" },
 };
 
 const mailto = `mailto:${LEGAL.contactEmail}`;
 
+// Same literal the rest of the site's JSON-LD uses, so @id refs resolve to one
+// entity graph. lastUpdated is a human string; parse to ISO for dateModified.
+const SITE = "https://elovox.app";
+const modified = (() => {
+  const d = new Date(LEGAL.lastUpdated);
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString().slice(0, 10);
+})();
+
+const PAGE_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "@id": `${SITE}/terms#webpage`,
+  url: `${SITE}/terms`,
+  name: TITLE,
+  description: DESCRIPTION,
+  isPartOf: { "@id": `${SITE}/#website` },
+  publisher: { "@id": `${SITE}/#organization` },
+  ...(modified ? { dateModified: modified } : {}),
+};
+
 export default function TermsPage() {
   return (
-    <LegalDoc
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(PAGE_SCHEMA) }}
+      />
+      <LegalDoc
       title="Terms of Service"
       intro={`These terms are the agreement between you and ${LEGAL.entity} for the use of Elovox. By creating an account or using the service you accept them, so it's worth the five minutes it takes to read.`}
     >
@@ -262,5 +290,6 @@ export default function TermsPage() {
         </p>
       </Section>
     </LegalDoc>
+    </>
   );
 }

@@ -2,8 +2,9 @@
 //
 // Free accounts practice on the daily challenge (lib/daily.ts): one
 // AI-written 1-minute speech, three attempts, same for everybody. This
-// ~30-second bank, along with interview practice, coaching on your own
-// material, and Felix's custom-written speeches, is what Premium adds.
+// ~30-second bank, along with interview practice, social skills practice,
+// coaching on your own material, and Felix's custom-written speeches, is
+// what Premium adds.
 // Premium users can also replace any speech here with a freshly generated
 // one on a similar or a different topic (/api/speech).
 //

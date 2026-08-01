@@ -38,7 +38,7 @@ const SKILL_NOTES: Record<string, [string, string]> = {
     "The pace rushed when it mattered most. Slow down at the important part.",
   ],
   "Vocal variety": [
-    "Real colour in your voice, the energy moved with the words.",
+    "Real color in your voice, the energy moved with the words.",
     "It flattened out in the middle. Lean on the words that carry the point.",
   ],
   Organization: [
@@ -62,6 +62,8 @@ const OPENERS: Record<CategoryId, string> = {
     "I've known them long enough to have a lot of stories, and I promise I've picked the one that makes them look best.",
   "general-coaching":
     "Let me walk you through this from the beginning, because the context really matters for what I'm about to say.",
+  conversation:
+    "Hey, I know it's been ages, and that's mostly on me, but I was thinking about you this week and figured I'd just call.",
 };
 
 export function generateSampleAnalysis(opts: {

@@ -5,7 +5,7 @@ import { isFirebaseConfigured, getUser } from "@/lib/firebase";
 
 // Operator dashboard. Everything here comes from Elovox's own Firestore and
 // Firebase Auth records, the questions traffic analytics can't answer (who
-// signed up, who converted, who actually practises).
+// signed up, who converted, who actually practices).
 //
 // The real access control is server-side in /api/admin/stats, which 404s for
 // anyone outside ADMIN_EMAILS. This screen just renders whatever it gets, so
@@ -27,7 +27,7 @@ interface Stats {
     premium: number;
     trialing: number;
     activePaid: number;
-    cancelling: number;
+    canceling: number;
     byCycle: Record<string, number>;
     conversionPct: number;
   };
@@ -165,7 +165,7 @@ export function AdminStatsScreen() {
           hint={`${s.conversionPct}% of accounts`}
         />
         <Stat label="On trial" value={s.trialing} />
-        <Stat label="Paying" value={s.activePaid} hint={`${s.cancelling} cancelling`} />
+        <Stat label="Paying" value={s.activePaid} hint={`${s.canceling} canceling`} />
         <Stat
           label="By cycle"
           value={`${s.byCycle.weekly}/${s.byCycle.monthly}/${s.byCycle.annual}`}

@@ -2,11 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Reveal } from "@/components/Reveal";
 import { WordReveal } from "@/components/WordReveal";
 import { GlowCard } from "@/components/GlowCard";
+import { InfoTip } from "@/components/InfoTip";
 import { Felix } from "@/components/FoxLogo";
+import { Biome } from "@/components/Biome";
+import { BIOMES } from "@/lib/coins";
+import { fetchShopState, type ShopState } from "@/lib/shop";
 import { listSessions } from "@/lib/store";
 import { getCategory } from "@/lib/categories";
 import { getStats, MAX_DAILY_ATTEMPTS, type UserStats } from "@/lib/daily";
@@ -15,13 +20,16 @@ import { barClass } from "@/lib/scoring";
 import type { Session } from "@/lib/types";
 
 function TrendChart({ sessions }: { sessions: Session[] }) {
-  // Oldest → newest, left to right
-  const points = [...sessions].reverse().map((s) => s.analysis.overall);
+  const router = useRouter();
+  // Oldest → newest, left to right. Kept as sessions (not bare scores) so
+  // every dot knows which report it belongs to — clicking a point opens that
+  // session's detail.
+  const ordered = [...sessions].reverse();
+  if (ordered.length === 1) ordered.push(ordered[0]);
+  const points = ordered.map((s) => s.analysis.overall);
   const w = 720;
   const h = 200;
   const pad = 24;
-
-  if (points.length === 1) points.push(points[0]);
 
   const min = Math.max(0, Math.min(...points) - 10);
   const max = Math.min(100, Math.max(...points) + 10);
@@ -30,7 +38,12 @@ function TrendChart({ sessions }: { sessions: Session[] }) {
   const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(p)}`).join(" ");
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto" role="img" aria-label="Overall score across sessions">
+    <svg
+      viewBox={`0 0 ${w} ${h}`}
+      className="w-full h-auto"
+      role="img"
+      aria-label="Overall score across sessions. Each point opens that session's report."
+    >
       <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="#c6c6ce" strokeWidth="1" />
       {/* pathLength=1 normalizes the dash animation (.chart-draw) so the
           line draws itself in regardless of its real length */}
@@ -44,18 +57,36 @@ function TrendChart({ sessions }: { sessions: Session[] }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {points.map((p, i) => (
-        <circle
-          key={i}
-          cx={x(i)}
-          cy={y(p)}
-          r="4"
-          fill="#004e89"
-          className="chart-dot"
-          style={{
-            animationDelay: `${150 + (i / (points.length - 1)) * 1300}ms`,
+      {ordered.map((s, i) => (
+        // A group per point: the visible dot plus a larger invisible halo so
+        // the click target isn't a 4px circle. Keyboard reachable (Enter/Space)
+        // since SVG circles aren't naturally focusable.
+        <g
+          key={`${s.id}-${i}`}
+          role="link"
+          tabIndex={0}
+          aria-label={`Open the report for the session scored ${s.analysis.overall}`}
+          className="cursor-pointer focus:outline-none"
+          onClick={() => router.push(`/report/${s.id}`)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              router.push(`/report/${s.id}`);
+            }
           }}
-        />
+        >
+          <circle cx={x(i)} cy={y(s.analysis.overall)} r="12" fill="transparent" />
+          <circle
+            cx={x(i)}
+            cy={y(s.analysis.overall)}
+            r="4"
+            fill="#004e89"
+            className="chart-dot"
+            style={{
+              animationDelay: `${150 + (i / (points.length - 1)) * 1300}ms`,
+            }}
+          />
+        </g>
       ))}
       <text x={pad} y={y(points[0]) - 10} fontSize="12" fill="#45464d" fontFamily="var(--font-geist-mono)">
         {points[0]}
@@ -75,7 +106,16 @@ function TrendChart({ sessions }: { sessions: Session[] }) {
 }
 
 /** Level, XP, streak, the headline of the whole tab now. */
-function LevelPanel({ stats }: { stats: UserStats }) {
+function LevelPanel({
+  stats,
+  minutesPracticed,
+}: {
+  stats: UserStats;
+  /** Total minutes across EVERY practice mode, from the session log — not
+   *  just the Daily Minute. "Daily minutes" used to show the count of daily
+   *  challenges done under a label that read like practice time. */
+  minutesPracticed: number;
+}) {
   const { level } = stats;
   const nextTitle = LEVELS[level.level]?.title;
 
@@ -83,8 +123,18 @@ function LevelPanel({ stats }: { stats: UserStats }) {
     <GlowCard className="card navy-gradient border-none! p-6 md:p-8 text-white">
       <div className="flex flex-wrap items-end justify-between gap-6">
         <div>
-          <span className="text-[13px] font-semibold tracking-[0.06em] uppercase text-white/70">
-            Level {level.level}
+          {/* Sits with the eyebrow rather than in the card corner: the stat
+              row on the right is bottom-aligned, so a corner tip lands on
+              top of the numbers on narrow screens. */}
+          <span className="flex items-center gap-2">
+            <span className="text-[13px] font-semibold tracking-[0.06em] uppercase text-white/70">
+              Level {level.level}
+            </span>
+            <InfoTip label="Where do levels and XP come from?" tone="dark">
+              XP comes from finishing practice, and enough XP moves you up a
+              level. The streak counts days in a row where you practiced at
+              least once.
+            </InfoTip>
           </span>
           <div className="font-headline text-4xl font-semibold">{level.title}</div>
         </div>
@@ -94,8 +144,8 @@ function LevelPanel({ stats }: { stats: UserStats }) {
             <div className="text-[12px] text-white/70">day streak</div>
           </div>
           <div>
-            <div className="font-data text-2xl">{stats.challengesCompleted}</div>
-            <div className="text-[12px] text-white/70">daily minutes</div>
+            <div className="font-data text-2xl">{minutesPracticed}</div>
+            <div className="text-[12px] text-white/70">minutes practiced</div>
           </div>
           <div>
             <div className="font-data text-2xl">{level.xp}</div>
@@ -116,6 +166,76 @@ function LevelPanel({ stats }: { stats: UserStats }) {
           : `${level.xpForNextLevel} XP to Level ${level.level + 1}, ${nextTitle}`}
       </p>
     </GlowCard>
+  );
+}
+
+/**
+ * How much of Felix's world is theirs: which biomes are unlocked, which one
+ * he's in, and what the next one costs.
+ *
+ * On the progress page rather than only in the shop because this is the part
+ * of the collection that reads as a run rather than as a purchase — "three of
+ * five" belongs next to the streak and the level, which are the other two
+ * numbers that only move by practicing.
+ */
+function BiomeProgress({ shop }: { shop: ShopState | null }) {
+  if (!shop) return null;
+
+  const owned = BIOMES.filter((b) => shop.owned.includes(b.id));
+  // Cheapest first, so "next" is the one they can actually reach.
+  const next = BIOMES.filter((b) => !shop.owned.includes(b.id)).sort(
+    (a, b) => a.price - b.price
+  )[0];
+
+  return (
+    <div className="card p-5 md:p-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-[15px] text-on-surface">
+          <span className="font-semibold text-primary">
+            {owned.length} of {BIOMES.length}
+          </span>{" "}
+          places unlocked
+        </p>
+        <span className="font-data text-[13px] text-on-surface-variant">
+          🪙 {shop.coins.toLocaleString()}
+        </span>
+      </div>
+
+      <ul className="mt-4 grid grid-cols-5 gap-2">
+        {BIOMES.map((b) => {
+          const has = shop.owned.includes(b.id);
+          const here = shop.equippedBiome === b.id;
+          return (
+            <li key={b.id} className="text-center">
+              <Biome
+                id={b.id}
+                className={`aspect-square w-full rounded-lg ${
+                  has ? "" : "opacity-30 grayscale"
+                } ${here ? "ring-2 ring-accent ring-offset-2" : ""}`}
+              />
+              <span className="mt-1.5 block truncate text-[11px] font-semibold text-primary">
+                {has ? b.name : `🪙 ${b.price}`}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+
+      <p className="mt-4 text-[13px] leading-5 text-on-surface-variant">
+        {next ? (
+          <>
+            Next up is{" "}
+            <span className="font-semibold text-primary">{next.name}</span>, at{" "}
+            {next.price} coins.{" "}
+          </>
+        ) : (
+          <>Felix has been everywhere. </>
+        )}
+        <Link href="/shop" className="font-semibold text-accent">
+          Open the shop →
+        </Link>
+      </p>
+    </div>
   );
 }
 
@@ -153,6 +273,10 @@ function ChallengeHistory({ sessions }: { sessions: Session[] }) {
       <Reveal>
         <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
           Daily Minutes
+          <InfoTip label="What is this list?" className="ml-2 align-middle">
+            Every day you did the Daily Minute, with all three attempts. Tap a
+            score to open that report.
+          </InfoTip>
           <span className="grow-line" aria-hidden="true" />
         </h2>
       </Reveal>
@@ -229,6 +353,7 @@ export default function ProgressPage() {
 function ProgressScreen() {
   const [sessions, setSessions] = useState<Session[] | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
+  const [shop, setShop] = useState<ShopState | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -237,6 +362,11 @@ function ProgressScreen() {
       .catch(() => !cancelled && setSessions([]));
     getStats()
       .then((s) => !cancelled && setStats(s))
+      .catch(() => {});
+    // Failure leaves the biome panel unrendered rather than showing a wrong
+    // collection — nothing else on this page depends on it.
+    fetchShopState()
+      .then((s) => !cancelled && setShop(s))
       .catch(() => {});
     return () => {
       cancelled = true;
@@ -320,7 +450,12 @@ function ProgressScreen() {
       {stats && (
         <section className="mt-8">
           <Reveal>
-            <LevelPanel stats={stats} />
+            <LevelPanel
+              stats={stats}
+              minutesPracticed={Math.round(
+                sessions.reduce((sum, s) => sum + (s.durationSec || 0), 0) / 60
+              )}
+            />
           </Reveal>
         </section>
       )}
@@ -330,6 +465,10 @@ function ProgressScreen() {
         <Reveal>
           <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
             Overall score, session by session
+            <InfoTip label="What does this chart show?" className="ml-2 align-middle">
+              One dot per recording, oldest on the left. The line is your
+              overall score out of 100. Tap any point to open that session.
+            </InfoTip>
             <span className="grow-line" aria-hidden="true" />
           </h2>
           <div className="mt-3">
@@ -346,6 +485,10 @@ function ProgressScreen() {
         <Reveal>
           <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
             Where the work is
+            <InfoTip label="What are these scores?" className="ml-2 align-middle">
+              Each part of your delivery, scored every session. &ldquo;Latest&rdquo;
+              is your most recent take, &ldquo;avg&rdquo; is everything so far.
+            </InfoTip>
             <span className="grow-line" aria-hidden="true" />
           </h2>
         </Reveal>
@@ -382,6 +525,10 @@ function ProgressScreen() {
           <Reveal>
             <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
               On camera
+              <InfoTip label="Where does this come from?" className="ml-2 align-middle">
+                Only from sessions you recorded with the camera on: posture,
+                gestures, eye contact and sway.
+              </InfoTip>
               <span className="grow-line" aria-hidden="true" />
             </h2>
           </Reveal>
@@ -413,7 +560,20 @@ function ProgressScreen() {
         </section>
       )}
 
-      {/* 6. Session list last */}
+      {/* 6. Felix's world: how much of the shop is actually theirs. */}
+      <section className="mt-12">
+        <Reveal>
+          <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+            Felix&apos;s world
+            <span className="grow-line" aria-hidden="true" />
+          </h2>
+        </Reveal>
+        <Reveal className="mt-4">
+          <BiomeProgress shop={shop} />
+        </Reveal>
+      </section>
+
+      {/* 7. Session list last */}
       <section className="mt-12 mb-10">
         <Reveal>
           <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">

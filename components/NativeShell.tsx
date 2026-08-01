@@ -119,6 +119,7 @@ const TITLES: Record<string, string> = {
   "/progress": "Progress",
   "/library": "Speech library",
   "/interviews": "Interviews",
+  "/social": "Social skills",
   "/custom": "Felix writes it",
   "/own": "My material",
   "/account": "Account",
@@ -138,6 +139,7 @@ const ROOTS = new Set([
   "/progress",
   "/library",
   "/interviews",
+  "/social",
   "/custom",
   "/own",
   "/account",
@@ -155,6 +157,7 @@ const DOCKED = new Set([
   "/progress",
   "/library",
   "/interviews",
+  "/social",
   "/custom",
   "/own",
   "/account",
@@ -233,7 +236,8 @@ interface Tab {
 }
 
 // Four destinations. The premium sections that used to be peer tabs on the
-// web (Interviews, Felix writes it, My material) are cards inside Today now —
+// web (Interviews, Social skills, Felix writes it, My material) are cards
+// inside Today now —
 // a free user shouldn't spend a third of the dock on things they can't open.
 const TABS: Tab[] = [
   { href: "/dashboard", label: "Today", icon: TodayIcon },

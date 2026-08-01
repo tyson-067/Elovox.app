@@ -7,8 +7,13 @@ import { NativeSections } from "@/components/NativeSections";
 import { Reveal } from "@/components/Reveal";
 import { WordReveal } from "@/components/WordReveal";
 import { GlowCard } from "@/components/GlowCard";
-import { Felix } from "@/components/FoxLogo";
+import { InfoTip } from "@/components/InfoTip";
+import { type FelixAccessory } from "@/components/FoxLogo";
+import { FelixScene } from "@/components/Biome";
+import { fetchShopState, type ShopState } from "@/lib/shop";
 import { usePlan } from "@/lib/plan";
+import { useStreakReward } from "@/lib/streakClaim";
+import { useRedeemReferral } from "@/lib/invite";
 import { listSessions } from "@/lib/store";
 import type { Session } from "@/lib/types";
 import {
@@ -74,25 +79,38 @@ function StreakFlame({ days }: { days: number }) {
 function FelixHero({
   stats,
   challenge,
+  shop,
 }: {
   stats: UserStats | null;
   challenge: ChallengeState | null;
+  shop: ShopState | null;
 }) {
   const mood = moodFor({ stats, challenge });
   const line = felixLine({ stats, challenge });
   const level = stats?.level;
   // Whatever the Den says he's unlocked, he is actually wearing.
   const outfit = currentOutfit(level?.level ?? 1);
+  // A bought accessory beats the level outfit, and taking it off in the shop
+  // (equippedAccessory → null) drops back to the level one rather than to a
+  // bare fox — those outfits were earned and are never taken away.
+  const wearing = (shop?.equippedAccessory as FelixAccessory | null) ?? outfit?.id;
 
   return (
     <div className="card den-gradient border-none! overflow-hidden p-6 md:p-8">
       <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-end">
-        <Felix
-          mood={mood}
-          animate
-          accessory={outfit?.id}
-          className="h-32 w-32 shrink-0 drop-shadow-[0_10px_20px_rgba(11,8,41,0.22)] md:h-40 md:w-40"
-        />
+        <Link
+          href="/shop"
+          aria-label="Felix's shop"
+          className="shrink-0 rounded-2xl transition-transform hover:scale-[1.03]"
+        >
+          <FelixScene
+            biome={shop?.equippedBiome}
+            mood={mood}
+            animate
+            accessory={wearing}
+            className="h-32 w-32 rounded-2xl shadow-[0_10px_20px_rgba(11,8,41,0.22)] md:h-40 md:w-40"
+          />
+        </Link>
 
         <div className="min-w-0 flex-1 text-center sm:text-left">
           <span className="text-[13px] font-semibold uppercase tracking-[0.06em] text-oxford/60">
@@ -159,6 +177,15 @@ function DailyCard({
 
   return (
     <GlowCard className="card card-glow-light dusk-gradient border-none! h-full p-6 text-white md:p-8">
+      <InfoTip
+        label="What is the Daily Minute?"
+        tone="dark"
+        className="absolute right-4 top-4"
+      >
+        One topic a day, the same one for everybody. Speak for a minute with no
+        script. You get three tries, and it&apos;s free on every plan.
+      </InfoTip>
+
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-white">
           The Daily Minute · 60 seconds
@@ -274,15 +301,18 @@ function QuestCard({ quest, index }: { quest: Quest; index: number }) {
 function DenWidget({
   stats,
   sessions,
+  shop,
 }: {
   stats: UserStats | null;
   sessions: Session[];
+  shop: ShopState | null;
 }) {
   const badges = badgesFor({ stats, sessions });
   const earned = badges.filter((b) => b.earned).length;
   const level = stats?.level.level ?? 1;
   const worn = currentOutfit(level);
   const next = nextOutfit(level);
+  const bought = shop?.equippedAccessory as FelixAccessory | null;
 
   return (
     <div className="card-warm h-full p-5 md:p-6">
@@ -290,50 +320,90 @@ function DenWidget({
         <h2 className="font-headline text-xl font-semibold text-primary">
           The Fox Den
         </h2>
-        <span className="font-data text-[13px] text-on-surface-variant">
-          {earned} / {badges.length} badges
+        <span className="flex items-center gap-2">
+          <span className="font-data text-[13px] text-on-surface-variant">
+            {earned} / {badges.length} badges
+          </span>
+          <InfoTip label="What is the Fox Den?">
+            Everything you&apos;ve earned. Badges unlock as you practice.
+            Felix&apos;s outfits come with levels, and he wears whatever you
+            unlock last.
+          </InfoTip>
         </span>
       </div>
 
+      {/* Each badge says how it's earned on hover and on keyboard focus. It's
+          a plain CSS tooltip rather than an <InfoTip>: there are six of these
+          in a tight grid, and six "?" buttons next to six emoji is more
+          chrome than content. `tabIndex` and `focus-within` are what keep it
+          reachable without a mouse — a hover-only hint is invisible on a
+          phone and to anyone tabbing. */}
       <ul className="mt-4 grid grid-cols-3 gap-2.5">
         {badges.map((b) => (
-          <li
-            key={b.id}
-            title={b.earned ? b.name : `${b.name}: ${b.hint}`}
-            className={`rounded-lg bg-white/70 px-2 py-3 text-center ${
-              b.earned ? "" : "locked-reward"
-            }`}
-          >
-            <span className="block text-xl leading-none" aria-hidden="true">
-              {b.emoji}
-            </span>
-            <span className="mt-1.5 block text-[11px] font-semibold leading-tight text-primary">
-              {b.name}
+          <li key={b.id} className="group relative">
+            <div
+              tabIndex={0}
+              className={`rounded-lg bg-white/70 px-2 py-3 text-center outline-offset-2 ${
+                b.earned ? "" : "locked-reward"
+              }`}
+            >
+              <span className="block text-xl leading-none" aria-hidden="true">
+                {b.emoji}
+              </span>
+              <span className="mt-1.5 block text-[11px] font-semibold leading-tight text-primary">
+                {b.name}
+              </span>
+            </div>
+            <span
+              role="tooltip"
+              className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1.5 w-max max-w-[11rem] -translate-x-1/2 rounded-lg bg-oxford px-2.5 py-1.5 text-[11px] leading-4 text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+            >
+              {b.earned ? `Earned: ${b.hint.toLowerCase()}` : b.hint}
             </span>
           </li>
         ))}
       </ul>
 
-      <div className="mt-4 border-t border-shrimp/70 pt-3 text-[13px] leading-5 text-on-surface-variant">
-        <p>
-          {worn ? (
+      {/* Felix in whatever biome he's standing in, straight through to the
+          shop. The Den used to talk about his outfits without ever showing
+          him, so the one place that listed what he owned was the one place
+          you couldn't see it. */}
+      <Link
+        href="/shop"
+        className="mt-4 flex items-center gap-3 rounded-xl border border-shrimp/70 p-2 transition-colors hover:border-accent/50"
+      >
+        <FelixScene
+          biome={shop?.equippedBiome}
+          accessory={bought ?? worn?.id}
+          className="h-16 w-16 shrink-0 rounded-lg"
+        />
+        <span className="min-w-0 text-[13px] leading-5 text-on-surface-variant">
+          {bought ? (
+            <>Felix is out in his new gear.</>
+          ) : worn ? (
             <>
-              Felix is wearing{" "}
-              <span aria-hidden="true">{worn.emoji}</span>{" "}
+              Felix is wearing <span aria-hidden="true">{worn.emoji}</span>{" "}
               <span className="font-semibold text-primary">{worn.name}</span>.
             </>
           ) : (
-            <>Felix has nothing to wear yet. Level 2 gets him a bow tie.</>
-          )}
+            <>Felix has nothing to wear yet.</>
+          )}{" "}
+          <span className="font-semibold text-accent">Visit the shop →</span>
+        </span>
+      </Link>
+
+      {next && (
+        <p className="mt-3 text-[13px] leading-5 text-on-surface-variant">
+          <span aria-hidden="true">{next.emoji}</span>{" "}
+          <span className="font-semibold text-primary">{next.name}</span> at{" "}
+          {/* The level is the link: it's a number about your progress, and
+              /progress is where that number is explained. */}
+          <Link href="/progress" className="font-semibold text-accent underline">
+            Level {next.level}
+          </Link>
+          .
         </p>
-        {next && (
-          <p className="mt-1">
-            <span aria-hidden="true">{next.emoji}</span>{" "}
-            <span className="font-semibold text-primary">{next.name}</span> at
-            Level {next.level}.
-          </p>
-        )}
-      </div>
+      )}
 
       <Link
         href="/progress"
@@ -347,10 +417,16 @@ function DenWidget({
 
 function TodayScreen() {
   const { plan } = usePlan();
+  // Where an invite link is cashed in: signup lands here, so this runs before
+  // the new account has recorded anything, which is what the server requires.
+  useRedeemReferral();
   const [daily, setDaily] = useState<DailyChallenge | null>(null);
   const [challenge, setChallenge] = useState<ChallengeState | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
+  // What Felix is wearing and where he's standing. Read-only here; the shop
+  // is the only screen that changes it.
+  const [shop, setShop] = useState<ShopState | null>(null);
   // The local day everything on screen belongs to. Held as state as well as a
   // ref: the ref is what the midnight/focus checks compare against without
   // re-running their effect, and the state is what makes the quests recompute
@@ -370,7 +446,14 @@ function TodayScreen() {
       setDay(key);
       fetchDailyChallenge()
         .then((c) => !cancelled && setDaily(c))
-        .catch(() => {});
+        .catch(() => {
+          // The stamp above was set synchronously to dedupe the focus +
+          // visibilitychange pair that fires on wake. If the rollover fetch
+          // then fails (e.g. waking offline across midnight), clear it so the
+          // next focus/visibility event retries instead of pinning yesterday's
+          // topic under today's fresh (empty) attempt counters until remount.
+          if (!cancelled && loadedDayRef.current === key) loadedDayRef.current = "";
+        });
       getChallengeState()
         .then((s) => !cancelled && setChallenge(s))
         .catch(() => {});
@@ -382,6 +465,11 @@ function TodayScreen() {
       // none of this is worth interrupting someone's practice over.
       listSessions()
         .then((s) => !cancelled && setSessions(s))
+        .catch(() => {});
+      // Same treatment: if this fails Felix just appears in the den with his
+      // level outfit, which is what every account looked like before the shop.
+      fetchShopState()
+        .then((s) => !cancelled && setShop(s))
         .catch(() => {});
     };
 
@@ -433,6 +521,10 @@ function TodayScreen() {
   );
   const questsDone = questsComplete(quests);
 
+  // Only fires once the streak is long enough to be worth asking about; the
+  // server decides whether the week is actually owed.
+  const reward = useStreakReward(stats?.streakDays ?? null);
+
   return (
     <div className="py-10 md:py-14">
       <Reveal>
@@ -441,8 +533,37 @@ function TodayScreen() {
         </h1>
       </Reveal>
 
+      {reward?.granted && (
+        <Reveal className="mt-8">
+          <div className="card navy-gradient border-none! p-6 text-white">
+            <h2 className="font-headline text-2xl font-semibold">
+              Three weeks straight. Have a week on us.
+            </h2>
+            <p className="mt-2 max-w-[56ch] text-base leading-6 text-white/85">
+              You&apos;ve practiced {reward.streakDays} days in a row, so
+              Premium is open until{" "}
+              {reward.premiumUntil
+                ? new Date(reward.premiumUntil).toLocaleDateString(undefined, {
+                    month: "long",
+                    day: "numeric",
+                  })
+                : "next week"}
+              . The speech library, your own material, interview practice,
+              social skills and camera coaching are all unlocked — nothing to
+              cancel when it ends.
+            </p>
+            <Link
+              href="/library"
+              className="btn mt-5 inline-block rounded-lg bg-accent px-7 py-3.5 font-semibold text-white"
+            >
+              Open the speech library
+            </Link>
+          </div>
+        </Reveal>
+      )}
+
       <Reveal className="mt-8">
-        <FelixHero stats={stats} challenge={challenge} />
+        <FelixHero stats={stats} challenge={challenge} shop={shop} />
       </Reveal>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -450,7 +571,7 @@ function TodayScreen() {
           <DailyCard challenge={daily} state={challenge} />
         </Reveal>
         <Reveal delay={160}>
-          <DenWidget stats={stats} sessions={sessions} />
+          <DenWidget stats={stats} sessions={sessions} shop={shop} />
         </Reveal>
       </div>
 
@@ -461,8 +582,14 @@ function TodayScreen() {
               Today&apos;s fox quests
               <span className="grow-line" aria-hidden="true" />
             </h2>
-            <span className="font-data text-[13px] text-on-surface-variant">
-              {questsDone} of {quests.length} cleared
+            <span className="flex items-center gap-2">
+              <span className="font-data text-[13px] text-on-surface-variant">
+                {questsDone} of {quests.length} cleared
+              </span>
+              <InfoTip label="What are fox quests?">
+                Three small jobs, picked fresh each day. Clear one and the XP
+                goes straight to your level. They reset at midnight.
+              </InfoTip>
             </span>
           </div>
         </Reveal>
@@ -487,10 +614,10 @@ function TodayScreen() {
             </h3>
             <p className="mt-2 max-w-[56ch] text-base leading-6 text-white/85">
               Premium adds the speech library with unlimited reps, interview
-              practice by type, coaching on your own material, custom speeches
-              written by Felix, camera feedback on posture, gestures, eye
-              contact and sway, plus Felix&apos;s deepest, most thorough
-              breakdown of every recording.
+              practice by type, everyday social skills, coaching on your own
+              material, custom speeches written by Felix, camera feedback on
+              posture, gestures, eye contact and sway, plus Felix&apos;s
+              deepest, most thorough breakdown of every recording.
             </p>
             <Link
               href="/pricing"

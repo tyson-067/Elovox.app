@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateJson, geminiKey } from "@/lib/gemini";
 import { verifyVerifiedUser, makeRateLimiter, isPremiumServer } from "@/lib/verify";
 import { sanitizeText } from "@/lib/validation";
+import { getAdminDb } from "@/lib/firebaseAdmin";
+import { usageDateKey, reserveMeteredUse } from "@/lib/quota";
+
+// Durable per-user daily ceiling on Gemini speech generation, on the same
+// Admin-SDK-only usage doc as the analysis meter. The in-memory limiter above
+// is per-instance and resets on cold start, so this is the real backstop
+// against a scripted premium account minting unbounded paid generations. Set
+// well above any honest day. No refund path: a failed generation costs little.
+const SPEECH_GENS_PER_DAY = 100;
 
 // Premium speech writing. Two jobs, one route:
 //
@@ -78,7 +87,7 @@ const INTERVIEW_SCHEMA = {
   required: ["questions"],
 } as const;
 
-const INTERVIEW_SYSTEM = `You are Felix, the fox coach inside Elovox. You write interview question banks for someone about to be interviewed, so they can practise answering out loud and be scored on the delivery.
+const INTERVIEW_SYSTEM = `You are Felix, the fox coach inside Elovox. You write interview question banks for someone about to be interviewed, so they can practice answering out loud and be scored on the delivery.
 
 You are given their situation in their own words. Write the questions THAT panel would actually ask THIS person.
 
@@ -138,10 +147,33 @@ export async function POST(req: NextRequest) {
       {
         error: "premium-required",
         message:
-          "Felix writes speeches for Premium members. Go Premium for the speech library, your own material, interview practice and camera coaching.",
+          "Felix writes speeches for Premium members. Go Premium for the speech library, your own material, interview practice, social skills and camera coaching.",
       },
       { status: 403 }
     );
+  }
+
+  // Durable daily ceiling: the in-memory limiter above is per-instance, this
+  // is the abuse backstop that survives cold starts and concurrency.
+  const db = getAdminDb();
+  if (db && uid !== "local-dev") {
+    const { ok } = await reserveMeteredUse(
+      db,
+      uid,
+      usageDateKey(""),
+      "speechGens",
+      SPEECH_GENS_PER_DAY
+    );
+    if (!ok) {
+      return NextResponse.json(
+        {
+          error: "rate-limited",
+          message:
+            "That's a lot of new speeches for one day. Come back tomorrow for more.",
+        },
+        { status: 429 }
+      );
+    }
   }
 
   const key = geminiKey();

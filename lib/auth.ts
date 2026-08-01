@@ -108,7 +108,7 @@ async function nativeGoogleIdToken(): Promise<string> {
   const idToken = result.credential?.idToken;
   // No token means the user backed out of the system sheet. Not an error
   // worth reporting, but the caller still needs a rejected promise.
-  if (!idToken) throw new Error("Google sign-in was cancelled.");
+  if (!idToken) throw new Error("Google sign-in was canceled.");
   return idToken;
 }
 
@@ -236,7 +236,20 @@ export async function changeEmail(
   if (!user) throw new Error("You're not signed in.");
   await reauthenticate(user, currentPassword);
   const { verifyBeforeUpdateEmail } = await import("firebase/auth");
-  await verifyBeforeUpdateEmail(user, check.value);
+  try {
+    await verifyBeforeUpdateEmail(user, check.value);
+  } catch (err) {
+    // The change-email target is an arbitrary address in the global account
+    // namespace, not the caller's own, so a distinct "already in use" error
+    // here is an email-enumeration oracle: sign in once, then probe addresses
+    // one by one. Swallow exactly that code so the caller always sees the
+    // same EMAIL_CHANGE_NOTICE. Nothing is leaked and nothing is wrongly
+    // changed: the address only switches when the user clicks the link, which
+    // is never sent for an in-use target.
+    if ((err as { code?: string })?.code !== "auth/email-already-in-use") {
+      throw err;
+    }
+  }
 }
 
 /** Notice shown after an email-change request, the switch is not immediate. */

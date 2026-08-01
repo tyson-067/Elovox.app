@@ -106,6 +106,10 @@ export interface GeminiOptions {
   temperature?: number;
   maxOutputTokens?: number;
   thinkingLevel?: "low" | "medium" | "high";
+  /** Absolute epoch-ms budget. Attempts stop (and each fetch times out) so the
+   *  caller regains control before this, e.g. before a serverless kill. Omit
+   *  for no deadline (the default for every caller that doesn't pass one). */
+  deadline?: number;
 }
 
 export function geminiKey(): string | undefined {
@@ -139,6 +143,12 @@ export async function generateJson<T>(
 
   let lastErr: unknown;
   for (const model of available(Date.now())) {
+    // Stop before the budget runs out, so a caller with a deadline (e.g. the
+    // analyze route, which must run its refund before the platform kills the
+    // function) regains control instead of being cut off mid-fetch. No
+    // deadline → Infinity → this never trips and behavior is unchanged.
+    const remaining = (opts.deadline ?? Infinity) - Date.now();
+    if (remaining < 3000) break;
     try {
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
@@ -146,7 +156,7 @@ export async function generateJson<T>(
           method: "POST",
           headers: { "content-type": "application/json", "x-goog-api-key": key },
           body,
-          signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
+          signal: AbortSignal.timeout(Math.min(ATTEMPT_TIMEOUT_MS, remaining)),
         }
       );
       if (!res.ok) {

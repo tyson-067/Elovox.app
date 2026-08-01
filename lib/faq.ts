@@ -1,0 +1,33 @@
+import { TRIAL_DAYS } from "./pricing";
+
+// One source of truth for the pricing FAQ, so the on-page accordion
+// (app/pricing/page.tsx) and the FAQPage structured data (app/pricing/layout.tsx)
+// can never say different things. Plain strings, because the same text has to
+// serve both a React render and a JSON-LD block that search engines read.
+export interface FaqItem {
+  q: string;
+  a: string;
+}
+
+export const FAQ: FaqItem[] = [
+  {
+    q: `How does the ${TRIAL_DAYS}-day free trial work?`,
+    a: `You get full Premium access for ${TRIAL_DAYS} days, free, on the monthly and annual plans. We only charge when the trial ends, and you can cancel any time before then and pay nothing. The weekly plan has no trial. It's charged from the day you start. If you'd rather pay today than track a trial, tick "Skip the trial" before you check out.`,
+  },
+  {
+    q: "Why is the annual plan so much cheaper per week?",
+    a: "Committing for longer lets us plan ahead, so we pass the saving back to you. Weekly is the flexible rate; annual is the best value: the same Premium, at a fraction of the weekly price.",
+  },
+  {
+    q: "Can I switch or cancel later?",
+    a: "Any time. Switch between weekly, monthly, and annual whenever you like, and cancel in a couple of clicks, no email, no phone call.",
+  },
+  {
+    q: "Does Premium give me more Daily Minute attempts?",
+    a: "No, and that one is on purpose. The Daily Minute is three attempts a day on every plan, because it's the same topic for everybody and the scores are only comparable if everyone gets the same number of goes at it. What Premium unlocks is everything else: the speech library, your own material, interview practice, social skills and custom speeches, none of which have a daily cap.",
+  },
+  {
+    q: "Is the Free plan really free forever?",
+    a: "Yes. The daily speech, three attempts, and your full feedback report stay free for as long as you want them. Premium adds the other coaching modes and takes the caps off those.",
+  },
+];

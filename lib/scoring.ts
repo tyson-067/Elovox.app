@@ -27,11 +27,11 @@ export function scoreTier(score: number): ScoreTier {
 
 // Bar fill for a score, given the accent this surface uses for its good tier.
 // The voice report scores in accent and the stage report in violet, so the
-// good colour is passed in; middling and bad are shared, because "not there
+// good color is passed in; middling and bad are shared, because "not there
 // yet" and "this went badly" should read the same wherever they appear.
 //
 // Bad gets the error red rather than more amber. A 40 and a 75 arriving in the
-// same colour is the visual version of the sugarcoating the scale was changed
+// same color is the visual version of the sugarcoating the scale was changed
 // to stop: the number is honest and the bar underneath it should not soften
 // it back up.
 export function barClass(score: number, goodClass: string): string {

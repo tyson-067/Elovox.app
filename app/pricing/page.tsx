@@ -21,6 +21,7 @@ import {
   formatUSD,
   type BillingCycle,
 } from "@/lib/pricing";
+import { FAQ } from "@/lib/faq";
 
 // Public pricing page. Freemium: Free forever on the left, Premium on the
 // right with a billing-cycle toggle. Monthly and annual open with a 7-day
@@ -56,32 +57,13 @@ const PREMIUM_FEATURES = [
   "Camera coaching: posture, gestures, eye contact, expression",
   "The full ~30-second speech library, unlimited reps",
   "Interview practice: jobs, college, scholarships, grad school",
+  "Social skills practice: small talk, boundaries, apologies",
   "Coaching on your own material: pitches, talks, presentations",
   "Custom speeches Felix writes for your actual situation",
 ];
 
-const FAQ = [
-  {
-    q: `How does the ${TRIAL_DAYS}-day free trial work?`,
-    a: `You get full Premium access for ${TRIAL_DAYS} days, free, on the monthly and annual plans. We only charge when the trial ends, and you can cancel any time before then and pay nothing. The weekly plan has no trial. It's charged from the day you start.`,
-  },
-  {
-    q: "Why is the annual plan so much cheaper per week?",
-    a: "Committing for longer lets us plan ahead, so we pass the saving back to you. Weekly is the flexible rate; annual is the best value: the same Premium, at a fraction of the weekly price.",
-  },
-  {
-    q: "Can I switch or cancel later?",
-    a: "Any time. Switch between weekly, monthly, and annual whenever you like, and cancel in a couple of clicks, no email, no phone call.",
-  },
-  {
-    q: "Does Premium give me more Daily Minute attempts?",
-    a: "No, and that one is on purpose. The Daily Minute is three attempts a day on every plan, because it's the same topic for everybody and the scores are only comparable if everyone gets the same number of goes at it. What Premium unlocks is everything else: the speech library, your own material, interview practice and custom speeches, none of which have a daily cap.",
-  },
-  {
-    q: "Is the Free plan really free forever?",
-    a: "Yes. The daily speech, three attempts, and your full feedback report stay free for as long as you want them. Premium adds the other coaching modes and takes the caps off those.",
-  },
-];
+// FAQ content moved to lib/faq.ts so this accordion and the FAQPage schema in
+// app/pricing/layout.tsx read from one source and can't drift apart.
 
 export default function PricingPage() {
   const router = useRouter();
@@ -98,6 +80,10 @@ export default function PricingPage() {
   const { user, configured } = useAuth();
   const { record } = usePlanRecord();
   const [cycle, setCycle] = useState<BillingCycle>("annual");
+  // The user's opt-out from the free trial: bill today instead. From user
+  // feedback — some people would rather pay now than remember a conversion
+  // date. Server-side, checkout simply omits trial_period_days.
+  const [skipTrial, setSkipTrial] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const plan = planFor(cycle);
@@ -108,12 +94,20 @@ export default function PricingPage() {
   // greyed-out button, because nothing ever cleared `busy`.
   useReturnReset(busy, () => setBusy(false));
 
-  // `plan === "premium"` is the entitlement bit the webhook derives from the
-  // live Stripe status, true while trialing, active, or past_due, and false
-  // the moment access actually ends. That's exactly "has a subscription until
-  // it's done", so the buy CTAs come back on their own when it lapses; there
-  // is nothing to expire here.
-  const subscribed = record?.plan === "premium";
+  // Whether a real Stripe subscription backs this account. NOT
+  // `record?.plan === "premium"`: getPlanRecord ORs the entitlement with the
+  // 21-day-streak comp week (premiumUntil), and a comp-only user has no
+  // stripeCustomerId — treating them as "subscribed" would hide the buy CTA
+  // and offer a "Manage" button whose portal call 404s, stranding someone in
+  // their earned free week with no way to actually subscribe. "unpaid" counts
+  // too: dunning is exhausted but the invoice is recoverable from the portal,
+  // so route it to Manage rather than a checkout that only 409s. Same Stripe-
+  // status predicate as app/account/page.tsx.
+  const subscribed =
+    record?.status === "trialing" ||
+    record?.status === "active" ||
+    record?.status === "past_due" ||
+    record?.status === "unpaid";
 
   // Only a signed-in user can be a subscriber, so a visitor never waits on
   // this, but for someone signed in we don't yet know, and rendering "Start
@@ -121,10 +115,22 @@ export default function PricingPage() {
   // of disabled button.
   const planPending = configured && !!user && record === null;
 
-  // Weekly has no trial, so its CTA promises a charge, not a free run.
-  const ctaLabel = hasTrial(plan)
+  // A returning ex-subscriber has already spent their one free trial: Stripe
+  // records trialEnd from the first go and the checkout route denies a second
+  // (hadTrial). Promising them a trial the server will silently refuse is the
+  // dishonest path, so treat the trial as available only for someone who has
+  // never had one.
+  const trialUsed = !subscribed && record?.trialEnd != null;
+  // Whether this plan can offer a trial to THIS visitor at all (weekly can't,
+  // a returning customer already spent theirs). Used for the marketing close,
+  // which describes availability rather than the current selection.
+  const offersTrial = hasTrial(plan) && !trialUsed;
+  // Weekly has no trial, a skipped trial is a charge today, and a used trial
+  // won't be granted, so the CTA promises exactly what the click does.
+  const trialOn = offersTrial && !skipTrial;
+  const ctaLabel = trialOn
     ? `Start ${plan.trialDays}-day free trial`
-    : "Get Premium weekly";
+    : `Get Premium ${plan.label.toLowerCase()}`;
   const buyLabel = planPending
     ? "Checking your plan…"
     : busy
@@ -139,10 +145,13 @@ export default function PricingPage() {
   );
   const currentPlan = record?.cycle ? planFor(record.cycle) : null;
   let subscribedLine = "You're on Premium.";
-  if (record?.status === "past_due") {
+  if (record?.status === "unpaid") {
+    subscribedLine =
+      "Payment failed and Premium is paused. Open Manage to pay the open invoice.";
+  } else if (record?.status === "past_due") {
     subscribedLine = "Payment failed. Update your card to keep Premium.";
   } else if (ending && endsOn) {
-    subscribedLine = `Premium, cancelled. Access continues until ${endsOn}.`;
+    subscribedLine = `Premium, canceled. Access continues until ${endsOn}.`;
   } else if (record?.status === "trialing") {
     subscribedLine = `You're on the Premium free trial${
       endsOn ? ` until ${endsOn}` : ""
@@ -156,13 +165,15 @@ export default function PricingPage() {
   // so AuthForm can resume Checkout right after the account is created.
   const goPremium = async () => {
     if (!configured || !user) {
-      router.push(`/signup?plan=premium&cycle=${cycle}`);
+      router.push(
+        `/signup?plan=premium&cycle=${cycle}${skipTrial ? "&skipTrial=1" : ""}`
+      );
       return;
     }
     setError("");
     setBusy(true);
     try {
-      await startCheckout(cycle);
+      await startCheckout(cycle, { skipTrial });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't start checkout.");
       setBusy(false);
@@ -170,7 +181,7 @@ export default function PricingPage() {
   };
 
   // Same Customer Portal the account page opens, switching cycles and
-  // cancelling are both configured there, so there's no second code path.
+  // canceling are both configured there, so there's no second code path.
   const manageBilling = async () => {
     setError("");
     setBusy(true);
@@ -346,12 +357,24 @@ export default function PricingPage() {
                   <span className="font-semibold">Your current plan</span>
                   {`, ${subscribedLine}`}
                 </>
-              ) : hasTrial(plan) ? (
+              ) : trialOn ? (
                 <>
                   <span className="font-semibold">
                     {plan.trialDays}-day free trial
                   </span>
                   {", you’re only charged when it ends. Cancel anytime."}
+                </>
+              ) : trialUsed ? (
+                <>
+                  <span className="font-semibold">
+                    You&apos;ve used your free trial
+                  </span>
+                  {`, billed today, then every ${plan.unit}. Cancel anytime.`}
+                </>
+              ) : hasTrial(plan) ? (
+                <>
+                  <span className="font-semibold">Trial skipped</span>
+                  {`, billed today, then every ${plan.unit}. Cancel anytime.`}
                 </>
               ) : (
                 <>
@@ -360,6 +383,22 @@ export default function PricingPage() {
                 </>
               )}
             </div>
+
+            {/* The trial is the default; this is the opt-out for people who'd
+                rather pay now than remember a conversion date. Only shown
+                where a trial exists to skip: not weekly, and not a returning
+                customer who has already used theirs. */}
+            {!subscribed && hasTrial(plan) && !trialUsed && (
+              <label className="mt-2.5 flex cursor-pointer items-center gap-2 text-sm text-white/80">
+                <input
+                  type="checkbox"
+                  checked={skipTrial}
+                  onChange={(e) => setSkipTrial(e.target.checked)}
+                  className="h-4 w-4 accent-[#ff6b35]"
+                />
+                Skip the trial and pay today
+              </label>
+            )}
 
             <ul className="mt-5 space-y-2.5 text-base leading-6 text-white/90">
               {PREMIUM_FEATURES.map((f) => (
@@ -389,7 +428,7 @@ export default function PricingPage() {
             <p className="mt-2.5 text-center text-[13px] text-white/70">
               {subscribed ? (
                 <>Switch plans or cancel any time, no email, no phone call.</>
-              ) : hasTrial(plan) ? (
+              ) : trialOn ? (
                 <>
                   Then {formatUSD(plan.price)}/{plan.unit} + tax. Cancel before
                   day {plan.trialDays} and pay nothing.
@@ -503,16 +542,16 @@ export default function PricingPage() {
           <h2 className="text-display-sm font-headline font-bold text-primary">
             {subscribed
               ? "You're all set."
-              : hasTrial(plan)
+              : offersTrial
                 ? "Your first week's on us."
                 : "Practice like it counts."}
           </h2>
           <p className="mx-auto mt-3 max-w-[46ch] text-lg leading-7 text-on-surface-variant">
             {subscribed
               ? "Every Premium feature is unlocked. Switch cycles or cancel whenever you like. Changes take effect from the billing portal."
-              : hasTrial(plan)
+              : offersTrial
                 ? "Start the free trial, keep the free plan, or go Premium. You can change your mind any time."
-                : "Keep the free plan, or go weekly and cancel whenever you like. Weekly bills from day one, with no trial."}
+                : "Keep the free plan, or go Premium and cancel whenever you like. You're billed from day one."}
           </p>
           <button
             onClick={subscribed ? manageBilling : goPremium}

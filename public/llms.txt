@@ -1,0 +1,27 @@
+# Elovox
+
+> Elovox is a speaking practice app. You record yourself giving a speech, a pitch, or an interview answer, and Elovox returns coaching on your delivery: pace, filler words, pauses, clarity, confidence, vocal variety, and how an audience is likely to perceive you. With the camera on, it also reads body language: posture, gestures, eye contact, and expression. The mascot and coach is Felix, a fox.
+
+Elovox is free forever with a daily one-minute speaking challenge (three attempts a day, on every plan). Premium adds unlimited practice, camera coaching, a speech library, interview practice, social-skills practice, coaching on your own material, and custom speeches written to your situation.
+
+## Pages
+
+- [Home](https://elovox.app/): What Elovox does, who it's for (job candidates, students, founders), the six practice modes, and how a report is built.
+- [For job candidates](https://elovox.app/for/job-candidates): Interview practice and camera coaching for people preparing for interviews.
+- [For students](https://elovox.app/for/students): Admissions interviews, scholarship panels, and class presentations.
+- [For founders](https://elovox.app/for/founders): Pitch practice and delivery coaching for founders.
+- [Pricing](https://elovox.app/pricing): Free vs Premium, the weekly/monthly/annual cycles, the free trial (optional at checkout), and an FAQ.
+- [About](https://elovox.app/about): Who makes Elovox and why it exists.
+- [Sign up](https://elovox.app/signup): Create a free account.
+- [Log in](https://elovox.app/login): Return to an existing account.
+
+## How it works
+
+- A new improvised topic is set each day; you speak for one minute and get scored, with three attempts to beat your own best.
+- Every recording produces a report: six delivery scores out of 100, your own words marked up for emphasis and pauses, measured pace and filler counts, and a prediction of how listeners came across.
+- Practice modes: the Daily Minute (free), interview practice, social skills, camera coaching, a speech library, and coaching on your own material (all Premium).
+
+## Legal
+
+- [Privacy Policy](https://elovox.app/privacy): What is collected, who processes it, how long it's kept, and how to delete it. Audio and video are processed to produce feedback, then discarded; Elovox keeps the transcript and report, not the recording, and never builds a voiceprint.
+- [Terms of Service](https://elovox.app/terms): The agreement, how subscriptions and trials work, and the limits of automated coaching feedback.

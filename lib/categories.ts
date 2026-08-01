@@ -13,6 +13,18 @@ const JOB_INTERVIEW: Category = {
     "Practice answering real interview questions with a steady pace and a confident close.",
 };
 
+// Same arrangement for social skills practice (/social): it has its own
+// feature and its own prompt banks in lib/social.ts, so it stays out of the
+// "my own material" picker and lives here only as the bucket the social
+// mode scores against. The category tells the analysis to judge the take as
+// conversation between people, not as a speech.
+const CONVERSATION: Category = {
+  id: "conversation",
+  name: "Conversation",
+  description:
+    "Everyday social moments: small talk, boundaries, apologies, said out loud.",
+};
+
 /**
  * What "My own material" offers: four kinds of thing you can walk in with
  * already written. Rendered in the order below, two columns on desktop.
@@ -44,8 +56,8 @@ export const CATEGORIES: Category[] = [
   },
 ];
 
-/** Every bucket, including the internal interview one, for lookups. */
-const ALL_CATEGORIES: Category[] = [...CATEGORIES, JOB_INTERVIEW];
+/** Every bucket, including the internal ones, for lookups. */
+const ALL_CATEGORIES: Category[] = [...CATEGORIES, JOB_INTERVIEW, CONVERSATION];
 
 export function getCategory(id: CategoryId | string): Category {
   // Falls back to general coaching, which is the catch-all by design, found
@@ -96,6 +108,16 @@ export const PROMPTS: Record<CategoryId, string[]> = {
     "Practice giving a teammate difficult feedback, kindly and directly.",
     "Talk through what you did last week as if your boss asked out of the blue.",
     "Argue for a decision you believe in to a room that's leaning against it.",
+  ],
+  // Reachable only by hand-typing ?category=conversation: the social skills
+  // feature draws from the per-skill banks in lib/social.ts instead. This
+  // exists because PROMPTS covers every CategoryId, and a hand-typed URL
+  // should still get something sensible rather than a crash.
+  conversation: [
+    "Start a conversation with someone you don't know, and keep it going.",
+    "Say no to something you'd usually cave on, kindly and clearly.",
+    "Apologize for something real, without excuses.",
+    "Disagree with someone you like, and keep them liking you.",
   ],
 };
 

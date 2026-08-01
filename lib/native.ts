@@ -12,7 +12,7 @@ import { useCallback, useSyncExternalStore } from "react";
  * set once, synchronously.
  *
  * Returns false during SSR/prerender, which is correct: the static HTML is
- * shared by both clients, and the native-only behaviour is applied on the
+ * shared by both clients, and the native-only behavior is applied on the
  * client where the answer is actually known.
  */
 export function isNativeApp(): boolean {
@@ -56,7 +56,7 @@ export function currentTheme(): Theme {
  * Switch themes and remember the choice.
  *
  * Writing the attribute is what actually repaints — every screen reads its
- * colours from CSS variables scoped to `html[data-theme]`. The localStorage
+ * colors from CSS variables scoped to `html[data-theme]`. The localStorage
  * write is only so the inline script in app/layout.tsx can restore the choice
  * before first paint on the next launch, rather than flashing light and
  * correcting itself.

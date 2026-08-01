@@ -6,7 +6,7 @@
 //   /logo.png    the real app icon. Untouched, still what the header uses.
 //   <FelixMark>  the icon's motif redrawn as inline SVG (head + the voice
 //                bars over the chest) for places that need it to scale,
-//                inherit colour, or animate.
+//                inherit color, or animate.
 //   <Felix>      the whole character: head, body, tail, and a mood.
 //   <FoxDen>     Felix at home, for the landing page's story beats.
 //
@@ -25,7 +25,7 @@ const CREAM = "#fffaf4";
  *
  *   idle       eyes open, resting. The default.
  *   cheer      eyes squeezed happy, ears up. For streaks and new bests.
- *   listening  eyes closed, voice bars alive. While a recording is analysed.
+ *   listening  eyes closed, voice bars alive. While a recording is analyzed.
  *   coach      the professor's glasses. For feedback and instruction.
  *   sleepy     eyes shut, ears down. For a broken streak or an empty state.
  */
@@ -102,15 +102,30 @@ function Eyes({ mood }: { mood: FelixMood }) {
 // as a Level 4 unlock meant the Den promised something the fox on the same
 // screen was already visibly wearing. Anything that is part of the character
 // cannot also be a reward for levelling; pick something he doesn't have.
+//
+// The last three are bought with coins rather than unlocked by levelling
+// (lib/coins.ts). They are drawn here alongside the level rewards because as
+// far as Felix is concerned there is no difference — how a thing was earned
+// is the shop's business, not the illustration's.
 export type FelixAccessory =
   | "bow-tie"
   | "mortarboard"
   | "scarf"
   | "headset"
   | "laurels"
-  | "crown";
+  | "crown"
+  | "sunglasses"
+  | "beanie"
+  | "cape";
 
 const CHEST_ACCESSORIES: FelixAccessory[] = ["bow-tie", "scarf"];
+
+/**
+ * Worn behind the whole fox. Only the cape, but it needs its own slot: drawn
+ * with the head pieces it covers his face, and drawn with the chest pieces it
+ * covers the blaze. A cape goes *behind* you.
+ */
+const BACK_ACCESSORIES: FelixAccessory[] = ["cape"];
 
 function Accessory({ id }: { id: FelixAccessory }) {
   switch (id) {
@@ -217,6 +232,90 @@ function Accessory({ id }: { id: FelixAccessory }) {
           <circle cx="100" cy="49" r="4" fill={LAPIS} />
         </g>
       );
+    case "sunglasses":
+      // Same two centres as <Glasses>, so they land on the eyes in every
+      // mood. Filled dark rather than outlined: the point of shades is that
+      // you can't see the eyes, and an open-frame version just read as the
+      // coach glasses in a different color.
+      return (
+        <g>
+          <path
+            d="M57 80 L145 80 L143 88 L57 88 Z"
+            fill={DARK}
+          />
+          <path
+            d="M59 84 C59 100 71 106 79 106 C89 106 96 98 96 86 Z"
+            fill={DARK}
+          />
+          <path
+            d="M143 84 C143 100 131 106 123 106 C113 106 106 98 106 86 Z"
+            fill={DARK}
+          />
+          {/* One highlight per lens, or they read as holes in his face. */}
+          <path
+            d="M66 88 L76 88 L70 98 L64 94 Z"
+            fill="#ffffff"
+            opacity="0.22"
+          />
+          <path
+            d="M113 88 L123 88 L117 98 L111 94 Z"
+            fill="#ffffff"
+            opacity="0.22"
+          />
+        </g>
+      );
+    case "beanie":
+      // Sits low enough (y=62) to cover the ear bases, which is what makes it
+      // look worn rather than balanced on top. The ear tips still show above
+      // it, so Felix is recognizably a fox in a hat.
+      return (
+        <g>
+          <path
+            d="M52 66 C52 30 148 30 148 66 Z"
+            fill={LAPIS}
+          />
+          <rect x="48" y="62" width="104" height="16" rx="8" fill={LAPIS} />
+          <rect
+            x="48"
+            y="62"
+            width="104"
+            height="16"
+            rx="8"
+            fill="#ffffff"
+            opacity="0.14"
+          />
+          {/* bobble */}
+          <circle cx="100" cy="28" r="11" fill={CREAM} />
+          <circle cx="97" cy="25" r="4" fill="#ffffff" opacity="0.5" />
+        </g>
+      );
+    case "cape":
+      // Has to be WIDER than the fox, not the same width. Drawn behind the
+      // body (that's what a cape is), a version that merely matched his
+      // silhouette was completely swallowed — all that showed was a blue
+      // sliver either side, which read as a spill rather than a garment.
+      // The body spans x=47..153, so the hem runs x=18..182 to clear it.
+      return (
+        <g>
+          <path
+            d="M74 114 C46 138 26 168 18 198 L182 198 C174 168 154 138 126 114 C114 126 86 126 74 114 Z"
+            fill={LAPIS}
+          />
+          {/* A single fold, off-centre, so the cloth has a direction. */}
+          <path
+            d="M74 114 C46 138 26 168 18 198 L62 198 C58 166 62 136 80 118 Z"
+            fill="#ffffff"
+            opacity="0.14"
+          />
+          {/* Scalloped hem: three shallow arcs cut the flat bottom edge so it
+              reads as hanging fabric and not a triangle. */}
+          <path
+            d="M18 198 C42 186 62 200 84 198 C108 196 126 186 150 196 C162 200 172 196 182 198 L182 200 L18 200 Z"
+            fill={DARK}
+            opacity="0.25"
+          />
+        </g>
+      );
   }
 }
 
@@ -251,7 +350,7 @@ function VoiceBars({ alive = false }: { alive?: boolean }) {
           rx="3"
           // The animation itself lives in globals.css so the reduced-motion
           // query can switch it off; only the per-bar offset is inline, and
-          // an animation-delay on a cancelled animation is inert.
+          // an animation-delay on a canceled animation is inert.
           className={alive ? "felix-bar" : undefined}
           style={
             alive
@@ -286,6 +385,7 @@ export function Felix({
 }) {
   const fur = FUR_FILL;
   const wearingChestPiece = !!accessory && CHEST_ACCESSORIES.includes(accessory);
+  const wearingBackPiece = !!accessory && BACK_ACCESSORIES.includes(accessory);
   // Glasses are the coach mood's whole tell, and nothing else. They used to
   // also be an unlockable, which is what made the Den advertise them to a
   // fox already wearing them.
@@ -303,6 +403,10 @@ export function Felix({
       aria-hidden="true"
     >
       <FurGradient />
+
+      {/* Back pieces first, before even the tail: a cape hangs behind the
+          whole animal. */}
+      {wearingBackPiece && accessory ? <Accessory id={accessory} /> : null}
 
       {/* tail, sweeping out behind him with the white tip */}
       <path
@@ -332,6 +436,7 @@ export function Felix({
       ) : (
         <VoiceBars alive={mood === "listening"} />
       )}
+
 
       {/* ears. Sleepy Felix's fold back, which is most of what sells the mood */}
       <g
@@ -371,7 +476,9 @@ export function Felix({
       </g>
 
       {/* Head pieces last, so a cap or a headset sits over the ears. */}
-      {accessory && !wearingChestPiece ? <Accessory id={accessory} /> : null}
+      {accessory && !wearingChestPiece && !wearingBackPiece ? (
+        <Accessory id={accessory} />
+      ) : null}
     </svg>
   );
 }

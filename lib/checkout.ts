@@ -27,10 +27,55 @@ async function postForUrl(path: string, body?: unknown): Promise<string> {
   return data.url as string;
 }
 
-/** Begins Checkout for a cycle and redirects to Stripe. */
-export async function startCheckout(cycle: BillingCycle): Promise<void> {
-  const url = await postForUrl("/api/stripe/checkout", { cycle });
+/**
+ * Begins Checkout for a cycle and redirects to Stripe. `skipTrial` is the
+ * user's own choice to pay from day one instead of opening with the free
+ * trial (some people would rather not hold a conversion date in their head).
+ */
+export async function startCheckout(
+  cycle: BillingCycle,
+  opts?: { skipTrial?: boolean }
+): Promise<void> {
+  const url = await postForUrl("/api/stripe/checkout", {
+    cycle,
+    skipTrial: !!opts?.skipTrial,
+  });
   window.location.href = url;
+}
+
+// A checkout intent that couldn't be started yet because the account is still
+// unverified (the checkout route rejects unverified users). Stashed at signup
+// and resumed from the verify-email screen once the address is confirmed, so a
+// "buy Premium" click that went through email signup isn't silently dropped.
+const INTENT_KEY = "elovox:checkout-intent";
+
+export interface CheckoutIntent {
+  cycle: BillingCycle;
+  skipTrial: boolean;
+}
+
+export function stashCheckoutIntent(intent: CheckoutIntent): void {
+  try {
+    window.sessionStorage.setItem(INTENT_KEY, JSON.stringify(intent));
+  } catch {
+    // sessionStorage blocked (private mode / storage full): the intent is lost
+    // and the user lands on the dashboard, same as before this existed.
+  }
+}
+
+/** Read and clear a stashed intent. Returns null if there's nothing valid. */
+export function takeCheckoutIntent(): CheckoutIntent | null {
+  try {
+    const raw = window.sessionStorage.getItem(INTENT_KEY);
+    if (!raw) return null;
+    window.sessionStorage.removeItem(INTENT_KEY);
+    const parsed = JSON.parse(raw) as Partial<CheckoutIntent>;
+    const c = parsed.cycle;
+    if (c !== "weekly" && c !== "monthly" && c !== "annual") return null;
+    return { cycle: c, skipTrial: !!parsed.skipTrial };
+  } catch {
+    return null;
+  }
 }
 
 export type { InvoiceRow } from "@/app/api/stripe/invoices/route";

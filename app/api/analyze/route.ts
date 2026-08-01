@@ -1,16 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Analysis, CategoryId, StageAnalysis } from "@/lib/types";
+import { getCategory } from "@/lib/categories";
 import { generateSampleAnalysis } from "@/lib/sample";
 import { generateJson } from "@/lib/gemini";
 import { verifyVerifiedUser, makeRateLimiter, isPremiumServer } from "@/lib/verify";
 import { sanitizeText } from "@/lib/validation";
 import { getAdminDb } from "@/lib/firebaseAdmin";
+import { awardXp } from "@/lib/leaderboardServer";
 import {
   MAX_DAILY_ATTEMPTS,
   usageDateKey,
   reserveDailyAttempt,
   refundDailyAttempt,
+  reserveMeteredUse,
+  refundMeteredUse,
 } from "@/lib/quota";
+
+// A durable per-user daily ceiling on the premium analysis pipeline. The
+// in-memory rate limiter is per-serverless-instance (so the effective cap is
+// instances × 12/hr and resets on cold start); this is the real backstop
+// against a scripted premium account driving unbounded paid AssemblyAI +
+// Gemini calls. Set far above any honest user's day, so it never bites a
+// real subscriber — it only stops abuse.
+const PREMIUM_ANALYSES_PER_DAY = 60;
 
 // The analysis pipeline (PRD §7):
 //   1. Browser posts the recording here (keys stay server-side).
@@ -46,7 +58,8 @@ interface AaiWord {
 
 async function transcribe(
   audio: ArrayBuffer,
-  key: string
+  key: string,
+  deadline: number = Infinity
 ): Promise<{ text: string; words: AaiWord[] }> {
   const uploadRes = await fetch(`${ASSEMBLYAI}/upload`, {
     method: "POST",
@@ -70,6 +83,12 @@ async function transcribe(
   const { id } = await createRes.json();
 
   for (let i = 0; i < 40; i++) {
+    // Give up early if the next poll would push past the budget, so the caller
+    // still has time to run its refund before the platform kills the function.
+    // The 5s margin leaves room for the Gemini pass and the refund writes.
+    if (Date.now() + 2000 > deadline - 5000) {
+      throw new Error("AssemblyAI: transcription timed out");
+    }
     await new Promise((r) => setTimeout(r, 2000));
     const pollRes = await fetch(`${ASSEMBLYAI}/transcript/${id}`, {
       headers: { authorization: key },
@@ -297,13 +316,13 @@ function reportSchema(premium: boolean) {
   return { type: "object", properties, required };
 }
 
-const SYSTEM_PROMPT = `You are Felix, the fox coach inside Elovox, a speaking practice app. You read a transcript of someone practising out loud, plus measured delivery metrics, and produce a feedback report. Felix is a warm, sharp, lightly British delivery coach, a well-read professor in round glasses who genuinely wants the speaker to win the room.
+const SYSTEM_PROMPT = `You are Felix, the fox coach inside Elovox, a speaking practice app. You read a transcript of someone practicing out loud, plus measured delivery metrics, and produce a feedback report. Felix is a warm, sharp, lightly British delivery coach, a well-read professor in round glasses who genuinely wants the speaker to win the room.
 
 HOW TO SCORE
 
 Your job is to evaluate public speaking HONESTLY. Be accurate first and kind second. An inflated score is not a kindness: it tells a speaker they are ready for a room they are not ready for. Score what you actually heard, not what you wish you had heard, and never round up to spare feelings.
 
-Assume the speaker is an everyday person practising communication skills, not a professional speaker, actor, or national champion. A score represents how effectively they communicate to a typical audience today. Reward authenticity, clarity, and connection more than polished performance. Do NOT compare them to elite speakers such as TED speakers, actors, or championship debaters.
+Assume the speaker is an everyday person practicing communication skills, not a professional speaker, actor, or national champion. A score represents how effectively they communicate to a typical audience today. Reward authenticity, clarity, and connection more than polished performance. Do NOT compare them to elite speakers such as TED speakers, actors, or championship debaters.
 
 Score each dimension 0-100 on this scale. It has three tiers, and you must be willing to use all three.
 
@@ -329,7 +348,7 @@ Before assigning scores:
 1. Identify the speaker's strongest qualities.
 2. Identify the three most important improvements.
 3. Judge the overall communication experience, not isolated mistakes.
-4. Do NOT heavily penalise occasional filler words, brief pauses, or small stumbles, but do count a persistent pattern of them.
+4. Do NOT heavily penalize occasional filler words, brief pauses, or small stumbles, but do count a persistent pattern of them.
 5. Weight confidence, authenticity, and audience connection heavily, and say plainly when they were missing.
 6. A warm, genuine speaker should often score higher than a technically polished but robotic one.
 7. Differentiate the six dimensions. Six identical scores means you have not actually listened for each one.
@@ -367,14 +386,21 @@ async function runGemini(
     metrics: ReturnType<typeof computeMetrics>;
     premium: boolean;
     improv: boolean;
+    deadline?: number;
   }
 ): Promise<Omit<Analysis, "paceWpm" | "fillerWords" | "pauses">> {
+  // Social skills practice scores against "conversation": the speaker is
+  // answering an everyday moment as themselves, and judging that take like
+  // a podium speech marks natural talk down for not being oratory.
+  const conversational = input.category === "conversation";
   const userContent = `Practice category: ${input.category}${
     input.improv
       ? "\nThis was IMPROVISED: the speaker was given a topic and three points to hit, with no script. Weigh Organization and thinking on their feet, and don't expect polished wording, reward a clear, connected minute made up on the spot."
-      : ""
+      : conversational
+        ? "\nThis was CONVERSATION practice: the speaker was given an everyday social moment and answered in their own words, as themselves. Judge it as real talk between people, not as a speech. Warmth, naturalness and reading the other person count for more than structure or rhetoric, and Organization here means the answer held together, not that it had an introduction and a close."
+        : ""
   }
-${input.improv ? "Topic and points they were given" : "Prompt the speaker was responding to"}: "${input.prompt}"${
+${input.improv ? "Topic and points they were given" : conversational ? "The moment they were handling" : "Prompt the speaker was responding to"}: "${input.prompt}"${
     input.goal ? `\nThe speaker's goal for this delivery: "${input.goal}"` : ""
   }
 Recording length: ${Math.round(input.durationSec)}s
@@ -407,6 +433,7 @@ ${numberedSegments(input.segments)}`;
     parts: [{ text: userContent }],
     schema: reportSchema(input.premium),
     maxOutputTokens: input.premium ? 14000 : 8000,
+    deadline: input.deadline,
   });
 
   // The overall is COMPUTED from the dimension scores, not invented: take the
@@ -500,9 +527,9 @@ const STAGE_SCHEMA = {
   required: ["summary", "metrics", "tips"],
 } as const;
 
-const STAGE_SYSTEM = `You are Felix, the fox coach inside Elovox, watching a speaker on video. You are given still frames sampled at even intervals through one practice recording, in order, each labelled with its timestamp, plus the delivery metrics measured from the audio.
+const STAGE_SYSTEM = `You are Felix, the fox coach inside Elovox, watching a speaker on video. You are given still frames sampled at even intervals through one practice recording, in order, each labeled with its timestamp, plus the delivery metrics measured from the audio.
 
-Assume an everyday person practising, not a trained performer. Reward natural, grounded presence over theatrical polish, and don't compare them to actors or TED speakers. Don't heavily penalise small, normal movement.
+Assume an everyday person practicing, not a trained performer. Reward natural, grounded presence over theatrical polish, and don't compare them to actors or TED speakers. Don't heavily penalize small, normal movement.
 
 Score each thing 0-100 on a scale with three tiers, and be willing to use all three. GOOD, 87-100: the physical delivery genuinely works (96-100 exceptional, 91-95 excellent, 87-90 very good, which is the floor of good and not a ceiling). MIDDLING, 65-86: it does not undermine them but it does not help either (80-86 competent with noticeable weaknesses, 73-79 middling, 65-72 weak). BAD, 20-64: the body is working against the words (50-64 bad, 35-49 very bad, 20-34 awful, below 20 nothing assessable, out of shot or too dark).
 
@@ -527,7 +554,8 @@ async function runStage(
   geminiKey: string,
   frames: { time: string; data: string }[],
   metrics: ReturnType<typeof computeMetrics>,
-  durationSec: number
+  durationSec: number,
+  deadline?: number
 ): Promise<StageAnalysis> {
   const parsed = await generateJson<{
     summary: string;
@@ -537,6 +565,7 @@ async function runStage(
     system: STAGE_SYSTEM,
     schema: STAGE_SCHEMA,
     maxOutputTokens: 4000,
+    deadline,
     parts: [
       {
         text: `Recording length: ${Math.round(durationSec)}s
@@ -575,14 +604,28 @@ function readFrames(form: FormData): { time: string; data: string }[] {
     // "0:12|<base64>", timestamp travels with the image
     const sep = raw.indexOf("|");
     if (sep === -1) continue;
+    const time = raw.slice(0, sep);
+    // The label must be exactly the "m:ss" our formatTime() emits. Without
+    // this cap the label half is unbounded, unsanitized text that gets
+    // interpolated into the vision prompt ("Frame at ${f.time}:"), a
+    // token-stuffing and instruction-injection channel on every camera pass.
+    if (!/^\d{1,3}:\d{2}$/.test(time)) continue;
     const data = raw.slice(sep + 1);
     if (!data || data.length > MAX_FRAME_BYTES) continue;
-    frames.push({ time: raw.slice(0, sep), data });
+    frames.push({ time, data });
   }
   return frames;
 }
 
 export async function POST(req: NextRequest) {
+  // Anchor the pipeline budget to the START of the handler, not to the point
+  // just before transcription. maxDuration counts from invocation, and the
+  // body upload (up to ~30MB on a phone connection), auth, entitlement check,
+  // and reservation writes all happen first: computing the deadline off
+  // Date.now() down there would hand the pipeline the full 110s again, so a
+  // slow upload could push the real kill past it and skip the refund. Set
+  // here, the ~10s tail for the refund writes is preserved regardless.
+  const startedAt = Date.now();
   const uid = await verifyVerifiedUser(req);
   if (!uid) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -610,12 +653,26 @@ export async function POST(req: NextRequest) {
   }
 
   const audio = form.get("audio");
-  const category = (form.get("category") as CategoryId) ?? "general-coaching";
+  // Closed-set lookup, not a bare `as CategoryId` cast: category is
+  // interpolated into the Gemini prompt and written as a map key on
+  // score/progress.lastPlayed, so an unknown/oversized/non-string value must
+  // collapse to the documented catch-all before it reaches either sink.
+  const rawCategory = form.get("category");
+  const category: CategoryId = getCategory(
+    typeof rawCategory === "string" ? rawCategory : ""
+  ).id;
   // Free text from the browser that flows into the model prompt, sanitize
   // (strip HTML/script/control chars) and length-cap before use.
   const prompt = sanitizeText(form.get("prompt")).slice(0, 2000);
   const goal = sanitizeText(form.get("goal")).slice(0, 500);
-  const durationSec = Number(form.get("durationSec") ?? 0);
+  // Clamp to [0, MAX]: `|| 0` turns NaN (a File part, "abc") into 0 before
+  // the clamp, and Math.min caps a lie like "20" for a 10-minute upload. 0
+  // keeps the existing "unknown duration" behavior in computeMetrics rather
+  // than feeding "NaN s" / a negative pace into the model that scores the rep.
+  const durationSec = Math.min(
+    MAX_DURATION_SEC,
+    Math.max(0, Number(form.get("durationSec")) || 0)
+  );
 
   const assemblyKey = process.env.ASSEMBLYAI_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
@@ -688,17 +745,21 @@ export async function POST(req: NextRequest) {
       {
         error: "premium-required",
         message:
-          "Free practice is the Daily Minute. Go Premium for the speech library, your own material, interview practice and camera coaching.",
+          "Free practice is the Daily Minute. Go Premium for the speech library, your own material, interview practice, social skills and camera coaching.",
       },
       { status: 403 }
     );
   }
 
-  let reservation: { date: string } | null = null;
+  // `used` is the server's own count of today's attempts, straight out of the
+  // meter it just incremented. It is the attempt number the XP award uses, so
+  // the improvement and "all three" bonuses can't be farmed by a client that
+  // claims to be on attempt 3 every time.
+  let reservation: { date: string; used: number } | null = null;
   if (isDaily) {
     if (db) {
       const date = usageDateKey(clientDate);
-      const { ok } = await reserveDailyAttempt(db, uid, date);
+      const { ok, used } = await reserveDailyAttempt(db, uid, date);
       if (!ok) {
         return NextResponse.json(
           {
@@ -708,18 +769,57 @@ export async function POST(req: NextRequest) {
           { status: 429 }
         );
       }
-      reservation = { date };
+      reservation = { date, used };
     } else {
       console.warn("daily cap not enforced: FIREBASE_SERVICE_ACCOUNT unset");
     }
   }
 
+  // Premium, non-daily: reserve against the durable daily ceiling. Refunded
+  // on every failure path below alongside the daily attempt, so a busy
+  // pipeline never eats a user's headroom.
+  let premiumMeterDate: string | null = null;
+  if (!isDaily && db) {
+    const date = usageDateKey(clientDate);
+    const { ok } = await reserveMeteredUse(
+      db,
+      uid,
+      date,
+      "premiumAnalyses",
+      PREMIUM_ANALYSES_PER_DAY
+    );
+    if (!ok) {
+      return NextResponse.json(
+        {
+          error: "rate-limited",
+          message:
+            "That's a lot of practice for one day. Take a breather and come back tomorrow.",
+        },
+        { status: 429 }
+      );
+    }
+    premiumMeterDate = date;
+  }
+
+  // One absolute budget shared by transcription and the model passes, set
+  // ~10s inside maxDuration (120s) and anchored to startedAt (top of POST, so
+  // it already accounts for the upload/auth/reservation phase). Every stage
+  // stops before this, so the catch below always runs its refunds rather than
+  // the platform killing the function mid-flight and eating the user's attempt.
+  const deadline = startedAt + (maxDuration - 10) * 1000;
+
   try {
-    const { words } = await transcribe(await audio.arrayBuffer(), assemblyKey);
+    const { words } = await transcribe(
+      await audio.arrayBuffer(),
+      assemblyKey,
+      deadline
+    );
     if (words.length === 0) {
       // Nothing usable, this take didn't cost us the pipeline, so hand the
       // reserved attempt back before telling the user plainly.
       if (reservation && db) await refundDailyAttempt(db, uid, reservation.date);
+      if (premiumMeterDate && db)
+        await refundMeteredUse(db, uid, premiumMeterDate, "premiumAnalyses");
       // Never dress this up as a scored report.
       return NextResponse.json(
         {
@@ -749,9 +849,10 @@ export async function POST(req: NextRequest) {
         metrics,
         premium,
         improv: isDaily,
+        deadline,
       }),
       wantsStage
-        ? runStage(geminiKey, frames, metrics, durationSec).catch((err) => {
+        ? runStage(geminiKey, frames, metrics, durationSec, deadline).catch((err) => {
             // A failed camera pass must never cost the user their voice report.
             console.error("stage analysis failed:", err);
             return undefined;
@@ -767,6 +868,30 @@ export async function POST(req: NextRequest) {
       fillerWords: metrics.fillerWords,
       pauses: metrics.pauses,
     };
+
+    // The one place ranked XP is awarded: a real score, just produced, by a
+    // caller we authenticated, counted against a meter the client can't
+    // write. See lib/leaderboardServer.ts for why nothing else may award it.
+    // Deliberately awaited-but-swallowed: the report is already earned, and a
+    // leaderboard hiccup must never turn it into an error.
+    if (db) {
+      try {
+        await awardXp(db, uid, {
+          score: analysis.overall,
+          isDaily,
+          date: reservation?.date ?? usageDateKey(clientDate),
+          attemptNumber: reservation?.used ?? 1,
+          // Which surface this was, for the comeback coin bonus. The daily is
+          // its own activity rather than whatever category it scores against,
+          // since coming back to the daily is a different thing from coming
+          // back to the speech library.
+          activity: isDaily ? "daily" : category,
+        });
+      } catch (err) {
+        console.error("[leaderboard] award failed", uid, err);
+      }
+    }
+
     return NextResponse.json(analysis);
   } catch (err) {
     // The pipeline failed (transcription or the model chain). We will NOT
@@ -775,12 +900,14 @@ export async function POST(req: NextRequest) {
     // attempt so a busy coaching service never costs the user one of their
     // three; the client keeps the session recoverable and lets them retry.
     if (reservation && db) await refundDailyAttempt(db, uid, reservation.date);
+    if (premiumMeterDate && db)
+      await refundMeteredUse(db, uid, premiumMeterDate, "premiumAnalyses");
     console.error("analyze pipeline failed:", err);
     return NextResponse.json(
       {
         error: "analysis-failed",
         message:
-          "Felix couldn't finish analysing that one. The coaching service is busy, and your recording is safe, so give it another go in a moment.",
+          "Felix couldn't finish analyzing that one. The coaching service is busy, and your recording is safe, so give it another go in a moment.",
       },
       { status: 503 }
     );

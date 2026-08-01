@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { RequireAuth } from "@/components/RequireAuth";
 import { NativeAccountSection } from "@/components/NativeAccountSection";
 import { useAuth } from "@/components/AuthProvider";
-import { usePlanRecord, refreshPlan, type PlanRecord } from "@/lib/plan";
+import { usePlanRecord, refreshPlan, hasComp, type PlanRecord } from "@/lib/plan";
+import { STREAK_REWARD_DAYS } from "@/lib/streakClaim";
 import {
   openBillingPortal,
   fetchInvoices,
@@ -183,25 +184,58 @@ function BillingSection() {
   const price = cyclePlan ? `${formatUSD(cyclePlan.price)}/${cyclePlan.unit}` : "";
 
   let statusLine = "You're on the Free plan.";
-  // A trial that has been cancelled still reports `trialing` right up until it
+  // A trial that has been canceled still reports `trialing` right up until it
   // lapses, so this has to be checked before the plain trial copy. Otherwise
-  // someone who has already cancelled is told they're about to be charged —
+  // someone who has already canceled is told they're about to be charged —
   // which is both alarming and false.
   const ending = r?.cancelAtPeriodEnd || r?.cancelAt != null;
-  const endsOn = fmtDate(r?.cancelAt ?? r?.trialEnd ?? r?.currentPeriodEnd);
+  // trialEnd is only a valid "ends on" for a trial in progress. Stripe keeps
+  // trial_end set (in the past) after a trial converts, so folding it into the
+  // active branch's fallback could render "cancels <weeks ago>". Only the
+  // trialing branch may fall back to it.
+  const endsOn = fmtDate(
+    r?.cancelAt ??
+      (r?.status === "trialing" ? r?.trialEnd : undefined) ??
+      r?.currentPeriodEnd
+  );
 
   if (r?.status === "trialing" && ending) {
-    statusLine = `Premium trial, cancelled. Access continues until ${endsOn}, and you won't be charged.`;
+    statusLine = `Premium trial, canceled. Access continues until ${endsOn}, and you won't be charged.`;
   } else if (r?.status === "trialing") {
-    statusLine = `Premium trial, free until ${fmtDate(r.trialEnd)}, then ${price}.`;
+    statusLine = `Premium trial, free until ${fmtDate(r.trialEnd)}${
+      price ? `, then ${price}` : ""
+    }.`;
   } else if (r?.status === "active" && ending) {
     statusLine = `Premium, cancels ${endsOn}. Access continues until then.`;
   } else if (r?.status === "active") {
-    statusLine = `Premium (${r.cycle}), renews ${fmtDate(r.currentPeriodEnd)} at ${price}.`;
+    // cycle/price can be null if STRIPE_PRICE_* env vars drift from the live
+    // Prices, so guard the fragments rather than rendering "(null)" / "at .".
+    statusLine = `Premium${r.cycle ? ` (${r.cycle})` : ""}, renews ${fmtDate(
+      r.currentPeriodEnd
+    )}${price ? ` at ${price}` : ""}.`;
   } else if (r?.status === "past_due") {
     statusLine = "Payment failed. Update your card to keep Premium.";
+  } else if (r?.status === "unpaid") {
+    // Dunning ran out: the sub is no longer entitled (lib/stripe.ts excludes
+    // "unpaid"), but the invoice is still open, so this is recoverable from
+    // the portal rather than a dead end. Without this branch the user saw
+    // "You're on the Free plan" while checkout refused them as "already
+    // subscribed".
+    statusLine =
+      "Payment failed and Premium is paused. Open Manage billing to pay the outstanding invoice and get it back.";
   } else if (r?.status === "canceled") {
     statusLine = "Your Premium subscription has ended.";
+  }
+
+  // A comped week from a 21-day streak. `r.plan` is the OR of the subscription
+  // and the comp, so it can't tell these apart — the Stripe status can. Only
+  // describe the comp when there's no live subscription behind it, otherwise a
+  // subscriber who also earned a streak week would be told their paid plan
+  // expires next Tuesday.
+  const subscribed =
+    r?.status === "trialing" || r?.status === "active" || r?.status === "past_due";
+  if (r && !subscribed && hasComp(r)) {
+    statusLine = `Premium is open until ${fmtDate(r.premiumUntil)}, free for your ${STREAK_REWARD_DAYS}-day streak. There's nothing to cancel — it just ends.`;
   }
 
   return (
@@ -241,7 +275,7 @@ function BillingSection() {
             >
               {isPremium ? "Premium" : "Free"}
             </span>
-            {r.status === "past_due" && (
+            {(r.status === "past_due" || r.status === "unpaid") && (
               <span className="inline-flex items-center rounded-full bg-error/10 px-2.5 py-1 text-[13px] font-semibold text-error">
                 Action needed
               </span>
@@ -629,7 +663,7 @@ function DeleteAccountSection({ hasPassword }: { hasPassword: boolean }) {
       </h2>
       <p className="mt-1 text-sm text-on-surface-variant">
         Permanently erases your practice history, your progress, and your
-        login. If you have a subscription it&apos;s cancelled immediately. This
+        login. If you have a subscription it&apos;s canceled immediately. This
         cannot be undone, and we can&apos;t recover any of it afterwards.
       </p>
 

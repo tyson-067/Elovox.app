@@ -12,8 +12,9 @@ import {
   signInWithGoogle,
   signUpWithEmail,
 } from "@/lib/auth";
-import { startCheckout } from "@/lib/checkout";
+import { startCheckout, stashCheckoutIntent } from "@/lib/checkout";
 import { useReturnReset } from "@/lib/useReturnReset";
+import { stashReferral } from "@/lib/invite";
 import { DobPicker, dobPartsToIso, type DobParts } from "@/components/DobPicker";
 import type { BillingCycle } from "@/lib/pricing";
 import {
@@ -28,12 +29,15 @@ import {
 // If the visitor arrived from a pricing CTA (/signup?plan=premium&cycle=…),
 // resume Stripe Checkout the moment the account exists. Read from the URL
 // directly (not useSearchParams) to avoid a Suspense boundary requirement.
-function checkoutIntent(): BillingCycle | null {
+// `skipTrial=1` carries the pricing page's "pay today" choice through
+// signup, so the checkout they resume is the one they configured.
+function checkoutIntent(): { cycle: BillingCycle; skipTrial: boolean } | null {
   if (typeof window === "undefined") return null;
   const p = new URLSearchParams(window.location.search);
   if (p.get("plan") !== "premium") return null;
   const c = p.get("cycle");
-  return c === "weekly" || c === "monthly" || c === "annual" ? c : null;
+  if (c !== "weekly" && c !== "monthly" && c !== "annual") return null;
+  return { cycle: c, skipTrial: p.get("skipTrial") === "1" };
 }
 
 // Shared onboarding form for /login and /signup: email + password, plus
@@ -83,6 +87,18 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   // standing in front of it. Null means no account creation is pending.
   const [pending, setPending] = useState<null | "email" | "google">(null);
 
+  // The query string is carried across the login/signup cross-links so a
+  // checkout intent (?plan=premium&cycle=…) survives switching forms. Read
+  // after mount: window isn't available during SSR, and reading it in an
+  // effect keeps this SSR-safe with no useSearchParams/Suspense requirement.
+  // The one-shot setState after mount is exactly the "sync a browser-only
+  // value once" case the lint rule over-flags — it runs once, never loops.
+  const [search, setSearch] = useState("");
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSearch(window.location.search);
+  }, []);
+
   // Under COOP the opener can't observe the Google popup closing, so when
   // someone dismisses it `signInWithPopup` never settles: there is no
   // rejection to catch, and the buttons stay disabled for good. When focus
@@ -94,6 +110,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   });
 
   const isSignup = mode === "signup";
+
+  // An invite link is /signup?ref=CODE. Hold the code now, because the query
+  // string does not survive what comes next: Google sign-in leaves the page
+  // and returns, and email signup routes through email verification. It's
+  // redeemed on the dashboard, once there's a uid to attach it to.
+  useEffect(() => {
+    stashReferral();
+  }, []);
 
   // --- Age gate (signup only) ---------------------------------------------
   // Asked before an account can be created by ANY route, including Google —
@@ -139,13 +163,18 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const finishAuth = async () => {
     if (finishedRef.current) return;
     finishedRef.current = true;
-    const cycle = checkoutIntent();
-    if (cycle) {
+    const intent = checkoutIntent();
+    if (intent) {
       try {
-        await startCheckout(cycle);
+        await startCheckout(intent.cycle, { skipTrial: intent.skipTrial });
         return; // browser is navigating to Stripe
       } catch {
-        // fall through to the normal destination
+        // The most common reason this throws is a brand-new email signup: the
+        // account exists but isn't verified yet, and the checkout route
+        // rejects unverified users (403). Stash the intent so the verify-email
+        // screen can resume it the moment the address is confirmed, instead of
+        // silently dropping a purchase the user asked for.
+        stashCheckoutIntent(intent);
       }
     }
     router.replace(destination);
@@ -228,7 +257,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     } catch (err) {
       // Stay on whichever screen they're on — the confirmation screen shows
       // the same error and has its own way back to the form. Throwing them
-      // out of it meant a cancelled Google sheet silently lost the step they
+      // out of it meant a canceled Google sheet silently lost the step they
       // had already completed and made them submit the form again.
       setError(authErrorMessage(err, mode));
       setBusy(false);
@@ -560,14 +589,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         {isSignup ? (
           <>
             Already have an account?{" "}
-            <Link href="/login" className="font-semibold text-primary underline">
+            <Link href={`/login${search}`} className="font-semibold text-primary underline">
               Log in
             </Link>
           </>
         ) : (
           <>
             New to Elovox?{" "}
-            <Link href="/signup" className="font-semibold text-primary underline">
+            <Link href={`/signup${search}`} className="font-semibold text-primary underline">
               Sign up free
             </Link>
           </>

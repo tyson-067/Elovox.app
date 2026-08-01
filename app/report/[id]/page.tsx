@@ -415,9 +415,11 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
               ? "/practice?daily=1"
               : session.interviewType
                 ? `/practice?interview=${session.interviewType}`
-                : session.speechId
-                  ? `/practice?speech=${session.speechId}`
-                  : `/practice?category=${session.category}`
+                : session.socialSkillId
+                  ? `/practice?social=${session.socialSkillId}`
+                  : session.speechId
+                    ? `/practice?speech=${session.speechId}`
+                    : `/practice?category=${session.category}`
           }
           className="btn rounded-lg bg-accent text-white font-semibold px-7 py-3"
         >

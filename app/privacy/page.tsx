@@ -7,18 +7,47 @@ import { LEGAL, SUBPROCESSORS } from "@/lib/legal";
 // this repo actually does, if the data pipeline changes (a new processor,
 // stored audio, analytics), this page and lib/legal.ts change with it.
 
+const TITLE = "Privacy Policy | Elovox";
+const DESCRIPTION =
+  "What Elovox collects when you practice speaking, who processes it, how long it's kept, and how to delete it.";
+
 export const metadata: Metadata = {
-  title: "Privacy Policy | Elovox",
-  description:
-    "What Elovox collects when you practice speaking, who processes it, how long it's kept, and how to delete it.",
+  title: TITLE,
+  description: DESCRIPTION,
   alternates: { canonical: "/privacy" },
 };
 
 const mailto = `mailto:${LEGAL.contactEmail}`;
 
+// Same literal the rest of the site's JSON-LD uses, so @id refs resolve to one
+// entity graph. lastUpdated is a human string ("July 23, 2026"); parse it to
+// ISO for dateModified, and omit the field rather than emit a bad date.
+const SITE = "https://elovox.app";
+const modified = (() => {
+  const d = new Date(LEGAL.lastUpdated);
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString().slice(0, 10);
+})();
+
+const PAGE_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "@id": `${SITE}/privacy#webpage`,
+  url: `${SITE}/privacy`,
+  name: TITLE,
+  description: DESCRIPTION,
+  isPartOf: { "@id": `${SITE}/#website` },
+  publisher: { "@id": `${SITE}/#organization` },
+  ...(modified ? { dateModified: modified } : {}),
+};
+
 export default function PrivacyPage() {
   return (
-    <LegalDoc
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(PAGE_SCHEMA) }}
+      />
+      <LegalDoc
       title="Privacy Policy"
       intro={`Elovox listens to you speak and gives you feedback on how you sounded. That means we handle recordings of your voice, which is personal and sometimes sensitive. This page explains exactly what happens to them, in plain language, because you should be able to tell what you're agreeing to.`}
     >
@@ -27,7 +56,7 @@ export default function PrivacyPage() {
           items={[
             "We do not sell your data. There are no advertisers and no ad trackers on this site.",
             "We do not keep your audio or video. Recordings are processed to produce your feedback, then discarded. We store the transcript and the coaching report, not the recording.",
-            "We do not use your voice to identify you. Elovox does not create a voiceprint or any biometric identifier, and does not attempt to recognise who is speaking.",
+            "We do not use your voice to identify you. Elovox does not create a voiceprint or any biometric identifier, and does not attempt to recognize who is speaking.",
             "We never see your card details. Payments run entirely through Stripe.",
             "You can delete any practice session from your history, or erase your entire account, from your account settings, no email, no waiting.",
           ]}
@@ -55,7 +84,7 @@ export default function PrivacyPage() {
         <p>
           <strong>Your recordings.</strong> When you practice, your browser
           records audio, and video frames as well if you turn the camera on.
-          These are sent to our server so they can be analysed. See{" "}
+          These are sent to our server so they can be analyzed. See{" "}
           &ldquo;What happens to a recording&rdquo; below.
         </p>
         <p>
@@ -173,7 +202,7 @@ export default function PrivacyPage() {
             your account settings
           </Link>{" "}
           will permanently erase your entire account (history, profile, and
-          login) along with cancelling any subscription. For anything else,
+          login) along with canceling any subscription. For anything else,
           email{" "}
           <a className="text-accent hover:underline" href={mailto}>
             {LEGAL.contactEmail}
@@ -221,5 +250,6 @@ export default function PrivacyPage() {
         </p>
       </Section>
     </LegalDoc>
+    </>
   );
 }

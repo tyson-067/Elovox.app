@@ -7,6 +7,7 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { Reveal } from "@/components/Reveal";
 import { WordReveal } from "@/components/WordReveal";
 import { GlowCard } from "@/components/GlowCard";
+import { InfoTip } from "@/components/InfoTip";
 import { PremiumBadge } from "@/components/PremiumBadge";
 import { Felix } from "@/components/FoxLogo";
 import { SPEECHES } from "@/lib/speeches";
@@ -29,31 +30,33 @@ function SpeechCard({
   slotId,
   speech,
   replacement,
-  isPremium,
+  locked,
 }: {
   slotId: string;
   speech: { title: string; scenario: string; topic: string };
   /** Set once Felix has rewritten this slot, practice routes to it instead. */
   replacement?: GeneratedSpeech;
-  isPremium: boolean;
+  /** true = free (locked), false = premium (interactive), null = plan still
+   *  loading (render neutral, so a subscriber never sees a paywall flash). */
+  locked: boolean | null;
 }) {
   const router = useRouter();
-  const [choosing, setChoosing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
 
-  async function replace(relation: "similar" | "different") {
+  async function replace() {
     setWorking(true);
     setError("");
     try {
       const fresh = await regenerateSpeech({
         previousTitle: speech.title,
         previousTopic: speech.topic,
-        relation,
+        relation: "different",
       });
       // The store notifies this page; no local state to sync.
       saveReplacement(slotId, fresh);
-      setChoosing(false);
+      setConfirming(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't write a new one.");
     } finally {
@@ -61,7 +64,15 @@ function SpeechCard({
     }
   }
 
-  if (!isPremium) {
+  function open() {
+    router.push(
+      replacement
+        ? `/practice?gen=${stashGeneratedSpeech(replacement)}`
+        : `/practice?speech=${slotId}`
+    );
+  }
+
+  if (locked === true) {
     return (
       <div className="card h-full p-5 opacity-70">
         <div className="flex items-start justify-between gap-2">
@@ -80,80 +91,90 @@ function SpeechCard({
     );
   }
 
-  return (
-    <GlowCard className="card h-full p-5 flex flex-col">
-      <div className="flex items-start justify-between gap-2">
+  if (locked === null) {
+    // Plan still loading: neutral card, no lock and no badge, so a premium
+    // subscriber never sees a flash of the paywalled state.
+    return (
+      <div className="card h-full p-5">
         <span className="font-headline text-xl font-medium text-primary block">
           {speech.title}
         </span>
+        <span className="mt-1.5 block text-base leading-6 text-on-surface-variant">
+          {speech.scenario}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <GlowCard className="card relative h-full">
+      {/* The whole card is the button. The X sits above it in the corner. */}
+      <button
+        type="button"
+        onClick={open}
+        className="block h-full w-full p-5 pr-12 text-left"
+      >
+        <span className="font-headline text-xl font-medium text-primary block">
+          {speech.title}
+        </span>
+        <span className="mt-1.5 block text-base leading-6 text-on-surface-variant">
+          {speech.scenario}
+        </span>
         {replacement && (
-          <span
-            className="rounded-full bg-accent/12 text-accent text-[11px] font-semibold tracking-[0.06em] uppercase px-2.5 py-1"
-            title="Felix wrote this one for you"
-          >
+          <span className="mt-3 inline-block rounded-full bg-accent/12 text-accent text-[11px] font-semibold tracking-[0.06em] uppercase px-2.5 py-1">
             New
           </span>
         )}
-      </div>
-      <span className="mt-1.5 block text-base leading-6 text-on-surface-variant grow">
-        {speech.scenario}
-      </span>
+      </button>
 
-      {choosing ? (
-        <div className="mt-3">
-          <p className="text-[13px] font-semibold text-on-surface-variant">
-            {working ? "Felix is writing…" : "Replace it with something…"}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={working}
-              onClick={() => replace("similar")}
-              className="pill rounded-full border border-accent text-accent px-3.5 py-1.5 text-[13px] font-semibold disabled:opacity-50"
-            >
-              Similar topic
-            </button>
-            <button
-              type="button"
-              disabled={working}
-              onClick={() => replace("different")}
-              className="pill rounded-full border border-violet text-violet px-3.5 py-1.5 text-[13px] font-semibold disabled:opacity-50"
-            >
-              Different topic
-            </button>
-            <button
-              type="button"
-              disabled={working}
-              onClick={() => setChoosing(false)}
-              className="text-[13px] font-semibold text-on-surface-variant underline underline-offset-4 disabled:opacity-50"
-            >
-              Cancel
-            </button>
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        aria-label={`Remove ${speech.title}`}
+        title="Swap this one out"
+        className="absolute top-3 right-3 grid h-8 w-8 place-items-center rounded-full text-on-surface-variant/70 hover:bg-on-surface-variant/10 hover:text-on-surface-variant"
+      >
+        <svg viewBox="0 0 16 16" className="h-4 w-4" aria-hidden="true">
+          <path
+            d="M3.5 3.5l9 9m0-9l-9 9"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+        </svg>
+      </button>
+
+      {confirming && (
+        <div className="absolute inset-0 grid place-items-center rounded-[inherit] bg-surface/95 p-5 text-center backdrop-blur-sm">
+          <div>
+            <p className="text-base leading-6 text-on-surface-variant">
+              {working
+                ? "Felix is writing a new one…"
+                : "Swap this out for a new scenario?"}
+            </p>
+            {error && <p className="mt-2 text-[13px] text-amber">{error}</p>}
+            <div className="mt-4 flex items-center justify-center gap-2">
+              <button
+                type="button"
+                disabled={working}
+                onClick={replace}
+                className="pill rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
+              >
+                Yes, swap it
+              </button>
+              <button
+                type="button"
+                disabled={working}
+                onClick={() => {
+                  setConfirming(false);
+                  setError("");
+                }}
+                className="pill rounded-full border border-on-surface-variant/30 px-5 py-2 text-[13px] font-semibold text-on-surface-variant disabled:opacity-50"
+              >
+                Keep it
+              </button>
+            </div>
           </div>
-          {error && <p className="mt-2 text-[13px] text-amber">{error}</p>}
-        </div>
-      ) : (
-        <div className="mt-3 flex flex-wrap items-center gap-4">
-          <button
-            type="button"
-            onClick={() =>
-              router.push(
-                replacement
-                  ? `/practice?gen=${stashGeneratedSpeech(replacement)}`
-                  : `/practice?speech=${slotId}`
-              )
-            }
-            className="text-[13px] font-semibold text-accent"
-          >
-            Practice this →
-          </button>
-          <button
-            type="button"
-            onClick={() => setChoosing(true)}
-            className="text-[13px] font-semibold text-on-surface-variant underline underline-offset-4 hover:text-violet"
-          >
-            Done with it, replace
-          </button>
         </div>
       )}
     </GlowCard>
@@ -161,7 +182,7 @@ function SpeechCard({
 }
 
 function LibraryScreen() {
-  const { plan, isPremium } = usePlan();
+  const { plan } = usePlan();
   const replacements = useSyncExternalStore(
     subscribeReplacements,
     replacementsSnapshot,
@@ -176,12 +197,17 @@ function LibraryScreen() {
           <h1 className="native-hide text-title font-headline font-semibold text-primary">
             <WordReveal text="The speech library" delay={80} step={60} />
           </h1>
-          {!isPremium && <PremiumBadge />}
+          {plan === "free" && <PremiumBadge />}
+          <InfoTip label="How does the speech library work?">
+            Nine short speeches you can run as many times as you like. Tap a
+            card to start. The X in its corner swaps that one out for a fresh
+            scenario Felix writes.
+          </InfoTip>
         </div>
         <p className="mt-3 text-lg leading-7 text-on-surface-variant max-w-[58ch]">
-          {isPremium
-            ? "Nine prepared speeches, about thirty seconds each. Practice any of them as many times as you like, and when one stops teaching you anything, have Felix write you a replacement."
-            : "Nine prepared speeches, about thirty seconds each, with unlimited reps. Felix rewrites any of them once you've outgrown it. Part of Premium."}
+          {plan === "free"
+            ? "Nine speeches, about thirty seconds each, unlimited reps, and you can swap any of them out. Part of Premium."
+            : "Nine speeches, about thirty seconds each. Run any of them as often as you want, and swap out the ones you're bored of."}
         </p>
       </Reveal>
 
@@ -194,7 +220,7 @@ function LibraryScreen() {
                 slotId={s.id}
                 speech={replacement ?? s}
                 replacement={replacement}
-                isPremium={isPremium}
+                locked={plan === null ? null : plan === "free"}
               />
             </Reveal>
           );

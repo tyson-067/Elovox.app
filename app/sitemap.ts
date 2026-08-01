@@ -17,11 +17,14 @@ const BASE = process.env.NEXT_PUBLIC_APP_URL || "https://elovox.app";
 // Update the entry when the page's visible content changes. A stale-but-honest
 // date is worth more than a fresh lie.
 const MODIFIED: Record<string, string> = {
-  "/": "2026-07-26",
+  "/": "2026-07-31",
   "/about": "2026-07-28", // new page: team + why Elovox exists
   "/pricing": "2026-07-27", // subscriber CTAs → Customer Portal
   "/terms": "2026-07-23",
   "/privacy": "2026-07-23",
+  "/for/job-candidates": "2026-07-31", // per-audience landing pages
+  "/for/students": "2026-07-31",
+  "/for/founders": "2026-07-31",
 };
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -31,6 +34,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/pricing": 0.8,
     "/terms": 0.3,
     "/privacy": 0.3,
+    "/for/job-candidates": 0.7,
+    "/for/students": 0.7,
+    "/for/founders": 0.7,
   };
 
   return Object.keys(MODIFIED).map((path) => ({

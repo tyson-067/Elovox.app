@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import {
@@ -9,6 +9,7 @@ import {
   signOutUser,
   accountErrorMessage,
 } from "@/lib/auth";
+import { startCheckout, takeCheckoutIntent } from "@/lib/checkout";
 
 // The waiting room for an unverified email/password account. RequireAuth sends
 // people here and won't let them into the app until Firebase reports the
@@ -33,12 +34,30 @@ export function VerifyEmailScreen() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  // Now that the address is verified, resume a checkout the user started at
+  // signup (stashed by AuthForm when the checkout route rejected the still
+  // unverified account), otherwise carry on to the dashboard. startCheckout
+  // navigates to Stripe on success; on failure the intent is already consumed,
+  // so fall through rather than looping.
+  const proceed = useCallback(async () => {
+    const intent = takeCheckoutIntent();
+    if (intent) {
+      try {
+        await startCheckout(intent.cycle, { skipTrial: intent.skipTrial });
+        return; // browser is navigating to Stripe
+      } catch {
+        // fall through to the dashboard
+      }
+    }
+    router.replace("/dashboard");
+  }, [router]);
+
   // Nobody signed in (or Firebase isn't configured), nothing to verify.
   useEffect(() => {
     if (loading) return;
     if (configured && !user) router.replace("/login");
-    else if (user?.emailVerified) router.replace("/dashboard");
-  }, [user, loading, configured, router]);
+    else if (user?.emailVerified) void proceed();
+  }, [user, loading, configured, router, proceed]);
 
   // Quietly re-check while the tab is visible. Covers the common flow: the
   // user opens the link on their phone, comes back to this tab, and expects
@@ -48,11 +67,11 @@ export function VerifyEmailScreen() {
     const tick = async () => {
       if (document.visibilityState !== "visible") return;
       const ok = await refreshVerifiedStatus().catch(() => false);
-      if (ok) router.replace("/dashboard");
+      if (ok) void proceed();
     };
     const id = setInterval(tick, POLL_MS);
     return () => clearInterval(id);
-  }, [configured, user, router]);
+  }, [configured, user, router, proceed]);
 
   const resend = async () => {
     setError("");
@@ -74,7 +93,7 @@ export function VerifyEmailScreen() {
     setChecking(true);
     try {
       const ok = await refreshVerifiedStatus();
-      if (ok) router.replace("/dashboard");
+      if (ok) await proceed();
       else setError("Not verified yet. Click the link in the email, then try again.");
     } catch {
       setError("Couldn't check just now. Try again in a moment.");

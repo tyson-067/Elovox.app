@@ -5,6 +5,7 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { Reveal } from "@/components/Reveal";
 import { WordReveal } from "@/components/WordReveal";
 import { GlowCard } from "@/components/GlowCard";
+import { InfoTip } from "@/components/InfoTip";
 import { PremiumBadge } from "@/components/PremiumBadge";
 import { Felix } from "@/components/FoxLogo";
 import { CATEGORIES } from "@/lib/categories";
@@ -25,12 +26,16 @@ function OwnScreen() {
           <h1 className="native-hide text-title font-headline font-semibold text-primary">
             <WordReveal text="My own material" delay={80} step={60} />
           </h1>
-          {!isPremium && <PremiumBadge />}
+          {plan === "free" && <PremiumBadge />}
+          <InfoTip label="What counts as my own material?">
+            A pitch, a toast, a class presentation — anything you&apos;ve
+            already written. Felix doesn&apos;t rewrite it. He scores how you
+            say it.
+          </InfoTip>
         </div>
         <p className="mt-3 text-lg leading-7 text-on-surface-variant max-w-[58ch]">
-          Bring the pitch, the presentation, or the talk you&apos;ve already
-          written. Pick the kind of thing it is, and Felix coaches how you
-          deliver it, not how you wrote it.
+          Bring something you&apos;ve already written. Pick what kind of thing
+          it is, and Felix coaches how you deliver it.
         </p>
       </Reveal>
 
@@ -46,12 +51,9 @@ function OwnScreen() {
                   <span className="mt-1.5 block text-base leading-6 text-on-surface-variant">
                     {cat.description}
                   </span>
-                  <span className="mt-3 inline-block text-[13px] font-semibold text-accent">
-                    Start a session →
-                  </span>
                 </Link>
               </GlowCard>
-            ) : (
+            ) : plan === "free" ? (
               <div className="card h-full p-5 opacity-70">
                 <div className="flex items-start justify-between gap-2">
                   <span className="font-headline text-xl font-medium text-primary block">
@@ -59,6 +61,16 @@ function OwnScreen() {
                   </span>
                   <PremiumBadge />
                 </div>
+                <span className="mt-1.5 block text-base leading-6 text-on-surface-variant">
+                  {cat.description}
+                </span>
+              </div>
+            ) : (
+              // plan === null: still loading, neutral card, no lock/badge flash.
+              <div className="card h-full p-5">
+                <span className="font-headline text-xl font-medium text-primary block">
+                  {cat.name}
+                </span>
                 <span className="mt-1.5 block text-base leading-6 text-on-surface-variant">
                   {cat.description}
                 </span>
