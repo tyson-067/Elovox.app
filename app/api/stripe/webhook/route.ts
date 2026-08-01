@@ -287,12 +287,16 @@ export async function POST(req: NextRequest) {
   const CLAIM_STALE_MS = 5 * 60 * 1000;
 
   let claimed = false;
+  let alreadyDone = false;
   try {
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(seenRef);
       if (snap.exists) {
         const prior = snap.data() ?? {};
-        if (prior.done) return; // genuinely handled already
+        if (prior.done) {
+          alreadyDone = true;
+          return; // genuinely handled already
+        }
         const at = typeof prior.at === "number" ? prior.at : 0;
         if (Date.now() - at < CLAIM_STALE_MS) return; // another attempt in flight
         console.warn(`[stripe] reclaiming stale event ${event.id} (${event.type})`);
@@ -306,8 +310,23 @@ export async function POST(req: NextRequest) {
     console.error(`[stripe] idempotency claim failed for ${event.id}`, err);
     return NextResponse.json({ error: "Claim failed." }, { status: 500 });
   }
-  if (!claimed) {
+
+  // Only a COMPLETED prior attempt earns a 2xx. This used to ack the
+  // in-flight case too, which quietly threw events away: attempt #1 exceeds
+  // the function limit and dies without responding, Stripe's retry lands
+  // inside the 5-minute window, gets a 200, and stops retrying — so `done` is
+  // never set, nothing ever runs the handler, and for
+  // checkout.session.completed that is a paying customer who never gets
+  // Premium. A 409 keeps the retry schedule alive; by the next attempt the
+  // claim has gone stale and can be reclaimed.
+  if (alreadyDone) {
     return NextResponse.json({ received: true, duplicate: true });
+  }
+  if (!claimed) {
+    return NextResponse.json(
+      { error: "Already processing this event; retry shortly.", inFlight: true },
+      { status: 409 }
+    );
   }
 
   try {

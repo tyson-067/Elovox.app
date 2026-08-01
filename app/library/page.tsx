@@ -121,7 +121,7 @@ function SpeechCard({
           {speech.scenario}
         </span>
         {replacement && (
-          <span className="mt-3 inline-block rounded-full bg-accent/12 text-accent text-[11px] font-semibold tracking-[0.06em] uppercase px-2.5 py-1">
+          <span className="mt-3 inline-block rounded-full bg-accent/12 text-accent-strong text-[11px] font-semibold tracking-[0.06em] uppercase px-2.5 py-1">
             New
           </span>
         )}
@@ -152,13 +152,13 @@ function SpeechCard({
                 ? "Felix is writing a new one…"
                 : "Swap this out for a new scenario?"}
             </p>
-            {error && <p className="mt-2 text-[13px] text-amber">{error}</p>}
+            {error && <p role="alert" className="mt-2 text-[13px] text-amber">{error}</p>}
             <div className="mt-4 flex items-center justify-center gap-2">
               <button
                 type="button"
                 disabled={working}
                 onClick={replace}
-                className="pill rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
+                className="pill rounded-full bg-accent-strong px-5 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
               >
                 Yes, swap it
               </button>
@@ -206,7 +206,7 @@ function LibraryScreen() {
         </div>
         <p className="mt-3 text-lg leading-7 text-on-surface-variant max-w-[58ch]">
           {plan === "free"
-            ? "Nine speeches, about thirty seconds each, practice them as much as you like, and you can swap any of them out. Part of Premium."
+            ? "Nine speeches, about thirty seconds each. Practice them as much as you like, and swap any of them out. Part of Premium."
             : "Nine speeches, about thirty seconds each. Run any of them as often as you want, and swap out the ones you're bored of."}
         </p>
       </Reveal>
@@ -239,7 +239,7 @@ function LibraryScreen() {
             </p>
             <Link
               href="/dashboard"
-              className="btn rounded-lg mt-5 inline-block bg-accent text-white font-semibold px-7 py-3.5"
+              className="btn rounded-lg mt-5 inline-block bg-accent-strong text-white font-semibold px-7 py-3.5"
             >
               Go to the Daily Minute
             </Link>

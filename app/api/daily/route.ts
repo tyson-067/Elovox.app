@@ -226,9 +226,16 @@ const FALLBACK: Omit<DailyChallenge, "date" | "generated">[] = [
   },
 ];
 
-// Per-instance memo, so a burst of first-of-the-day clients doesn't fan
-// out into a burst of generations on the same warm instance.
+// Per-instance memo of days we've settled, so a burst of first-of-the-day
+// clients doesn't fan out into a burst of generations on the same warm
+// instance.
 const memo = new Map<string, DailyChallenge>();
+
+// In-flight generations, keyed by date. The memo above only stops work AFTER
+// a generation returns, which is seconds later — so concurrent first-of-day
+// callers on one instance all sailed past it and each paid for a model call.
+// Sharing the promise means the second caller waits for the first instead.
+const inFlight = new Map<string, Promise<DailyChallenge>>();
 
 // This route is public (no auth token), so it's limited per-IP to stop one
 // caller from forcing generations across many distinct dates.
@@ -297,12 +304,41 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "rate limited" }, { status: 429 });
   }
 
+  // Already published? Then the day is settled and generating would pay for a
+  // topic we'd immediately throw away — publishChallenge is create-only, so
+  // every generation after the first is pure waste. This read used to happen
+  // only AFTER the model call. It matters most at the UTC rollover, when every
+  // cold instance takes its first request for a date that is already live, and
+  // on the signed-out path, which always comes straight here.
+  const db = getAdminDb();
+  if (db) {
+    const published = await db
+      .doc(`dailyChallenges/${date}`)
+      .get()
+      .catch(() => null);
+    const data = published?.data() as DailyChallenge | undefined;
+    if (data) {
+      memo.set(date, data);
+      return NextResponse.json(data);
+    }
+  }
+
   const key = geminiKey();
   if (!key) {
     // No key configured: the bank is the permanent answer, so memo it.
     const challenge = fallbackFor(date);
     memo.set(date, challenge);
     return NextResponse.json(challenge);
+  }
+
+  // Someone on this instance is already generating this date: wait for them.
+  const pending = inFlight.get(date);
+  if (pending) {
+    try {
+      return NextResponse.json(await pending);
+    } catch {
+      return NextResponse.json(fallbackFor(date));
+    }
   }
 
   // Coprime strides so theme/audience/focus advance at different rates and
@@ -312,7 +348,7 @@ export async function GET(req: NextRequest) {
   const audience = AUDIENCES[(seed * 3) % AUDIENCES.length];
   const focusHint = FOCUSES[(seed * 5) % FOCUSES.length];
 
-  try {
+  const work = (async () => {
     const result = await generateJson<
       Omit<DailyChallenge, "date" | "theme" | "generated">
     >(key, {
@@ -338,11 +374,20 @@ Write today's one-minute speech.`,
     // the one shared topic. Never publishes a fallback (generated === false).
     const shared = await publishChallenge(challenge);
     memo.set(date, shared);
-    return NextResponse.json(shared);
+    return shared;
+  })();
+
+  inFlight.set(date, work);
+  try {
+    return NextResponse.json(await work);
   } catch (err) {
     // Deliberately not memoized: the next request should retry generation
     // rather than serve the bank for the rest of the day.
     console.error("daily challenge generation failed:", err);
     return NextResponse.json(fallbackFor(date));
+  } finally {
+    // Cleared either way: on success the memo now answers, and on failure the
+    // next request should be free to try again.
+    inFlight.delete(date);
   }
 }

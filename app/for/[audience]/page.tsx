@@ -6,6 +6,7 @@ import { WordReveal } from "@/components/WordReveal";
 import { GlowCard } from "@/components/GlowCard";
 import { Felix } from "@/components/FoxLogo";
 import { AUDIENCES, getAudience } from "@/lib/audiences";
+import { pageGraph, WEBAPP } from "@/lib/schema";
 
 // Per-audience landing pages: /for/job-candidates, /for/students,
 // /for/founders. One template, content from lib/audiences.ts. Server
@@ -41,13 +42,13 @@ export async function generateMetadata({
       url,
       title: a.metaTitle,
       description: a.metaDescription,
-      images: ["/logo.png"],
+      images: ["/og.png"],
     },
     twitter: {
-      card: "summary",
+      card: "summary_large_image",
       title: a.metaTitle,
       description: a.metaDescription,
-      images: ["/logo.png"],
+      images: ["/og.png"],
     },
   };
 }
@@ -62,7 +63,6 @@ export default async function AudiencePage({
   if (!a) notFound();
 
   const pageSchema = {
-    "@context": "https://schema.org",
     "@type": "WebPage",
     "@id": `${SITE}/for/${a.slug}#webpage`,
     url: `${SITE}/for/${a.slug}`,
@@ -77,7 +77,7 @@ export default async function AudiencePage({
     <div className="native-hide pb-20">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(pageSchema) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pageGraph(WEBAPP, pageSchema)) }}
       />
 
       {/* Hero */}
@@ -104,7 +104,7 @@ export default async function AudiencePage({
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <Link
               href="/signup"
-              className="btn rounded-lg bg-accent px-8 py-3.5 text-base font-semibold text-white"
+              className="btn rounded-lg bg-accent-strong px-8 py-3.5 text-base font-semibold text-white"
             >
               Start free
             </Link>
@@ -120,11 +120,12 @@ export default async function AudiencePage({
 
       {/* The tailored pitch */}
       <section className="mt-16 md:mt-20 max-w-[62ch]">
+        {/* Spacing belongs on the Reveal wrapper, not the <p>. Each paragraph
+            is the only child of its own wrapper, so `first:mt-0` matched every
+            one of them and the whole pitch ran together as a single block. */}
         {a.body.map((para, i) => (
-          <Reveal key={i} delay={i * 90}>
-            <p className="mt-4 text-lg leading-8 text-on-surface first:mt-0">
-              {para}
-            </p>
+          <Reveal key={i} delay={i * 90} className={i ? "mt-4" : ""}>
+            <p className="text-lg leading-8 text-on-surface">{para}</p>
           </Reveal>
         ))}
       </section>
@@ -167,7 +168,7 @@ export default async function AudiencePage({
             </p>
             <Link
               href="/signup"
-              className="btn mt-6 inline-block rounded-lg bg-accent px-8 py-3.5 font-semibold text-white"
+              className="btn mt-6 inline-block rounded-lg bg-accent-strong px-8 py-3.5 font-semibold text-white"
             >
               Start free
             </Link>

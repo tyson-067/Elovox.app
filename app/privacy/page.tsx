@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalDoc, Section, Bullets } from "@/components/LegalDoc";
 import { LEGAL, SUBPROCESSORS } from "@/lib/legal";
+import { pageGraph } from "@/lib/schema";
 
 // Privacy policy. Every claim here is meant to describe what the code in
 // this repo actually does, if the data pipeline changes (a new processor,
@@ -15,6 +16,24 @@ export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
   alternates: { canonical: "/privacy" },
+  // Stated explicitly. Next inherits `openGraph` from the root layout rather
+  // than merging it, so without this the page shared as "Elovox: Speak with
+  // Impact" pointing at the homepage — contradicting its own title and
+  // canonical on the same document.
+  openGraph: {
+    type: "article",
+    siteName: "Elovox",
+    url: "/privacy",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/og.png"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/og.png"],
+  },
 };
 
 const mailto = `mailto:${LEGAL.contactEmail}`;
@@ -29,7 +48,6 @@ const modified = (() => {
 })();
 
 const PAGE_SCHEMA = {
-  "@context": "https://schema.org",
   "@type": "WebPage",
   "@id": `${SITE}/privacy#webpage`,
   url: `${SITE}/privacy`,
@@ -45,7 +63,7 @@ export default function PrivacyPage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(PAGE_SCHEMA) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pageGraph(PAGE_SCHEMA)) }}
       />
       <LegalDoc
       title="Privacy Policy"
@@ -68,7 +86,7 @@ export default function PrivacyPage() {
         <p>
           {LEGAL.serviceName} is operated by {LEGAL.entity}. For anything in
           this policy, whether a question, a request, or a complaint, email{" "}
-          <a className="text-accent hover:underline" href={mailto}>
+          <a className="text-accent-strong hover:underline" href={mailto}>
             {LEGAL.contactEmail}
           </a>
           . We are the data controller for the information described below.
@@ -87,7 +105,7 @@ export default function PrivacyPage() {
           speaking-tips form, we store that address and use it only to send
           those tips. It is never sold or shared, and you can come off the
           list any time by emailing{" "}
-          <a className="text-accent hover:underline" href={mailto}>
+          <a className="text-accent-strong hover:underline" href={mailto}>
             {LEGAL.contactEmail}
           </a>
           .
@@ -162,13 +180,13 @@ export default function PrivacyPage() {
           {SUBPROCESSORS.map((s) => (
             <li key={s.name}>
               <a
-                className="font-semibold text-accent hover:underline"
+                className="font-semibold text-accent-strong hover:underline"
                 href={s.link}
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 {s.name}
-              </a>{" "}
+              </a>
               : {s.purpose}
             </li>
           ))}
@@ -209,13 +227,13 @@ export default function PrivacyPage() {
         <p>
           The fastest route for most of this is the app itself: you can delete
           individual sessions from your history, and{" "}
-          <Link href="/account" className="text-accent hover:underline">
+          <Link href="/account" className="text-accent-strong hover:underline">
             your account settings
           </Link>{" "}
           will permanently erase your entire account (history, profile, and
           login) along with canceling any subscription. For anything else,
           email{" "}
-          <a className="text-accent hover:underline" href={mailto}>
+          <a className="text-accent-strong hover:underline" href={mailto}>
             {LEGAL.contactEmail}
           </a>{" "}
           and we&apos;ll respond within 30 days.

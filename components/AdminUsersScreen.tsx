@@ -195,7 +195,7 @@ export function AdminUsersScreen() {
               aria-pressed={filter === f.id}
               className={`pill rounded-full border px-3.5 py-1.5 text-[13px] font-semibold ${
                 filter === f.id
-                  ? "border-accent bg-accent text-white"
+                  ? "border-accent bg-accent-strong text-white"
                   : "border-primary/20 text-primary hover:border-accent/60"
               }`}
             >

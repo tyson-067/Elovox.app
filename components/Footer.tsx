@@ -6,7 +6,10 @@ import { FooterAboutLink } from "@/components/FooterAboutLink";
 // and the legal pages. Rendered on every route from the root layout, below
 // <main>, which is why layout.tsx keeps the body as a flex column.
 
-const linkClass = "transition-opacity hover:opacity-70";
+// `py-2 -my-2` grows the tap target to 36px without changing the layout:
+// stacked on mobile these were 20px-tall links 8px apart, well under the 44px
+// WCAG 2.5.8 target and genuinely fiddly to hit with a thumb.
+const linkClass = "py-2 -my-2 transition-opacity hover:opacity-70";
 
 export function Footer() {
   return (

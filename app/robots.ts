@@ -18,6 +18,21 @@ export default function robots(): MetadataRoute.Robots {
         "/report/",
         "/admin",
         "/verify-email",
+        // The signed-in app itself. These are client-rendered screens behind
+        // RequireAuth: they export no metadata, so a crawler sees ten
+        // different URLs all titled "Elovox: Speak with Impact" with no
+        // content under them — duplicate, thin, and useless to a searcher who
+        // can't sign in anyway. The marketing pages are what should rank.
+        "/dashboard",
+        "/practice",
+        "/progress",
+        "/library",
+        "/leaderboard",
+        "/shop",
+        "/social",
+        "/interviews",
+        "/own",
+        "/custom",
       ],
     },
     sitemap: `${BASE}/sitemap.xml`,

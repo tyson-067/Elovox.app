@@ -211,6 +211,17 @@ function DailyCard({
         </p>
       )}
 
+      {/* Attempt pips, counter and CTA all render only once `state` has
+          arrived. While it was in flight they asserted a specific, usually
+          WRONG answer — three empty pips, "3 of 3 attempts left" and "Start
+          your Daily Minute" — to someone who had already used all three
+          today, who then tapped through to /practice only to be turned away.
+          The title above already had a loading state; these didn't. */}
+      {state === null ? (
+        <p className="mt-5 text-[13px] font-semibold tracking-wide text-white/60" role="status">
+          Checking today&apos;s attempts…
+        </p>
+      ) : (
       <div className="mt-5 flex flex-wrap items-center gap-3">
         {Array.from({ length: MAX_DAILY_ATTEMPTS }, (_, i) => {
           const attempt = state?.attempts[i];
@@ -219,7 +230,7 @@ function DailyCard({
               key={i}
               className={`inline-flex h-9 min-w-9 items-center justify-center rounded-full px-3 font-data text-sm ${
                 attempt
-                  ? "bg-accent text-white"
+                  ? "bg-accent-strong text-white"
                   : i === used
                     ? "border border-white/50 text-white"
                     : "border border-white/20 text-white/40"
@@ -235,11 +246,12 @@ function DailyCard({
             : `${MAX_DAILY_ATTEMPTS - used} of ${MAX_DAILY_ATTEMPTS} attempts left`}
         </span>
       </div>
+      )}
 
-      {!done && (
+      {state !== null && !done && (
         <Link
           href="/practice?daily=1"
-          className="btn mt-6 inline-block rounded-lg bg-accent px-7 py-3.5 font-semibold text-white"
+          className="btn mt-6 inline-block rounded-lg bg-accent-strong px-7 py-3.5 font-semibold text-white"
         >
           {used === 0
             ? "Start your Daily Minute"
@@ -263,7 +275,7 @@ function QuestCard({ quest, index }: { quest: Quest; index: number }) {
         <span
           className={`shrink-0 rounded-full px-2.5 py-1 font-data text-[11px] font-semibold ${
             quest.done
-              ? "bg-accent text-white"
+              ? "bg-accent-strong text-white"
               : "bg-surface-container text-on-surface-variant"
           }`}
         >
@@ -282,7 +294,7 @@ function QuestCard({ quest, index }: { quest: Quest; index: number }) {
         />
       </div>
 
-      <p className="mt-2 text-[13px] font-semibold text-accent">
+      <p className="mt-2 text-[13px] font-semibold text-accent-strong">
         {quest.done ? (
           <span className="text-primary/70">✓ {quest.doneLabel}</span>
         ) : (
@@ -302,10 +314,13 @@ function DenWidget({
   stats,
   sessions,
   shop,
+  sessionsFailed,
 }: {
   stats: UserStats | null;
   sessions: Session[];
   shop: ShopState | null;
+  /** History couldn't be read — badges are unknown, not un-earned. */
+  sessionsFailed: boolean;
 }) {
   const badges = badgesFor({ stats, sessions });
   const earned = badges.filter((b) => b.earned).length;
@@ -322,7 +337,7 @@ function DenWidget({
         </h2>
         <span className="flex items-center gap-2">
           <span className="font-data text-[13px] text-on-surface-variant">
-            {earned} / {badges.length} badges
+            {sessionsFailed ? "badges unavailable" : `${earned} / ${badges.length} badges`}
           </span>
           <InfoTip label="What is the Fox Den?">
             Everything you&apos;ve earned. Badges unlock as you practice.
@@ -338,13 +353,25 @@ function DenWidget({
           chrome than content. `tabIndex` and `focus-within` are what keep it
           reachable without a mouse — a hover-only hint is invisible on a
           phone and to anyone tabbing. */}
-      <ul className="mt-4 grid grid-cols-3 gap-2.5">
+      {sessionsFailed && (
+        <p className="mt-4 text-[13px] text-on-surface-variant" role="status">
+          Couldn&apos;t check your badges just now. Nothing has been lost —
+          reload to try again.
+        </p>
+      )}
+      <ul className="mt-4 grid grid-cols-3 gap-2.5" aria-hidden={sessionsFailed}>
         {badges.map((b) => (
           <li key={b.id} className="group relative">
+            {/* aria-describedby ties the tooltip to its badge: these are six
+                focus stops per dashboard, and without the association the
+                text that explains each one was never announced. The earned
+                state is spelled out too, since "earned" was otherwise carried
+                only by the dimming — colour as the sole signal. */}
             <div
               tabIndex={0}
+              aria-describedby={`badge-tip-${b.id}`}
               className={`rounded-lg bg-white/70 px-2 py-3 text-center outline-offset-2 ${
-                b.earned ? "" : "locked-reward"
+                b.earned || sessionsFailed ? "" : "locked-reward"
               }`}
             >
               <span className="block text-xl leading-none" aria-hidden="true">
@@ -353,8 +380,10 @@ function DenWidget({
               <span className="mt-1.5 block text-[11px] font-semibold leading-tight text-primary">
                 {b.name}
               </span>
+              <span className="sr-only">{b.earned ? " — earned" : " — not earned yet"}</span>
             </div>
             <span
+              id={`badge-tip-${b.id}`}
               role="tooltip"
               className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1.5 w-max max-w-[min(11rem,calc(100vw-2rem))] -translate-x-1/2 rounded-lg bg-oxford px-2.5 py-1.5 text-[11px] leading-4 text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
             >
@@ -388,7 +417,7 @@ function DenWidget({
           ) : (
             <>Felix has nothing to wear yet.</>
           )}{" "}
-          <span className="font-semibold text-accent">Visit the shop →</span>
+          <span className="font-semibold text-accent-strong">Visit the shop →</span>
         </span>
       </Link>
 
@@ -398,7 +427,7 @@ function DenWidget({
           <span className="font-semibold text-primary">{next.name}</span> at{" "}
           {/* The level is the link: it's a number about your progress, and
               /progress is where that number is explained. */}
-          <Link href="/progress" className="font-semibold text-accent underline">
+          <Link href="/progress" className="font-semibold text-accent-strong underline">
             Level {next.level}
           </Link>
           .
@@ -407,7 +436,7 @@ function DenWidget({
 
       <Link
         href="/progress"
-        className="mt-3 inline-block text-[13px] font-semibold text-accent"
+        className="mt-3 inline-block text-[13px] font-semibold text-accent-strong"
       >
         See the whole run →
       </Link>
@@ -424,6 +453,9 @@ function TodayScreen() {
   const [challenge, setChallenge] = useState<ChallengeState | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
+  // True when the history read failed, so the Fox Den can say so instead of
+  // rendering an empty history as "you've earned nothing".
+  const [sessionsFailed, setSessionsFailed] = useState(false);
   // What Felix is wearing and where he's standing. Read-only here; the shop
   // is the only screen that changes it.
   const [shop, setShop] = useState<ShopState | null>(null);
@@ -460,12 +492,19 @@ function TodayScreen() {
       getStats()
         .then((s) => !cancelled && setStats(s))
         .catch(() => {});
-      // Feeds the quests and the badges. A failure just means an empty
-      // history, which reads as "nothing earned yet" rather than an error:
-      // none of this is worth interrupting someone's practice over.
+      // Feeds the quests and the badges. A failure is tracked rather than
+      // swallowed: leaving `sessions` at [] made badgesFor report "0 / 6
+      // badges" with First Words, No-Um Ninja and the rest greyed out for
+      // someone who had already earned them, which reads as having them taken
+      // away. Everything else on this page still works, so the Den just says
+      // it couldn't check.
       listSessions()
-        .then((s) => !cancelled && setSessions(s))
-        .catch(() => {});
+        .then((s) => {
+          if (cancelled) return;
+          setSessions(s);
+          setSessionsFailed(false);
+        })
+        .catch(() => !cancelled && setSessionsFailed(true));
       // Same treatment: if this fails Felix just appears in the den with his
       // level outfit, which is what every account looked like before the shop.
       fetchShopState()
@@ -554,7 +593,7 @@ function TodayScreen() {
             </p>
             <Link
               href="/library"
-              className="btn mt-5 inline-block rounded-lg bg-accent px-7 py-3.5 font-semibold text-white"
+              className="btn mt-5 inline-block rounded-lg bg-accent-strong px-7 py-3.5 font-semibold text-white"
             >
               Open the speech library
             </Link>
@@ -571,7 +610,12 @@ function TodayScreen() {
           <DailyCard challenge={daily} state={challenge} />
         </Reveal>
         <Reveal delay={160}>
-          <DenWidget stats={stats} sessions={sessions} shop={shop} />
+          <DenWidget
+            stats={stats}
+            sessions={sessions}
+            shop={shop}
+            sessionsFailed={sessionsFailed}
+          />
         </Reveal>
       </div>
 
@@ -621,7 +665,7 @@ function TodayScreen() {
             </p>
             <Link
               href="/pricing"
-              className="btn mt-4 inline-block rounded-lg bg-accent px-6 py-2.5 text-sm font-semibold text-white web-only"
+              className="btn mt-4 inline-block rounded-lg bg-accent-strong px-6 py-2.5 text-sm font-semibold text-white web-only"
             >
               See Premium
             </Link>

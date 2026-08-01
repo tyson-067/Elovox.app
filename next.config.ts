@@ -48,7 +48,12 @@ const csp = [
   // www.google.com + www.gstatic.com are reCAPTCHA v3, which backs Firebase
   // App Check (lib/appCheck.ts). reCAPTCHA loads its own second script from
   // gstatic, so listing only www.google.com silently breaks attestation.
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://apis.google.com https://accounts.google.com https://www.google.com https://www.gstatic.com`,
+  // va.vercel-scripts.com is dev-only: @vercel/analytics loads its debug
+  // script from there when NODE_ENV is development, while production serves
+  // the same thing same-origin from /_vercel/insights. These headers apply in
+  // `next dev` too, so without it every local run logs a CSP violation and
+  // analytics never initializes locally.
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval' https://va.vercel-scripts.com" : ""} https://apis.google.com https://accounts.google.com https://www.google.com https://www.gstatic.com`,
 
   // Tailwind injects styles inline.
   "style-src 'self' 'unsafe-inline'",

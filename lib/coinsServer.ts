@@ -135,6 +135,22 @@ export async function equip(
     const snap = await tx.get(ref);
     const prev = (snap.data() ?? {}) as Partial<ServerProgress>;
 
+    // Never CREATE score/progress from here. Its non-existence is the signal
+    // three other places rely on, and a merge:true write brings the doc into
+    // being for a user who has never scored:
+    //   - leaderboardServer seeds `backfillXp` only when the doc is absent, so
+    //     an account that predates the leaderboard would be stranded at 0 XP
+    //     with its whole rebuilt history lost, and nothing retries;
+    //   - the referral bonus is paid on that same first-write, so both sides
+    //     silently lose 100 XP;
+    //   - redeemInvite rejects "invite links are for new accounts" once the
+    //     doc exists, burning a stashed code.
+    // This is reachable without owning anything: `null` ("take it off") skips
+    // the ownership check entirely, and the free "den" biome passes it.
+    if (!snap.exists) {
+      return { ok: false as const, reason: "not-owned" as const };
+    }
+
     if (itemId !== null && !ownedItems(prev.purchased).includes(itemId)) {
       return { ok: false as const, reason: "not-owned" as const };
     }

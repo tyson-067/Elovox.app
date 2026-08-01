@@ -36,6 +36,23 @@ const config: CapacitorConfig = {
     ],
   },
 
+  plugins: {
+    // Without this block the native plugin's provider list defaults to empty,
+    // and signInWithGoogle() rejects outright with "Google sign-in provider is
+    // not enabled" — so "Continue with Google" was dead on iOS, on both
+    // /login and /signup, and took change-email, change-password and
+    // delete-account down with it (they all re-authenticate through the same
+    // call).
+    FirebaseAuthentication: {
+      providers: ['google.com'],
+      // The native layer hands back a Google ID token and nothing else; the
+      // JS SDK owns the session. That is what lib/auth.ts assumes, and it is
+      // what keeps App Check, firestore.rules and verifyVerifiedUser all
+      // looking at exactly the same user object they see on the web.
+      skipNativeAuth: true,
+    },
+  },
+
   ios: {
     // true would unlock some restricted WebKit APIs but pins navigation to a
     // 10-entry WKAppBoundDomains list in Info.plist and breaks Google's OAuth

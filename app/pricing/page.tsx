@@ -57,7 +57,7 @@ const PREMIUM_FEATURES = [
   // "unlimited", which would be false. See the FAQ entry, which is explicit.
   "Everything in Free, plus as much practice as you need beyond the Daily Minute",
   "Camera coaching: posture, gestures, eye contact, expression",
-  "The full ~30-second speech library, practice them as much as you like",
+  "The full speech library, about thirty seconds each, practice them as much as you like",
   "Interview practice: jobs, college, scholarships, grad school",
   "Social skills practice: small talk, boundaries, apologies",
   "Coaching on your own material: pitches, talks, presentations",
@@ -232,7 +232,7 @@ export default function PricingPage() {
           <p className="mx-auto mt-5 max-w-[54ch] text-lg leading-8 text-on-surface-variant">
             Try every Premium feature free for {TRIAL_DAYS} days on the monthly
             and annual plans. Keep the free plan forever, or unlock all the
-            coaching modes with no three-a-day limit, the longer you commit,
+            coaching modes with no three-a-day limit. The longer you commit,
             the less you pay each week.
           </p>
         </Reveal>
@@ -241,8 +241,14 @@ export default function PricingPage() {
       {/* Billing cycle toggle */}
       <section className="mt-10 flex flex-col items-center">
         <Reveal>
+          {/* A group of toggle buttons, NOT a tablist. `role="tablist"` makes
+              assistive tech announce "tab 1 of 3" and promises arrow-key
+              navigation, a roving tabindex and a matching `role="tabpanel"` —
+              none of which exist here (there is no tabpanel anywhere in the
+              app). aria-pressed describes what these actually are, and is the
+              pattern /custom and /practice already use. */}
           <div
-            role="tablist"
+            role="group"
             aria-label="Billing cycle"
             className="card inline-flex flex-wrap items-center justify-center gap-1 p-1"
           >
@@ -251,13 +257,14 @@ export default function PricingPage() {
               return (
                 <button
                   key={p.cycle}
-                  role="tab"
-                  aria-selected={active}
+                  aria-pressed={active}
                   onClick={() => setCycle(p.cycle)}
                   className={`btn relative rounded-lg px-4 md:px-5 py-2 text-sm font-semibold transition-colors ${
                     active
-                      ? "bg-accent text-white"
-                      : "text-primary/60 hover:text-primary"
+                      ? "bg-accent-strong text-white"
+                      : // /60 measured 3.21:1 on the card, under the 4.5:1 AA
+                        // floor for 14px semibold. /75 clears it.
+                        "text-primary/75 hover:text-primary"
                   }`}
                 >
                   {p.label}
@@ -420,7 +427,7 @@ export default function PricingPage() {
             <button
               onClick={subscribed ? manageBilling : goPremium}
               disabled={busy || planPending}
-              className="btn mt-7 inline-block w-full rounded-lg bg-accent px-6 py-3 text-center font-semibold text-white disabled:opacity-60"
+              className="btn mt-7 inline-block w-full rounded-lg bg-accent-strong px-6 py-3 text-center font-semibold text-white disabled:opacity-60"
             >
               {subscribed
                 ? busy
@@ -479,7 +486,7 @@ export default function PricingPage() {
                       {p.label}
                     </span>
                     {subscribed && record?.cycle === p.cycle ? (
-                      <span className="rounded-full bg-accent/12 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent">
+                      <span className="rounded-full bg-accent/12 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent-strong">
                         Current plan
                       </span>
                     ) : (
@@ -500,7 +507,7 @@ export default function PricingPage() {
                   <p className="mt-1 text-sm text-on-surface-variant">
                     {formatUSD(Number(p.perWeek.toFixed(2)))} per week
                   </p>
-                  <p className="mt-3 text-[13px] font-semibold text-accent">
+                  <p className="mt-3 text-[13px] font-semibold text-accent-strong">
                     {s > 0 ? `Save ${s}% vs weekly` : "Pay as you go"}
                   </p>
                 </button>
@@ -564,7 +571,7 @@ export default function PricingPage() {
           <button
             onClick={subscribed ? manageBilling : goPremium}
             disabled={busy || planPending}
-            className="btn mt-8 inline-block rounded-lg bg-accent px-8 py-3.5 font-semibold text-white disabled:opacity-60"
+            className="btn mt-8 inline-block rounded-lg bg-accent-strong px-8 py-3.5 font-semibold text-white disabled:opacity-60"
           >
             {subscribed
               ? busy

@@ -62,12 +62,23 @@ export async function GET(req: NextRequest) {
   // collection added later is exported without anyone remembering to edit
   // this route, the failure mode of a hardcoded list is a silently
   // incomplete export, which is exactly what the right is meant to prevent.
+  // Bounded per collection. Each session carries a full transcript plus its
+  // analysis, so an unbounded read of a heavy account both blew the function's
+  // memory and produced a body past the platform's response cap — turning a
+  // data-portability request into a 500 the user has no way around, which is
+  // worse than a large-but-complete file. The cap is far above any real
+  // account, and when it does bite the export says so in the payload instead
+  // of silently truncating.
+  const MAX_DOCS_PER_COLLECTION = 5000;
   const root = db.doc(`users/${uid}`);
   const collections = await root.listCollections();
   const data: Record<string, unknown> = {};
+  const truncated: string[] = [];
   for (const col of collections) {
-    const snap = await col.get();
-    data[col.id] = snap.docs.map((d) => ({ id: d.id, ...(serialize(d.data()) as object) }));
+    const snap = await col.limit(MAX_DOCS_PER_COLLECTION + 1).get();
+    const docs = snap.docs.slice(0, MAX_DOCS_PER_COLLECTION);
+    if (snap.docs.length > MAX_DOCS_PER_COLLECTION) truncated.push(col.id);
+    data[col.id] = docs.map((d) => ({ id: d.id, ...(serialize(d.data()) as object) }));
   }
 
   const payload = {
@@ -86,9 +97,16 @@ export async function GET(req: NextRequest) {
     // Named so the file is self-explanatory to whoever receives it, a
     // regulator, or the user moving to another service.
     note: "Every record Elovox holds for this account. Payment records live with Stripe, which retains them for tax and accounting purposes; request those from Stripe or via the billing portal.",
+    ...(truncated.length
+      ? {
+          incomplete: `These sections hit the ${MAX_DOCS_PER_COLLECTION}-record export limit and are not complete: ${truncated.join(", ")}. Contact us and we'll send the rest.`,
+        }
+      : {}),
   };
 
-  return new NextResponse(JSON.stringify(payload, null, 2), {
+  // No pretty-print indent: it inflated the body by roughly a third for a file
+  // that is read by machines far more often than by people.
+  return new NextResponse(JSON.stringify(payload), {
     status: 200,
     headers: {
       "content-type": "application/json; charset=utf-8",

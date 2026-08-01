@@ -103,9 +103,13 @@ function ItemCard({
               type="button"
               onClick={onBuy}
               disabled={busy || !afford}
+              // When it isn't affordable the button's only content is the
+              // price, and the coin emoji inside <Coins> is aria-hidden — so
+              // its entire accessible name was the number "120".
+              aria-label={`Buy ${item.name} for ${item.price} coins`}
               className={`btn w-full rounded-lg py-2 text-[13px] font-semibold disabled:opacity-60 ${
                 afford
-                  ? "bg-accent text-white"
+                  ? "bg-accent-strong text-white"
                   : "bg-shrimp/50 text-on-surface-variant"
               }`}
             >
@@ -188,7 +192,7 @@ function ShopScreen() {
               .then(setState)
               .catch(() => setState(null));
           }}
-          className="btn mt-4 rounded-lg bg-accent px-6 py-2.5 text-sm font-semibold text-white"
+          className="btn mt-4 rounded-lg bg-accent-strong px-6 py-2.5 text-sm font-semibold text-white"
         >
           Try again
         </button>
@@ -253,7 +257,7 @@ function ShopScreen() {
                   void act("bare", () => equipItem(null, "accessory"))
                 }
                 disabled={busy !== null}
-                className="mt-3 text-[13px] font-semibold text-accent disabled:opacity-60"
+                className="mt-3 text-[13px] font-semibold text-accent-strong disabled:opacity-60"
               >
                 Take it off
               </button>
@@ -314,7 +318,7 @@ function ShopScreen() {
       <Reveal className="mt-10">
         <p className="text-[14px] text-on-surface-variant">
           Coins come from practice.{" "}
-          <Link href="/dashboard" className="font-semibold text-accent">
+          <Link href="/dashboard" className="font-semibold text-accent-strong">
             Go earn some →
           </Link>
         </p>

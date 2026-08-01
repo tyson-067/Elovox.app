@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Felix, type FelixMood } from "@/components/FoxLogo";
+import { Reveal } from "@/components/Reveal";
 
 // Felix's story as a pinned card deck. The section claims a tall scroll
 // runway (one viewport per beat); inside it a sticky, full-height stage
@@ -70,11 +71,18 @@ export function StoryDeck({ beats }: { beats: StoryBeat[] }) {
     };
   }, [reduced, beats.length]);
 
+  // Wrapped in a Reveal because `.grow-line` only grows under
+  // `.reveal-visible` — rendered bare, the gradient underline sat at
+  // scaleX(0) forever, so this was the one section heading on the landing
+  // page with no bar under it. (Reduced-motion users saw it, since that
+  // media query forces scaleX(1), which made it easy to miss.)
   const heading = (
-    <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
-      How a nervous fox got his voice
-      <span className="grow-line" aria-hidden="true" />
-    </h2>
+    <Reveal>
+      <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
+        How a nervous fox got his voice
+        <span className="grow-line" aria-hidden="true" />
+      </h2>
+    </Reveal>
   );
 
   if (reduced) {

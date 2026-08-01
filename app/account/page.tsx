@@ -34,7 +34,7 @@ import {
 const inputClass =
   "card input-glow w-full px-4 py-3 text-base text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none";
 const btnClass =
-  "btn rounded-lg bg-accent text-white font-semibold px-6 py-3 disabled:opacity-50";
+  "btn rounded-lg bg-accent-strong text-white font-semibold px-6 py-3 disabled:opacity-50";
 const cardClass = "card p-5 md:p-6";
 
 function fmtDate(ms?: number): string {
@@ -109,7 +109,7 @@ function BillingHistory() {
                   href={(inv.hostedUrl || inv.pdfUrl)!}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-semibold text-accent hover:underline"
+                  className="font-semibold text-accent-strong hover:underline"
                 >
                   Receipt
                 </a>
@@ -252,7 +252,7 @@ function BillingSection() {
           while the confirming webhook was still in flight and the record
           still read free. Drive it from the synced status instead. */}
       {justSubscribed && (
-        <p className="mt-3 rounded-lg bg-accent/10 px-3.5 py-2.5 text-sm font-medium text-accent">
+        <p className="mt-3 rounded-lg bg-accent/10 px-3.5 py-2.5 text-sm font-medium text-accent-strong">
           {r?.status === "trialing"
             ? `Welcome to Premium! Your free trial has started${
                 r.trialEnd ? `, free until ${fmtDate(r.trialEnd)}` : ""
@@ -294,14 +294,14 @@ function BillingSection() {
                 type="button"
                 onClick={manage}
                 disabled={busy}
-                className="btn rounded-lg bg-accent px-6 py-3 font-semibold text-white disabled:opacity-50"
+                className="btn rounded-lg bg-accent-strong px-6 py-3 font-semibold text-white disabled:opacity-50"
               >
                 {busy ? "Opening…" : "Manage billing"}
               </button>
             ) : (
               <Link
                 href="/pricing"
-                className="btn rounded-lg bg-accent px-6 py-3 font-semibold text-white web-only"
+                className="btn rounded-lg bg-accent-strong px-6 py-3 font-semibold text-white web-only"
               >
                 See Premium plans
               </Link>
@@ -435,7 +435,7 @@ function AccountScreen() {
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-semibold ${
               verified
-                ? "bg-accent/10 text-accent"
+                ? "bg-accent/10 text-accent-strong"
                 : "bg-error/10 text-error"
             }`}
           >
@@ -485,6 +485,8 @@ function AccountScreen() {
             required
             maxLength={254}
             autoComplete="email"
+            id="acct-new-email"
+            aria-label="New email address"
             placeholder="New email"
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
@@ -495,6 +497,8 @@ function AccountScreen() {
               type="password"
               required
               autoComplete="current-password"
+              id="acct-email-pw"
+              aria-label="Current password"
               placeholder="Current password"
               value={emailPw}
               onChange={(e) => setEmailPw(e.target.value)}
@@ -533,6 +537,8 @@ function AccountScreen() {
               type="password"
               required
               autoComplete="current-password"
+              id="acct-cur-pw"
+              aria-label="Current password"
               placeholder="Current password"
               value={curPw}
               onChange={(e) => setCurPw(e.target.value)}
@@ -544,6 +550,8 @@ function AccountScreen() {
               minLength={8}
               maxLength={128}
               autoComplete="new-password"
+              id="acct-new-pw"
+              aria-label="New password, 8 or more characters"
               placeholder="New password (8+ characters)"
               value={newPw}
               onChange={(e) => setNewPw(e.target.value)}
@@ -699,6 +707,8 @@ function DeleteAccountSection({ hasPassword }: { hasPassword: boolean }) {
               type="password"
               required
               autoComplete="current-password"
+              id="acct-delete-pw"
+              aria-label="Current password"
               placeholder="Current password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

@@ -53,6 +53,10 @@ const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // ~10+ min of webm audio
 const MAX_DURATION_SEC = 600;
 const MAX_FRAMES = 12; // vision cost scales with this, keep it tight
 const MAX_FRAME_BYTES = 400 * 1024;
+// Whole-request ceiling, checked against Content-Length before we buffer
+// anything: the audio, every frame part, and a megabyte of multipart framing.
+const MAX_REQUEST_BYTES =
+  MAX_AUDIO_BYTES + MAX_FRAMES * MAX_FRAME_BYTES + 1024 * 1024;
 const rateLimited = makeRateLimiter(12); // analyses per user per hour
 
 interface AaiWord {
@@ -61,15 +65,46 @@ interface AaiWord {
   end: number; // ms
 }
 
+/**
+ * The recording itself is the problem — not us. Thrown when AssemblyAI tells
+ * us the file isn't decodable audio, which no amount of retrying will fix.
+ * The handler turns this into a 422 with an honest message instead of the
+ * retryable 503 that invited people to resend the same broken take forever.
+ */
+class AudioInputError extends Error {}
+
+/**
+ * AssemblyAI failure strings that describe the CALLER's file rather than a
+ * problem on their side. Matched loosely because the wording is not a
+ * contract; anything unmatched stays a retryable server error, which is the
+ * safe direction to be wrong in.
+ */
+const AAI_INPUT_ERROR =
+  /does not appear to contain audio|transcoding failed|audio file|file does not|download error|not a supported|corrupt|invalid audio|too short/i;
+
+/**
+ * Every network call here is bounded by `deadline`. Without a signal, undici
+ * defaults to a 300s headers/body timeout — far past `maxDuration` — so a
+ * slow AssemblyAI meant the platform killed the function mid-await and the
+ * refund in the caller's catch never ran. The user silently lost an attempt.
+ */
+function budgetSignal(deadline: number, margin: number): AbortSignal | undefined {
+  if (!Number.isFinite(deadline)) return undefined;
+  return AbortSignal.timeout(Math.max(1000, deadline - Date.now() - margin));
+}
+
 async function transcribe(
   audio: ArrayBuffer,
   key: string,
   deadline: number = Infinity
 ): Promise<{ text: string; words: AaiWord[] }> {
+  // 8s of margin on the upload and create calls, so that even if one burns
+  // its whole budget the caller still has room to refund and answer.
   const uploadRes = await fetch(`${ASSEMBLYAI}/upload`, {
     method: "POST",
     headers: { authorization: key },
     body: audio,
+    signal: budgetSignal(deadline, 8000),
   });
   if (!uploadRes.ok) throw new Error(`AssemblyAI upload: ${uploadRes.status}`);
   const { upload_url } = await uploadRes.json();
@@ -83,27 +118,42 @@ async function transcribe(
       punctuate: true,
       format_text: true,
     }),
+    signal: budgetSignal(deadline, 8000),
   });
   if (!createRes.ok) throw new Error(`AssemblyAI create: ${createRes.status}`);
   const { id } = await createRes.json();
 
+  // Adaptive backoff rather than a flat 2s. A one-minute Daily Minute take
+  // is usually transcribed in a handful of seconds, and a fixed 2s interval
+  // spent the first 2s of every single analysis asleep before even asking,
+  // then overshot the finish by up to 2s more. Starting at 400ms and easing
+  // out to 2s finds a fast result quickly without turning a slow one into a
+  // polling storm. Same 40-attempt ceiling is now ~70s of wall clock.
+  let waitMs = 400;
   for (let i = 0; i < 40; i++) {
     // Give up early if the next poll would push past the budget, so the caller
     // still has time to run its refund before the platform kills the function.
     // The 5s margin leaves room for the Gemini pass and the refund writes.
-    if (Date.now() + 2000 > deadline - 5000) {
+    if (Date.now() + waitMs > deadline - 5000) {
       throw new Error("AssemblyAI: transcription timed out");
     }
-    await new Promise((r) => setTimeout(r, 2000));
+    await new Promise((r) => setTimeout(r, waitMs));
+    waitMs = Math.min(2000, Math.round(waitMs * 1.45));
     const pollRes = await fetch(`${ASSEMBLYAI}/transcript/${id}`, {
       headers: { authorization: key },
+      signal: budgetSignal(deadline, 5000),
     });
+    // Without this, a 401 from a rotated key parsed as `{}` and we politely
+    // polled it 40 more times instead of failing in one.
+    if (!pollRes.ok) throw new Error(`AssemblyAI poll: ${pollRes.status}`);
     const data = await pollRes.json();
     if (data.status === "completed") {
       return { text: data.text ?? "", words: data.words ?? [] };
     }
     if (data.status === "error") {
-      throw new Error(`AssemblyAI: ${data.error}`);
+      const detail = String(data.error ?? "");
+      if (AAI_INPUT_ERROR.test(detail)) throw new AudioInputError(detail);
+      throw new Error(`AssemblyAI: ${detail}`);
     }
   }
   throw new Error("AssemblyAI: transcription timed out");
@@ -212,8 +262,35 @@ const VOICE_DIMENSIONS = [
 //
 // The clamp stays: the model returns an integer it was asked to keep in
 // 0-100 and generally does, but nothing enforces that but this.
+//
+// The finiteness check is not paranoia. Math.round(NaN) is NaN and BOTH
+// Math.max and Math.min pass NaN straight through, so a single dimension
+// coming back without a numeric score used to make `overall` NaN — which
+// awardXp then added to the durable XP total, and NaN + anything is NaN
+// forever. That silently pinned the account to level 1 with no way back.
+// A missing score is a 0 for that dimension; it is never a poisoned total.
 function calibrate(raw: number): number {
-  return Math.max(0, Math.min(100, Math.round(raw)));
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+// --- Model-output coercion ---------------------------------------------
+// `responseSchema` is best-effort, not a guarantee, and the fallback chain in
+// lib/gemini.ts ends at an unpinned `-latest` alias. A response missing
+// `tips` used to be persisted as-is, and the report page then did
+// `analysis.tips.map(...)` — a TypeError that white-screened that report on
+// every future visit, because the bad session was already in Firestore.
+// Coerce at the boundary so a malformed field degrades to empty, never to a
+// crash on a session the user can't delete their way out of.
+
+function str(v: unknown, max = 4000): string {
+  return typeof v === "string" ? v.slice(0, max) : "";
+}
+
+function strList(v: unknown, max = 20): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is string => typeof x === "string" && x.trim() !== "").slice(0, max);
 }
 
 // Structured-output schema (Gemini responseSchema, OpenAPI subset, no
@@ -445,13 +522,38 @@ ${numberedSegments(input.segments)}`;
   // model's honest per-dimension scores, apply the calibration, and average.
   // Keeps the headline consistent with the bars beneath it, and means the
   // number is always defensible from the breakdown.
+  // Matched case- and whitespace-insensitively, then re-labeled with our own
+  // canonical name. An exact === against "Vocal variety" silently DELETED the
+  // dimension the moment a model title-cased it, so the report quietly lost
+  // bars and `overall` averaged a different denominator with nothing logged.
+  type VoiceDimension = (typeof VOICE_DIMENSIONS)[number];
+  type Scored = { skill: VoiceDimension; score: number; note: string };
+
+  const canonicalDimension = new Map<string, VoiceDimension>(
+    VOICE_DIMENSIONS.map((d) => [d.toLowerCase().replace(/\s+/g, " ").trim(), d])
+  );
   const skills = (parsed.dimensions ?? [])
-    .filter((d) => VOICE_DIMENSIONS.includes(d.name as (typeof VOICE_DIMENSIONS)[number]))
-    .map((d) => ({ skill: d.name, score: calibrate(d.score), note: d.note }));
-  const overall =
-    skills.length > 0
-      ? Math.round(skills.reduce((sum, s) => sum + s.score, 0) / skills.length)
-      : 77;
+    .map((d): Scored | null => {
+      const canonical = canonicalDimension.get(
+        String(d.name ?? "").toLowerCase().replace(/\s+/g, " ").trim()
+      );
+      return canonical
+        ? { skill: canonical, score: calibrate(d.score), note: str(d.note) }
+        : null;
+    })
+    .filter((d): d is Scored => d !== null);
+
+  // No recognizable dimensions means the model didn't answer the question we
+  // asked. This used to substitute 77 — a fabricated headline score, saved to
+  // history and awarded ranked XP, which is the exact thing the rest of this
+  // file goes out of its way never to do. Throw instead: the catch refunds
+  // the attempt and tells the user honestly.
+  if (skills.length === 0) {
+    throw new Error("gemini: no recognizable dimensions in the report");
+  }
+  const overall = Math.round(
+    skills.reduce((sum, s) => sum + s.score, 0) / skills.length
+  );
 
   // Build the displayed transcript from the REAL segments, folding in only
   // the marks/notes the model returned. The text on screen is always what
@@ -475,16 +577,22 @@ ${numberedSegments(input.segments)}`;
     };
   });
 
+  const strengths = strList(parsed.strengths, 8);
+  const drills = (Array.isArray(parsed.drills) ? parsed.drills : [])
+    .map((d) => ({ title: str(d?.title, 200), how: str(d?.how, 1000) }))
+    .filter((d) => d.title !== "" || d.how !== "")
+    .slice(0, 8);
+
   return {
     overall,
-    summary: parsed.summary,
+    summary: str(parsed.summary),
     skills,
-    tips: parsed.tips,
-    audienceImpact: parsed.audienceImpact,
+    tips: strList(parsed.tips, 12),
+    audienceImpact: str(parsed.audienceImpact),
     transcript,
     // Premium-only depth. Guarded so a stray free-tier value never renders.
-    ...(input.premium && parsed.strengths?.length ? { strengths: parsed.strengths } : {}),
-    ...(input.premium && parsed.drills?.length ? { drills: parsed.drills } : {}),
+    ...(input.premium && strengths.length ? { strengths } : {}),
+    ...(input.premium && drills.length ? { drills } : {}),
   };
 }
 
@@ -592,12 +700,30 @@ ${frames.length} frames follow, in order.`,
   // Same honesty calibration as the voice report: calibrate each observed
   // metric and compute presence as their mean, so the headline matches the
   // bars and the stage score is as hard-won as the voice one.
-  const scored = parsed.metrics.map((m) => ({ ...m, score: calibrate(m.score) }));
-  const overall =
-    scored.length > 0
-      ? Math.round(scored.reduce((sum, m) => sum + m.score, 0) / scored.length)
-      : 77;
-  return { overall, summary: parsed.summary, metrics: scored, tips: parsed.tips };
+  const scored = (Array.isArray(parsed.metrics) ? parsed.metrics : [])
+    .map((m) => ({
+      metric: str(m?.metric, 100),
+      score: calibrate(m?.score),
+      note: str(m?.note, 1000),
+    }))
+    .filter((m) => m.metric !== "");
+
+  // Same reasoning as the voice report: nothing scorable means the pass
+  // failed, and a fabricated 77 on the body-language panel is still a
+  // fabrication. Throwing here hits runStage's own .catch in the caller, so
+  // the user still gets their voice report — just without a made-up stage one.
+  if (scored.length === 0) {
+    throw new Error("gemini: no metrics in the camera pass");
+  }
+  const overall = Math.round(
+    scored.reduce((sum, m) => sum + m.score, 0) / scored.length
+  );
+  return {
+    overall,
+    summary: str(parsed.summary),
+    metrics: scored,
+    tips: strList(parsed.tips, 8),
+  };
 }
 
 /** Pulls frame0..frameN out of the form, newest API tolerant of gaps. */
@@ -647,6 +773,17 @@ export async function POST(req: NextRequest) {
   // verification and rate limiting have all run by now, so nothing expensive
   // happens), but a malformed request is the caller's mistake and deserves a
   // 400 that says so rather than a 500 that reads as our outage.
+  // Checked BEFORE formData(), which buffers the entire multipart body into
+  // memory. MAX_AUDIO_BYTES was only enforced afterwards, so a verified user
+  // could post a 500MB body and OOM the instance before any guard ran —
+  // Next route handlers have no default body limit (bodySizeLimit applies to
+  // Server Actions only). The slack covers multipart framing and the frame
+  // parts that ride along with the audio.
+  const declaredLength = Number(req.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BYTES) {
+    return NextResponse.json({ error: "recording too long" }, { status: 413 });
+  }
+
   let form: FormData;
   try {
     form = await req.formData();
@@ -670,14 +807,13 @@ export async function POST(req: NextRequest) {
   // (strip HTML/script/control chars) and length-cap before use.
   const prompt = sanitizeText(form.get("prompt")).slice(0, 2000);
   const goal = sanitizeText(form.get("goal")).slice(0, 500);
-  // Clamp to [0, MAX]: `|| 0` turns NaN (a File part, "abc") into 0 before
-  // the clamp, and Math.min caps a lie like "20" for a 10-minute upload. 0
-  // keeps the existing "unknown duration" behavior in computeMetrics rather
-  // than feeding "NaN s" / a negative pace into the model that scores the rep.
-  const durationSec = Math.min(
-    MAX_DURATION_SEC,
-    Math.max(0, Number(form.get("durationSec")) || 0)
-  );
+  // `|| 0` turns NaN (a File part, "abc") into 0, which computeMetrics reads
+  // as "unknown duration" rather than producing a NaN or negative pace.
+  // Deliberately NOT clamped with Math.min any more: clamping silently
+  // rewrote an over-long claim to 600 and then computed paceWpm against that
+  // fabricated denominator, and it made the MAX_DURATION_SEC branch of the
+  // 413 below unreachable. An impossible duration is now refused, not fudged.
+  const durationSec = Math.max(0, Number(form.get("durationSec")) || 0);
 
   const assemblyKey = process.env.ASSEMBLYAI_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
@@ -785,7 +921,14 @@ export async function POST(req: NextRequest) {
   // pipeline never eats a user's headroom.
   let premiumMeterDate: string | null = null;
   if (!isDaily && db) {
-    const date = usageDateKey(clientDate);
+    // The SERVER's UTC day, deliberately not the client's local one. The
+    // ±1-day tolerance in usageDateKey is a fair trade for the daily-attempt
+    // cap (it resets when the user's own day does, and 3× at the boundary is
+    // acceptable), but this is an abuse ceiling: rotating `date` across
+    // yesterday/today/tomorrow gave a scripted account three independent
+    // buckets, making the real limit 3× what PREMIUM_ANALYSES_PER_DAY says.
+    // A ceiling nobody honest reaches doesn't need to follow local midnight.
+    const date = usageDateKey("");
     const { ok } = await reserveMeteredUse(
       db,
       uid,
@@ -813,12 +956,24 @@ export async function POST(req: NextRequest) {
   // the platform killing the function mid-flight and eating the user's attempt.
   const deadline = startedAt + (maxDuration - 10) * 1000;
 
+  // Per-phase timings, logged once at the end. The ~20s a report takes was
+  // only ever measured end-to-end, which makes it impossible to know whether
+  // to attack transcription or generation. One line per analysis in the
+  // server log answers that with real traffic instead of a guess.
+  const t0 = Date.now();
+  const marks: Record<string, number> = {};
+  const mark = (name: string, from: number) => {
+    marks[name] = Date.now() - from;
+  };
+
   try {
+    const tTranscribe = Date.now();
     const { words } = await transcribe(
       await audio.arrayBuffer(),
       assemblyKey,
       deadline
     );
+    mark("transcribe", tTranscribe);
     if (words.length === 0) {
       // Nothing usable, this take didn't cost us the pipeline, so hand the
       // reserved attempt back before telling the user plainly.
@@ -844,6 +999,7 @@ export async function POST(req: NextRequest) {
     const frames = readFrames(form);
     const wantsStage = frames.length > 0 && premium;
 
+    const tModel = Date.now();
     const [report, stage] = await Promise.all([
       runGemini(geminiKey, {
         category,
@@ -864,6 +1020,11 @@ export async function POST(req: NextRequest) {
           })
         : Promise.resolve(undefined),
     ]);
+    mark("model", tModel);
+    console.info(
+      `[analyze] ${Date.now() - t0}ms total (transcribe ${marks.transcribe}ms, model ${marks.model}ms)` +
+        ` words=${words.length} camera=${wantsStage} premium=${premium}`
+    );
 
     const analysis: Analysis = {
       isSample: false,
@@ -908,6 +1069,22 @@ export async function POST(req: NextRequest) {
     if (premiumMeterDate && db)
       await refundMeteredUse(db, uid, premiumMeterDate, "premiumAnalyses");
     console.error("analyze pipeline failed:", err);
+
+    // The file was the problem, so a retry sends the identical bytes and
+    // fails identically. 422, not 503: the client marks 5xx as retryable
+    // (lib/analyze.ts), which had us blaming our own service for a recording
+    // we could never read and inviting the user to burn attempts on it.
+    if (err instanceof AudioInputError) {
+      return NextResponse.json(
+        {
+          error: "unreadable-audio",
+          message:
+            "Felix couldn't read that recording — the audio didn't come through. Record it again and it should go straight through.",
+        },
+        { status: 422 }
+      );
+    }
+
     return NextResponse.json(
       {
         error: "analysis-failed",

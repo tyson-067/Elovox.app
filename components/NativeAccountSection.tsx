@@ -64,7 +64,7 @@ function AppearanceCard() {
         <ThemeSwatch theme={value} />
         <span className="mt-2 flex items-center gap-1.5 px-0.5 text-[13px] font-semibold text-primary">
           {label}
-          {selected && <span className="text-accent">✓</span>}
+          {selected && <span className="text-accent-strong">✓</span>}
         </span>
       </button>
     );

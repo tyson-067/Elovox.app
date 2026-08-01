@@ -62,20 +62,24 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: TITLE,
   description: DESCRIPTION,
-  alternates: { canonical: "/" },
+  // Deliberately NO `alternates` here. Next.js INHERITS alternates rather
+  // than merging them, so a canonical set on the root layout was emitted by
+  // every route that doesn't override it — /login, /signup, /dashboard,
+  // /practice, /progress, /library, /report/*, and the rest all told crawlers
+  // they were really the homepage. The homepage sets its own; every other
+  // public route already sets its own too.
   openGraph: {
     type: "website",
     siteName: "Elovox",
-    url: "/",
     title: TITLE,
     description: DESCRIPTION,
-    images: ["/logo.png"],
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Elovox — speak with impact" }],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
-    images: ["/logo.png"],
+    images: ["/og.png"],
   },
 };
 

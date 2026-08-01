@@ -109,7 +109,22 @@ function wordTarget(seconds: number): string {
   return `${Math.round(words * 0.92)}-${Math.round(words * 1.08)} words`;
 }
 
+/**
+ * One budget for the whole handler, anchored to the top of the request.
+ *
+ * Without it, lib/gemini.ts walks its fallback chain on a 45s-per-attempt
+ * timeout — up to four models, a 180s worst case against this route's 60s
+ * `maxDuration`. The platform killed the function during the second attempt,
+ * so the client got a raw 504 instead of the graceful 502, and the fallback
+ * chain was unreachable precisely when a hung first model made it necessary.
+ * 8s of headroom leaves room to answer.
+ */
+function speechDeadline(startedAt: number): number {
+  return startedAt + (maxDuration - 8) * 1000;
+}
+
 export async function POST(req: NextRequest) {
+  const startedAt = Date.now();
   const uid = await verifyVerifiedUser(req);
   if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (uid === "unverified") {
@@ -155,25 +170,34 @@ export async function POST(req: NextRequest) {
 
   // Durable daily ceiling: the in-memory limiter above is per-instance, this
   // is the abuse backstop that survives cold starts and concurrency.
+  //
+  // Charged as LATE as possible — immediately before the model call — rather
+  // than up here. It used to run before the API-key check and before the
+  // empty-field checks, so submitting a blank brief a hundred times locked a
+  // user out for the day having generated nothing, and a deployment with no
+  // GEMINI_API_KEY burned a unit on every 503. There is deliberately no
+  // refund path (see the note on SPEECH_GENS_PER_DAY), which is only honest
+  // if a charge really does imply a generation attempt.
   const db = getAdminDb();
-  if (db && uid !== "local-dev") {
+  const meteredUid = uid;
+  async function chargeGeneration(): Promise<NextResponse | null> {
+    if (!db || meteredUid === "local-dev") return null;
     const { ok } = await reserveMeteredUse(
       db,
-      uid,
+      meteredUid,
       usageDateKey(""),
       "speechGens",
       SPEECH_GENS_PER_DAY
     );
-    if (!ok) {
-      return NextResponse.json(
-        {
-          error: "rate-limited",
-          message:
-            "That's a lot of new speeches for one day. Come back tomorrow for more.",
-        },
-        { status: 429 }
-      );
-    }
+    if (ok) return null;
+    return NextResponse.json(
+      {
+        error: "rate-limited",
+        message:
+          "That's a lot of new speeches for one day. Come back tomorrow for more.",
+      },
+      { status: 429 }
+    );
   }
 
   const key = geminiKey();
@@ -211,10 +235,14 @@ export async function POST(req: NextRequest) {
     }
     const panel = sanitizeText(body.panel).slice(0, 120);
 
+    const overLimit = await chargeGeneration();
+    if (overLimit) return overLimit;
+
     try {
       const result = await generateJson<{ questions: string[] }>(key, {
         system: INTERVIEW_SYSTEM,
         temperature: 1.05,
+        deadline: speechDeadline(startedAt),
         parts: [
           {
             text: `Write a question bank for this person's actual interview.
@@ -293,12 +321,16 @@ Length: ${wordTarget(durationSec)} (about ${durationSec} seconds read aloud).`
 Length: ${wordTarget(durationSec)} (about ${durationSec} seconds read aloud).`;
   }
 
+  const overLimit = await chargeGeneration();
+  if (overLimit) return overLimit;
+
   try {
     const result = await generateJson<Omit<GeneratedSpeech, "id">>(key, {
       system: SYSTEM,
       temperature: 1.15, // creative writing; sameness is the failure mode
       parts: [{ text: instruction }],
       schema: SCHEMA,
+      deadline: speechDeadline(startedAt),
     });
 
     const speech: GeneratedSpeech = {

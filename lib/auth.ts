@@ -112,9 +112,23 @@ async function nativeGoogleIdToken(): Promise<string> {
   return idToken;
 }
 
-export async function signInWithGoogle(): Promise<void> {
-  const { GoogleAuthProvider, signInWithPopup, signInWithCredential } =
-    await import("firebase/auth");
+/**
+ * Signs in with Google, and reports whether that call CREATED the account.
+ *
+ * The distinction matters because Firebase provisions a user the first time a
+ * Google identity appears — there is no separate "sign up" call. So the
+ * "Continue with Google" button on the LOGIN screen creates accounts too, and
+ * the login screen has no age gate. `isNewUser` lets the caller send a
+ * first-time Google user through the same date-of-birth check that every
+ * email signup clears. See components/AuthForm.tsx.
+ */
+export async function signInWithGoogle(): Promise<{ isNewUser: boolean }> {
+  const {
+    GoogleAuthProvider,
+    signInWithPopup,
+    signInWithCredential,
+    getAdditionalUserInfo,
+  } = await import("firebase/auth");
 
   // Popups do not exist in a WKWebView, and Google increasingly refuses OAuth
   // inside embedded webviews outright (disallowed_useragent). signInWithRedirect
@@ -123,18 +137,59 @@ export async function signInWithGoogle(): Promise<void> {
   const { Capacitor } = await import("@capacitor/core");
   if (Capacitor.isNativePlatform()) {
     const idToken = await nativeGoogleIdToken();
-    await signInWithCredential(
+    const cred = await signInWithCredential(
       getAuthInstance(),
       GoogleAuthProvider.credential(idToken)
     );
-    return;
+    return { isNewUser: getAdditionalUserInfo(cred)?.isNewUser === true };
   }
 
-  await signInWithPopup(getAuthInstance(), new GoogleAuthProvider());
+  const cred = await signInWithPopup(getAuthInstance(), new GoogleAuthProvider());
+  return { isNewUser: getAdditionalUserInfo(cred)?.isNewUser === true };
+}
+
+/**
+ * Deletes the account that was just created by a provider sign-in, for the
+ * case where it should never have existed (a first-time Google user who has
+ * not cleared the age gate). Falls back to signing out: leaving them signed
+ * in would be the one outcome we can't accept, since the whole point is that
+ * no under-age account gets through.
+ */
+export async function discardJustCreatedUser(): Promise<void> {
+  const auth = getAuthInstance();
+  const user = auth.currentUser;
+  try {
+    if (user) await user.delete();
+    else await signOutUser();
+  } catch {
+    // A delete can be refused (requires-recent-login shouldn't apply here,
+    // but never assume). Signing out still closes the session.
+    await signOutUser();
+  }
 }
 
 export async function signOutUser(): Promise<void> {
   const { signOut } = await import("firebase/auth");
+
+  // On iOS the Google sign-in also authenticates the NATIVE Firebase/GIDSignIn
+  // layer, and signing out of the JS SDK alone left that session standing: on
+  // a shared device the next "Continue with Google" silently re-authenticated
+  // the previous person with no account picker, and the same stale session
+  // survived account deletion and undermined the re-auth prompt that gates
+  // deleting an account or changing a password.
+  try {
+    const { Capacitor } = await import("@capacitor/core");
+    if (Capacitor.isNativePlatform()) {
+      const { FirebaseAuthentication } = await import(
+        "@capacitor-firebase/authentication"
+      );
+      await FirebaseAuthentication.signOut();
+    }
+  } catch {
+    // Never let a native teardown failure stop the JS sign-out below, which
+    // is the one that actually ends the session this app reads.
+  }
+
   await signOut(getAuthInstance());
 }
 

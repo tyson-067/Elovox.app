@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Reveal } from "@/components/Reveal";
 import { Parallax } from "@/components/Parallax";
 import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
+import { pageGraph } from "@/lib/schema";
 
 // Marketing "about" page: why Elovox exists, and who builds it. Part of the
 // signed-out site only. RedirectIfAuthed sends a logged-in visitor to
@@ -14,7 +15,7 @@ import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
 
 const SITE = "https://elovox.app";
 
-const TITLE = "About Elovox";
+const TITLE = "About";
 const DESCRIPTION =
   "Why we built Elovox: honest feedback on how you sound is the hardest thing for a speaker to get, and the tools that existed only counted filler words. Meet the team.";
 
@@ -28,13 +29,13 @@ export const metadata: Metadata = {
     url: "/about",
     title: `${TITLE} | Elovox`,
     description: DESCRIPTION,
-    images: ["/logo.png"],
+    images: ["/og.png"],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: `${TITLE} | Elovox`,
     description: DESCRIPTION,
-    images: ["/logo.png"],
+    images: ["/og.png"],
   },
 };
 
@@ -42,7 +43,6 @@ export const metadata: Metadata = {
 // than restating it, so a crawler reads one entity with two pages, not two
 // entities that happen to share a name.
 const ABOUT_SCHEMA = {
-  "@context": "https://schema.org",
   "@type": "AboutPage",
   url: `${SITE}/about`,
   name: TITLE,
@@ -70,7 +70,7 @@ export default function AboutPage() {
       <script
         type="application/ld+json"
         // Not executable script, a data block crawlers parse.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(ABOUT_SCHEMA) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pageGraph(ABOUT_SCHEMA)) }}
       />
       <RedirectIfAuthed />
 
@@ -169,7 +169,7 @@ export default function AboutPage() {
           </p>
           <Link
             href="/signup"
-            className="btn rounded-lg mt-8 inline-block bg-accent text-white font-semibold px-8 py-3.5"
+            className="btn rounded-lg mt-8 inline-block bg-accent-strong text-white font-semibold px-8 py-3.5"
           >
             Get started free
           </Link>

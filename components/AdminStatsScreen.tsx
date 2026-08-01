@@ -25,6 +25,7 @@ interface Stats {
   };
   subscriptions: {
     premium: number;
+    comped: number;
     trialing: number;
     activePaid: number;
     canceling: number;
@@ -162,7 +163,11 @@ export function AdminStatsScreen() {
         <Stat
           label="Premium"
           value={s.premium}
-          hint={`${s.conversionPct}% of accounts`}
+          hint={
+            s.comped
+              ? `${s.conversionPct}% of accounts · ${s.comped} comped`
+              : `${s.conversionPct}% of accounts`
+          }
         />
         <Stat label="On trial" value={s.trialing} />
         <Stat label="Paying" value={s.activePaid} hint={`${s.canceling} canceling`} />

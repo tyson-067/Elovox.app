@@ -20,7 +20,14 @@
   /* --- Semantic aliases ------------------------------------------------ */
   --color-primary: #004e89; /* Lapis: headings, chrome, primary buttons */
   --color-on-primary: #ffffff;
-  --color-accent: #ff6b35; /* Bright Orange: the one CTA colour */
+  --color-accent: #ff6b35; /* Bright Orange: accents, marks, Felix, the score */
+  /* The SAME orange, deepened, for any surface that carries white text.
+     White on #ff6b35 is 2.84:1 — a WCAG AA failure (4.5:1) on every primary
+     button in the product. This is 5.2:1. Kept as a second token rather than
+     darkening --color-accent itself so the bright orange survives everywhere
+     it isn't behind text: the score chip, the transcript underlines, the
+     waveform, Felix. */
+  --color-accent-strong: #c2410c;
   --color-violet: #7663c4; /* Premium / focus. The logo's purple lives on. */
   --color-slate: #8fa0d8; /* Vista Bleu */
   --color-amber: #ff8400; /* Orange, for "watch this" states */
@@ -58,11 +65,29 @@ html {
 
 /* The page ground: a cool Vista wash at the top settling into a warm
    Amande at the bottom, so a long scroll passes through the brand rather
-   than sitting on one flat tint. Fixed attachment keeps the gradient tied
-   to the viewport instead of stretching over a 4000px page, where it would
-   flatten into two invisible bands. */
+   than sitting on one flat tint. It is tied to the VIEWPORT, not the
+   document — over a 4000px page the same gradient flattens into two
+   invisible bands.
+
+   A `position: fixed` layer rather than `background-attachment: fixed`.
+   Same look, two real advantages: fixed attachment repaints a
+   viewport-sized background on every scroll frame (next to the sticky
+   header's backdrop-blur, which is already expensive), and iOS Safari
+   ignores it on the root element outright — so the effect this is here for
+   never landed on the platform where the app also ships as a native shell. */
 body {
   background: var(--color-surface);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background-image: linear-gradient(
     170deg,
     #eef3fb 0%,
@@ -70,11 +95,6 @@ body {
     #fdf6ee 78%,
     var(--color-amande) 100%
   );
-  background-attachment: fixed;
-  color: var(--color-on-surface);
-  font-family: var(--font-body);
-  -webkit-font-smoothing: antialiased;
-  overflow-x: clip;
 }
 
 /* Structural card: 1px navy border at low opacity, no shadow.
@@ -181,6 +201,25 @@ body {
   transform: none;
 }
 
+/* No scripting, no reveal — so show everything. `.reveal` ships in the server
+   HTML at opacity 0 and every section of the landing page, /about, /pricing
+   and /for/* is wrapped in one, including the <h1>. With JS blocked the page
+   was permanently the background gradient and nothing else; on a slow phone
+   it was that until the bundle executed. lib/useReveal.ts already handles a
+   stuck observer, but it can't help before it runs. */
+@media (scripting: none) {
+  .reveal,
+  .reveal-swipe,
+  .reveal-zoom {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  .wr .wr-word > span {
+    opacity: 1;
+  }
+}
+
 /* Swipe variant: the hidden state slides horizontally instead of rising, and
    the side follows the scroll direction Reveal stamps as data-dir while the
    element is still hidden (scrolling down → in from the right; scrolling up →
@@ -220,7 +259,11 @@ body {
   transition:
     transform 550ms cubic-bezier(0.22, 1, 0.36, 1),
     opacity 450ms ease;
-  will-change: transform;
+  /* Deliberately NO `will-change: transform`. It used to be unconditional,
+     which kept four always-mounted landing-page cards pinned to their own
+     compositor layers for the entire session. Browsers already promote an
+     element for the duration of a running transform transition, which is the
+     only time these move, so the hint bought nothing and cost memory. */
 }
 
 /* Word-by-word headline entrance (driven by components/WordReveal.tsx).
@@ -348,12 +391,6 @@ body {
   );
 }
 
-/* 3D tilt wrapper (components/Tilt.tsx drives the transform). */
-.tilt {
-  transition: transform 350ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
-}
-
 /* Section kicker underline: a short gradient bar that grows in once
    the parent Reveal fires. */
 .grow-line {
@@ -394,8 +431,8 @@ body {
 
 /* Emphasis underlines that sweep across the words left-to-right once a
    parent .reveal-visible fires (landing feature demo, report transcript).
-   Same look as .mark-strong/.mark-flag, drawn with a background so the
-   width can animate. Stagger with inline transition-delay. */
+   Drawn with a background rather than text-decoration so the width can
+   animate. Stagger with inline transition-delay. */
 .sweep {
   background-repeat: no-repeat;
   background-position: 0 calc(100% - 1px);
@@ -409,8 +446,7 @@ body {
 .sweep-flag {
   background-image: linear-gradient(90deg, #ff8400, #ff8400);
 }
-.reveal-visible .sweep,
-.sweep-visible.sweep {
+.reveal-visible .sweep {
   background-size: 100% 3px;
 }
 
@@ -574,8 +610,17 @@ body {
   outline: 2px solid var(--color-violet);
   outline-offset: 2px;
 }
+/* Text inputs keep the soft violet glow below for mouse focus, but they must
+   NOT lose the outline for keyboard focus. This rule used to be a bare
+   `outline: none`, and because a class + pseudo-class (0,2,0) outranks the
+   `:focus-visible` rule above (0,1,0) it deleted the ring on every field in
+   the app — signup, login, account security, the practice textareas. What
+   replaced it was a 4px shadow at 12% alpha, which composites to about 1.2:1
+   against a white field: invisible, and nowhere near the 3:1 that WCAG 2.4.11
+   asks of a focus indicator. Keeping the outline and only dropping the offset
+   gives a ring that sits flush against the glow instead of fighting it. */
 .input-glow:focus-visible {
-  outline: none;
+  outline-offset: 0;
 }
 
 /* Skip-to-content link: hidden until keyboard-focused, then a floating
@@ -700,8 +745,13 @@ body {
   .flame,
   .felix-idle,
   .felix-cheer,
+  .felix-blink,
   .quest-done,
   .felix-bar,
+  /* The record-button halo: the one infinite animation this block was
+     missing, and it loops for the entire length of a recording — the worst
+     place to leave motion running for someone who asked for none. */
+  .pulse-ring,
   .xp-bar-fill::after {
     animation: none;
   }
@@ -715,9 +765,6 @@ body {
   .card-glow:hover,
   .pill:hover {
     transform: none;
-  }
-  .tilt {
-    transition: none;
   }
   .sweep {
     background-size: 100% 3px;
@@ -747,20 +794,6 @@ body {
     animation: none;
     background-size: 100% 3px;
   }
-}
-
-/* Transcript annotations */
-.mark-strong {
-  text-decoration: underline;
-  text-decoration-color: #ff6b35;
-  text-decoration-thickness: 3px;
-  text-underline-offset: 4px;
-}
-.mark-flag {
-  text-decoration: underline;
-  text-decoration-color: #ff8400;
-  text-decoration-thickness: 3px;
-  text-underline-offset: 4px;
 }
 
 /* --- Gamification -------------------------------------------------------
@@ -800,6 +833,22 @@ body {
   15% { transform: translateY(-14px) rotate(-4deg) scale(1.03); }
   30% { transform: translateY(0) rotate(3deg) scale(0.99); }
   45% { transform: translateY(-7px) rotate(-2deg) scale(1.01); }
+}
+
+/* The blink. Two frames of squash on a long loop — the whole point is that
+   you never catch it happening, you just stop reading him as a static
+   drawing. scaleY on the pupil group only, so nothing else moves.
+
+   7.3s rather than a round number so multiple Felixes on one screen (the Fox
+   Den, the story deck) fall out of phase instead of blinking in unison,
+   which is the thing that would read as a loading animation. */
+.felix-blink {
+  animation: felix-blink 7.3s ease-in-out infinite;
+}
+@keyframes felix-blink {
+  0%, 96%, 100% { transform: scaleY(1); }
+  97.5% { transform: scaleY(0.1); }
+  99% { transform: scaleY(1); }
 }
 
 /* The voice bars on Felix's chest, when he's listening back to a take.

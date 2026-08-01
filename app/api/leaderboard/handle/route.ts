@@ -44,7 +44,13 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await setHandle(db, uid, check.handle);
+    const claimed = await setHandle(db, uid, check.handle);
+    if (!claimed) {
+      return NextResponse.json(
+        { error: "Someone's already using that name. Try another." },
+        { status: 409 }
+      );
+    }
     return NextResponse.json({ handle: check.handle });
   } catch (err) {
     console.error("[leaderboard] setHandle failed", uid, err);

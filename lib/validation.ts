@@ -40,16 +40,35 @@ const NAME_ALLOWED = /[^\p{L}\p{M}\p{N} '.\-]/gu;
 const CONTROL_CHARS = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
 
 /**
- * Strip HTML tags, `<script>` payloads, angle brackets, and control chars.
- * Used on every free-text field before it is stored, forwarded, or echoed.
+ * Hard ceiling applied BEFORE any pattern runs. Every caller slices to its own
+ * (much smaller) limit afterwards, so this only bounds the work, never a real
+ * value.
+ */
+const SANITIZE_MAX = 8192;
+
+/**
+ * Strip HTML tags, angle brackets, and control chars. Used on every free-text
+ * field before it is stored, forwarded, or echoed.
+ *
+ * Two things here are load-bearing for cost, not just correctness:
+ *
+ *  - The length cap runs FIRST. The tag pattern backtracks quadratically on
+ *    unclosed tags, and validateEmail called this before its own length check
+ *    — so `/api/leads`, which is public and unauthenticated, would run a
+ *    multi-second regex on a multi-megabyte body. Ten of those pin an instance
+ *    each; the per-IP limiter caps request COUNT, not per-request cost.
+ *  - The tag scan is bounded (`[^>]{0,2000}`) rather than open-ended.
+ *
+ * The old `<script>…</script>` pass is gone deliberately: the `[<>]` strip
+ * below already makes a tag unreconstructable, so removing script CONTENTS
+ * bought nothing that the bracket strip doesn't, at quadratic cost.
  */
 export function sanitizeText(input: unknown): string {
   if (typeof input !== "string") return "";
   return input
-    // Drop whole <script>…</script> blocks including their contents.
-    .replace(/<script[\s\S]*?<\/script\s*>/gi, "")
-    // Drop any remaining tags.
-    .replace(/<\/?[a-z][^>]*>/gi, "")
+    .slice(0, SANITIZE_MAX)
+    // Drop tags.
+    .replace(/<\/?[a-z][^>]{0,2000}>/gi, "")
     // Neutralize stray angle brackets so nothing can be reconstructed.
     .replace(/[<>]/g, "")
     .replace(CONTROL_CHARS, "")

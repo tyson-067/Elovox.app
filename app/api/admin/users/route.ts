@@ -37,6 +37,12 @@ interface Row {
 }
 
 export async function GET(req: NextRequest) {
+  // isAdmin FIRST, so an anonymous caller can't tell a real route that is
+  // busy or unconfigured from one that doesn't exist. See the same note in
+  // /api/admin/stats.
+  if (!(await isAdmin(req))) {
+    return new NextResponse("Not found", { status: 404 });
+  }
   const app = getAdminApp();
   const db = getAdminDb();
   if (!app || !db) {
@@ -44,9 +50,6 @@ export async function GET(req: NextRequest) {
   }
   if (rateLimited(clientIp(req))) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
-  }
-  if (!(await isAdmin(req))) {
-    return new NextResponse("Not found", { status: 404 });
   }
 
   const now = Date.now();

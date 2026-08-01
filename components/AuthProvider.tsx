@@ -33,6 +33,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const configured = isFirebaseConfigured();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(configured);
+  // Incremented on every token change so a User mutated in place (a changed
+  // email, a newly verified address) still re-renders consumers. See the note
+  // on onIdTokenChanged below.
+  const [, setAuthNonce] = useState(0);
 
   useEffect(() => {
     if (!configured) return;
@@ -49,15 +53,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resolved = true;
       setLoading(false);
     };
+    // The effect can tear down before the dynamic import resolves, in which
+    // case the cleanup below runs against an `unsubscribe` that doesn't exist
+    // yet and the listener registered a tick later is never removed.
+    let cancelled = false;
+
     const timer = setTimeout(() => {
       setUser(getAuthInstance().currentUser ?? null);
       stopLoading();
     }, 6000);
-    import("firebase/auth").then(({ onAuthStateChanged }) => {
-      unsubscribe = onAuthStateChanged(
+    import("firebase/auth").then(({ onIdTokenChanged }) => {
+      // onIdTokenChanged, not onAuthStateChanged: it fires for sign-in and
+      // sign-out AND for every token refresh, which is what surfaces a
+      // changed email or a newly verified address. With the state-only
+      // listener, a user who changed their email kept seeing the OLD address
+      // in the header and on /account indefinitely, and then — up to an hour
+      // later, when the revoked refresh token first failed — got dumped to
+      // /login mid-session with no explanation.
+      //
+      // Firebase mutates the User object IN PLACE, so `setUser(u)` with the
+      // same reference is a no-op React bails out of — the email would change
+      // underneath us and nothing would re-render. Bumping a nonce forces the
+      // render, which rebuilds the context value, and consumers re-read the
+      // (now updated) fields off the same object. Cloning the User instead
+      // would be worse: its methods depend on internal own-properties, and a
+      // copy would drift from the instance the SDK keeps mutating.
+      const subscription = onIdTokenChanged(
         getAuthInstance(),
         (u) => {
           setUser(u);
+          setAuthNonce((n) => n + 1);
           stopLoading();
         },
         () => {
@@ -67,8 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           stopLoading();
         }
       );
+      if (cancelled) subscription();
+      else unsubscribe = subscription;
     });
     return () => {
+      cancelled = true;
       clearTimeout(timer);
       unsubscribe?.();
     };

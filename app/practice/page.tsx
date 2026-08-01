@@ -330,6 +330,10 @@ function RecordingScreen() {
   // (while getUserMedia is still resolving) can't spin up a second capture
   // pipeline and orphan the first mic stream.
   const startingRef = useRef(false);
+  // Last whole tenth of a second pushed to state, so the rAF loop can skip
+  // the re-render on the ~5 frames out of every 6 that wouldn't change the
+  // displayed timer.
+  const lastTickRef = useRef(-1);
   // Analysis already done for a given take, so a retry that failed only at the
   // save step re-runs saveSession, NOT the metered analyze pipeline (which
   // would reserve a second daily attempt and re-bill the model).
@@ -357,6 +361,28 @@ function RecordingScreen() {
       maxStopRef.current = null;
     }
     samplerRef.current?.stop();
+
+    // Detach and stop the recorder BEFORE the tracks. When every track in a
+    // recorder's stream ends, the UA stops the recording for us and queues a
+    // `stop` event — so tearing down tracks alone made an in-progress take
+    // fire onstop from a component that no longer exists, which ran the whole
+    // paid analysis: a burned Daily attempt, a junk session written to the
+    // user's history, and no way for them to know it happened. Clearing the
+    // handlers first means the teardown is silent.
+    const recorder = recorderRef.current;
+    recorderRef.current = null;
+    if (recorder) {
+      recorder.onstop = null;
+      recorder.ondataavailable = null;
+      if (recorder.state !== "inactive") {
+        try {
+          recorder.stop();
+        } catch {
+          // Already torn down by the UA; nothing left to stop.
+        }
+      }
+    }
+
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     audioCtxRef.current?.close().catch(() => {});
@@ -377,7 +403,13 @@ function RecordingScreen() {
 
       const dpr = window.devicePixelRatio || 1;
       const { clientWidth: w, clientHeight: h } = canvas;
-      if (canvas.width !== w * dpr) {
+      // Height has to be part of the test, not just a passenger inside a
+      // width-triggered branch. Turning the camera on swaps the canvas from
+      // h-full to h-1/4 without changing its width, so the backing store
+      // stayed four times too tall: clearRect only wiped the top quarter and
+      // the first frame's bars sat frozen in the middle of the strip for the
+      // whole take.
+      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
         canvas.width = w * dpr;
         canvas.height = h * dpr;
       }
@@ -407,7 +439,18 @@ function RecordingScreen() {
         ctx.fillRect(x, mid - amp, barW, amp * 2);
       }
 
-      setElapsed((performance.now() - startedAtRef.current) / 1000);
+      // Throttled to 10Hz. This used to write a float that changed every
+      // frame, so React re-reconciled the entire 1,250-line recording screen
+      // — both Felix SVG trees, the brief, the goal pills — at display
+      // refresh rate, competing with the encoder and the frame sampler for
+      // the main thread during the one operation that cannot stutter. The
+      // timer only ever renders to one decimal place.
+      const nowElapsed = (performance.now() - startedAtRef.current) / 1000;
+      const tenths = Math.floor(nowElapsed * 10);
+      if (tenths !== lastTickRef.current) {
+        lastTickRef.current = tenths;
+        setElapsed(nowElapsed);
+      }
       rafRef.current = requestAnimationFrame(tick);
     };
     tick();
@@ -437,6 +480,16 @@ function RecordingScreen() {
         });
 
         const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+
+        // Cache the analysis the INSTANT it exists, before the XP step —
+        // which is the expensive, already-paid-for part. It used to be cached
+        // only after the awards landed, so anything throwing in between (a
+        // truncated response body from the analyze call is enough) dropped a
+        // billed analysis on the floor, and "Try again" re-entered this branch
+        // for a second daily attempt, a second transcription and a second
+        // model pass on one recording.
+        cached = { take, analysis, id, xpEarned: 0 };
+        pendingSaveRef.current = cached;
 
         // The Daily Minute is where levelling actually happens, beating
         // your own previous attempt is worth far more than the rep itself.
@@ -546,6 +599,11 @@ function RecordingScreen() {
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
       recorder.onstop = async () => {
+        // The one async continuation in this file that was missing the
+        // activeRef guard. Belt to stopEverything's braces: if this fires
+        // after unmount for any reason, nothing here should run — everything
+        // below it spends money and writes to the user's history.
+        if (!activeRef.current) return;
         if (maxStopRef.current) {
           clearTimeout(maxStopRef.current);
           maxStopRef.current = null;
@@ -725,7 +783,7 @@ function RecordingScreen() {
         <div className="mt-8 flex flex-wrap gap-4">
           <Link
             href="/pricing"
-            className="btn rounded-lg bg-accent text-white font-semibold px-7 py-3 web-only"
+            className="btn rounded-lg bg-accent-strong text-white font-semibold px-7 py-3 web-only"
           >
             See Premium
           </Link>
@@ -757,7 +815,7 @@ function RecordingScreen() {
         <div className="mt-8 flex flex-wrap gap-4">
           <Link
             href="/progress"
-            className="btn rounded-lg bg-accent text-white font-semibold px-7 py-3"
+            className="btn rounded-lg bg-accent-strong text-white font-semibold px-7 py-3"
           >
             See your progress
           </Link>
@@ -799,13 +857,18 @@ function RecordingScreen() {
     <div className="py-8 md:py-12">
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:items-start lg:gap-10">
         <div className="stagger-in min-w-0 lg:col-span-7">
+          {/* An <h1>, not a styled <span>. In its primary state this screen
+              had no heading element at all, so "skip to the heading" — the
+              way most screen-reader users orient on a new page — landed
+              nowhere, on the one screen where knowing what you're about to
+              record actually matters. */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-block rounded-full bg-violet/10 text-violet text-[13px] font-semibold tracking-wide px-3 py-1">
+            <h1 className="inline-block rounded-full bg-violet/10 text-violet text-[13px] font-semibold tracking-wide px-3 py-1">
               {heading}
-            </span>
+            </h1>
             {isDaily && (
               <>
-                <span className="inline-block rounded-full bg-accent/12 text-accent text-[13px] font-semibold tracking-wide px-3 py-1">
+                <span className="inline-block rounded-full bg-accent/12 text-accent-strong text-[13px] font-semibold tracking-wide px-3 py-1">
                   Attempt {attemptNumber} of {MAX_DAILY_ATTEMPTS}
                 </span>
                 {challenge?.bestScore !== null && challenge?.bestScore !== undefined && (
@@ -834,7 +897,7 @@ function RecordingScreen() {
               <ul className="mt-2 space-y-2">
                 {(daily.bullets ?? []).map((b, i) => (
                   <li key={i} className="flex gap-3 text-lg leading-7 text-on-surface">
-                    <span className="font-data text-sm text-accent mt-1">{i + 1}</span>
+                    <span className="font-data text-sm text-accent-strong mt-1">{i + 1}</span>
                     <span>{b}</span>
                   </li>
                 ))}
@@ -885,7 +948,7 @@ function RecordingScreen() {
           )}
 
           {isDaily && daily?.focus && (
-            <p className="mt-3 text-base leading-6 text-accent max-w-[60ch]">
+            <p className="mt-3 text-base leading-6 text-accent-strong max-w-[60ch]">
               Felix is watching for: {daily.focus}
             </p>
           )}
@@ -896,7 +959,7 @@ function RecordingScreen() {
                 type="button"
                 disabled={locked}
                 onClick={rerollQuestion}
-                className="text-[13px] font-semibold text-accent underline underline-offset-4 disabled:opacity-50"
+                className="text-[13px] font-semibold text-accent-strong underline underline-offset-4 disabled:opacity-50"
               >
                 Give me a different one
               </button>
@@ -910,7 +973,7 @@ function RecordingScreen() {
                   type="button"
                   disabled={locked}
                   onClick={rerollQuestion}
-                  className="text-[13px] font-semibold text-accent underline underline-offset-4 disabled:opacity-50"
+                  className="text-[13px] font-semibold text-accent-strong underline underline-offset-4 disabled:opacity-50"
                 >
                   Ask me a different one
                 </button>
@@ -991,7 +1054,7 @@ function RecordingScreen() {
                         setQuestion(clean);
                         setComposer(null);
                       }}
-                      className="btn rounded-lg bg-accent px-5 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
+                      className="btn rounded-lg bg-accent-strong px-5 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
                     >
                       Ask me this
                     </button>
@@ -1034,7 +1097,7 @@ function RecordingScreen() {
                       type="button"
                       disabled={locked || bankBusy || !sanitizeText(situation)}
                       onClick={generateBank}
-                      className="btn rounded-lg bg-accent px-5 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
+                      className="btn rounded-lg bg-accent-strong px-5 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
                     >
                       {bankBusy ? "Felix is writing…" : "Write my questions"}
                     </button>
@@ -1068,7 +1131,7 @@ function RecordingScreen() {
                     aria-pressed={active}
                     className={`pill rounded-full border px-3.5 py-1.5 text-[13px] font-semibold tracking-wide disabled:opacity-50 ${
                       active
-                        ? "border-accent bg-accent text-white"
+                        ? "border-accent bg-accent-strong text-white"
                         : "border-primary/20 text-primary hover:border-accent/60"
                     }`}
                   >
@@ -1156,7 +1219,15 @@ function RecordingScreen() {
             />
             {!recording && !busy && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
-                <p className={state === "error" ? "text-amber text-base max-w-[46ch]" : "text-on-primary/50 text-base"}>
+                {/* role="alert" because this <p> is the ONLY surface for
+                    "Elovox needs microphone access", "that take didn't
+                    capture any audio", and every analysis failure. Without
+                    it a screen-reader user pressed record and got silence,
+                    with no indication anything had gone wrong. */}
+                <p
+                  role={state === "error" ? "alert" : undefined}
+                  className={state === "error" ? "text-amber text-base max-w-[46ch]" : "text-on-primary/50 text-base"}
+                >
                   {state === "error"
                     ? errorMsg
                     : videoOn
@@ -1167,7 +1238,7 @@ function RecordingScreen() {
                   <button
                     type="button"
                     onClick={retryAnalysis}
-                    className="btn rounded-lg bg-accent text-white font-semibold px-6 py-2.5 text-sm"
+                    className="btn rounded-lg bg-accent-strong text-white font-semibold px-6 py-2.5 text-sm"
                   >
                     Try again, same recording
                   </button>
@@ -1184,7 +1255,7 @@ function RecordingScreen() {
             <span
               className={`font-data text-2xl tabular-nums ${
                 isDaily && recording && elapsed > DAILY_LIMIT_SEC - 10
-                  ? "text-accent"
+                  ? "text-accent-strong"
                   : "text-primary"
               }`}
               aria-live="off"
@@ -1203,7 +1274,7 @@ function RecordingScreen() {
                 onClick={recording ? stop : start}
                 disabled={busy}
                 aria-label={recording ? "Stop recording" : "Start recording"}
-                className="record-blob relative h-24 w-24 bg-accent text-white flex items-center justify-center disabled:opacity-50"
+                className="record-blob relative h-24 w-24 bg-accent-strong text-white flex items-center justify-center disabled:opacity-50"
               >
                 {recording ? (
                   <span className="block h-7 w-7 rounded-[4px] bg-primary" />

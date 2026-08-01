@@ -244,7 +244,17 @@ export async function awardXp(
     // The starting balance for an account that predates the shop, granted off
     // the XP already in this doc and BEFORE this session's level-ups are
     // added, so the two can't pay for the same level.
-    const base = prev.coinsSeeded ? (prev.coins ?? 0) : seedCoins(prev.xp);
+    //
+    // On a FIRST write the seed excludes `pendingBonusXp`, the parked referral
+    // bonus: lib/referral.ts is explicit that the level crossing a referral
+    // causes is deliberately never paid in coins. Folding it in here paid an
+    // inviter whose only XP was the parked 100 a Level 2 crossing (25 coins),
+    // while an inviter whose doc already existed got nothing for the same
+    // event. On an EXISTING doc prev.xp is their real total and seedXp is 0,
+    // so that case must keep using prev.xp or the pre-shop backfill vanishes.
+    const base = prev.coinsSeeded
+      ? (prev.coins ?? 0)
+      : seedCoins(snap.exists ? prev.xp : seedXp);
 
     let coinsEarned = coinsForLevelUps(prev.xp, nextXp);
     // Paid once a day, on the attempt that also advanced the streak, so the
@@ -378,6 +388,54 @@ export type HandleCheck =
   | { ok: true; handle: string }
   | { ok: false; error: string };
 
+/**
+ * Names nobody may take: the product and its mascot (so a row can't pose as
+ * an official one), and the usual staff/authority words.
+ */
+const RESERVED_HANDLES = new Set([
+  "elovox",
+  "felix",
+  "admin",
+  "administrator",
+  "moderator",
+  "mod",
+  "staff",
+  "support",
+  "official",
+  "system",
+  "team",
+  "help",
+  "root",
+  "owner",
+]);
+
+/**
+ * The form a handle is RESERVED under, which is deliberately more aggressive
+ * than the form it is displayed in.
+ *
+ * NFKC folds fullwidth and other compatibility forms (Ｆｅｌｉｘ → Felix), then
+ * confusable Cyrillic/Greek letters are mapped onto their Latin lookalikes and
+ * separators are stripped. Without this, an exact-match uniqueness check is
+ * decorative: `\p{L}` happily admits "Felіx" with a Cyrillic і, which reads as
+ * identical on the board.
+ */
+const CONFUSABLES: Record<string, string> = {
+  а: "a", в: "b", е: "e", к: "k", м: "m", н: "h", о: "o", р: "p", с: "c",
+  т: "t", у: "y", х: "x", і: "i", ј: "j", ѕ: "s", ԁ: "d", ɡ: "g",
+  α: "a", β: "b", ε: "e", ι: "i", κ: "k", ν: "v", ο: "o", ρ: "p", τ: "t",
+  υ: "u", χ: "x", "0": "o", "1": "l", "3": "e", "4": "a", "5": "s", "7": "t",
+};
+
+export function foldHandle(handle: string): string {
+  return handle
+    .normalize("NFKC")
+    .toLowerCase()
+    .split("")
+    .map((ch) => CONFUSABLES[ch] ?? ch)
+    .join("")
+    .replace(/[\s'._-]/g, "");
+}
+
 export function checkHandle(raw: unknown): HandleCheck {
   if (typeof raw !== "string") return { ok: false, error: "Pick a name." };
   // Collapse runs of whitespace: "A          B" renders as a wide row that
@@ -392,26 +450,74 @@ export function checkHandle(raw: unknown): HandleCheck {
   if (!HANDLE_RE.test(handle)) {
     return { ok: false, error: "Letters, numbers, spaces and - ' . _ only." };
   }
+  const folded = foldHandle(handle);
+  if (!folded) {
+    return { ok: false, error: "Pick a name with some letters in it." };
+  }
+  if (RESERVED_HANDLES.has(folded)) {
+    return { ok: false, error: "That name is reserved. Pick another." };
+  }
   return { ok: true, handle };
 }
 
-/** Set the name this user appears under. Admin SDK only. */
+/**
+ * Set the name this user appears under. Admin SDK only.
+ *
+ * Reserves the folded form in `handles/{folded}` inside a transaction, so two
+ * people can't end up on the same public board under the same name. Every row
+ * on /leaderboard is readable by every signed-in user, so without this anyone
+ * could take the exact handle of the person above them — or of the product
+ * itself — and the board stopped meaning anything.
+ *
+ * Returns false when the name is already taken.
+ */
 export async function setHandle(
   db: Firestore,
   uid: string,
   handle: string
-): Promise<void> {
-  const progress = await db.doc(`users/${uid}/score/progress`).get();
-  const xp = Number(progress.data()?.xp ?? 0);
-  await db.doc(`leaderboard/${uid}`).set(
-    {
-      handle,
-      // A row created by naming yourself before your first scored rep still
-      // needs an xp field, or it sorts as missing and drops off the board.
-      xp,
-      level: levelFromXp(xp).level,
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
+): Promise<boolean> {
+  const folded = foldHandle(handle);
+  const claimRef = db.doc(`handles/${folded}`);
+  const rowRef = db.doc(`leaderboard/${uid}`);
+
+  const claimed = await db.runTransaction(async (tx) => {
+    const [claimSnap, rowSnap] = await Promise.all([
+      tx.get(claimRef),
+      tx.get(rowRef),
+    ]);
+    const holder = claimSnap.data()?.uid;
+    if (claimSnap.exists && holder !== uid) return false;
+
+    // Release the previous reservation in the SAME transaction, so a rename
+    // can't strand a name nobody can ever take again.
+    const previous = rowSnap.data()?.handle;
+    if (typeof previous === "string") {
+      const previousFolded = foldHandle(previous);
+      if (previousFolded && previousFolded !== folded) {
+        tx.delete(db.doc(`handles/${previousFolded}`));
+      }
+    }
+
+    tx.set(claimRef, { uid, handle, at: FieldValue.serverTimestamp() });
+    // ONLY the handle. The xp/level are republished by awardXp, which owns
+    // them: reading xp here (outside any transaction) and writing it back
+    // meant a rename landing next to a finishing analysis could overwrite the
+    // fresh total with the stale one it had read moments earlier, showing a
+    // wrong number on the ranked surface until the next rep.
+    tx.set(rowRef, { handle, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    return true;
+  });
+
+  if (!claimed) return false;
+
+  // A row created by naming yourself before your first scored rep still needs
+  // xp/level, or it sorts as missing and drops off the board. Written only
+  // when absent, so this can never clobber a real total.
+  const rowSnap = await rowRef.get();
+  if (rowSnap.data()?.xp === undefined) {
+    const progress = await db.doc(`users/${uid}/score/progress`).get();
+    const xp = Number(progress.data()?.xp ?? 0);
+    await rowRef.set({ xp, level: levelFromXp(xp).level }, { merge: true });
+  }
+  return true;
 }

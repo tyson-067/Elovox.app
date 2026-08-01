@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalDoc, Section, Bullets } from "@/components/LegalDoc";
+import { pageGraph } from "@/lib/schema";
 import { LEGAL } from "@/lib/legal";
 import { PLANS, formatUSD, hasTrial } from "@/lib/pricing";
 
@@ -16,6 +17,24 @@ export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
   alternates: { canonical: "/terms" },
+  // Stated explicitly. Next inherits `openGraph` from the root layout rather
+  // than merging it, so without this the page shared as "Elovox: Speak with
+  // Impact" pointing at the homepage — contradicting its own title and
+  // canonical on the same document.
+  openGraph: {
+    type: "article",
+    siteName: "Elovox",
+    url: "/terms",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/og.png"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/og.png"],
+  },
 };
 
 const mailto = `mailto:${LEGAL.contactEmail}`;
@@ -29,7 +48,6 @@ const modified = (() => {
 })();
 
 const PAGE_SCHEMA = {
-  "@context": "https://schema.org",
   "@type": "WebPage",
   "@id": `${SITE}/terms#webpage`,
   url: `${SITE}/terms`,
@@ -45,7 +63,7 @@ export default function TermsPage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(PAGE_SCHEMA) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pageGraph(PAGE_SCHEMA)) }}
       />
       <LegalDoc
       title="Terms of Service"
@@ -88,7 +106,7 @@ export default function TermsPage() {
           permission. You are responsible for keeping your password private and
           for what happens under your account. Give us accurate information, and
           tell us promptly at{" "}
-          <a className="text-accent hover:underline" href={mailto}>
+          <a className="text-accent-strong hover:underline" href={mailto}>
             {LEGAL.contactEmail}
           </a>{" "}
           if you think someone else has access to it.
@@ -97,10 +115,11 @@ export default function TermsPage() {
 
       <Section heading="Free and Premium">
         <p>
-          The free plan gives you the Daily Minute with a limited number of
-          attempts each day. Premium removes the limits and adds the speech
-          library, interview practice, camera coaching, and coaching on your own
-          material. Current plans:
+          The free plan gives you the Daily Minute, three attempts a day.
+          Premium keeps that same three-a-day Daily Minute and adds the speech
+          library, interview practice, social skills, camera coaching, and
+          coaching on your own material, with no three-a-day limit on any of
+          them. Current plans:
         </p>
         <Bullets
           items={PLANS.map((p) => (
@@ -117,7 +136,7 @@ export default function TermsPage() {
           a price change affects a subscription you already hold, we&apos;ll
           tell you before it takes effect, and you can cancel if you don&apos;t
           want to continue. See the{" "}
-          <Link href="/pricing" className="text-accent hover:underline">
+          <Link href="/pricing" className="text-accent-strong hover:underline">
             pricing page
           </Link>{" "}
           for what&apos;s current.
@@ -138,7 +157,7 @@ export default function TermsPage() {
           <strong>Subscriptions renew automatically</strong> at the end of each
           billing period, at the then-current price, until you cancel. You can
           cancel at any time from the billing page in your account, which opens
-          Stripe&apos;s customer portal. Cancelling stops the next charge; your
+          Stripe&apos;s customer portal. Canceling stops the next charge; your
           access continues until the end of the period you have already paid
           for.
         </p>
@@ -153,7 +172,7 @@ export default function TermsPage() {
           Payments are generally non-refundable, including for periods you
           didn&apos;t use. That&apos;s what the free trial is for. If something
           went genuinely wrong, email{" "}
-          <a className="text-accent hover:underline" href={mailto}>
+          <a className="text-accent-strong hover:underline" href={mailto}>
             {LEGAL.contactEmail}
           </a>{" "}
           and we&apos;ll look at it fairly.
@@ -174,7 +193,7 @@ export default function TermsPage() {
           To provide the service, you give us permission to process that content
           for one purpose only: producing your feedback and your practice
           history, including by sending it to the providers named in our{" "}
-          <Link href="/privacy" className="text-accent hover:underline">
+          <Link href="/privacy" className="text-accent-strong hover:underline">
             Privacy Policy
           </Link>
           . We do not use your recordings to train our own models, we do not
@@ -227,7 +246,7 @@ export default function TermsPage() {
         <p>
           You can stop using Elovox at any time, and delete your account
           permanently from your{" "}
-          <Link href="/account" className="text-accent hover:underline">
+          <Link href="/account" className="text-accent-strong hover:underline">
             account settings
           </Link>
           . Deleting cancels any active subscription immediately.
@@ -275,12 +294,12 @@ export default function TermsPage() {
       <Section heading="Contact">
         <p>
           Questions about any of this go to{" "}
-          <a className="text-accent hover:underline" href={mailto}>
+          <a className="text-accent-strong hover:underline" href={mailto}>
             {LEGAL.contactEmail}
           </a>
           . We&apos;re also on Instagram as{" "}
           <a
-            className="text-accent hover:underline"
+            className="text-accent-strong hover:underline"
             href={LEGAL.instagramUrl}
             target="_blank"
             rel="noopener noreferrer"

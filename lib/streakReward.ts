@@ -100,6 +100,23 @@ export async function currentUsageStreak(
   // reading the field costs no extra reads.
   const days = snap.docs
     .filter((d) => Number(d.data()?.dailyAnalyses ?? 0) > 0)
+    // The day key is the CLIENT's local date (lib/quota.ts usageDateKey trusts
+    // it within ±1 UTC day), so its existence alone proves nothing about when
+    // the practice happened — three analyses in one sitting, dated yesterday,
+    // today and tomorrow, used to fill three consecutive keys and count as
+    // three streak days. That turned 21 consecutive days into ~7 real ones.
+    // `firstAt` is the server's own stamp for the first attempt on that key,
+    // so requiring the two to be within 36h keeps honest timezone offsets
+    // (max 26h of legitimate skew) while rejecting manufactured days.
+    // Docs written before firstAt existed have no stamp and are still trusted;
+    // they predate the exploit and refusing them would erase real streaks.
+    .filter((d) => {
+      const stamp = d.data()?.firstAt;
+      if (!stamp || typeof stamp.toMillis !== "function") return true;
+      const keyStart = Date.parse(`${d.id}T00:00:00Z`);
+      if (Number.isNaN(keyStart)) return false;
+      return Math.abs(stamp.toMillis() - keyStart) <= 36 * 60 * 60 * 1000;
+    })
     .map((d) => d.id)
     .filter((id) => DATE_RE.test(id))
     .filter((id) => !opts.anchor || daysBetween(opts.anchor, id) > 0);
@@ -163,12 +180,20 @@ export async function claimStreakReward(
 
   const premiumUntil = now + STREAK_REWARD_MS;
 
+  // Whether the transaction actually opened the week. Without this the
+  // function returned `granted: true` even on the branch that deliberately
+  // writes nothing, so a second tab claiming at the same instant rendered the
+  // congratulations banner and an expiry date for a week that was never
+  // extended, and streakRewardsGranted disagreed with the celebrations shown.
+  let wrote = false;
+
   await db.runTransaction(async (tx) => {
     const fresh = await tx.get(planRef);
     const data = (fresh.data() ?? {}) as StreakRewardRecord & { plan?: string };
     // Re-check inside the transaction: the read above is not serialized with
     // a concurrent claim from another tab.
     if (data.plan === "premium" || hasOpenGrant(data, now)) return;
+    wrote = true;
     tx.set(
       planRef,
       {
@@ -183,6 +208,17 @@ export async function claimStreakReward(
       { merge: true }
     );
   });
+
+  if (!wrote) {
+    // Another claim won the race and already opened a week; that one is real,
+    // this one changed nothing.
+    return {
+      granted: false,
+      reason: "already-granted",
+      streakDays: days,
+      needed: STREAK_REWARD_DAYS,
+    };
+  }
 
   return { granted: true, premiumUntil, streakDays: days };
 }

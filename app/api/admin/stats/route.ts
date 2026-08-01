@@ -23,6 +23,14 @@ const rateLimited = makeRateLimiter(60);
 const DAY = 24 * 60 * 60 * 1000;
 
 export async function GET(req: NextRequest) {
+  // isAdmin FIRST. The 503 and 429 branches used to run ahead of it, so an
+  // anonymous visitor could tell the difference between "no such route" and
+  // "a real route that is busy or unconfigured" — the client maps only 404 to
+  // "denied", so anything else rendered a real error message and confirmed
+  // /admin exists. That is exactly what the flat-404 design is for.
+  if (!(await isAdmin(req))) {
+    return new NextResponse("Not found", { status: 404 });
+  }
   const app = getAdminApp();
   const db = getAdminDb();
   if (!app || !db) {
@@ -30,9 +38,6 @@ export async function GET(req: NextRequest) {
   }
   if (rateLimited(clientIp(req))) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
-  }
-  if (!(await isAdmin(req))) {
-    return new NextResponse("Not found", { status: 404 });
   }
 
   const now = Date.now();
@@ -74,11 +79,20 @@ export async function GET(req: NextRequest) {
   let activePaid = 0;
   let canceling = 0;
   const byCycle: Record<string, number> = { weekly: 0, monthly: 0, annual: 0 };
+  let comped = 0;
   for (const doc of plans.docs) {
     if (doc.id !== "plan") continue;
     const d = doc.data();
-    if (d.plan !== "premium") continue;
+    // Entitlement is `plan === "premium"` OR an open `premiumUntil` window —
+    // the 21-day streak reward grants the latter and deliberately never sets
+    // `plan` (lib/streakReward.ts). Counting only `plan` made this tile
+    // disagree with the Users table on the same screen, and with the app
+    // itself, about who is Premium. Same rule as lib/plan.ts entitlementFrom.
+    const paid = d.plan === "premium";
+    const comp = typeof d.premiumUntil === "number" && d.premiumUntil > now;
+    if (!paid && !comp) continue;
     premium++;
+    if (comp && !paid) comped++;
     if (d.status === "trialing") trialing++;
     if (d.status === "active") activePaid++;
     if (d.cancelAtPeriodEnd) canceling++;
@@ -152,6 +166,9 @@ export async function GET(req: NextRequest) {
       },
       subscriptions: {
         premium,
+        // Of `premium`, how many hold it on a comp window rather than a
+        // subscription — so the tile can't be mistaken for revenue.
+        comped,
         trialing,
         activePaid,
         canceling,

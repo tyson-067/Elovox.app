@@ -38,12 +38,19 @@ function TrendChart({ sessions }: { sessions: Session[] }) {
   const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(p)}`).join(" ");
 
   return (
+    // Deliberately NOT role="img": that makes the whole subtree
+    // presentational, so the N focusable point-links nested inside became
+    // unnamed tab stops that a screen reader could land on but never
+    // describe. A <title> gives the graphic its description without hiding
+    // its contents.
     <svg
       viewBox={`0 0 ${w} ${h}`}
       className="w-full h-auto"
-      role="img"
-      aria-label="Overall score across sessions. Each point opens that session's report."
+      aria-labelledby="trend-chart-title"
     >
+      <title id="trend-chart-title">
+        Overall score across sessions. Each point opens that session&apos;s report.
+      </title>
       <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="#c6c6ce" strokeWidth="1" />
       {/* pathLength=1 normalizes the dash animation (.chart-draw) so the
           line draws itself in regardless of its real length */}
@@ -66,7 +73,10 @@ function TrendChart({ sessions }: { sessions: Session[] }) {
           role="link"
           tabIndex={0}
           aria-label={`Open the report for the session scored ${s.analysis.overall}`}
-          className="cursor-pointer focus:outline-none"
+          // No focus:outline-none here. These are the only way to reach a
+          // session's report from the chart, and removing the ring made them
+          // invisible tab stops.
+          className="cursor-pointer"
           onClick={() => router.push(`/report/${s.id}`)}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
@@ -240,7 +250,7 @@ function BiomeProgress({ shop }: { shop: ShopState | null }) {
         ) : (
           <>Felix has been everywhere. </>
         )}
-        <Link href="/shop" className="font-semibold text-accent">
+        <Link href="/shop" className="font-semibold text-accent-strong">
           Open the shop →
         </Link>
       </p>
@@ -345,7 +355,7 @@ function SessionRow({
               stroke="currentColor"
               strokeWidth="2"
               strokeLinecap="round"
-              className="shrink-0 text-accent"
+              className="shrink-0 text-accent-strong"
               aria-label="Daily Minute: the shared one-minute challenge, three attempts a day"
               role="img"
             >
@@ -373,7 +383,7 @@ function SessionRow({
             {s.withVideo && (
               <>
                 <span className="mx-1.5">·</span>
-                <span className="text-accent">camera</span>
+                <span className="text-accent-strong">camera</span>
               </>
             )}
             <span className="mx-1.5">·</span>
@@ -494,7 +504,7 @@ function ProgressScreen() {
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="btn rounded-lg bg-accent px-6 py-2.5 text-sm font-semibold text-white"
+          className="btn rounded-lg bg-accent-strong px-6 py-2.5 text-sm font-semibold text-white"
         >
           Try again
         </button>
@@ -525,7 +535,7 @@ function ProgressScreen() {
         </p>
         <Link
           href="/practice?daily=1"
-          className="btn rounded-lg mt-8 inline-block bg-accent text-white font-semibold px-8 py-3.5"
+          className="btn rounded-lg mt-8 inline-block bg-accent-strong text-white font-semibold px-8 py-3.5"
         >
           Start your Daily Minute
         </Link>
@@ -556,14 +566,16 @@ function ProgressScreen() {
       {/* 2. Trend line */}
       <section className="mt-10">
         <Reveal>
-          <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
-            Overall score, session by session
-            <InfoTip label="What does this chart show?" className="ml-2 align-middle">
+          <div className="flex items-center gap-2">
+            <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+              Overall score, session by session
+              <span className="grow-line" aria-hidden="true" />
+            </h2>
+            <InfoTip label="What does this chart show?" className="align-middle">
               One dot per recording, oldest on the left. The line is your
               overall score out of 100. Tap any point to open that session.
             </InfoTip>
-            <span className="grow-line" aria-hidden="true" />
-          </h2>
+          </div>
           <div className="mt-3">
             <TrendChart sessions={sessions} />
           </div>
@@ -578,14 +590,16 @@ function ProgressScreen() {
       {/* 4. Voice skill breakdown */}
       <section className="mt-12">
         <Reveal>
-          <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
-            Where the work is
-            <InfoTip label="What are these scores?" className="ml-2 align-middle">
+          <div className="flex items-center gap-2">
+            <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+              Where the work is
+              <span className="grow-line" aria-hidden="true" />
+            </h2>
+            <InfoTip label="What are these scores?" className="align-middle">
               Each part of your delivery, scored every session. &ldquo;Latest&rdquo;
               is your most recent take, &ldquo;avg&rdquo; is everything so far.
             </InfoTip>
-            <span className="grow-line" aria-hidden="true" />
-          </h2>
+          </div>
         </Reveal>
         <ul className="mt-4 space-y-4">
           {skillAverages.map((s, i) => (
@@ -618,14 +632,16 @@ function ProgressScreen() {
       {stageAverages.length > 0 && (
         <section className="mt-12">
           <Reveal>
-            <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
-              On camera
-              <InfoTip label="Where does this come from?" className="ml-2 align-middle">
+            <div className="flex items-center gap-2">
+              <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+                On camera
+                <span className="grow-line" aria-hidden="true" />
+              </h2>
+              <InfoTip label="Where does this come from?" className="align-middle">
                 Only from sessions you recorded with the camera on: posture,
                 gestures, eye contact and sway.
               </InfoTip>
-              <span className="grow-line" aria-hidden="true" />
-            </h2>
+            </div>
           </Reveal>
           <ul className="mt-4 space-y-4">
             {stageAverages.map((m, i) => (
@@ -655,18 +671,23 @@ function ProgressScreen() {
         </section>
       )}
 
-      {/* 6. Felix's world: how much of the shop is actually theirs. */}
-      <section className="mt-12">
-        <Reveal>
-          <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
-            Felix&apos;s world
-            <span className="grow-line" aria-hidden="true" />
-          </h2>
-        </Reveal>
-        <Reveal className="mt-4">
-          <BiomeProgress shop={shop} />
-        </Reveal>
-      </section>
+      {/* 6. Felix's world: how much of the shop is actually theirs. The whole
+          section is gated on `shop`, not just its body — BiomeProgress
+          returns null without it, which left a heading standing over nothing
+          whenever the shop read failed. */}
+      {shop && (
+        <section className="mt-12">
+          <Reveal>
+            <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+              Felix&apos;s world
+              <span className="grow-line" aria-hidden="true" />
+            </h2>
+          </Reveal>
+          <Reveal className="mt-4">
+            <BiomeProgress shop={shop} />
+          </Reveal>
+        </section>
+      )}
 
       {/* 7. Session list last */}
       <section className="mt-12 mb-10">

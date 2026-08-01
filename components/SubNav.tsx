@@ -95,16 +95,24 @@ export function SubNav() {
                   className={`relative flex items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-[13px] font-semibold tracking-wide transition-colors ${
                     active
                       ? "text-primary"
-                      : "text-primary/55 hover:text-primary"
+                      : // /55 measured 2.82:1 on the surface, well under the
+                        // 4.5:1 AA floor for 13px text. /75 clears it while
+                        // keeping the active tab clearly the darker one.
+                        "text-primary/75 hover:text-primary"
                   }`}
                 >
                   {item.label}
                   {locked && (
+                    // A bare <span> is role=generic, where ARIA 1.2 PROHIBITS
+                    // aria-label — assistive tech drops it, leaving a 6px
+                    // violet dot as the only signal that a mode is Premium
+                    // (colour and shape alone). Real hidden text instead.
                     <span
-                      aria-label="Premium"
                       title="Premium"
                       className="h-1.5 w-1.5 rounded-full bg-violet"
-                    />
+                    >
+                      <span className="sr-only">Premium</span>
+                    </span>
                   )}
                   {active && (
                     <span

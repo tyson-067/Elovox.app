@@ -92,7 +92,7 @@ function OwnScreen() {
             </p>
             <Link
               href="/dashboard"
-              className="btn rounded-lg mt-5 inline-block bg-accent text-white font-semibold px-7 py-3.5"
+              className="btn rounded-lg mt-5 inline-block bg-accent-strong text-white font-semibold px-7 py-3.5"
             >
               Go to the Daily Minute
             </Link>

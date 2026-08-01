@@ -53,8 +53,14 @@ export function startAppCheck(app: FirebaseApp): void {
   // "true" and the SDK prints a token to the console, which you register under
   // App Check → Manage debug tokens. Never set this in production, a
   // registered debug token bypasses attestation entirely.
+  // `if (debug)` alone was a bug: the string "false" is truthy, so setting
+  // NEXT_PUBLIC_APPCHECK_DEBUG="false" — which .env.local.example invites by
+  // asking for "true" — assigned the literal string "false" as the debug
+  // TOKEN. Firebase then sent an unregistered token, App Check rejected it,
+  // and with enforcement on every Firestore and Auth call from that build
+  // failed with permission-denied.
   const debug = process.env.NEXT_PUBLIC_APPCHECK_DEBUG;
-  if (debug) {
+  if (debug && debug !== "false" && debug !== "0") {
     (self as unknown as Record<string, unknown>).FIREBASE_APPCHECK_DEBUG_TOKEN =
       debug === "true" ? true : debug;
   }

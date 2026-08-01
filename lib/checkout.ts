@@ -63,19 +63,41 @@ export function stashCheckoutIntent(intent: CheckoutIntent): void {
   }
 }
 
-/** Read and clear a stashed intent. Returns null if there's nothing valid. */
-export function takeCheckoutIntent(): CheckoutIntent | null {
+/**
+ * Read a stashed intent WITHOUT consuming it. Callers clear it themselves
+ * with {@link clearCheckoutIntent} once the checkout has actually started, so
+ * a transient failure doesn't silently throw away a purchase the user asked
+ * for. (An invalid stored value is cleared here — it can never succeed.)
+ */
+export function peekCheckoutIntent(): CheckoutIntent | null {
   try {
     const raw = window.sessionStorage.getItem(INTENT_KEY);
     if (!raw) return null;
-    window.sessionStorage.removeItem(INTENT_KEY);
     const parsed = JSON.parse(raw) as Partial<CheckoutIntent>;
     const c = parsed.cycle;
-    if (c !== "weekly" && c !== "monthly" && c !== "annual") return null;
+    if (c !== "weekly" && c !== "monthly" && c !== "annual") {
+      clearCheckoutIntent();
+      return null;
+    }
     return { cycle: c, skipTrial: !!parsed.skipTrial };
   } catch {
     return null;
   }
+}
+
+export function clearCheckoutIntent(): void {
+  try {
+    window.sessionStorage.removeItem(INTENT_KEY);
+  } catch {
+    // Nothing to do: an intent we can't clear is re-validated on next read.
+  }
+}
+
+/** Read and clear a stashed intent. Returns null if there's nothing valid. */
+export function takeCheckoutIntent(): CheckoutIntent | null {
+  const intent = peekCheckoutIntent();
+  if (intent) clearCheckoutIntent();
+  return intent;
 }
 
 export type { InvoiceRow } from "@/app/api/stripe/invoices/route";

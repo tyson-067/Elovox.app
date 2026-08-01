@@ -26,18 +26,24 @@ export function WordReveal({
   const visible = useRevealOnView(ref, { threshold: 0.3 });
 
   return (
-    <span
-      ref={ref}
-      className={`wr ${visible ? "wr-visible" : ""} ${className}`}
-      aria-label={text}
-    >
-      {text.split(" ").map((word, i) => (
-        <span key={i} aria-hidden="true" className="wr-word">
-          <span style={{ animationDelay: `${delay + i * step}ms` }}>
-            {word}
-          </span>{" "}
-        </span>
-      ))}
+    <span ref={ref} className={`wr ${visible ? "wr-visible" : ""} ${className}`}>
+      {/* A real, readable copy of the text rather than an aria-label on the
+          wrapper. This component renders the <h1> on nearly every screen in
+          the app, and the wrapper is a role-less <span> (role=generic), where
+          ARIA 1.2 PROHIBITS aria-label — browsers mostly honour it today, but
+          the product's headings shouldn't depend on unspecified behaviour.
+          Every animated word stays aria-hidden, so nothing is announced
+          twice. */}
+      <span className="sr-only">{text}</span>
+      <span aria-hidden="true">
+        {text.split(" ").map((word, i) => (
+          <span key={i} className="wr-word">
+            <span style={{ animationDelay: `${delay + i * step}ms` }}>
+              {word}
+            </span>{" "}
+          </span>
+        ))}
+      </span>
     </span>
   );
 }

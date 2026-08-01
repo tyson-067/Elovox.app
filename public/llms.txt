@@ -12,13 +12,11 @@ Elovox is free forever with a daily one-minute speaking challenge (three attempt
 - [For founders](https://elovox.app/for/founders): Pitch practice and delivery coaching for founders.
 - [Pricing](https://elovox.app/pricing): Free vs Premium, the weekly/monthly/annual cycles, the free trial (optional at checkout), and an FAQ.
 - [About](https://elovox.app/about): Who makes Elovox and why it exists.
-- [Sign up](https://elovox.app/signup): Create a free account.
-- [Log in](https://elovox.app/login): Return to an existing account.
 
 ## How it works
 
 - A new improvised topic is set each day; you speak for one minute and get scored, with three attempts to beat your own best.
-- Every recording produces a report: six delivery scores out of 100, your own words marked up for emphasis and pauses, measured pace and filler counts, and a prediction of how listeners came across.
+- Every recording produces a report: six delivery scores out of 100, your own words marked up for emphasis and pauses, measured pace and filler counts, and a read on how you came across to a listener.
 - Practice modes: the Daily Minute (free), interview practice, social skills, camera coaching, a speech library, and coaching on your own material (all Premium).
 
 ## Legal

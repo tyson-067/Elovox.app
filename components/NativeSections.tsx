@@ -106,10 +106,11 @@ export function NativeSections() {
                 </span>
                 {plan === "free" && (
                   <span
-                    aria-label="Premium"
                     title="Premium"
                     className="h-1.5 w-1.5 rounded-full bg-violet"
-                  />
+                  >
+                    <span className="sr-only">Premium</span>
+                  </span>
                 )}
               </span>
               <span className="mt-0.5 block truncate text-[13px] text-on-surface-variant">

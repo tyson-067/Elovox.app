@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Reveal } from "@/components/Reveal";
@@ -61,7 +61,7 @@ function Podium({ rows }: { rows: BoardRow[] }) {
             </span>
             <span
               className={`mt-1 w-full truncate text-center text-[15px] font-semibold ${
-                row.isSelf ? "text-accent" : "text-primary"
+                row.isSelf ? "text-accent-strong" : "text-primary"
               }`}
             >
               {row.handle ?? "A quiet fox"}
@@ -96,7 +96,7 @@ function Row({ row }: { row: BoardRow }) {
       <span className="min-w-0 flex-1 truncate text-base text-on-surface">
         {row.handle ?? "A quiet fox"}
         {row.isSelf && (
-          <span className="ml-2 text-[13px] font-semibold text-accent">you</span>
+          <span className="ml-2 text-[13px] font-semibold text-accent-strong">you</span>
         )}
       </span>
       {row.streakDays > 0 && (
@@ -163,7 +163,7 @@ function HandleCard({
         <button
           type="button"
           onClick={start}
-          className="pill rounded-full border border-primary/25 px-4 py-1.5 text-[13px] font-semibold text-primary hover:border-accent hover:text-accent"
+          className="pill rounded-full border border-primary/25 px-4 py-1.5 text-[13px] font-semibold text-primary hover:border-accent hover:text-accent-strong"
         >
           {handle ? "Change it" : "Pick a name"}
         </button>
@@ -197,7 +197,7 @@ function HandleCard({
         <button
           type="submit"
           disabled={saving}
-          className="btn rounded-lg bg-accent px-5 py-2 text-[15px] font-semibold text-white disabled:opacity-50"
+          className="btn rounded-lg bg-accent-strong px-5 py-2 text-[15px] font-semibold text-white disabled:opacity-50"
         >
           {saving ? "Saving…" : "Save"}
         </button>
@@ -209,7 +209,7 @@ function HandleCard({
           Cancel
         </button>
       </div>
-      {error && <p className="mt-2 text-[13px] text-error">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-[13px] text-error">{error}</p>}
     </form>
   );
 }
@@ -242,7 +242,7 @@ function InviteCard() {
           <button
             type="button"
             onClick={share}
-            className="btn rounded-lg bg-accent px-5 py-2 text-[15px] font-semibold text-white"
+            className="btn rounded-lg bg-accent-strong px-5 py-2 text-[15px] font-semibold text-white"
           >
             Share
           </button>
@@ -250,7 +250,7 @@ function InviteCard() {
       )}
 
       {outcome === "copied" && (
-        <p className="mt-2 text-[13px] font-semibold text-accent" role="status">
+        <p className="mt-2 text-[13px] font-semibold text-accent-strong" role="status">
           Link copied.
         </p>
       )}
@@ -273,11 +273,20 @@ function LeaderboardScreen() {
   // Clearing the old board happens in the tab's click handler, not in the
   // effect: setting state synchronously inside an effect body cascades a
   // render, and the lint rule that catches it is right to.
-  const switchTo = useCallback((next: Scope) => {
-    setBoard(null);
-    setFailed(false);
-    setScope(next);
-  }, []);
+  const switchTo = useCallback(
+    (next: Scope) => {
+      // Re-tapping the tab you're already on used to blank the board for
+      // good: setBoard(null) re-rendered, but React bailed on the identical
+      // setScope, so the effect below never re-ran and "Counting everyone
+      // up…" stayed on screen until a reload. Nothing to do if it's the
+      // current scope.
+      if (next === scope) return;
+      setBoard(null);
+      setFailed(false);
+      setScope(next);
+    },
+    [scope]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -295,16 +304,29 @@ function LeaderboardScreen() {
     };
   }, [scope]);
 
+  // `cancelled` matters here even though the effect runs once: a slow read
+  // that resolves AFTER the user has picked a name would overwrite the new
+  // handle with the old one (or null), reverting the card to "You're showing
+  // up as a quiet fox" while the patched board rows still showed the new name.
+  const handleSetLocally = useRef(false);
   useEffect(() => {
+    let cancelled = false;
     fetchMyHandle()
-      .then(setHandle)
+      .then((h) => {
+        if (!cancelled && !handleSetLocally.current) setHandle(h);
+      })
       .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Renaming patches the already-fetched board's own rows too, so the podium
   // and list update immediately instead of contradicting the handle card
   // (which showed the new name) until the next full board fetch.
   const onHandleSaved = useCallback((h: string) => {
+    // Locks out a late-arriving initial read (see the effect above).
+    handleSetLocally.current = true;
     setHandle(h);
     setBoard((b) =>
       b
@@ -337,16 +359,16 @@ function LeaderboardScreen() {
       </Reveal>
 
       <Reveal className="mt-6">
+        {/* Toggle buttons, not tabs — see the same note on /pricing. */}
         <div
-          role="tablist"
+          role="group"
           aria-label="Leaderboard scope"
           className="inline-flex rounded-full bg-surface-container p-1"
         >
           {(["global", "friends"] as Scope[]).map((s) => (
             <button
               key={s}
-              role="tab"
-              aria-selected={scope === s}
+              aria-pressed={scope === s}
               onClick={() => switchTo(s)}
               className={`rounded-full px-5 py-1.5 text-[13px] font-semibold capitalize transition-colors ${
                 scope === s
@@ -397,7 +419,7 @@ function LeaderboardScreen() {
           </p>
           <Link
             href="/practice?daily=1"
-            className="btn mt-5 inline-block rounded-lg bg-accent px-6 py-3 font-semibold text-white"
+            className="btn mt-5 inline-block rounded-lg bg-accent-strong px-6 py-3 font-semibold text-white"
           >
             Start your Daily Minute
           </Link>

@@ -140,7 +140,7 @@ export function InfoTip({
         className={`inline-flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-semibold leading-none transition-colors ${
           dark
             ? "border-white/40 text-white/70 hover:border-white hover:text-white"
-            : "border-outline-variant text-on-surface-variant hover:border-accent hover:text-accent"
+            : "border-outline-variant text-on-surface-variant hover:border-accent hover:text-accent-strong"
         }`}
       >
         ?

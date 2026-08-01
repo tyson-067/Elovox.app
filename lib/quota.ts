@@ -69,7 +69,19 @@ export async function reserveDailyAttempt(
     if (used >= MAX_DAILY_ATTEMPTS) return { ok: false, used };
     tx.set(
       ref,
-      { dailyAnalyses: used + 1, updatedAt: FieldValue.serverTimestamp() },
+      {
+        dailyAnalyses: used + 1,
+        updatedAt: FieldValue.serverTimestamp(),
+        // Server time of the FIRST attempt on this day key, written once.
+        // `date` above is the client's local day (see usageDateKey), which is
+        // fine for resetting the cap but is not evidence that anyone practiced
+        // on that day: posting three analyses with date=yesterday/today/
+        // tomorrow filled three consecutive keys from one sitting, and the
+        // 21-day comp-week streak counted them. This stamp is the server's own
+        // account of when the day was really touched, and lib/streakReward.ts
+        // requires the two to agree before a day counts toward the streak.
+        ...(used === 0 ? { firstAt: FieldValue.serverTimestamp() } : {}),
+      },
       { merge: true }
     );
     return { ok: true, used: used + 1 };

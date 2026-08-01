@@ -80,7 +80,7 @@ function CustomScreen() {
         </p>
         <Link
           href="/dashboard"
-          className="btn rounded-lg mt-8 inline-block bg-accent text-white font-semibold px-7 py-3.5"
+          className="btn rounded-lg mt-8 inline-block bg-accent-strong text-white font-semibold px-7 py-3.5"
         >
           Back to practice
         </Link>
@@ -130,7 +130,7 @@ function CustomScreen() {
             <button
               type="button"
               onClick={() => router.push(`/practice?gen=${stashGeneratedSpeech(speech)}`)}
-              className="btn rounded-lg bg-accent text-white font-semibold px-7 py-3.5"
+              className="btn rounded-lg bg-accent-strong text-white font-semibold px-7 py-3.5"
             >
               Practice this now
             </button>
@@ -234,7 +234,7 @@ function CustomScreen() {
                 onClick={() => setTone(tone === t ? "" : t)}
                 className={`pill rounded-full border px-3.5 py-1.5 text-[13px] font-semibold tracking-wide ${
                   tone === t
-                    ? "border-accent bg-accent text-white"
+                    ? "border-accent bg-accent-strong text-white"
                     : "border-primary/20 text-primary hover:border-accent/60"
                 }`}
               >
@@ -267,12 +267,12 @@ function CustomScreen() {
           </div>
         </div>
 
-        {error && <p className="text-base text-amber">{error}</p>}
+        {error && <p role="alert" className="text-base text-amber">{error}</p>}
 
         <button
           type="submit"
           disabled={working || !need.trim()}
-          className="btn rounded-lg bg-accent text-white font-semibold px-8 py-3.5 disabled:opacity-50"
+          className="btn rounded-lg bg-accent-strong text-white font-semibold px-8 py-3.5 disabled:opacity-50"
         >
           {working ? "Felix is writing…" : "Write my speech"}
         </button>

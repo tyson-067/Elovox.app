@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { FAQ } from "@/lib/faq";
+import { pageGraph } from "@/lib/schema";
 
 // Exists to carry metadata AND the page's structured data. `page.tsx` is a
 // client component, it needs useState for the cycle toggle and useAuth for the
@@ -31,20 +32,19 @@ export const metadata: Metadata = {
     url: "/pricing",
     title: TITLE,
     description: DESCRIPTION,
-    images: ["/logo.png"],
+    images: ["/og.png"],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
-    images: ["/logo.png"],
+    images: ["/og.png"],
   },
 };
 
 // FAQPage structured data, built from the same lib/faq.ts the page renders, so
 // the rich result Google may show can never quote an answer the page doesn't.
 const FAQ_SCHEMA = {
-  "@context": "https://schema.org",
   "@type": "FAQPage",
   "@id": `${SITE}/pricing#faq`,
   url: `${SITE}/pricing`,
@@ -65,7 +65,7 @@ export default function PricingLayout({
       <script
         type="application/ld+json"
         // A data block for crawlers and AI search, not executable script.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_SCHEMA) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pageGraph(FAQ_SCHEMA)) }}
       />
       {children}
     </>

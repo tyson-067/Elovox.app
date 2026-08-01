@@ -131,6 +131,11 @@ const TITLES: Record<string, string> = {
   "/signup": "Create account",
   "/verify-email": "Verify your email",
   "/admin": "Admin",
+  // Both are linked from the dashboard and from /progress with no `web-only`
+  // marker, so they are reachable inside the app from a docked root screen.
+  // Missing here, titleFor fell through to the bare "Elovox" default.
+  "/shop": "Felix's shop",
+  "/leaderboard": "Leaderboard",
 };
 
 /** Destinations you can reach from the dock — these never show a back arrow. */
@@ -162,6 +167,13 @@ const DOCKED = new Set([
   "/own",
   "/account",
   "/report",
+  // Pushed screens, so they keep their back chevron (deliberately NOT in
+  // ROOTS) — but they still need the tab bar. Without it, tapping Felix's
+  // shop from Today dropped the user onto a screen with no dock and a title
+  // reading "Elovox", which is the exact "this is a webview" tell the rest of
+  // this file exists to remove.
+  "/shop",
+  "/leaderboard",
 ]);
 
 function sectionOf(pathname: string): string {
@@ -265,7 +277,12 @@ function NativeDock({ pathname }: { pathname: string }) {
         <Icon />
         <span>{t.label}</span>
         {t.premium && !isPremium && (
-          <span aria-label="Premium" className="native-tab-lock" />
+          // A bare <span> is role=generic, where ARIA 1.2 prohibits
+          // aria-label — AT drops it, leaving the lock glyph as the only
+          // signal. Real hidden text instead.
+          <span className="native-tab-lock">
+            <span className="sr-only">Premium</span>
+          </span>
         )}
       </Link>
     );

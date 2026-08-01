@@ -115,6 +115,17 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Handle reservations (handles/{foldedHandle} → the uid holding it).
+    // Deny-all: this is the uniqueness index behind the leaderboard, written
+    // only by /api/leaderboard/handle through the Admin SDK. A client that
+    // could write here could take a name out from under someone, or squat
+    // every name on the board. A client that could READ it could walk the
+    // collection and map every display name back to an account id, which is
+    // the same disclosure the invites block below exists to prevent.
+    match /handles/{folded} {
+      allow read, write: if false;
+    }
+
     // Invite codes (invites/{code} → the uid that owns it). Deny-all, both
     // ways, and stated explicitly rather than left to the catch-all at the
     // bottom because the reason matters: a readable code→uid map would let

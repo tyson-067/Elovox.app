@@ -10,6 +10,7 @@ import {
   PASSWORD_RESET_NOTICE,
   signInWithEmail,
   signInWithGoogle,
+  discardJustCreatedUser,
   signUpWithEmail,
 } from "@/lib/auth";
 import { startCheckout, stashCheckoutIntent } from "@/lib/checkout";
@@ -200,7 +201,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         </p>
         <Link
           href="/dashboard"
-          className="btn rounded-lg mt-8 inline-block bg-accent text-white font-semibold px-8 py-3.5"
+          className="btn rounded-lg mt-8 inline-block bg-accent-strong text-white font-semibold px-8 py-3.5"
         >
           Continue without an account
         </Link>
@@ -220,7 +221,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         </p>
         <Link
           href="/"
-          className="btn rounded-lg mt-8 inline-block bg-accent text-white font-semibold px-8 py-3.5"
+          className="btn rounded-lg mt-8 inline-block bg-accent-strong text-white font-semibold px-8 py-3.5"
         >
           Back to home
         </Link>
@@ -247,7 +248,18 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     setBusy(true);
     try {
       if (method === "google") {
-        await signInWithGoogle();
+        const { isNewUser } = await signInWithGoogle();
+        // Firebase creates the account on first sight of a Google identity,
+        // so this button makes accounts on the LOGIN screen too — where no
+        // date of birth has been asked for. That was a complete way around
+        // the age gate: an under-age visitor (including one already blocked
+        // on /signup, since that flag was only consulted during signup) got a
+        // full account in one tap. Undo it and send them to the real gate.
+        if (isNewUser && !isSignup) {
+          await discardJustCreatedUser();
+          router.replace("/signup?google=1");
+          return;
+        }
       } else if (isSignup) {
         await signUpWithEmail(name, email, password);
       } else {
@@ -390,7 +402,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               void runAuth(pending);
             }}
             disabled={busy}
-            className="btn rounded-lg w-full bg-accent text-white font-semibold text-base px-8 py-3.5 disabled:opacity-50"
+            className="btn rounded-lg w-full bg-accent-strong text-white font-semibold text-base px-8 py-3.5 disabled:opacity-50"
           >
             {busy
               ? "One moment…"
@@ -428,18 +440,35 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       </p>
 
       <form onSubmit={submit} className="mt-8 space-y-3">
+        {/* Every field carries a real <label>. A placeholder is not an
+            accessible name, and it disappears the moment someone starts
+            typing — so on the highest-stakes forms in the product (signup,
+            login) a screen-reader user got "edit text, blank" and anyone
+            revisiting a half-filled field lost the only hint of what it was.
+            Visually hidden to keep the design, exactly as EmailCapture and
+            DobPicker already do it. */}
         {isSignup && (
-          <input
-            type="text"
-            autoComplete="name"
-            maxLength={60}
-            placeholder="Your name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className={inputClass}
-          />
+          <>
+            <label htmlFor="auth-name" className="sr-only">
+              Your name
+            </label>
+            <input
+              id="auth-name"
+              type="text"
+              autoComplete="name"
+              maxLength={60}
+              placeholder="Your name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={inputClass}
+            />
+          </>
         )}
+        <label htmlFor="auth-email" className="sr-only">
+          Email
+        </label>
         <input
+          id="auth-email"
           type="email"
           required
           autoComplete="email"
@@ -486,8 +515,12 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             it's reachable one-handed on a phone without the layout shifting.
             It flips BOTH boxes at once: checking that two passwords match by
             eye only works if you can see both of them. */}
+        <label htmlFor="auth-password" className="sr-only">
+          {isSignup ? "Password (8 or more characters)" : "Password"}
+        </label>
         <div className="relative">
           <input
+            id="auth-password"
             type={showPassword ? "text" : "password"}
             required
             minLength={isSignup ? 8 : undefined}
@@ -511,7 +544,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
         {isSignup && (
           <div>
+            <label htmlFor="auth-confirm" className="sr-only">
+              Confirm password
+            </label>
             <input
+              id="auth-confirm"
               type={showPassword ? "text" : "password"}
               required
               maxLength={128}
@@ -562,7 +599,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         <button
           type="submit"
           disabled={busy}
-          className="btn rounded-lg w-full bg-accent text-white font-semibold text-base px-8 py-3.5 disabled:opacity-50"
+          className="btn rounded-lg w-full bg-accent-strong text-white font-semibold text-base px-8 py-3.5 disabled:opacity-50"
         >
           {busy ? "One moment…" : isSignup ? "Sign up free" : "Log in"}
         </button>

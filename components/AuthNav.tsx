@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { NavMenu } from "@/components/NavMenu";
 import { usePlan } from "@/lib/plan";
 import { signOutUser } from "@/lib/auth";
 
@@ -60,15 +61,23 @@ export function AuthNav() {
   // through the footer instead, see FooterAboutLink, which is gated the same
   // way this is.
   const aboutLink = (
-    <Link href="/about" className="nav-link hidden sm:block hover:text-primary">
+    <Link href="/about" className="nav-link hidden sm:block md:hidden hover:text-primary">
       About
     </Link>
   );
+
+  // Depth without a fourth top-level item: at `md` and up the Explore menu
+  // carries About, the three /for/* audience pages (which otherwise had one
+  // route in, a card partway down the homepage) and the page's own sections.
+  // Below `md` the bare About link above stands in, because the header's
+  // horizontal budget genuinely doesn't stretch — see the note on aboutLink.
+  const exploreMenu = <NavMenu />;
 
   if (!configured) {
     return (
       <>
         {aboutLink}
+        {exploreMenu}
         {pricingLink}
         {practiceLink}
       </>
@@ -79,6 +88,7 @@ export function AuthNav() {
     return (
       <>
         {aboutLink}
+        {exploreMenu}
         {pricingLink}
         <Link href="/login" className="nav-link hover:text-primary">
           Log in
@@ -164,7 +174,7 @@ export function AuthNav() {
           await signOutUser();
           router.push("/");
         }}
-        className="text-primary/55 transition-colors hover:text-primary"
+        className="text-primary/75 transition-colors hover:text-primary"
       >
         Sign out
       </button>

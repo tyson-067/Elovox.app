@@ -9,7 +9,7 @@ import {
   signOutUser,
   accountErrorMessage,
 } from "@/lib/auth";
-import { startCheckout, takeCheckoutIntent } from "@/lib/checkout";
+import { startCheckout, peekCheckoutIntent, clearCheckoutIntent } from "@/lib/checkout";
 
 // The waiting room for an unverified email/password account. RequireAuth sends
 // people here and won't let them into the app until Firebase reports the
@@ -36,27 +36,50 @@ export function VerifyEmailScreen() {
 
   // Now that the address is verified, resume a checkout the user started at
   // signup (stashed by AuthForm when the checkout route rejected the still
-  // unverified account), otherwise carry on to the dashboard. startCheckout
-  // navigates to Stripe on success; on failure the intent is already consumed,
-  // so fall through rather than looping.
-  const proceed = useCallback(async () => {
-    const intent = takeCheckoutIntent();
+  // unverified account), otherwise carry on to the dashboard.
+  //
+  // The intent is read but NOT consumed until the checkout call succeeds. It
+  // used to be cleared first, so a single blip — a network hiccup, or the ID
+  // token being briefly rejected right after reload() — silently dropped the
+  // purchase: the user landed on a free dashboard with no error and nothing
+  // left to retry, and this effect re-ran on every later visit with an empty
+  // slot. Now the failure is visible and the intent survives for another go.
+  /** Resolves false when a stashed checkout could not be resumed. */
+  const proceed = useCallback(async (): Promise<boolean> => {
+    const intent = peekCheckoutIntent();
     if (intent) {
       try {
         await startCheckout(intent.cycle, { skipTrial: intent.skipTrial });
-        return; // browser is navigating to Stripe
+        clearCheckoutIntent();
+        return true; // browser is navigating to Stripe
       } catch {
-        // fall through to the dashboard
+        // Intent deliberately left in place, so a retry can still use it.
+        return false;
       }
     }
     router.replace("/dashboard");
+    return true;
   }, [router]);
 
   // Nobody signed in (or Firebase isn't configured), nothing to verify.
   useEffect(() => {
     if (loading) return;
-    if (configured && !user) router.replace("/login");
-    else if (user?.emailVerified) void proceed();
+    if (configured && !user) {
+      router.replace("/login");
+      return;
+    }
+    if (!user?.emailVerified) return;
+    let cancelled = false;
+    void proceed().then((ok) => {
+      if (!ok && !cancelled) {
+        setError(
+          "You're verified, but we couldn't open checkout just now. Try Go Premium again from your account."
+        );
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [user, loading, configured, router, proceed]);
 
   // Quietly re-check while the tab is visible. Covers the common flow: the
@@ -129,7 +152,7 @@ export function VerifyEmailScreen() {
             type="button"
             onClick={check}
             disabled={checking}
-            className="btn rounded-lg bg-accent px-5 py-2.5 font-semibold text-white disabled:opacity-60"
+            className="btn rounded-lg bg-accent-strong px-5 py-2.5 font-semibold text-white disabled:opacity-60"
           >
             {checking ? "Checking…" : "I've verified, continue"}
           </button>

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Felix, type FelixMood } from "@/components/FoxLogo";
 import { Reveal } from "@/components/Reveal";
@@ -11,8 +12,28 @@ import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
 import { NativeEntry } from "@/components/NativeEntry";
 import { EmailCapture } from "@/components/EmailCapture";
 import { StoryDeck } from "@/components/StoryDeck";
+import { pageGraph, WEBAPP } from "@/lib/schema";
 
 // Marketing landing page. The app itself lives behind /dashboard.
+
+// The homepage owns its own canonical now that the root layout no longer sets
+// one for the whole tree (Next INHERITS `alternates` rather than merging them,
+// so a canonical up there made every route claim to be this page).
+// `openGraph` is spelled out in full, not just `{ url: "/" }`. Next does NOT
+// deep-merge it: declaring the key here dropped the inherited `type`,
+// `siteName` and `images`, which silently cost the homepage its og:image.
+// (Verified against the rendered HTML — that is how it was caught.)
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: "Elovox",
+    url: "/",
+    images: [
+      { url: "/og.png", width: 1200, height: 630, alt: "Elovox — speak with impact" },
+    ],
+  },
+};
 
 // Machine-readable statement of what this is and who runs it. Human readers
 // get the name and purpose from the hero copy; automated ones, Google's
@@ -32,71 +53,10 @@ import { StoryDeck } from "@/components/StoryDeck";
 // we can assert from our own page. It is a claim, not proof: it only pays off
 // once those profiles link back here, so the accounts' bio links matter as
 // much as this block does.
-const SITE = "https://elovox.app";
 
-const ORGANIZATION = {
-  "@type": "Organization",
-  "@id": `${SITE}/#organization`,
-  name: "Elovox",
-  url: SITE,
-  logo: {
-    "@type": "ImageObject",
-    url: `${SITE}/logo.png`,
-    width: 184,
-    height: 182,
-  },
-  description:
-    "Elovox makes speaking practice software: record a speech, pitch, or interview answer and get specific coaching on your delivery.",
-  sameAs: [
-    "https://www.instagram.com/elovox.app/",
-    "https://www.tiktok.com/@elovox0",
-  ],
-};
-
-// Carries the site name for search results. Google reads WebSite.name when
-// deciding what to print above the URL, and left to infer it, it tends to
-// pick the <title> tail or the domain.
-const WEBSITE = {
-  "@type": "WebSite",
-  "@id": `${SITE}/#website`,
-  name: "Elovox",
-  url: SITE,
-  publisher: { "@id": `${SITE}/#organization` },
-};
-
-const APP_SCHEMA = {
-  "@type": "WebApplication",
-  "@id": `${SITE}/#webapp`,
-  name: "Elovox",
-  url: SITE,
-  applicationCategory: "EducationalApplication",
-  operatingSystem: "Any (web browser)",
-  publisher: { "@id": `${SITE}/#organization` },
-  description:
-    "Elovox is a speaking practice app. You record yourself giving a speech, pitch, or interview answer, and Elovox analyses the recording and returns coaching on your delivery: pace, filler words, pauses, clarity, and how the audience is likely to perceive you.",
-  offers: [
-    {
-      "@type": "Offer",
-      name: "Free",
-      price: "0",
-      priceCurrency: "USD",
-      description: "A daily practice topic with three attempts a day.",
-    },
-    {
-      "@type": "Offer",
-      name: "Premium",
-      price: "11.99",
-      priceCurrency: "USD",
-      description:
-        "Unlimited practice, camera coaching, the full speech library, interview practice, and social skills.",
-    },
-  ],
-};
-
-const SITE_SCHEMA = {
-  "@context": "https://schema.org",
-  "@graph": [ORGANIZATION, WEBSITE, APP_SCHEMA],
-};
+// Organization, WebSite and WebApplication live in lib/schema.ts so every
+// other page can emit the same nodes and its @id references actually resolve.
+const SITE_SCHEMA = pageGraph(WEBAPP);
 
 // What a report actually contains. Every line here is a real thing the
 // pipeline produces — the six dimensions and the pause threshold are lifted
@@ -363,7 +323,7 @@ export default function LandingPage() {
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Link
                 href="/signup"
-                className="btn rounded-lg bg-accent text-white font-semibold text-base px-8 py-3.5"
+                className="btn rounded-lg bg-accent-strong text-white font-semibold text-base px-8 py-3.5"
               >
                 Start free
               </Link>
@@ -461,7 +421,7 @@ export default function LandingPage() {
 
       {/* Who it's for. Directly under the hero so a stranger can find
           themself on the page before a single feature is explained. */}
-      <section className="mt-20 md:mt-28">
+      <section id="who" className="scroll-mt-24 mt-20 md:mt-28">
         <Reveal>
           <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
             Who it&apos;s for
@@ -531,7 +491,7 @@ export default function LandingPage() {
       </section>
 
       {/* How it works */}
-      <section className="mt-20 md:mt-28">
+      <section id="how" className="scroll-mt-24 mt-20 md:mt-28">
         <Reveal>
           <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
             How it works
@@ -570,7 +530,7 @@ export default function LandingPage() {
         <div className="mt-5 flex flex-wrap gap-2.5">
           {GOALS.map((g, i) => (
             <Reveal key={g.id} delay={i * 60}>
-              <span className="pill inline-block rounded-full border border-primary/20 text-primary text-[15px] font-medium px-4 py-2 hover:border-accent hover:text-accent">
+              <span className="pill inline-block rounded-full border border-primary/20 text-primary text-[15px] font-medium px-4 py-2 hover:border-accent-strong hover:text-accent-strong">
                 {g.label}
               </span>
             </Reveal>
@@ -579,7 +539,7 @@ export default function LandingPage() {
       </section>
 
       {/* The modes */}
-      <section className="mt-16 md:mt-20">
+      <section id="modes" className="scroll-mt-24 mt-16 md:mt-20">
         <Reveal>
           <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
             Six ways to practice
@@ -601,7 +561,7 @@ export default function LandingPage() {
                   </span>
                   <span
                     className={`text-[11px] font-semibold uppercase tracking-[0.08em] ${
-                      m.tag === "Free" ? "text-accent" : "text-violet"
+                      m.tag === "Free" ? "text-accent-strong" : "text-violet"
                     }`}
                   >
                     {m.tag}
@@ -709,7 +669,7 @@ export default function LandingPage() {
               </ul>
               <Link
                 href="/signup"
-                className="btn rounded-lg mt-6 inline-block bg-accent text-white font-semibold px-6 py-3"
+                className="btn rounded-lg mt-6 inline-block bg-accent-strong text-white font-semibold px-6 py-3"
               >
                 Start free
               </Link>
@@ -798,7 +758,7 @@ export default function LandingPage() {
               mobile case this used to exist for. */}
           <Link
             href="/signup"
-            className="btn rounded-lg mt-8 inline-block bg-accent text-white font-semibold px-8 py-3.5"
+            className="btn rounded-lg mt-8 inline-block bg-accent-strong text-white font-semibold px-8 py-3.5"
           >
             Start your Daily Minute
           </Link>

@@ -15,7 +15,7 @@ import { FieldValue, type Firestore } from "firebase-admin/firestore";
 //   users/{uid}/friends/{friendUid}→ the friendship, written both ways.
 
 export { REFERRAL_BONUS_XP } from "./referralShared";
-import { REFERRAL_BONUS_XP } from "./referralShared";
+import { REFERRAL_BONUS_XP, MAX_PAID_REFERRALS } from "./referralShared";
 
 /**
  * Paid on the invitee's first SCORED session, not at signup. An account that
@@ -116,6 +116,16 @@ export async function redeemInvite(
     return { ok: false, reason: "Invite links are for new accounts." };
   }
 
+  // Reciprocity: the check above only stops ESTABLISHED users pairing up. Two
+  // brand-new accounts could still redeem each other's codes — neither has a
+  // progress doc, so both passed — and collect 100 XP as invitee plus 100 as
+  // inviter, 400 XP total for two free Daily Minutes. XP is what ranks the
+  // public board, so that is the number worth forging.
+  const inviterReferral = await db.doc(`users/${inviterUid}/score/referral`).get();
+  if (inviterReferral.data()?.inviterUid === uid) {
+    return { ok: false, reason: "You two can't invite each other." };
+  }
+
   try {
     await referralRef.create({
       inviterUid,
@@ -201,16 +211,39 @@ export async function payReferralBonus(
   // finally creates score/progress.
   try {
     const inviterProgressRef = db.doc(`users/${inviterUid}/score/progress`);
+    const inviterInviteRef = db.doc(`users/${inviterUid}/score/invite`);
     await db.runTransaction(async (tx) => {
-      const snap = await tx.get(inviterProgressRef);
+      const [snap, inviteSnap] = await Promise.all([
+        tx.get(inviterProgressRef),
+        tx.get(inviterInviteRef),
+      ]);
+
+      // Hard cap on how many referrals one account can be PAID for. The
+      // invitee's own bonus is uncapped (it is once per account by
+      // construction), but the inviter side had no limit at all: one operator
+      // with N verified sock accounts could point all of them at a single
+      // inviter for 100·(N−1) XP, funded entirely by the free Daily Minute.
+      // The friendship and the invite still work past the cap; only the
+      // payout stops.
+      const paidSoFar = Number(inviteSnap.data()?.referralsPaid ?? 0);
+      if (paidSoFar >= MAX_PAID_REFERRALS) return;
+
       if (snap.exists) {
         tx.update(inviterProgressRef, {
           xp: FieldValue.increment(REFERRAL_BONUS_XP),
         });
+        tx.set(
+          inviterInviteRef,
+          { referralsPaid: FieldValue.increment(1) },
+          { merge: true }
+        );
       } else {
         tx.set(
-          db.doc(`users/${inviterUid}/score/invite`),
-          { pendingBonusXp: FieldValue.increment(REFERRAL_BONUS_XP) },
+          inviterInviteRef,
+          {
+            pendingBonusXp: FieldValue.increment(REFERRAL_BONUS_XP),
+            referralsPaid: FieldValue.increment(1),
+          },
           { merge: true }
         );
       }

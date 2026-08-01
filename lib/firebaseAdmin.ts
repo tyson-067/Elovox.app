@@ -40,21 +40,41 @@ function loadServiceAccount(): Record<string, string> | null {
 }
 
 let cached: App | null = null;
+// A failed init is remembered, so a broken credential isn't re-attempted (and
+// re-logged) on every single request for the life of the instance.
+let initFailed = false;
 
 /** The Admin app, or null when no service account is configured. */
 export function getAdminApp(): App | null {
   if (cached) return cached;
+  if (initFailed) return null;
   if (getApps().length) {
     cached = getApps()[0];
     return cached;
   }
   const svc = loadServiceAccount();
   if (!svc) return null;
-  cached = initializeApp({
-    credential: cert(svc as Parameters<typeof cert>[0]),
-    projectId: svc.project_id,
-  });
-  return cached;
+
+  // cert() throws — on a malformed key, a missing private_key, and notably on
+  // a private key whose newlines were flattened, which is exactly the case the
+  // \n normalization in loadServiceAccount exists to repair and can't always.
+  // loadServiceAccount is carefully guarded; this call was not, so every route
+  // that reaches for the Admin SDK answered a bare 500 with no JSON body
+  // instead of the 503 that names the missing credential.
+  try {
+    cached = initializeApp({
+      credential: cert(svc as Parameters<typeof cert>[0]),
+      projectId: svc.project_id,
+    });
+    return cached;
+  } catch (err) {
+    initFailed = true;
+    console.error(
+      "[firebase-admin] initialization failed; FIREBASE_SERVICE_ACCOUNT is set but unusable",
+      err
+    );
+    return null;
+  }
 }
 
 /** Admin Firestore, or null when the service account isn't set. */

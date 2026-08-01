@@ -90,18 +90,39 @@ export async function POST(req: NextRequest) {
       const customerId = data?.stripeCustomerId as string | undefined;
       const subId = data?.stripeSubscriptionId as string | undefined;
 
+      // Every customer this uid owns, not just the one the plan doc happens to
+      // remember. A concurrent checkout could historically mint a second
+      // customer and the plan doc kept only the last writer — so cancelling
+      // against the stored id alone left the twin billing a deleted user
+      // forever, the exact outcome this step is fail-closed to prevent.
+      const customerIds = new Set<string>();
+      if (customerId) customerIds.add(customerId);
+      try {
+        const owned = await stripe.customers.search({
+          query: `metadata["firebaseUid"]:"${uid}"`,
+          limit: 100,
+        });
+        for (const c of owned.data) if (!c.deleted) customerIds.add(c.id);
+      } catch (err) {
+        // Search is eventually consistent and can be unavailable; a miss here
+        // must not silently narrow the sweep, so treat it as a failure to
+        // confirm and let the outer catch keep the account intact.
+        throw err;
+      }
+
       const toCancel = new Set<string>();
-      if (customerId) {
+      for (const cid of customerIds) {
         const subs = await stripe.subscriptions.list({
-          customer: customerId,
+          customer: cid,
           status: "all",
           limit: 100,
         });
         for (const s of subs.data) {
           if (LIVE_SUB.includes(s.status)) toCancel.add(s.id);
         }
-      } else if (subId) {
-        // No customer id stored (older record): fall back to the one sub id.
+      }
+      if (customerIds.size === 0 && subId) {
+        // No customer id anywhere (older record): fall back to the one sub id.
         toCancel.add(subId);
       }
 
@@ -165,15 +186,58 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 3. Delete every document under users/{uid}: sessions, challenges, usage,
-  //    profile (including the plan doc, which only the Admin SDK can touch).
-  await db.recursiveDelete(db.doc(`users/${uid}`));
+  // 3. The tips-list signup, which lives outside users/{uid} (keyed by email,
+  //    see /api/leads) and so survived every step above. "Permanently erases
+  //    everything" has to include it, or a deleted account's address is still
+  //    sitting in a mailing list. Best-effort: an address that was never
+  //    submitted simply isn't there, and failing to remove a lead must not
+  //    block the deletion the user asked for.
+  try {
+    const email = (await getAuth(app).getUser(uid)).email;
+    if (email) {
+      await db.doc(`leads/${encodeURIComponent(email.toLowerCase())}`).delete();
+    }
+  } catch (err) {
+    console.error(`[account] lead cleanup failed for ${uid}`, err);
+  }
 
-  // 4. Delete the login itself. Do this last: while the auth record exists
+  // 4. Delete every document under users/{uid}: sessions, challenges, usage,
+  //    profile (including the plan doc, which only the Admin SDK can touch).
+  //
+  //    Guarded like the steps above. recursiveDelete is a BulkWriter and can
+  //    fail partway; unguarded it threw a bare 500 with no JSON body, so the
+  //    client showed its generic message while the user was left half-deleted
+  //    — public projections gone, an arbitrary subset of their data gone, and
+  //    a login that still worked.
+  try {
+    await db.recursiveDelete(db.doc(`users/${uid}`));
+  } catch (err) {
+    console.error(`[account] data delete failed for ${uid}`, err);
+    return NextResponse.json(
+      {
+        error:
+          "We couldn't finish deleting your data. Some of it may already be gone — please try again, and contact us if this keeps happening.",
+      },
+      { status: 503 }
+    );
+  }
+
+  // 5. Delete the login itself. Do this last: while the auth record exists
   //    the user could still sign in and see an empty account, which is odd
   //    but harmless, whereas deleting it first would strand the data with
   //    no owner and no way to retry.
-  await getAuth(app).deleteUser(uid);
+  try {
+    await getAuth(app).deleteUser(uid);
+  } catch (err) {
+    console.error(`[account] auth delete failed for ${uid}`, err);
+    return NextResponse.json(
+      {
+        error:
+          "Your data was removed, but we couldn't close the login itself. Please try again in a moment.",
+      },
+      { status: 503 }
+    );
+  }
 
   return NextResponse.json({ deleted: true });
 }

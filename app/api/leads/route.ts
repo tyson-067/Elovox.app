@@ -60,7 +60,22 @@ export async function POST(req: NextRequest) {
   }
 
   const email = check.value.toLowerCase();
-  const ref = db.doc(`leads/${encodeURIComponent(email)}`);
+  const docId = encodeURIComponent(email);
+
+  // Firestore reserves ids matching __.*__ and rejects them by THROWING out of
+  // db.doc() — synchronously, which is why this can't sit below the try. A
+  // perfectly valid address like `__a@b.co__` survives validateEmail (and
+  // encodeURIComponent leaves underscores alone), so this public,
+  // unauthenticated route answered a bare 500. Same shape of check the session
+  // delete route already applies to ids it is handed.
+  if (/^__.*__$/.test(docId) || docId === "." || docId === "..") {
+    return NextResponse.json(
+      { error: "That doesn't look like an email address." },
+      { status: 400 }
+    );
+  }
+
+  const ref = db.doc(`leads/${docId}`);
   try {
     // Doc id is the address (URI-encoded for safety), so subscribing twice
     // is one row, not a duplicate. create() stamps `since` exactly once; a

@@ -77,8 +77,14 @@ function Eyes({ mood }: { mood: FelixMood }) {
       </g>
     );
   }
+  // The blink. It is the cheapest thing that separates a character from a
+  // drawing, and unlike a sway it costs no layout: the pupils scale to a slit
+  // for ~120ms on a long, prime-ish loop (7.3s) so several Felixes on one
+  // screen drift out of sync instead of blinking in formation. Deliberately
+  // NOT applied to the closed-eye moods above, which have no pupils to blink,
+  // and switched off entirely under prefers-reduced-motion (globals.css).
   return (
-    <g>
+    <g className="felix-blink" style={{ transformOrigin: "100px 88px" }}>
       <ellipse cx="78" cy="88" rx="6" ry="7" fill={DARK} />
       <ellipse cx="122" cy="88" rx="6" ry="7" fill={DARK} />
       {/* catchlights, the difference between alive and taxidermy */}

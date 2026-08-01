@@ -36,17 +36,44 @@ export default function ReportPage({
 function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { plan } = usePlan();
-  const [session, setSession] = useState<Session | null | undefined>(undefined);
+  // A failed READ is not the same as a session that isn't there. Collapsing
+  // the two told a user whose network blipped that the take they recorded
+  // thirty seconds ago doesn't exist and was probably on another device — and
+  // offered no way to try again. Same split /progress already makes.
+  //
+  // Carried in this union rather than a sibling boolean so switching reports
+  // resets it for free, with no setState in the effect body.
+  const [session, setSession] = useState<Session | null | undefined | "error">(
+    undefined
+  );
 
   useEffect(() => {
     let cancelled = false;
     getSession(id)
       .then((s) => !cancelled && setSession(s ?? null))
-      .catch(() => !cancelled && setSession(null));
+      .catch(() => !cancelled && setSession("error"));
     return () => {
       cancelled = true;
     };
   }, [id]);
+
+  if (session === "error") {
+    return (
+      <div className="py-16 flex flex-col items-center gap-4 text-center">
+        <Felix mood="coach" className="h-16 w-16" />
+        <p className="text-lg text-on-surface-variant" role="alert">
+          Couldn&apos;t load that report just now.
+        </p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="btn rounded-lg bg-accent-strong px-6 py-2.5 text-sm font-semibold text-white"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   // Arriving here is not a choice — analysis finishes and pushes you straight
   // in — so this screen has to account for itself while it fetches. It used to
@@ -86,14 +113,36 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
       {/* Score: one large confident element, not a card among equals */}
       <div className="stagger-in flex flex-wrap items-end gap-x-10 gap-y-4">
         <div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-gradient font-headline font-semibold text-[88px] leading-none tracking-[-0.01em] md:text-[120px]">
+          {/* The score IS this page's title, so it's the h1. There was no h1
+              at all before, and the first heading was an <h2> halfway down. */}
+          <h1 className="flex items-baseline gap-2">
+            <span className="sr-only">
+              Report: scored {analysis.overall} out of 100
+            </span>
+            <span
+              aria-hidden="true"
+              className="text-gradient font-headline font-semibold text-[88px] leading-none tracking-[-0.01em] md:text-[120px]"
+            >
               {analysis.overall}
             </span>
-            <span className="font-data text-sm text-on-surface-variant">/ 100</span>
-          </div>
+            <span aria-hidden="true" className="font-data text-sm text-on-surface-variant">
+              / 100
+            </span>
+          </h1>
           <div className="mt-3 flex items-start gap-3 max-w-[52ch]">
-            <Felix className="h-10 w-10 shrink-0 mt-0.5" />
+            {/* Felix reacts to the actual result rather than sitting in the
+                same neutral pose whatever happened. 87 is the floor of GOOD
+                in the scoring rubric (see SYSTEM_PROMPT in
+                app/api/analyze/route.ts), so it's the honest place for him to
+                celebrate; below it he's the coach, not a cheerleader.
+                Deliberately only ONE reacting Felix on the page — the
+                summary's — so the report doesn't turn into a parade. */}
+            <Felix
+              mood={analysis.overall >= 87 ? "cheer" : "coach"}
+              className={`h-10 w-10 shrink-0 mt-0.5 ${
+                analysis.overall >= 87 ? "felix-cheer" : ""
+              }`}
+            />
             <p className="text-lg leading-7 text-on-surface">
               {analysis.summary}
             </p>
@@ -106,7 +155,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
           {session.goal && (
             <>
               <span className="mx-2">·</span>
-              <span className="text-accent">{session.goal}</span>
+              <span className="text-accent-strong">{session.goal}</span>
             </>
           )}
           {session.attempt && (
@@ -125,7 +174,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
           {session.xpEarned ? (
             <>
               <span className="mx-2">·</span>
-              <span className="font-data font-medium text-accent">
+              <span className="font-data font-medium text-accent-strong">
                 +{session.xpEarned} XP
               </span>
             </>
@@ -223,11 +272,19 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
                   className="stagger-in flex gap-3 text-base leading-6"
                   style={{ animationDelay: `${300 + i * 120}ms` }}
                 >
+                  {/* Orange dot = keep, amber dot = cut. That distinction is
+                      the product, and it was carried by hue alone — two warm
+                      oranges, indistinguishable to most people with a colour
+                      vision deficiency and invisible to a screen reader. */}
                   <span
                     className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${
                       s.mark === "strong" ? "bg-accent" : "bg-amber"
                     }`}
-                  />
+                  >
+                    <span className="sr-only">
+                      {s.mark === "strong" ? "Strong moment: " : "Worth cutting: "}
+                    </span>
+                  </span>
                   <span>
                     {s.time && (
                       <span className="font-data text-sm text-on-surface-variant mr-2">
@@ -400,7 +457,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
             </p>
             <Link
               href="/pricing"
-              className="btn mt-4 inline-block rounded-lg bg-accent px-6 py-2.5 text-sm font-semibold text-white web-only"
+              className="btn mt-4 inline-block rounded-lg bg-accent-strong px-6 py-2.5 text-sm font-semibold text-white web-only"
             >
               See Premium
             </Link>
@@ -426,7 +483,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
                         "/custom"
                       : `/practice?category=${session.category}`
           }
-          className="btn rounded-lg bg-accent text-white font-semibold px-7 py-3"
+          className="btn rounded-lg bg-accent-strong text-white font-semibold px-7 py-3"
         >
           {session.mode === "daily" && (session.attempt ?? 0) < 3
             ? "Try again, beat this score"
