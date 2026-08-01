@@ -622,6 +622,24 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         </button>
       </div>
 
+      {/* Terms/Privacy acceptance at the point of sign-up. Covers both the email
+          form above and the Google button, since either one creates an account.
+          This is what turns the Terms from something nobody saw into something a
+          user agreed to — every protective clause in them leans on it. */}
+      {isSignup && (
+        <p className="mt-5 text-[13px] leading-5 text-on-surface-variant">
+          By creating an account you agree to our{" "}
+          <Link href="/terms" className="font-semibold text-primary underline">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="font-semibold text-primary underline">
+            Privacy Policy
+          </Link>
+          .
+        </p>
+      )}
+
       <p className="mt-6 text-sm text-on-surface-variant">
         {isSignup ? (
           <>

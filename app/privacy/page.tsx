@@ -252,11 +252,18 @@ export default function PrivacyPage() {
 
       <Section heading="Cookies and tracking">
         <p>
-          Elovox sets no advertising or analytics cookies. To keep you signed
-          in, Firebase Authentication stores a token in your browser&apos;s
-          local storage; clearing your browser data signs you out. When
-          you&apos;re not signed in, your practice history is stored in local
-          storage too.
+          Elovox sets no advertising cookies and runs no ad trackers. To keep
+          you signed in, Firebase Authentication stores a token in your browser
+          (in IndexedDB, falling back to local storage); clearing your browser
+          data signs you out. When you&apos;re not signed in, your practice
+          history is stored in your browser too. We use Google reCAPTCHA to keep
+          bots off the paid pipeline, and privacy-friendly, cookieless analytics
+          to count page views. The full list of what&apos;s kept on your device,
+          and why there&apos;s no cookie banner, is on the{" "}
+          <Link href="/cookies" className="text-accent-strong hover:underline">
+            cookies &amp; storage
+          </Link>{" "}
+          page.
         </p>
       </Section>
 
