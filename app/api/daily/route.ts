@@ -240,21 +240,32 @@ function fallbackFor(date: string): DailyChallenge {
 }
 
 /**
- * Publish the shared challenge doc for a date, create-only. `create()` fails
- * with ALREADY_EXISTS (code 6) once a day has been published, which we
- * swallow: the first writer's copy stays, matching the "a day can't be
- * rewritten" rule. Admin SDK bypasses firestore.rules, so this is the only
- * writer now that clients are read-only on dailyChallenges.
+ * Publish the shared challenge doc for a date, create-only, and RETURN the
+ * authoritative copy. `create()` fails with ALREADY_EXISTS (code 6) once a day
+ * has been published; in that race we re-read and return the WINNER's doc, so
+ * every client that generated concurrently converges on the one published
+ * topic — otherwise a second generator would be scored against its own
+ * different topic, breaking the leaderboard's "one shared topic" invariant.
+ * Admin SDK bypasses firestore.rules, so this is the only writer.
  */
-async function publishChallenge(challenge: DailyChallenge): Promise<void> {
+async function publishChallenge(
+  challenge: DailyChallenge
+): Promise<DailyChallenge> {
   const db = getAdminDb();
-  if (!db) return; // no service account (local dev): client-read path still works
+  if (!db) return challenge; // no service account (local dev): client-read path
+  const ref = db.doc(`dailyChallenges/${challenge.date}`);
   try {
-    await db.doc(`dailyChallenges/${challenge.date}`).create(challenge);
+    await ref.create(challenge);
+    return challenge; // we won the race; ours is the shared copy
   } catch (err) {
-    if ((err as { code?: number })?.code !== 6) {
-      console.error("[daily] publish failed:", err);
+    if ((err as { code?: number })?.code === 6) {
+      // Someone else published first. Return their copy so we agree with them.
+      const snap = await ref.get().catch(() => null);
+      const data = snap?.data() as DailyChallenge | undefined;
+      return data ?? challenge;
     }
+    console.error("[daily] publish failed:", err);
+    return challenge;
   }
 }
 
@@ -321,14 +332,13 @@ Write today's one-minute speech.`,
     });
 
     const challenge: DailyChallenge = { date, theme, ...result, generated: true };
-    memo.set(date, challenge);
-    // Publish the shared copy server-side, create-only so the first
-    // generation of the day wins and is never rewritten (the old semantics,
-    // now enforced by the Admin SDK instead of trusting the client). A blip
-    // here is harmless: the client still gets its copy, and the next request
-    // republishes. Never publish a fallback (generated === false).
-    await publishChallenge(challenge);
-    return NextResponse.json(challenge);
+    // Publish (create-only) and take back the authoritative copy — ours if we
+    // won the race, the winner's if someone published first — then memo and
+    // return THAT, so this instance's later callers and this caller all get
+    // the one shared topic. Never publishes a fallback (generated === false).
+    const shared = await publishChallenge(challenge);
+    memo.set(date, shared);
+    return NextResponse.json(shared);
   } catch (err) {
     // Deliberately not memoized: the next request should retry generation
     // rather than serve the bank for the rest of the day.

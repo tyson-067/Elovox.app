@@ -31,12 +31,19 @@ export class FrameSampler {
   private timer: ReturnType<typeof setInterval> | null = null;
   private canvas: HTMLCanvasElement | null = null;
   private startedAt = 0;
+  // On overflow, halve the retained frames and double the capture stride, so
+  // the buffer keeps spanning the WHOLE recording (up to 10min) instead of
+  // filling up in the first 5min and ignoring everything after.
+  private stride = 1;
+  private tick = 0;
 
   constructor(private video: HTMLVideoElement) {}
 
   start(startedAt: number) {
     this.stop();
     this.frames = [];
+    this.stride = 1;
+    this.tick = 0;
     this.startedAt = startedAt;
     this.canvas = document.createElement("canvas");
     // Grab one immediately so short recordings still get an opening frame.
@@ -55,7 +62,13 @@ export class FrameSampler {
     const video = this.video;
     const canvas = this.canvas;
     if (!canvas || !video || !video.videoWidth) return;
-    if (this.frames.length >= MAX_BUFFERED) return;
+    // Full buffer: keep every other frame and halve the rate, so coverage
+    // stretches over the rest of the recording rather than stopping dead.
+    if (this.frames.length >= MAX_BUFFERED) {
+      this.frames = this.frames.filter((_, i) => i % 2 === 0);
+      this.stride *= 2;
+    }
+    if (this.tick++ % this.stride !== 0) return;
 
     const scale = FRAME_WIDTH / video.videoWidth;
     canvas.width = FRAME_WIDTH;

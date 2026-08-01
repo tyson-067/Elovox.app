@@ -37,13 +37,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!configured) return;
     let unsubscribe: (() => void) | undefined;
+    let resolved = false;
+    // Stop showing the loading gate exactly once. Without this, if the initial
+    // onAuthStateChanged callback never fires — auth init wedged, e.g.
+    // IndexedDB unavailable in some private-browsing modes — `loading` would
+    // stay true forever and RequireAuth would render a permanent blank screen.
+    // getUser() in lib/firebase guards the data layer the same way; this guards
+    // the render gate.
+    const stopLoading = () => {
+      if (resolved) return;
+      resolved = true;
+      setLoading(false);
+    };
+    const timer = setTimeout(() => {
+      setUser(getAuthInstance().currentUser ?? null);
+      stopLoading();
+    }, 6000);
     import("firebase/auth").then(({ onAuthStateChanged }) => {
-      unsubscribe = onAuthStateChanged(getAuthInstance(), (u) => {
-        setUser(u);
-        setLoading(false);
-      });
+      unsubscribe = onAuthStateChanged(
+        getAuthInstance(),
+        (u) => {
+          setUser(u);
+          stopLoading();
+        },
+        () => {
+          // Listener errored (rare init failure): fall back to whatever the
+          // SDK currently has and let the app render.
+          setUser(getAuthInstance().currentUser ?? null);
+          stopLoading();
+        }
+      );
     });
-    return () => unsubscribe?.();
+    return () => {
+      clearTimeout(timer);
+      unsubscribe?.();
+    };
   }, [configured]);
 
   return (

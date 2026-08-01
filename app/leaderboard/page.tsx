@@ -427,7 +427,11 @@ function LeaderboardScreen() {
             <Row row={board.self} />
           </ul>
           <p className="mt-2 text-[13px] text-on-surface-variant">
-            You&apos;re just outside the top {BOARD_SIZE}. Keep going.
+            {board.self.rank <= BOARD_SIZE + 2 ? (
+              <>You&apos;re just outside the top {BOARD_SIZE}. Keep going.</>
+            ) : (
+              <>You&apos;re #{board.self.rank}. Keep climbing.</>
+            )}
           </p>
         </Reveal>
       )}

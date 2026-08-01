@@ -248,9 +248,16 @@ export async function getChallengeState(
   try {
     const { doc, getDoc } = await import("firebase/firestore");
     const snap = await getDoc(doc(getDb(), "users", uid, "challenges", date));
-    const attempts = snap.exists()
+    const remote = snap.exists()
       ? ((snap.data().attempts ?? []) as ChallengeAttempt[])
       : [];
+    // Never let a shorter/empty remote read shrink local state: if a recorded
+    // attempt's Firestore write dropped (recordChallengeAttempt swallows that
+    // error) but the local copy has it, a fresh read would otherwise wipe the
+    // attempt and its score and reset the card to "3 of 3 left". Keep whichever
+    // record has more attempts; the server usage meter already counted it.
+    const local = localAttempts(date, uid);
+    const attempts = remote.length >= local.length ? remote : local;
     saveLocalAttempts(date, uid, attempts);
     return toState(date, attempts);
   } catch {

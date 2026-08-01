@@ -122,6 +122,9 @@ export const PROMPTS: Record<CategoryId, string[]> = {
 };
 
 export function pickPrompt(category: CategoryId): string {
-  const bank = PROMPTS[category];
+  // Fall back to the catch-all bank for an unknown id (the `as CategoryId`
+  // casts on ?category= let a hand-typed/stale value through), so an undefined
+  // bank can never throw and white-screen the recording page mid-render.
+  const bank = PROMPTS[category] ?? PROMPTS["general-coaching"];
   return bank[Math.floor(Math.random() * bank.length)];
 }

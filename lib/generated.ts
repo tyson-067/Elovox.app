@@ -1,6 +1,6 @@
 "use client";
 
-import { isFirebaseConfigured, getUser } from "./firebase";
+import { isFirebaseConfigured, getUser, getAuthInstance } from "./firebase";
 
 // Speeches Felix writes on demand (Premium): replacements for a library
 // speech you've outgrown, and fully custom ones written to a brief.
@@ -84,7 +84,19 @@ export function regenerateSpeech(opts: {
 // that slot on their dashboard for good. Stored per-device in localStorage:
 // it's a personalization, not data worth a Firestore round trip on load.
 
-const REPLACEMENTS_KEY = "elovox.replacements.v1";
+// uid-scoped, like every other per-user key (elovox.plan.${uid} etc.). An
+// un-scoped key let two accounts on one device share replacements, so account
+// B saw account A's Felix-written speeches.
+function currentUid(): string {
+  try {
+    return isFirebaseConfigured()
+      ? getAuthInstance().currentUser?.uid ?? "anon"
+      : "anon";
+  } catch {
+    return "anon";
+  }
+}
+const replacementsKey = () => `elovox.replacements.v1.${currentUid()}`;
 
 export type ReplacementMap = Record<string, GeneratedSpeech>;
 
@@ -95,11 +107,15 @@ export type ReplacementMap = Record<string, GeneratedSpeech>;
 
 const EMPTY: ReplacementMap = {};
 let snapshot: ReplacementMap | null = null;
+// The uid the cached snapshot was loaded for; if the account changes (a
+// sign-out/in without a full reload), the cache is reloaded for the new user
+// so one account never renders another's replacements.
+let snapshotUid = "";
 const listeners = new Set<() => void>();
 
 function loadFromStorage(): ReplacementMap {
   try {
-    const raw = window.localStorage.getItem(REPLACEMENTS_KEY);
+    const raw = window.localStorage.getItem(replacementsKey());
     return raw ? (JSON.parse(raw) as ReplacementMap) : EMPTY;
   } catch {
     return EMPTY;
@@ -112,7 +128,11 @@ export function subscribeReplacements(onChange: () => void): () => void {
 }
 
 export function replacementsSnapshot(): ReplacementMap {
-  if (snapshot === null) snapshot = loadFromStorage();
+  const uid = currentUid();
+  if (snapshot === null || snapshotUid !== uid) {
+    snapshot = loadFromStorage();
+    snapshotUid = uid;
+  }
   return snapshot;
 }
 
@@ -123,8 +143,9 @@ export function replacementsServerSnapshot(): ReplacementMap {
 
 export function saveReplacement(slotId: string, speech: GeneratedSpeech): void {
   snapshot = { ...replacementsSnapshot(), [slotId]: speech };
+  snapshotUid = currentUid();
   try {
-    window.localStorage.setItem(REPLACEMENTS_KEY, JSON.stringify(snapshot));
+    window.localStorage.setItem(replacementsKey(), JSON.stringify(snapshot));
   } catch {
     // non-fatal, the speech still works for this session
   }

@@ -51,7 +51,7 @@ const APP_ROUTES = [
 export function SubNav() {
   const pathname = usePathname();
   const { user, loading, configured } = useAuth();
-  const { isPremium } = usePlan();
+  const { plan } = usePlan();
 
   // Bring the active tab into view when it lands off-screen in the scroll
   // strip (with 9 tabs only 3-4 fit at 375px, so a right-side section like
@@ -84,7 +84,9 @@ export function SubNav() {
           {ITEMS.map((item) => {
             const active =
               pathname === item.href || pathname.startsWith(`${item.href}/`);
-            const locked = item.premium && !isPremium;
+            // plan===null (loading) → not locked, so a subscriber never sees a
+            // flash of Premium dots before the plan resolves.
+            const locked = item.premium && plan === "free";
             return (
               <li key={item.href} ref={active ? activeRef : undefined} className="shrink-0">
                 <Link

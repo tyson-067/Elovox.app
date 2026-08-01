@@ -142,8 +142,14 @@ export default function PricingPage() {
   // Short current-plan line. The account page owns the full billing copy —
   // this is only enough context to explain why the buy button is gone.
   const ending = record?.cancelAtPeriodEnd || record?.cancelAt != null;
+  // trialEnd is only a valid "ends on" while actually trialing. Stripe keeps
+  // trial_end set (in the past) after a trial converts, so folding it into the
+  // fallback would show a canceled active subscriber a date weeks ago. Mirrors
+  // app/account/page.tsx.
   const endsOn = fmtDate(
-    record?.cancelAt ?? record?.trialEnd ?? record?.currentPeriodEnd
+    record?.cancelAt ??
+      (record?.status === "trialing" ? record?.trialEnd : undefined) ??
+      record?.currentPeriodEnd
   );
   const currentPlan = record?.cycle ? planFor(record.cycle) : null;
   let subscribedLine = "You're on Premium.";

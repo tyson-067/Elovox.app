@@ -104,9 +104,14 @@ export function StoryDeck({ beats }: { beats: StoryBeat[] }) {
       className="relative mt-16 md:mt-20"
       style={{ height: `${beats.length * 100}vh` }}
     >
-      <div className="sticky top-0 flex h-screen flex-col justify-center">
+      {/* min-h-0 + overflow-y-auto + py-8: on a short/landscape viewport the
+          fixed-height content (~440px) exceeds h-screen, and justify-center
+          would push the heading and the progress dots off both edges with no
+          way to reach them. Auto-margins center when there's room; the scroll
+          fallback keeps everything reachable when there isn't. */}
+      <div className="sticky top-0 flex h-screen min-h-0 flex-col justify-center overflow-y-auto py-8">
         {heading}
-        <div className="relative mx-auto mt-6 h-[340px] w-full max-w-lg md:h-[320px]">
+        <div className="relative mx-auto mt-6 h-[340px] w-full max-w-lg shrink-0 md:h-[320px]">
           {beats.map((beat, i) => {
             const offset = i - idx;
             // Cards already read: swiped off to the left with a little spin.

@@ -140,14 +140,20 @@ export async function POST(req: NextRequest) {
       db.collection(`users/${uid}/friends`).get(),
       db.collection("invites").where("uid", "==", uid).get(),
     ]);
-    const batch = db.batch();
-    batch.delete(db.doc(`leaderboard/${uid}`));
-    for (const d of invitesSnap.docs) batch.delete(d.ref);
-    // The reciprocal mirror: everyone who has THIS user as a friend.
-    for (const d of friendsSnap.docs) {
-      batch.delete(db.doc(`users/${d.id}/friends/${uid}`));
+    // Commit in chunks of 500: a Firestore WriteBatch caps at 500 writes, and
+    // a user with a large friends list (mirrors are written both ways on every
+    // invite) would otherwise exceed it and never be able to delete.
+    const refs = [
+      db.doc(`leaderboard/${uid}`),
+      ...invitesSnap.docs.map((d) => d.ref),
+      // The reciprocal mirror: everyone who has THIS user as a friend.
+      ...friendsSnap.docs.map((d) => db.doc(`users/${d.id}/friends/${uid}`)),
+    ];
+    for (let i = 0; i < refs.length; i += 500) {
+      const batch = db.batch();
+      for (const ref of refs.slice(i, i + 500)) batch.delete(ref);
+      await batch.commit();
     }
-    await batch.commit();
   } catch (err) {
     console.error(`[account] cleanup failed for ${uid}`, err);
     return NextResponse.json(

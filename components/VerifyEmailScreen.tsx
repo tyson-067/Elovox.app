@@ -137,7 +137,7 @@ export function VerifyEmailScreen() {
             type="button"
             onClick={resend}
             disabled={busy}
-            className="btn rounded-lg border border-outline px-5 py-2.5 font-semibold disabled:opacity-60"
+            className="btn rounded-lg border border-outline-variant px-5 py-2.5 font-semibold disabled:opacity-60"
           >
             {busy ? "Sending…" : "Resend email"}
           </button>

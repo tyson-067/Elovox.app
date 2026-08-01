@@ -35,7 +35,7 @@ export default function ReportPage({
 
 function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { isPremium } = usePlan();
+  const { plan } = usePlan();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
 
   useEffect(() => {
@@ -386,7 +386,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
       {/* Free reports get the honest core; Premium adds strengths, drills, a
           deeper breakdown, and camera coaching. Show free users what's behind
           the wall, right where they can feel the difference. */}
-      {!isPremium && !analysis.isSample && (
+      {plan === "free" && !analysis.isSample && (
         <section className="mt-12">
           <div className="card navy-gradient border-none! p-6 md:p-7 text-white">
             <h2 className="font-headline text-2xl font-semibold">
@@ -419,7 +419,12 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
                   ? `/practice?social=${session.socialSkillId}`
                   : session.speechId
                     ? `/practice?speech=${session.speechId}`
-                    : `/practice?category=${session.category}`
+                    : session.mode === "custom"
+                      ? // The one-shot sessionStorage gen-key is long gone, so
+                        // the exact script can't be replayed; send them back to
+                        // the custom flow rather than a random prepared prompt.
+                        "/custom"
+                      : `/practice?category=${session.category}`
           }
           className="btn rounded-lg bg-accent text-white font-semibold px-7 py-3"
         >

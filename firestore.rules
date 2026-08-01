@@ -22,7 +22,12 @@ service cloud.firestore {
       allow create, update: if isOwner(uid)
         && request.resource.data.createdAt is number
         && request.resource.data.createdAt > 0
-        && request.resource.data.createdAt <= request.time.toMillis() + 5 * 60 * 1000
+        // 24h tolerance, not 5min: createdAt is the CLIENT clock, and a device
+        // running more than a few minutes fast would otherwise have every
+        // save rejected after a perfectly good recording. The bound only
+        // exists to keep absurd far-future rows out of the stats ordering; a
+        // slightly future-dated row is far better than a blocked save.
+        && request.resource.data.createdAt <= request.time.toMillis() + 24 * 60 * 60 * 1000
         && request.resource.data.analysis is map
         && (!('overall' in request.resource.data.analysis)
             || (request.resource.data.analysis.overall is number

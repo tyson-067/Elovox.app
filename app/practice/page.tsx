@@ -35,6 +35,7 @@ import {
 } from "@/lib/generated";
 import { sanitizeText } from "@/lib/validation";
 import type {
+  Analysis,
   CategoryId,
   GoalId,
   InterviewTypeId,
@@ -61,11 +62,16 @@ const DAILY_LIMIT_SEC = 60;
 const MAX_RECORDING_SEC = 600;
 
 /** What a finished take carries into analysis, kept so a failed analysis
- *  can be retried without making the user perform the whole thing again. */
+ *  can be retried without making the user perform the whole thing again.
+ *  prompt/goal are FROZEN at record time so a retry can never score the old
+ *  audio against a prompt the user rerolled (or a goal they changed) while
+ *  sitting in the error state. */
 interface Take {
   audioBlob: Blob;
   durationSec: number;
   frames?: string[];
+  prompt: string;
+  goal?: string;
 }
 
 function formatTime(sec: number) {
@@ -320,6 +326,29 @@ function RecordingScreen() {
   const startedAtRef = useRef(0);
   const maxStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTakeRef = useRef<Take | null>(null);
+  // Set synchronously before start()'s first await so a second Record tap
+  // (while getUserMedia is still resolving) can't spin up a second capture
+  // pipeline and orphan the first mic stream.
+  const startingRef = useRef(false);
+  // Analysis already done for a given take, so a retry that failed only at the
+  // save step re-runs saveSession, NOT the metered analyze pipeline (which
+  // would reserve a second daily attempt and re-bill the model).
+  const pendingSaveRef = useRef<{
+    take: Take;
+    analysis: Analysis;
+    id: string;
+    xpEarned: number;
+    attemptNumber?: number;
+  } | null>(null);
+  // False after unmount, so an analysis that finishes after the user navigated
+  // away doesn't yank them to the report from wherever they went.
+  const activeRef = useRef(true);
+  useEffect(() => {
+    activeRef.current = true;
+    return () => {
+      activeRef.current = false;
+    };
+  }, []);
 
   const stopEverything = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
@@ -391,41 +420,51 @@ function RecordingScreen() {
     async (take: Take) => {
       const { audioBlob, durationSec, frames } = take;
 
-      const analysis = await analyzeRecording({
-        category,
-        prompt: script,
-        goal: goal?.label,
-        durationSec,
-        audioBlob,
-        isDaily,
-        date: todayKey(),
-        ...(frames?.length ? { frames } : {}),
-      });
-
-      const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
-
-      // The Daily Minute is where levelling actually happens, beating
-      // your own previous attempt is worth far more than the rep itself.
-      let xpEarned: number;
-      let attemptNumber: number | undefined;
-      if (isDaily) {
-        const result = await recordChallengeAttempt({
-          score: analysis.overall,
-          sessionId: id,
+      // Analyse ONLY if we haven't already for this exact take. A retry that
+      // failed at the save step reuses the cached analysis, so it never
+      // re-reserves a daily attempt or re-bills the model — it just re-saves.
+      let cached = pendingSaveRef.current;
+      if (!cached || cached.take !== take) {
+        const analysis = await analyzeRecording({
+          category,
+          prompt: take.prompt, // frozen at record time, never live render
+          goal: take.goal,
+          durationSec,
+          audioBlob,
+          isDaily,
+          date: todayKey(),
+          ...(frames?.length ? { frames } : {}),
         });
-        xpEarned = result.attempt?.xp ?? 0;
-        attemptNumber = result.attempt?.attempt;
-      } else {
-        xpEarned = xpForRep(analysis.overall);
-        await awardPracticeXp(xpEarned);
+
+        const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+
+        // The Daily Minute is where levelling actually happens, beating
+        // your own previous attempt is worth far more than the rep itself.
+        let xpEarned: number;
+        let attemptNumber: number | undefined;
+        if (isDaily) {
+          const result = await recordChallengeAttempt({
+            score: analysis.overall,
+            sessionId: id,
+          });
+          xpEarned = result.attempt?.xp ?? 0;
+          attemptNumber = result.attempt?.attempt;
+        } else {
+          xpEarned = xpForRep(analysis.overall);
+          await awardPracticeXp(xpEarned);
+        }
+        cached = { take, analysis, id, xpEarned, attemptNumber };
+        pendingSaveRef.current = cached;
       }
+
+      const { analysis, id, xpEarned, attemptNumber } = cached;
 
       await saveSession({
         id,
         category,
         mode,
-        prompt: script,
-        ...(goal ? { goal: goal.label } : {}),
+        prompt: take.prompt,
+        ...(take.goal ? { goal: take.goal } : {}),
         ...(speech ? { speechId: speech.id, speechTitle: speech.title } : {}),
         ...(generated ? { speechTitle: generated.title } : {}),
         ...(isDaily
@@ -444,9 +483,11 @@ function RecordingScreen() {
         analysis,
       });
 
-      router.push(`/report/${id}`);
+      // Saved cleanly: drop the cache so a fresh take re-analyses.
+      pendingSaveRef.current = null;
+      if (activeRef.current) router.push(`/report/${id}`);
     },
-    [category, script, goal, speech, generated, daily, isDaily, interviewId, socialId, mode, router]
+    [category, speech, generated, daily, isDaily, interviewId, socialId, mode, router]
   );
 
   // Runs analysis for a take and drives the UI: success → report; failure →
@@ -476,6 +517,12 @@ function RecordingScreen() {
   );
 
   const start = useCallback(async () => {
+    // Re-entry guard: a second tap while getUserMedia is still resolving (or
+    // while a stream is already live) would create a second pipeline and
+    // orphan the first mic stream. startingRef is set synchronously before the
+    // first await, so the second call bails.
+    if (startingRef.current || streamRef.current) return;
+    startingRef.current = true;
     setErrorMsg("");
     setCanRetryTake(false);
     try {
@@ -535,6 +582,11 @@ function RecordingScreen() {
         await runAnalysis({
           audioBlob,
           durationSec,
+          // Freeze the brief with the take: during recording `locked` is true,
+          // so script/goal can't change, but they CAN after the take lands in
+          // the error state, and a retry must score against the same brief.
+          prompt: script,
+          ...(goal ? { goal: goal.label } : {}),
           ...(frames?.length ? { frames } : {}),
         });
       };
@@ -609,8 +661,10 @@ function RecordingScreen() {
             // granted just sends them round in circles.
             "Couldn't start recording. Make sure no other app is using your microphone, then try again."
       );
+    } finally {
+      startingRef.current = false;
     }
-  }, [videoOn, limitSec, draw, runAnalysis, stopEverything]);
+  }, [videoOn, limitSec, draw, runAnalysis, stopEverything, script, goal]);
 
   const stop = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
@@ -1088,11 +1142,17 @@ function RecordingScreen() {
                 videoOn && recording ? "" : "hidden"
               }`}
             />
+            {/* Two fully separate class sets rather than adding overrides: an
+                added `h-1/4` loses to the base `h-full` (source order), so with
+                the camera on the waveform used to cover the whole preview
+                instead of sitting as a bottom strip. */}
             <canvas
               ref={canvasRef}
-              className={`absolute inset-0 w-full h-full ${
-                videoOn && recording ? "top-auto bottom-0 h-1/4 opacity-80" : ""
-              }`}
+              className={
+                videoOn && recording
+                  ? "absolute inset-x-0 bottom-0 h-1/4 w-full opacity-80"
+                  : "absolute inset-0 h-full w-full"
+              }
             />
             {!recording && !busy && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">

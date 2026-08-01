@@ -75,8 +75,15 @@ export async function fetchGlobalBoard(): Promise<Board> {
   // many users there are, and this number is the only reason to look at the
   // rest of the board at all.
   const data = mine.data() as RawRow;
-  const above = await getCountFromServer(query(col, where("xp", ">", Number(data.xp ?? 0))));
-  return { rows, self: toRow(user.uid, data, above.data().count + 1, user.uid) };
+  const above = (
+    await getCountFromServer(query(col, where("xp", ">", Number(data.xp ?? 0))))
+  ).data().count;
+  // Fewer than BOARD_SIZE users strictly above means this viewer ties into the
+  // board that's already shown; the top query just returned a different tied
+  // member. Pinning them then would show a rank that collides with the podium
+  // ("#1 … you" under ten other rows), so don't pin — they're already there.
+  if (above < BOARD_SIZE) return { rows, self: null };
+  return { rows, self: toRow(user.uid, data, above + 1, user.uid) };
 }
 
 /**

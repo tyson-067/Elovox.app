@@ -76,26 +76,35 @@ function TrendChart({ sessions }: { sessions: Session[] }) {
           }}
         >
           <circle cx={x(i)} cy={y(s.analysis.overall)} r="12" fill="transparent" />
+          {/* Theme tokens via style (var() doesn't resolve in SVG fill=""
+              attributes), so the dots and labels stay readable in dark mode
+              instead of dark-navy-on-near-black. */}
           <circle
             cx={x(i)}
             cy={y(s.analysis.overall)}
             r="4"
-            fill="#004e89"
             className="chart-dot"
             style={{
+              fill: "var(--color-primary)",
               animationDelay: `${150 + (i / (points.length - 1)) * 1300}ms`,
             }}
           />
         </g>
       ))}
-      <text x={pad} y={y(points[0]) - 10} fontSize="12" fill="#45464d" fontFamily="var(--font-geist-mono)">
+      <text
+        x={pad}
+        y={y(points[0]) - 10}
+        fontSize="12"
+        style={{ fill: "var(--color-on-surface-variant)" }}
+        fontFamily="var(--font-geist-mono)"
+      >
         {points[0]}
       </text>
       <text
         x={x(points.length - 1)}
         y={y(points[points.length - 1]) - 10}
         fontSize="12"
-        fill="#004e89"
+        style={{ fill: "var(--color-primary)" }}
         fontFamily="var(--font-geist-mono)"
         textAnchor="end"
       >
@@ -279,6 +288,50 @@ function SessionRow({
     setError(result.message ?? "Couldn't delete that just now.");
   };
 
+  // When confirming, render the picker IN FLOW as the card body (not an
+  // absolute overlay), so the card grows to fit the wrapped reason pills
+  // instead of the ~180px overlay spilling over a ~76px card onto its
+  // neighbours on a phone.
+  if (confirming) {
+    return (
+      <GlowCard className="card">
+        <div className="p-4 text-center">
+          <p className="text-base font-medium text-primary">
+            {busy ? "Removing…" : "Delete this attempt? Tell us why:"}
+          </p>
+          {!busy && (
+            <>
+              <div className="mt-3 flex flex-wrap justify-center gap-2">
+                {DELETE_REASONS.map((r) => (
+                  <button
+                    key={r.code}
+                    type="button"
+                    onClick={() => void remove(r.code)}
+                    className="pill rounded-full border border-primary/20 px-3.5 py-1.5 text-[13px] font-semibold text-primary hover:border-error hover:text-error"
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                className="mt-3 text-[13px] font-semibold text-on-surface-variant underline underline-offset-2 hover:text-primary"
+              >
+                Keep it
+              </button>
+              {error && (
+                <p role="alert" className="mt-2 text-[13px] font-medium text-error">
+                  {error}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      </GlowCard>
+    );
+  }
+
   return (
     <GlowCard className="card relative">
       <Link href={`/report/${s.id}`} className="flex items-center gap-4 p-4 pr-12">
@@ -356,44 +409,6 @@ function SessionRow({
           <path d="M6 6l12 12M18 6L6 18" />
         </svg>
       </button>
-
-      {confirming && (
-        <div className="absolute inset-0 z-10 grid place-items-center rounded-[inherit] bg-surface/95 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm text-center">
-            <p className="text-base font-medium text-primary">
-              {busy ? "Removing…" : "Delete this attempt? Tell us why:"}
-            </p>
-            {!busy && (
-              <>
-                <div className="mt-3 flex flex-wrap justify-center gap-2">
-                  {DELETE_REASONS.map((r) => (
-                    <button
-                      key={r.code}
-                      type="button"
-                      onClick={() => void remove(r.code)}
-                      className="pill rounded-full border border-primary/20 px-3.5 py-1.5 text-[13px] font-semibold text-primary hover:border-error hover:text-error"
-                    >
-                      {r.label}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setConfirming(false)}
-                  className="mt-3 text-[13px] font-semibold text-on-surface-variant underline underline-offset-2 hover:text-primary"
-                >
-                  Keep it
-                </button>
-                {error && (
-                  <p role="alert" className="mt-2 text-[13px] font-medium text-error">
-                    {error}
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </GlowCard>
   );
 }
@@ -408,6 +423,7 @@ export default function ProgressPage() {
 
 function ProgressScreen() {
   const [sessions, setSessions] = useState<Session[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [shop, setShop] = useState<ShopState | null>(null);
 
@@ -415,7 +431,10 @@ function ProgressScreen() {
     let cancelled = false;
     listSessions()
       .then((s) => !cancelled && setSessions(s))
-      .catch(() => !cancelled && setSessions([]));
+      // Leave sessions null and flag the error, so a returning user whose
+      // history failed to load doesn't see the first-time "Nothing here yet"
+      // onboarding as if their account were empty.
+      .catch(() => !cancelled && setLoadError(true));
     getStats()
       .then((s) => !cancelled && setStats(s))
       .catch(() => {});
@@ -465,6 +484,24 @@ function ProgressScreen() {
   // and stayed that way for as long as the history took to come back, which
   // reads as "it didn't load" and sends people clicking around to make it
   // appear.
+  if (loadError) {
+    return (
+      <div className="py-16 flex flex-col items-center gap-4 text-center">
+        <Felix mood="coach" className="h-16 w-16" />
+        <p className="text-lg text-on-surface-variant" role="alert">
+          Couldn&apos;t load your history just now.
+        </p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="btn rounded-lg bg-accent px-6 py-2.5 text-sm font-semibold text-white"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
   if (sessions === null) {
     return (
       <div className="py-16 flex flex-col items-center gap-4 text-center">

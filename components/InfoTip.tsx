@@ -46,6 +46,9 @@ export function InfoTip({
   const wrapRef = useRef<HTMLSpanElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const tipRef = useRef<HTMLSpanElement>(null);
+  // Which input opened the last interaction, so a mouse click (after a hover
+  // already opened the tip) doesn't toggle it closed.
+  const pointerTypeRef = useRef<string>("");
   const id = useId();
 
   // createPortal needs document.body, which only exists on the client. This
@@ -104,7 +107,13 @@ export function InfoTip({
   return (
     <span
       ref={wrapRef}
-      className={`relative inline-flex ${className}`}
+      // No hardcoded `relative`: a caller that positions the trigger (e.g. the
+      // Daily Minute card passes `absolute right-4 top-4`) would otherwise get
+      // both classes, and at equal specificity `relative` wins by source order,
+      // so the "?" landed in normal flow at the card's LEFT edge. The bubble is
+      // portaled to <body>, so the wrapper never needs to be a positioning
+      // context; the caller's position class now applies cleanly.
+      className={`inline-flex ${className}`}
       onPointerEnter={(e) => e.pointerType === "mouse" && setOpen(true)}
       onPointerLeave={(e) => e.pointerType === "mouse" && setOpen(false)}
     >
@@ -114,8 +123,19 @@ export function InfoTip({
         aria-label={label}
         aria-expanded={open}
         aria-describedby={open ? id : undefined}
-        onClick={() => setOpen((v) => !v)}
-        onFocus={() => setOpen(true)}
+        // A mouse already opened it on hover, so a click must not toggle it
+        // shut; only touch/pen (no hover) and keyboard toggle. onFocus opens
+        // for keyboard only (:focus-visible), so a tap's synthetic focus
+        // doesn't pre-empt the click and immediately re-close it.
+        onPointerDown={(e) => (pointerTypeRef.current = e.pointerType)}
+        onClick={() =>
+          pointerTypeRef.current === "mouse"
+            ? setOpen(true)
+            : setOpen((v) => !v)
+        }
+        onFocus={(e) => {
+          if (e.currentTarget.matches(":focus-visible")) setOpen(true);
+        }}
         onBlur={() => setOpen(false)}
         className={`inline-flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-semibold leading-none transition-colors ${
           dark

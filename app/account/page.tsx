@@ -284,7 +284,12 @@ function BillingSection() {
           <p className="mt-3 text-base text-on-surface">{statusLine}</p>
 
           <div className="mt-4 flex flex-wrap gap-3">
-            {r.stripeCustomerId ? (
+            {/* A stripeCustomerId alone isn't a subscription: the checkout
+                route writes it BEFORE redirecting, so a user who abandoned
+                checkout has one with status "none"/undefined and plan "free".
+                Gate on a real subscription status so they see "See Premium",
+                not a Manage-billing button that opens an empty portal. */}
+            {r.stripeCustomerId && r.status && r.status !== "none" ? (
               <button
                 type="button"
                 onClick={manage}
@@ -614,7 +619,7 @@ function ExportDataSection() {
         type="button"
         onClick={download}
         disabled={busy}
-        className="btn mt-4 rounded-lg border border-outline px-4 py-2 text-sm font-semibold disabled:opacity-60"
+        className="btn mt-4 rounded-lg border border-outline-variant px-4 py-2 text-sm font-semibold disabled:opacity-60"
       >
         {busy ? "Preparing…" : "Download my data"}
       </button>
