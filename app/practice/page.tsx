@@ -61,6 +61,19 @@ const DAILY_LIMIT_SEC = 60;
 // produce a take the server would reject.
 const MAX_RECORDING_SEC = 600;
 
+// Seconds-remaining marks at which a screen reader hears a warning, descending.
+//
+// The visible timer can't carry this. It updates ten times a second, so a live
+// region on it would be sixty announcements over one Daily Minute — which is
+// exactly why it was silenced, and why the fix isn't to un-silence it. What a
+// speaker actually needs from a countdown is two moments: one with enough road
+// left to steer the ending, and one that means land it now. Everything between
+// those is noise talking over the person trying to talk.
+//
+// Measured from `limitSec`, so this warns before the Daily Minute's sixty AND
+// before the ten-minute runaway guard cuts a long take off mid-sentence.
+const SR_WARN_AT_SEC = [30, 10];
+
 /** What a finished take carries into analysis, kept so a failed analysis
  *  can be retried without making the user perform the whole thing again.
  *  prompt/goal are FROZEN at record time so a retry can never score the old
@@ -309,6 +322,11 @@ function RecordingScreen() {
   const [videoOn, setVideoOn] = useState(false);
   const [state, setState] = useState<RecState>("idle");
   const [elapsed, setElapsed] = useState(0);
+  // The only spoken account of the take: start, the countdown warnings, and the
+  // stop. Nothing else on this screen says any of it out loud — the countdown
+  // is a number that only changes color, and the record button's label flips
+  // silently under a finger that has already left it.
+  const [announcement, setAnnouncement] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   // True when the last error is worth retrying with the SAME take (server
   // busy / offline) rather than re-recording, drives the "Try again" button.
@@ -334,6 +352,14 @@ function RecordingScreen() {
   // the re-render on the ~5 frames out of every 6 that wouldn't change the
   // displayed timer.
   const lastTickRef = useRef(-1);
+  // Lowest SR_WARN_AT_SEC mark already spoken this take, so each one is said
+  // once. Null until the first warning; reset by start(), not by stop, so a
+  // take that ends early can't leave the next one pre-warned.
+  const warnedRef = useRef<number | null>(null);
+  // Why the recorder stopped, read by onstop to say so. "limit" only when the
+  // cutoff fired on its own — the one ending nobody chose and no one watching
+  // the timer would have to ask about.
+  const stopReasonRef = useRef<"user" | "limit">("user");
   // Analysis already done for a given take, so a retry that failed only at the
   // save step re-runs saveSession, NOT the metered analyze pipeline (which
   // would reserve a second daily attempt and re-bill the model).
@@ -450,11 +476,29 @@ function RecordingScreen() {
       if (tenths !== lastTickRef.current) {
         lastTickRef.current = tenths;
         setElapsed(nowElapsed);
+
+        // The countdown, spoken. The marks decide WHEN to speak; what gets
+        // spoken is the time actually left, and the lowest mark already
+        // passed is the one that fires. Both of those are there for the same
+        // reason: rAF is throttled to a stop in a backgrounded tab, so a take
+        // can come back with forty seconds gone in a single tick, and "30
+        // seconds left" said at T-8 is worse than silence — it's a wrong
+        // number delivered with confidence. Under a second there's nothing
+        // useful left to say and the stop is already on its way.
+        const remaining = limitSec - nowElapsed;
+        const due = SR_WARN_AT_SEC.filter((t) => remaining <= t).pop();
+        if (due !== undefined && (warnedRef.current === null || due < warnedRef.current)) {
+          warnedRef.current = due;
+          const secs = Math.round(remaining);
+          if (secs >= 1) {
+            setAnnouncement(secs === 1 ? "1 second left" : `${secs} seconds left`);
+          }
+        }
       }
       rafRef.current = requestAnimationFrame(tick);
     };
     tick();
-  }, []);
+  }, [limitSec]);
 
   // Analyse a finished take and, only on success, persist it. A failed
   // analysis throws (AnalysisError), we never save a fabricated report, so
@@ -604,6 +648,15 @@ function RecordingScreen() {
         // after unmount for any reason, nothing here should run — everything
         // below it spends money and writes to the user's history.
         if (!activeRef.current) return;
+        // Said first, before the teardown, because this is the moment the user
+        // is waiting to hear about. The analysing state that follows announces
+        // itself (AnalyzingLoader is a polite live region), so this only has to
+        // cover the ending — and whether it was theirs or the clock's.
+        setAnnouncement(
+          stopReasonRef.current === "limit"
+            ? "Time's up. Recording stopped."
+            : "Recording stopped."
+        );
         if (maxStopRef.current) {
           clearTimeout(maxStopRef.current);
           maxStopRef.current = null;
@@ -691,11 +744,20 @@ function RecordingScreen() {
       // Either way we stop cleanly and analyze what we have.
       maxStopRef.current = setTimeout(() => {
         if (recorderRef.current?.state === "recording") {
+          stopReasonRef.current = "limit";
           cancelAnimationFrame(rafRef.current);
           recorderRef.current.stop();
         }
       }, limitSec * 1000);
+      warnedRef.current = null;
+      stopReasonRef.current = "user";
       setState("recording");
+      // The mic is live from here. Sighted users get a pulsing ring, a moving
+      // waveform and a running clock; without this the only signal was a
+      // button whose label had quietly become "Stop recording".
+      setAnnouncement(
+        isDaily ? "Recording started. 60 seconds." : "Recording started."
+      );
       draw(analyser, new Uint8Array(analyser.fftSize));
     } catch (err) {
       // Hand the devices back. Only the getUserMedia call itself is a
@@ -722,7 +784,7 @@ function RecordingScreen() {
     } finally {
       startingRef.current = false;
     }
-  }, [videoOn, limitSec, draw, runAnalysis, stopEverything, script, goal]);
+  }, [videoOn, limitSec, isDaily, draw, runAnalysis, stopEverything, script, goal]);
 
   const stop = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
@@ -1258,11 +1320,28 @@ function RecordingScreen() {
                   ? "text-accent-strong"
                   : "text-primary"
               }`}
-              aria-live="off"
+              // Hidden rather than merely silent. This node's text is rewritten
+              // ten times a second; keeping it in the accessibility tree buys a
+              // reading of "0:44" — punctuation a screen reader has to guess at
+              // — at the cost of churning the tree for the whole take. The
+              // spoken countdown is the live region below, in words.
+              aria-hidden="true"
             >
               {isDaily
                 ? formatTime(Math.max(0, DAILY_LIMIT_SEC - elapsed))
                 : formatTime(elapsed)}
+            </span>
+
+            {/* The take, narrated. Mounted for the whole screen and not just
+                while recording, because a live region has to be in the DOM
+                before its text changes or the first announcement — "Recording
+                started" — is the one that gets swallowed.
+
+                Text is left in place after it's spoken rather than cleared, so
+                the last thing said is also the last thing here to navigate to
+                and re-read. */}
+            <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+              {announcement}
             </span>
 
             <div className="relative h-24 w-24">

@@ -22,7 +22,7 @@ const MODIFIED: Record<string, string> = {
   "/pricing": "2026-07-27", // subscriber CTAs → Customer Portal
   "/terms": "2026-07-23",
   "/privacy": "2026-07-31", // tips-list disclosure
-  "/accessibility": "2026-08-01", // new page: accessibility statement
+  "/accessibility": "2026-08-01", // new page, then the countdown limitation came off it
 
   "/for/job-candidates": "2026-07-31", // per-audience landing pages
   "/for/students": "2026-07-31",
