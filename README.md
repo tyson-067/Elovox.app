@@ -43,6 +43,14 @@ inert until `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` is set. Without it, a signed-in use
 can talk to Firestore directly with their own token and skip every rate limit in
 `lib/verify.ts`, which only guard the API routes.
 
+App Check is enforced in **two places**, set up independently: on **Firestore**
+(the console **Enforce** button, steps below) and on the **paid API routes**
+`/api/analyze` + `/api/speech` (the client sends an `X-Firebase-AppCheck` header;
+the server verifies it in [`lib/verify.ts`](lib/verify.ts), gated by
+`APPCHECK_ENFORCE`, step 5). The API half matters because a valid ID token proves
+*who* is calling but not that the call came from our client — without it a script
+can drive paid AssemblyAI/Gemini spend from curl, up to the per-day quota.
+
 1. [reCAPTCHA admin](https://www.google.com/recaptcha/admin) → register a **v3**
    site for `elovox.app` → copy **both** keys. Both get used, in different
    places: the site key is public and ships in the bundle, the secret key stays
@@ -57,10 +65,21 @@ can talk to Firestore directly with their own token and skip every rate limit in
 4. Watch **App Check → APIs → Firestore** until unverified requests fall to
    roughly zero, *then* click **Enforce**. Enforcing before that logs out every
    session still running an older bundle.
+5. **API-route enforcement.** With the site key deployed (step 3), the client
+   already attaches the attestation header to `/api/analyze` and `/api/speech`,
+   and the server verifies it — but only *logs* failures until you opt in, so
+   nothing breaks during rollout. Watch the server logs for
+   `[app-check] unattested …`; once they fall to ~zero (every live bundle is
+   sending the header), set **`APPCHECK_ENFORCE=true`** in Vercel and redeploy
+   to start returning `403` for unattested calls. Same ship-then-enforce order
+   as Firestore, and for the same reason: flipping it early would 403 real users
+   still on a bundle from before the header existed.
 
 For local development, set `NEXT_PUBLIC_APPCHECK_DEBUG=true`, copy the token the
 SDK prints to the console, and register it under **App Check → Apps → ⋯ → Manage
-debug tokens**. Never set that variable in production.
+debug tokens**. Never set that variable in production — a registered debug token
+bypasses attestation for every visitor. A production build now ignores it and
+logs an error if it's set, but keep it out of the production environment anyway.
 
 ## Deploy (Vercel)
 
