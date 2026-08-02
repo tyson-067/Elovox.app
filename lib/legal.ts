@@ -36,6 +36,12 @@ export const LEGAL = {
   // Published and then revised the same day: the recording countdown is now
   // announced to screen readers, so it moved off "where we fall short".
   accessibilityUpdated: "August 1, 2026",
+  refundsUpdated: "August 1, 2026", // first published
+  cookiesUpdated: "August 1, 2026", // first published
+  aiUpdated: "August 1, 2026", // first published
+  biometricsUpdated: "August 1, 2026", // first published
+  childrenUpdated: "August 1, 2026", // first published
+  dmcaUpdated: "August 1, 2026", // first published
 
   contactEmail: "elovox.app@gmail.com",
   instagramHandle: "elovox.app",
@@ -78,7 +84,14 @@ export const SUBPROCESSORS = [
   },
   {
     name: "Vercel",
-    purpose: "Hosting and delivery of the website",
+    purpose:
+      "Hosting and delivery of the website, and privacy-friendly, cookieless traffic analytics",
     link: "https://vercel.com/legal/privacy-policy",
+  },
+  {
+    name: "Google reCAPTCHA",
+    purpose:
+      "Telling real browsers from bots at sign-in and on our forms, to stop abuse of the paid pipeline",
+    link: "https://policies.google.com/privacy",
   },
 ] as const;

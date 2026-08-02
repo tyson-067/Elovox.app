@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateJson, geminiKey } from "@/lib/gemini";
-import { verifyVerifiedUser, makeRateLimiter, isPremiumServer } from "@/lib/verify";
+import {
+  verifyVerifiedUser,
+  makeRateLimiter,
+  isPremiumServer,
+  enforceAppCheck,
+} from "@/lib/verify";
 import { sanitizeText } from "@/lib/validation";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { usageDateKey, reserveMeteredUse } from "@/lib/quota";
@@ -134,6 +139,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "rate limited" }, { status: 429 });
   }
 
+  // Same App Check attestation gate as /api/analyze: a valid ID token alone
+  // must not let a script drive paid Gemini speech-writing from curl.
+  // Soft-fails (logs, never rejects) until APPCHECK_ENFORCE=true; see
+  // lib/verify.ts.
+  const appCheckReject = await enforceAppCheck(req, "speech");
+  if (appCheckReject) return appCheckReject;
+
   // Both /library (regenerate) and /custom are Premium features, and both
   // gate on usePlan(), in the browser, which protects nobody. An ordinary
   // verified free account could POST here directly and get unlimited Gemini
@@ -181,7 +193,24 @@ export async function POST(req: NextRequest) {
   const db = getAdminDb();
   const meteredUid = uid;
   async function chargeGeneration(): Promise<NextResponse | null> {
-    if (!db || meteredUid === "local-dev") return null;
+    // Fail closed in production: without the Admin SDK the durable speech meter
+    // can't be enforced, and this route has no refund path, so running
+    // unmetered would be unbounded paid Gemini spend on a misconfigured deploy.
+    // (local dev has no API key and returns the sample before ever reaching
+    // here, so this only bites a broken production service account.)
+    if (!db) {
+      if (process.env.NODE_ENV === "production") {
+        return NextResponse.json(
+          {
+            error: "unavailable",
+            message: "Couldn't reach the server just now. Try again in a moment.",
+          },
+          { status: 503 }
+        );
+      }
+      return null;
+    }
+    if (meteredUid === "local-dev") return null;
     const { ok } = await reserveMeteredUse(
       db,
       meteredUid,

@@ -12,7 +12,7 @@ import { getInterviewType, pickInterviewQuestion } from "@/lib/interviews";
 import { getSocialSkill, pickSocialPrompt } from "@/lib/social";
 import { GOALS } from "@/lib/goals";
 import { usePlan } from "@/lib/plan";
-import { analyzeRecording, AnalysisError } from "@/lib/analyze";
+import { analyzeRecording, AnalysisError, type LiveMetrics } from "@/lib/analyze";
 import { saveSession } from "@/lib/store";
 import { FrameSampler } from "@/lib/frames";
 import {
@@ -331,6 +331,10 @@ function RecordingScreen() {
   // True when the last error is worth retrying with the SAME take (server
   // busy / offline) rather than re-recording, drives the "Try again" button.
   const [canRetryTake, setCanRetryTake] = useState(false);
+  // The delivery numbers the analyze stream sends the moment transcription is
+  // done — shown in the loader while the coaching is still being written.
+  // Cleared at the start of every analysis so a retry doesn't flash stale ones.
+  const [liveMetrics, setLiveMetrics] = useState<LiveMetrics | null>(null);
   const goal = GOALS.find((g) => g.id === goalId);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -521,6 +525,9 @@ function RecordingScreen() {
           isDaily,
           date: todayKey(),
           ...(frames?.length ? { frames } : {}),
+          // Surface the delivery numbers in the loader the instant they land,
+          // several seconds before the coaching is ready.
+          onMetrics: setLiveMetrics,
         });
 
         const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
@@ -595,6 +602,7 @@ function RecordingScreen() {
     async (take: Take) => {
       lastTakeRef.current = take;
       setErrorMsg("");
+      setLiveMetrics(null); // clear any numbers from a previous take
       setState("analyzing");
       try {
         await analyzeAndSave(take);
@@ -1307,7 +1315,7 @@ function RecordingScreen() {
                 )}
               </div>
             )}
-            {busy && <AnalyzingLoader withVideo={videoOn} />}
+            {busy && <AnalyzingLoader withVideo={videoOn} metrics={liveMetrics} />}
           </div>
 
           <div className="mt-8 flex flex-col items-center gap-5">

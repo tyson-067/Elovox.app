@@ -1,5 +1,10 @@
 import type { FirebaseApp } from "firebase/app";
-import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
+import {
+  initializeAppCheck,
+  getToken,
+  ReCaptchaV3Provider,
+  type AppCheck,
+} from "firebase/app-check";
 
 // Firebase App Check, attests that a request to Firestore or Auth came from
 // THIS app, not from a script someone wrote against our public config.
@@ -31,6 +36,11 @@ export function isAppCheckConfigured(): boolean {
 
 let started = false;
 
+// The initialized App Check instance, captured so the paid-API clients can
+// mint a per-request attestation token (see getAppCheckToken). Null until
+// startAppCheck has run and succeeded.
+let appCheck: AppCheck | null = null;
+
 /**
  * Initialize App Check, if it's configured. Safe to call more than once.
  *
@@ -51,8 +61,7 @@ export function startAppCheck(app: FirebaseApp): void {
   // Local development can't pass reCAPTCHA against a production site key, so
   // Firebase supports a debug token instead: set NEXT_PUBLIC_APPCHECK_DEBUG to
   // "true" and the SDK prints a token to the console, which you register under
-  // App Check → Manage debug tokens. Never set this in production, a
-  // registered debug token bypasses attestation entirely.
+  // App Check → Manage debug tokens.
   // `if (debug)` alone was a bug: the string "false" is truthy, so setting
   // NEXT_PUBLIC_APPCHECK_DEBUG="false" — which .env.local.example invites by
   // asking for "true" — assigned the literal string "false" as the debug
@@ -60,17 +69,29 @@ export function startAppCheck(app: FirebaseApp): void {
   // and with enforcement on every Firestore and Auth call from that build
   // failed with permission-denied.
   const debug = process.env.NEXT_PUBLIC_APPCHECK_DEBUG;
-  if (debug && debug !== "false" && debug !== "0") {
+  const debugRequested = Boolean(debug && debug !== "false" && debug !== "0");
+  // Never honor a debug token in a production build. A registered debug token
+  // bypasses attestation ENTIRELY, and NEXT_PUBLIC_* bakes in at build time,
+  // so a stray value in the production env would otherwise ship to every
+  // browser and hand each one a free pass past App Check. This branch is the
+  // backstop for "don't set it in production" that doesn't depend on anyone
+  // remembering: in a production build the assignment below is compiled out.
+  if (debugRequested && process.env.NODE_ENV === "production") {
+    console.error(
+      "[app-check] NEXT_PUBLIC_APPCHECK_DEBUG is set in a production build and is being IGNORED. A debug token bypasses App Check attestation for every visitor — remove it from the production environment."
+    );
+  } else if (debugRequested) {
     (self as unknown as Record<string, unknown>).FIREBASE_APPCHECK_DEBUG_TOKEN =
       debug === "true" ? true : debug;
   }
 
   try {
-    initializeAppCheck(app, {
+    appCheck = initializeAppCheck(app, {
       provider: new ReCaptchaV3Provider(siteKey),
       // Refresh the attestation token in the background so a long practice
       // session doesn't start failing Firestore writes when the first one
-      // expires (they're short-lived).
+      // expires (they're short-lived). It also keeps getAppCheckToken() below
+      // returning a warm, cached token rather than blocking on reCAPTCHA.
       isTokenAutoRefreshEnabled: true,
     });
   } catch (err) {
@@ -78,5 +99,29 @@ export function startAppCheck(app: FirebaseApp): void {
     // client still works, it just shows up as unverified traffic. Loud in
     // the console so a misconfigured key doesn't pass silently.
     console.error("[app-check] initialization failed", err);
+  }
+}
+
+/**
+ * The current App Check attestation token, for the `X-Firebase-AppCheck`
+ * header on the paid-API calls (lib/analyze.ts, lib/generated.ts). The server
+ * verifies it so a valid ID token alone can't drive /api/analyze or
+ * /api/speech straight from a script — see enforceAppCheck in lib/verify.ts.
+ *
+ * Returns null, never throws, whenever a token can't be produced: App Check
+ * isn't configured, hasn't been initialized yet (startAppCheck runs from
+ * ensureApp() in lib/firebase.ts, so call this only after a Firebase call has
+ * kicked that off), or reCAPTCHA hiccupped. The request must still go out: the
+ * server soft-fails a missing token during rollout, so a degraded attestation
+ * becomes "unverified traffic", never a blocked recording.
+ */
+export async function getAppCheckToken(): Promise<string | null> {
+  if (!appCheck) return null;
+  try {
+    const { token } = await getToken(appCheck);
+    return token;
+  } catch (err) {
+    console.error("[app-check] token fetch failed", err);
+    return null;
   }
 }

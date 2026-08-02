@@ -455,6 +455,19 @@ export default function PricingPage() {
                 </>
               )}
             </p>
+            {/* Renewal + refund terms, discoverable at the point of purchase.
+                Subscriptions auto-renew, so say so plainly and link the policy
+                that spells out how to stop it. */}
+            <p className="mt-2 text-center text-[12px] text-white/50">
+              Auto-renews until you cancel ·{" "}
+              <Link href="/refunds" className="underline hover:text-white/80">
+                Refunds &amp; cancellation
+              </Link>{" "}
+              ·{" "}
+              <Link href="/terms" className="underline hover:text-white/80">
+                Terms
+              </Link>
+            </p>
           </GlowCard>
         </Reveal>
       </section>

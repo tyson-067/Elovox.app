@@ -23,6 +23,13 @@ const MODIFIED: Record<string, string> = {
   "/terms": "2026-07-23",
   "/privacy": "2026-07-31", // tips-list disclosure
   "/accessibility": "2026-08-01", // new page, then the countdown limitation came off it
+  "/legal": "2026-08-01", // new: legal hub
+  "/refunds": "2026-08-01", // new: refund & cancellation policy
+  "/cookies": "2026-08-01", // new: cookie & storage notice
+  "/ai": "2026-08-01", // new: AI disclosure
+  "/biometrics": "2026-08-01", // new: voice & camera notice
+  "/children": "2026-08-01", // new: children's privacy
+  "/dmca": "2026-08-01", // new: copyright/DMCA
 
   "/for/job-candidates": "2026-07-31", // per-audience landing pages
   "/for/students": "2026-07-31",
@@ -37,6 +44,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/terms": 0.3,
     "/privacy": 0.3,
     "/accessibility": 0.3,
+    "/legal": 0.3,
+    "/refunds": 0.3,
+    "/cookies": 0.3,
+    "/ai": 0.3,
+    "/biometrics": 0.3,
+    "/children": 0.3,
+    "/dmca": 0.3,
     "/for/job-candidates": 0.7,
     "/for/students": 0.7,
     "/for/founders": 0.7,

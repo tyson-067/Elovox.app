@@ -42,8 +42,14 @@ export function Footer() {
             <Link href="/privacy" className={linkClass}>
               Privacy
             </Link>
+            <Link href="/refunds" className={linkClass}>
+              Refunds
+            </Link>
             <Link href="/accessibility" className={linkClass}>
               Accessibility
+            </Link>
+            <Link href="/legal" className={linkClass}>
+              Legal
             </Link>
             <a href={`mailto:${LEGAL.contactEmail}`} className={linkClass}>
               Contact

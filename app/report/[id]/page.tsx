@@ -179,6 +179,13 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
               </span>
             </>
           ) : null}
+          <span className="mx-2">·</span>
+          {/* Honest, persistent disclosure that the scores and notes below are
+              machine-generated — Felix is a character, not a human coach. Links
+              to the plain-language explanation. */}
+          <Link href="/ai" className="font-medium underline hover:text-primary">
+            AI-generated
+          </Link>
         </div>
       </div>
 

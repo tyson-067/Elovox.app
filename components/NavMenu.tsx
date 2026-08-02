@@ -153,18 +153,6 @@ export function NavMenu() {
                   </span>
                 </Link>
               ))}
-              <Link
-                href="/about"
-                onClick={() => setOpen(false)}
-                className="block rounded-lg px-3 py-2 transition-colors hover:bg-surface-container"
-              >
-                <span className="block text-[14px] font-semibold text-primary">
-                  About Elovox
-                </span>
-                <span className="block text-[12px] leading-4 text-on-surface-variant">
-                  Why we built it, and who we are
-                </span>
-              </Link>
             </div>
           </div>
         </div>

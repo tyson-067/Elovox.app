@@ -156,8 +156,19 @@ export async function POST(req: NextRequest) {
               const { getAuth } = await import("firebase-admin/auth");
               await getAuth(app).getUser(owner);
             }
-          } catch {
-            ownerStillExists = false;
+          } catch (err) {
+            // Only a definitive "this Firebase account no longer exists" makes
+            // someone else's customer adoptable. A transient failure (a network
+            // blip, an admin-auth quota error) must NOT be read as absence:
+            // otherwise an attacker who verifies an address equal to the stale
+            // email on a victim's Stripe customer could adopt that customer —
+            // and with it the saved cards, billing address, and invoice
+            // history — simply by retrying checkout until one getUser() call
+            // happens to fail. Mirror the webhook (auth/user-not-found only);
+            // on any other error leave the owner presumed present.
+            if ((err as { code?: string }).code === "auth/user-not-found") {
+              ownerStillExists = false;
+            }
           }
           if (!ownerStillExists) claimable.push(c);
         }

@@ -137,6 +137,15 @@ const nextConfig: NextConfig = {
   // project into the build. Pin it to this directory.
   turbopack: { root: import.meta.dirname },
 
+  // Dev only (ignored in production builds). Next blocks dev resources —
+  // including the HMR socket — for any origin that isn't localhost, and a
+  // blocked socket makes the page reload-loop before client components mount.
+  // 127.0.0.1 is the same server under a different origin, which is useful
+  // precisely BECAUSE origins don't share IndexedDB: it stays signed out
+  // while localhost:3000 holds a signed-in session, so both auth states can
+  // be checked side by side without tearing down a test login.
+  allowedDevOrigins: ["127.0.0.1"],
+
   // Don't advertise the framework/version to anyone fingerprinting the stack.
   poweredByHeader: false,
 

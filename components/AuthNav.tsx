@@ -52,33 +52,37 @@ export function AuthNav() {
   // exists and lists the team underneath, so the narrower label is the honest
   // one.
   //
-  // Hidden below `sm` because the space genuinely isn't there: the 375px
-  // header has ~257px of room next to the wordmark, and Pricing + Log in +
-  // Get started plus their gaps already spend ~240px of it. A fourth item
-  // doesn't shrink, it wraps, landing on top of the wordmark and breaking
-  // "Get started" onto two lines. ("About" is shorter than "Meet the team"
-  // but still ~40px over the budget, so this stays.) Mobile reaches /about
-  // through the footer instead, see FooterAboutLink, which is gated the same
-  // way this is.
+  // A top-level item at every width that can hold one, on purpose. It spent
+  // a while inside the Explore menu and the verdict was blunt: buried in a
+  // product menu, company info reads as product copy and nobody thinks to
+  // look for the people there. So it stands alone, last of the marketing
+  // links, where every website keeps its About.
+  //
+  // Still hidden below `sm` because the space genuinely isn't there: the
+  // 375px header has ~257px of room next to the wordmark, and Pricing +
+  // Log in + Get started plus their gaps already spend ~240px of it. A
+  // fourth item doesn't shrink, it wraps, landing on top of the wordmark
+  // and breaking "Get started" onto two lines. Mobile reaches /about
+  // through the footer instead, see FooterAboutLink, which is gated the
+  // same way this is.
   const aboutLink = (
-    <Link href="/about" className="nav-link hidden sm:block md:hidden hover:text-primary">
+    <Link href="/about" className="nav-link hidden sm:block hover:text-primary">
       About
     </Link>
   );
 
-  // Depth without a fourth top-level item: at `md` and up the Explore menu
-  // carries About, the three /for/* audience pages (which otherwise had one
-  // route in, a card partway down the homepage) and the page's own sections.
-  // Below `md` the bare About link above stands in, because the header's
-  // horizontal budget genuinely doesn't stretch — see the note on aboutLink.
+  // Depth without more top-level items: at `md` and up the Explore menu
+  // carries the three /for/* audience pages (which otherwise had one route
+  // in, a card partway down the homepage) and the page's own sections.
+  // About is deliberately NOT in it — see the note on aboutLink.
   const exploreMenu = <NavMenu />;
 
   if (!configured) {
     return (
       <>
-        {aboutLink}
         {exploreMenu}
         {pricingLink}
+        {aboutLink}
         {practiceLink}
       </>
     );
@@ -87,9 +91,9 @@ export function AuthNav() {
   if (!user) {
     return (
       <>
-        {aboutLink}
         {exploreMenu}
         {pricingLink}
+        {aboutLink}
         <Link href="/login" className="nav-link hover:text-primary">
           Log in
         </Link>

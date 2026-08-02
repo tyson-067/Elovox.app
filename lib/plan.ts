@@ -57,9 +57,30 @@ export function hasComp(record: PlanRecord | null, now = Date.now()): boolean {
   return typeof record?.premiumUntil === "number" && record.premiumUntil > now;
 }
 
+/** 14-day bound on how long a `past_due` subscription keeps access past its
+ *  period end — the read-time twin of the same bound in lib/stripe.ts
+ *  `isEntitled`. The webhook writes `plan: free` once dunning ends, but if a
+ *  Stripe account is configured to leave a failed card `past_due` indefinitely
+ *  the terminal event may never arrive; this stops a stored "premium" from
+ *  outliving a genuinely dead card even then. */
+export const PAST_DUE_GRACE_MS = 14 * 24 * 60 * 60 * 1000;
+
+/** True when a stored plan says premium via a `past_due` subscription whose
+ *  grace period has already elapsed — i.e. the stored "premium" is stale. */
+export function pastDueLapsed(
+  data: Partial<PlanRecord> | undefined,
+  now = Date.now()
+): boolean {
+  return (
+    data?.status === "past_due" &&
+    typeof data.currentPeriodEnd === "number" &&
+    data.currentPeriodEnd + PAST_DUE_GRACE_MS < now
+  );
+}
+
 /** The entitlement a plan doc implies: paid subscription OR an open comp. */
 function entitlementFrom(data: Partial<PlanRecord> | undefined): Plan {
-  if (data?.plan === "premium") return "premium";
+  if (data?.plan === "premium" && !pastDueLapsed(data)) return "premium";
   return hasComp(data as PlanRecord) ? "premium" : "free";
 }
 

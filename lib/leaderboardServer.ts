@@ -436,6 +436,24 @@ export function foldHandle(handle: string): string {
     .replace(/[\s'._-]/g, "");
 }
 
+/**
+ * A STRICTER fold, used only to test against the reserved list. The i/l/1
+ * family renders nearly identically in most UI fonts, so it all collapses to
+ * one letter here: "FeIix" (capital i), "fel1x" and "felix" are the same name
+ * for the purpose of "you can't pose as the mascot", closing the gap where
+ * toLowerCase turned capital-I into i and the uniqueness fold let it through.
+ *
+ * Deliberately NOT used for uniqueness: collapsing i/l there would make two
+ * ordinary users ("Mia" / "Mla") collide, which is a worse experience than the
+ * brand-impersonation risk it would prevent. Reserved names are few and worth
+ * the aggression; the general handle space is not.
+ */
+function foldReserved(handle: string): string {
+  return foldHandle(handle).replace(/[il1]/g, "i");
+}
+
+const RESERVED_FOLDED = new Set([...RESERVED_HANDLES].map(foldReserved));
+
 export function checkHandle(raw: unknown): HandleCheck {
   if (typeof raw !== "string") return { ok: false, error: "Pick a name." };
   // Collapse runs of whitespace: "A          B" renders as a wide row that
@@ -454,7 +472,7 @@ export function checkHandle(raw: unknown): HandleCheck {
   if (!folded) {
     return { ok: false, error: "Pick a name with some letters in it." };
   }
-  if (RESERVED_HANDLES.has(folded)) {
+  if (RESERVED_FOLDED.has(foldReserved(handle))) {
     return { ok: false, error: "That name is reserved. Pick another." };
   }
   return { ok: true, handle };
