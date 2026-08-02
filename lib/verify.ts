@@ -1,5 +1,6 @@
-import type { NextRequest } from "next/server";
-import { getAdminDb } from "./firebaseAdmin";
+import { NextResponse, type NextRequest } from "next/server";
+import { getAppCheck } from "firebase-admin/app-check";
+import { getAdminApp, getAdminDb } from "./firebaseAdmin";
 
 // Shared abuse protection for the paid-API routes. Every expensive route
 // (transcription, LLM generation) only runs for callers holding a valid
@@ -87,6 +88,84 @@ export async function verifyVerifiedUser(
   const found = await lookupUser(req);
   if (!found) return null;
   return found.emailVerified ? found.uid : "unverified";
+}
+
+// --- Firebase App Check (client attestation) ---------------------------
+// A valid ID token proves WHO is calling; it does not prove the call came
+// from our real web client. A script holding a signed-in user's token can hit
+// the paid routes straight from curl, skipping the reCAPTCHA attestation every
+// real browser performs, and spend our AssemblyAI/Gemini budget up to the
+// per-day quota. App Check closes that: the client attaches a short-lived
+// attestation JWT (X-Firebase-AppCheck; see lib/appCheck.ts + lib/analyze.ts)
+// and we verify it here, before the paid work, with the Admin SDK.
+//
+// App Check is ALREADY enforced on Firestore (README "3. App Check"), so live
+// clients are already minting these tokens. This extends the same attestation
+// to the API routes, which firestore.rules never covered.
+//
+// ROLLOUT — soft-fail by default. A missing/invalid token is LOGGED, not
+// rejected, until APPCHECK_ENFORCE=true. This mirrors the ship-key-then-
+// enforce order the README documents for Firestore, and it matters even more
+// here: the X-Firebase-AppCheck header is NEW, so a browser still running a
+// bundle from before that client change attests to Firestore yet sends no
+// header. Enforcing before those bundles drain would 403 real, paying users
+// mid-practice. Watch the soft-fail logs fall to ~zero, THEN flip the flag.
+const APPCHECK_ENFORCE = process.env.APPCHECK_ENFORCE === "true";
+
+type AppCheckVerdict = "valid" | "missing" | "invalid" | "unconfigured";
+
+async function verifyAppCheck(req: NextRequest): Promise<AppCheckVerdict> {
+  // No Admin app (local dev, or a deploy with no service account) means there
+  // is nothing to verify the token against. Skip rather than reject:
+  // production always has the service account (the durable quota meters need
+  // it), so this only short-circuits environments that aren't spending real
+  // money anyway — the same posture as isPremiumServer below.
+  const app = getAdminApp();
+  if (!app) return "unconfigured";
+  const token = req.headers.get("x-firebase-appcheck");
+  if (!token) return "missing";
+  try {
+    await getAppCheck(app).verifyToken(token);
+    return "valid";
+  } catch {
+    // Expired, malformed, minted for another project, or forged. Under
+    // soft-fail the caller logs this; once enforcing, it becomes a 403.
+    return "invalid";
+  }
+}
+
+/**
+ * Gate a paid route on App Check attestation. Returns a 403 `NextResponse` to
+ * hand back when the request should be rejected, or null to proceed.
+ *
+ * SOFT-FAIL (the default, APPCHECK_ENFORCE unset): never returns a response —
+ * an unattested request is logged and allowed through, so a bad rollout can't
+ * lock out real users. Flip APPCHECK_ENFORCE=true only after the soft-fail
+ * logs show real traffic is attesting. See the rollout note above.
+ */
+export async function enforceAppCheck(
+  req: NextRequest,
+  route: string
+): Promise<NextResponse | null> {
+  const verdict = await verifyAppCheck(req);
+  if (verdict === "valid" || verdict === "unconfigured") return null;
+
+  // verdict is "missing" or "invalid": a request that did not attest.
+  if (!APPCHECK_ENFORCE) {
+    console.warn(
+      `[app-check] unattested ${route}: ${verdict} (soft-fail, not enforced)`
+    );
+    return null;
+  }
+  console.warn(`[app-check] rejected ${route}: ${verdict}`);
+  return NextResponse.json(
+    {
+      error: "app-check-failed",
+      message:
+        "Couldn't verify this request came from the Elovox app. Reload the page and try again.",
+    },
+    { status: 403 }
+  );
 }
 
 /**

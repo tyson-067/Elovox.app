@@ -1,5 +1,6 @@
 import type { Analysis, CategoryId } from "./types";
 import { isFirebaseConfigured, getUser } from "./firebase";
+import { getAppCheckToken } from "./appCheck";
 
 // Sends the recording to /api/analyze (AssemblyAI transcription + Gemini
 // coaching feedback, running server-side so API keys never reach the
@@ -71,7 +72,21 @@ export async function analyzeRecording(opts: {
   const headers: Record<string, string> = {};
   if (isFirebaseConfigured()) {
     const user = await getUser();
-    if (user) headers.Authorization = `Bearer ${await user.getIdToken()}`;
+    if (user) {
+      // The ID token proves who; the App Check token proves the request came
+      // from our real client. Fetched together to keep attestation off the
+      // critical path — getUser() has already run startAppCheck via ensureApp,
+      // so the token is normally warm. getAppCheckToken() is null when App
+      // Check isn't configured or reCAPTCHA hiccups, and the server soft-fails
+      // a missing one during rollout, so a stale attestation never blocks a
+      // real recording.
+      const [idToken, appCheckToken] = await Promise.all([
+        user.getIdToken(),
+        getAppCheckToken(),
+      ]);
+      headers.Authorization = `Bearer ${idToken}`;
+      if (appCheckToken) headers["X-Firebase-AppCheck"] = appCheckToken;
+    }
   }
 
   let res: Response;

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateJson, geminiKey } from "@/lib/gemini";
-import { verifyVerifiedUser, makeRateLimiter, isPremiumServer } from "@/lib/verify";
+import {
+  verifyVerifiedUser,
+  makeRateLimiter,
+  isPremiumServer,
+  enforceAppCheck,
+} from "@/lib/verify";
 import { sanitizeText } from "@/lib/validation";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { usageDateKey, reserveMeteredUse } from "@/lib/quota";
@@ -133,6 +138,13 @@ export async function POST(req: NextRequest) {
   if (rateLimited(uid)) {
     return NextResponse.json({ error: "rate limited" }, { status: 429 });
   }
+
+  // Same App Check attestation gate as /api/analyze: a valid ID token alone
+  // must not let a script drive paid Gemini speech-writing from curl.
+  // Soft-fails (logs, never rejects) until APPCHECK_ENFORCE=true; see
+  // lib/verify.ts.
+  const appCheckReject = await enforceAppCheck(req, "speech");
+  if (appCheckReject) return appCheckReject;
 
   // Both /library (regenerate) and /custom are Premium features, and both
   // gate on usePlan(), in the browser, which protects nobody. An ordinary

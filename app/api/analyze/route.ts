@@ -3,7 +3,12 @@ import type { Analysis, CategoryId, StageAnalysis } from "@/lib/types";
 import { getCategory } from "@/lib/categories";
 import { generateSampleAnalysis } from "@/lib/sample";
 import { generateJson } from "@/lib/gemini";
-import { verifyVerifiedUser, makeRateLimiter, isPremiumServer } from "@/lib/verify";
+import {
+  verifyVerifiedUser,
+  makeRateLimiter,
+  isPremiumServer,
+  enforceAppCheck,
+} from "@/lib/verify";
 import { sanitizeText } from "@/lib/validation";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { awardXp } from "@/lib/leaderboardServer";
@@ -773,6 +778,13 @@ export async function POST(req: NextRequest) {
   if (rateLimited(uid)) {
     return NextResponse.json({ error: "rate limited" }, { status: 429 });
   }
+
+  // Attest the request came from our real web client, not a script wielding a
+  // signed-in user's ID token. Placed before formData() so an enforced reject
+  // costs nothing — no 25MB body buffered. Soft-fails (logs, never rejects)
+  // until APPCHECK_ENFORCE=true; see lib/verify.ts.
+  const appCheckReject = await enforceAppCheck(req, "analyze");
+  if (appCheckReject) return appCheckReject;
 
   // A body that isn't multipart form data makes `formData()` THROW, which
   // uncaught becomes a bare 500 with an empty body. Not exploitable (auth,

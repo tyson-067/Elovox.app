@@ -1,6 +1,7 @@
 "use client";
 
 import { isFirebaseConfigured, getUser, getAuthInstance } from "./firebase";
+import { getAppCheckToken } from "./appCheck";
 
 // Speeches Felix writes on demand (Premium): replacements for a library
 // speech you've outgrown, and fully custom ones written to a brief.
@@ -41,7 +42,19 @@ async function authHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (isFirebaseConfigured()) {
     const user = await getUser();
-    if (user) headers.Authorization = `Bearer ${await user.getIdToken()}`;
+    if (user) {
+      // ID token = who; App Check token = proof this came from our real
+      // client, so a script can't drive paid Gemini calls with just a token.
+      // Both fetched together; the App Check header is omitted when a token
+      // can't be minted, and the server soft-fails a missing one. See
+      // getAppCheckToken in lib/appCheck.ts.
+      const [idToken, appCheckToken] = await Promise.all([
+        user.getIdToken(),
+        getAppCheckToken(),
+      ]);
+      headers.Authorization = `Bearer ${idToken}`;
+      if (appCheckToken) headers["X-Firebase-AppCheck"] = appCheckToken;
+    }
   }
   return headers;
 }
