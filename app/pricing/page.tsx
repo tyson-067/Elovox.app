@@ -339,10 +339,6 @@ export default function PricingPage() {
               <span className="font-data text-sm text-white/70">
                 / {plan.unit}
               </span>
-              {/* Stripe Tax is enabled on the account, so the card is charged
-                  the price plus sales tax for the customer's address. The
-                  exact amount varies by location and is shown at checkout. */}
-              <span className="font-data text-sm text-white/60">+ tax</span>
             </p>
 
             {/* The apples-to-apples per-week rate, plus the saving that makes
@@ -445,12 +441,12 @@ export default function PricingPage() {
                 <>Switch plans or cancel any time, no email, no phone call.</>
               ) : trialOn ? (
                 <>
-                  Then {formatUSD(plan.price)}/{plan.unit} + tax. Cancel before
+                  Then {formatUSD(plan.price)}/{plan.unit}. Cancel before
                   day {plan.trialDays} and pay nothing.
                 </>
               ) : (
                 <>
-                  {formatUSD(plan.price)} + tax charged today, then every{" "}
+                  {formatUSD(plan.price)} charged today, then every{" "}
                   {plan.unit}. Cancel anytime.
                 </>
               )}
@@ -514,7 +510,7 @@ export default function PricingPage() {
                     {formatUSD(p.price)}
                     <span className="font-data text-sm font-normal text-on-surface-variant">
                       {" "}
-                      / {p.unit} + tax
+                      / {p.unit}
                     </span>
                   </p>
                   <p className="mt-1 text-sm text-on-surface-variant">

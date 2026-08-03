@@ -79,8 +79,8 @@ export default function RefundsPage() {
             ))}
           />
           <p>
-            Prices are shown before tax; any sales tax is added at checkout based
-            on your location. The current numbers always live on the{" "}
+            Prices are shown in US dollars. The current numbers always live on
+            the{" "}
             <Link href="/pricing" className="text-accent-strong hover:underline">
               pricing page
             </Link>
