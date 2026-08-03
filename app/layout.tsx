@@ -140,7 +140,13 @@ export default function RootLayout({
               "d.setAttribute('data-native','1');" +
               "if(!d.getAttribute('data-theme')){" +
               "var t=null;try{t=localStorage.getItem('elovox.theme')}catch(e){}" +
-              "if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}" +
+              // The booth is dark. Not the phone's preference — the app's own
+              // identity: the practice stage is already Oxford-dark, so a
+              // light default flash-cut into darkness at the exact moment of
+              // performance, and the website (which stays daylight, and has
+              // no dark mode at all) is one Account toggle away. A saved
+              // choice always wins.
+              "if(t!=='light'&&t!=='dark'){t='dark'}" +
               "d.setAttribute('data-theme',t)}};" +
               "if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){" +
               "stampNative();" +

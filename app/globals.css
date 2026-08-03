@@ -1100,10 +1100,17 @@ html[data-native] .native-hide {
 html[data-native][data-theme="dark"] {
   color-scheme: dark;
 
-  --color-surface: #0d0a20; /* Booth: the ground */
-  --color-surface-lowest: #171331; /* Panel: cards */
-  --color-surface-container: #241d47; /* Rail: wells and tracks */
-  --color-surface-warm: #1d1636;
+  /* The booth scale, deepened 2026-08-03: the ground drops nearly to black
+     so the lamp (below) has darkness to fall into, and panels keep a full
+     step of separation. All four are Oxford moved along its own axis. */
+  --color-surface: #080617; /* Booth: the ground */
+  --color-surface-lowest: #141031; /* Panel: cards */
+  --color-surface-container: #221b45; /* Rail: wells and tracks */
+  --color-surface-warm: #191033;
+  /* The light itself — Yellow Shimmer promoted from a background wash to a
+     named role. Every hairline in the dark chrome draws from this, so the
+     whole room has ONE light source. */
+  --color-lamp: #f7e1c6;
   --color-on-surface: #f2f0ff;
   --color-on-surface-variant: #a6a2c8;
   --color-outline-variant: #322b57;
@@ -1121,13 +1128,18 @@ html[data-native][data-theme="dark"] {
 
 html[data-native][data-theme="dark"] body {
   background: var(--color-surface);
-  /* Light falls from the top of the booth and dies out toward the dock. */
-  background-image: linear-gradient(
-    172deg,
-    #16112f 0%,
-    var(--color-surface) 45%,
-    #0a0819 100%
-  );
+  /* The lamp: one warm pool falling from above the screen, over the cool
+     falloff toward the dock. This is the room's single light source — the
+     hairlines on cards, bar and dock are tinted from the same Shimmer so
+     everything reads as lit by this and nothing else. */
+  background-image:
+    radial-gradient(
+      140% 90% at 50% -25%,
+      rgba(247, 225, 198, 0.13) 0%,
+      rgba(247, 225, 198, 0.04) 35%,
+      transparent 62%
+    ),
+    linear-gradient(172deg, #16112f 0%, #0b0829 45%, #080617 100%);
 }
 
 /* The ground the user actually sees.
@@ -1142,12 +1154,14 @@ html[data-native][data-theme="dark"] body {
    is the one that shows, and that one is what remains if the layer is ever
    dropped. */
 html[data-native][data-theme="dark"] body::before {
-  background-image: linear-gradient(
-    172deg,
-    #16112f 0%,
-    var(--color-surface) 45%,
-    #0a0819 100%
-  );
+  background-image:
+    radial-gradient(
+      140% 90% at 50% -25%,
+      rgba(247, 225, 198, 0.13) 0%,
+      rgba(247, 225, 198, 0.04) 35%,
+      transparent 62%
+    ),
+    linear-gradient(172deg, #16112f 0%, #0b0829 45%, #080617 100%);
 }
 
 html[data-native][data-theme="dark"] .card {
@@ -1213,7 +1227,9 @@ html[data-native][data-theme="dark"] .loader-track {
    instead, which is how a real panel catches a ceiling light. */
 html[data-native][data-theme="dark"] .card,
 html[data-native][data-theme="dark"] .card-warm {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  /* Lamp-colored, not white: every top edge in the room catches the same
+     warm light the body gradient casts. One light source. */
+  box-shadow: inset 0 1px 0 rgba(247, 225, 198, 0.08);
 }
 
 /* --- Touch behaviour -------------------------------------------------------
@@ -1766,6 +1782,59 @@ html[data-native] #main .font-data.text-2xl {
   margin-top: 1px;
 }
 
+/* --- The Tape ---------------------------------------------------------------
+   The app's signature element: practice history drawn as sound. Fourteen
+   days, one bar per day, in the exact grammar of the five bars on Felix's
+   chest and the app icon — 6px wide, 3px-radius ends, a shared midline.
+
+   THE BINDING RULE, which is what keeps this a signature and not a theme:
+   voice bars appear only for quantities the user's voice produced (days
+   practiced, and the live waveform on the stage). Never for navigation,
+   buttons, dividers, or decoration. The only static instances of the mark
+   are Felix's chest and the Progress tab icon.
+
+   States: a settled day is chalk at its score's amplitude; a missed day is
+   a Vista-ghost stub on the midline; today, while attempts remain, is
+   Signal orange and breathes on the same 900ms alternate the chest bars use
+   — what is live in this app is orange, and only what is live. */
+.voxline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+}
+.voxline-bar {
+  width: 6px;
+  border-radius: 3px;
+  background: var(--color-primary);
+  height: calc(6px + var(--amp, 0) * 40px);
+}
+.voxline-bar[data-empty] {
+  height: 6px;
+  background: rgba(143, 160, 216, 0.35);
+}
+.voxline-bar[data-live] {
+  background: var(--color-accent);
+  /* scaleY about the default 50% origin, so it breathes around the shared
+     midline exactly as the chest bars do (same keyframe, same clock). The
+     component sets --amp for the live bar too — today's best so far, or a
+     tall default when the day is unscored. */
+  animation: felix-bar 900ms ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .voxline-bar[data-live] {
+    animation: none;
+  }
+}
+
+/* The stage is #0b0829 and the booth ground is #080617 — close enough that
+   the rep's surface vanished into the wall. The lamp hairline lifts it off,
+   the same one edge every other panel in the room catches. Functional
+   separation, not decoration. */
+html[data-native][data-theme="dark"] .practice-stage {
+  box-shadow: inset 0 1px 0 rgba(247, 225, 198, 0.1);
+}
+
 /* The scrolled bar in dark mode. The default tint is --color-surface, which
    in the dark theme is also the page ground — a bar filled with the ground
    it floats over separates nothing, and the content scrolling beneath reads
@@ -1775,7 +1844,7 @@ html[data-native] #main .font-data.text-2xl {
    first thing older hardware turns off. */
 html[data-native][data-theme="dark"] .native-bar-scrolled {
   background: color-mix(in oklab, var(--color-surface-lowest) 94%, transparent);
-  border-bottom-color: rgba(203, 216, 255, 0.09);
+  border-bottom-color: rgba(247, 225, 198, 0.08);
 }
 
 /* Same reasoning for the dock: its tint is --color-surface, which in dark
@@ -1783,7 +1852,7 @@ html[data-native][data-theme="dark"] .native-bar-scrolled {
    The panel tone separates it; the hairline gets the dark theme's chalk. */
 html[data-native][data-theme="dark"] .native-dock {
   background: color-mix(in oklab, var(--color-surface-lowest) 96%, transparent);
-  border-top-color: rgba(203, 216, 255, 0.09);
+  border-top-color: rgba(247, 225, 198, 0.08);
 }
 
 /* The practice brief's topic line. 26px display type above three bullets and

@@ -7,11 +7,13 @@ import { type FelixAccessory } from "@/components/FoxLogo";
 import { currentOutfit, felixLine, moodFor } from "@/lib/quests";
 import {
   MAX_DAILY_ATTEMPTS,
+  todayKey,
   type ChallengeState,
   type DailyChallenge,
   type UserStats,
 } from "@/lib/daily";
 import type { ShopState } from "@/lib/shop";
+import type { Session } from "@/lib/types";
 
 /**
  * Today's above-the-fold, rebuilt at app scale.
@@ -27,16 +29,53 @@ import type { ShopState } from "@/lib/shop";
  * derived from the exact props the web hero reads. Renders nothing in a
  * browser; the web keeps its hero, and the dashboard marks it native-hide.
  */
+const TAPE_DAYS = 14;
+
+/** One bar of the Tape: the day's best score as amplitude. */
+interface TapeDay {
+  key: string;
+  /** Best overall score that day, 0-100, or null if nothing was recorded. */
+  best: number | null;
+  isToday: boolean;
+}
+
+function tapeDays(sessions: Session[]): TapeDay[] {
+  // Bucket by LOCAL day key, newest day rightmost — the same day arithmetic
+  // the quests use (todayKey on the session's own clock time).
+  const best = new Map<string, number>();
+  for (const s of sessions) {
+    const key = todayKey(new Date(s.createdAt));
+    const score = s.analysis?.overall;
+    if (typeof score !== "number") continue;
+    const prev = best.get(key);
+    if (prev === undefined || score > prev) best.set(key, score);
+  }
+
+  const days: TapeDay[] = [];
+  const now = new Date();
+  for (let i = TAPE_DAYS - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    const key = todayKey(d);
+    days.push({ key, best: best.get(key) ?? null, isToday: i === 0 });
+  }
+  return days;
+}
+
 export function NativeToday({
   stats,
   daily,
   challenge,
   shop,
+  sessions,
+  sessionsFailed,
 }: {
   stats: UserStats | null;
   daily: DailyChallenge | null;
   challenge: ChallengeState | null;
   shop: ShopState | null;
+  sessions: Session[];
+  /** History could not be read — show no Tape rather than a fake flatline. */
+  sessionsFailed: boolean;
 }) {
   const native = useIsNative();
   if (!native) return null;
@@ -103,38 +142,54 @@ export function NativeToday({
         )}
       </section>
 
-      {/* The day, in numbers: streak and today's attempts as stat tiles, the
-          register Fitness uses. Two, not a dashboard. */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="card p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-on-surface-variant">
-            Streak
-          </p>
-          <p className="mt-1 font-data text-[28px] leading-none text-on-surface">
-            {streak}
-            <span className="ml-1.5 text-[15px]" aria-hidden="true">
-              {streak > 0 ? "🔥" : "·"}
-            </span>
-          </p>
-          <p className="mt-1 text-[12px] text-on-surface-variant">
-            {streak === 1 ? "day" : "days"} in a row
-          </p>
-        </div>
-        <div className="card p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-on-surface-variant">
-            Today
-          </p>
-          <p className="mt-1 font-data text-[28px] leading-none text-on-surface">
-            {done && challenge?.bestScore != null ? challenge.bestScore : used}
-            <span className="ml-1 text-[15px] text-on-surface-variant">
-              {done && challenge?.bestScore != null ? "/100" : `/${MAX_DAILY_ATTEMPTS}`}
-            </span>
-          </p>
-          <p className="mt-1 text-[12px] text-on-surface-variant">
-            {done ? "best score today" : "attempts used"}
-          </p>
-        </div>
-      </div>
+      {/* THE TAPE: the last fourteen days as a waveform strip — the app's
+          signature element, in the exact bar grammar of Felix's chest and
+          the app icon. Chalk bars are settled days at their score's
+          amplitude, ghost stubs are missed days, and today breathes orange
+          while attempts remain. Nothing renders when history couldn't be
+          read: a fake flatline would say "you did nothing", which is worse
+          than saying nothing. */}
+      {!sessionsFailed && (
+        (() => {
+          const days = tapeDays(sessions);
+          const practiced = days.filter((d) => d.best !== null).length;
+          return (
+            <section
+              className="card p-4"
+              aria-label={`Last ${TAPE_DAYS} days: ${practiced} practiced, ${streak}-day streak`}
+            >
+              <div className="voxline" aria-hidden="true">
+                {days.map((d) => {
+                  const live = d.isToday && !done;
+                  const amp =
+                    d.best !== null ? d.best / 100 : live ? 0.85 : 0;
+                  return (
+                    <span
+                      key={d.key}
+                      className="voxline-bar"
+                      data-empty={d.best === null && !live ? "" : undefined}
+                      data-live={live ? "" : undefined}
+                      style={{ "--amp": amp } as React.CSSProperties}
+                    />
+                  );
+                })}
+              </div>
+              <div className="mt-2 flex items-baseline justify-between text-[11px]">
+                <span className="font-data text-on-surface-variant">
+                  {TAPE_DAYS}D
+                </span>
+                <span className="font-semibold text-on-surface-variant">
+                  {streak > 0
+                    ? `${streak}-day streak`
+                    : practiced > 0
+                      ? `${practiced} of ${TAPE_DAYS} days`
+                      : "your first rep starts the tape"}
+                </span>
+              </div>
+            </section>
+          );
+        })()
+      )}
 
       {/* The Daily Minute. The one thing to do today, so it gets the dark
           brand surface and the screen's only full-width call to action. */}

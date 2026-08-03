@@ -43,11 +43,24 @@ function TodayIcon() {
 }
 
 function ProgressIcon() {
+  // The five-bar voice mark, from Felix's chest and the app icon — the one
+  // sanctioned static use of the Tape's grammar in the chrome (the binding
+  // rule lives with .voxline in globals.css). Filled, not stroked: at 2.5px
+  // wide a stroke outline would just read as noise.
   return (
-    <svg {...iconProps}>
-      <path d="M4 19.5V4.5" />
-      <path d="M4 19.5h16" />
-      <path d="m7.5 15 3.5-4 3 2.5L20 7" />
+    <svg
+      width={22}
+      height={22}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      stroke="none"
+      aria-hidden
+    >
+      <rect x="2.75" y="8.5" width="2.5" height="7" rx="1.25" />
+      <rect x="7.25" y="5.5" width="2.5" height="13" rx="1.25" />
+      <rect x="11.75" y="2.5" width="2.5" height="19" rx="1.25" />
+      <rect x="16.25" y="5.5" width="2.5" height="13" rx="1.25" />
+      <rect x="20.75" y="8.5" width="2.5" height="7" rx="1.25" />
     </svg>
   );
 }

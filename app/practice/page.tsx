@@ -1270,7 +1270,7 @@ function RecordingScreen() {
           {/* The stage: camera feed when on, waveform when off. Either way it's
               the dominant element on the screen. */}
           <div
-            className="stagger-in w-full bg-oxford rounded-xl h-[34vh] min-h-[220px] relative overflow-hidden"
+            className="practice-stage stagger-in w-full bg-oxford rounded-xl h-[34vh] min-h-[220px] relative overflow-hidden"
             style={{ animationDelay: "150ms" }}
           >
             <video

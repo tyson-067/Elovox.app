@@ -579,7 +579,14 @@ function TodayScreen() {
       {/* The app-scale Today. Everything it shows is derived from the same
           state the web hero below reads; the web pieces it replaces carry
           native-hide. Renders nothing in a browser. */}
-      <NativeToday stats={stats} daily={daily} challenge={challenge} shop={shop} />
+      <NativeToday
+        stats={stats}
+        daily={daily}
+        challenge={challenge}
+        shop={shop}
+        sessions={sessions}
+        sessionsFailed={sessionsFailed}
+      />
 
       {reward?.granted && (
         <Reveal className="mt-8">

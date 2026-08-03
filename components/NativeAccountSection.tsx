@@ -30,19 +30,21 @@ function ThemeSwatch({ theme }: { theme: Theme }) {
       aria-hidden="true"
       className="block h-16 w-full overflow-hidden rounded-lg border"
       style={{
-        background: dark ? "#0d0a20" : "#f4f7fc",
-        borderColor: dark ? "rgba(203,216,255,0.16)" : "rgba(0,78,137,0.14)",
+        // The booth swatch previews the real room: near-black ground, panel
+        // card, and the lamp-warm title strip the large title stands in.
+        background: dark ? "#080617" : "#f4f7fc",
+        borderColor: dark ? "rgba(247,225,198,0.14)" : "rgba(0,78,137,0.14)",
       }}
     >
       <span
         className="mt-2.5 ml-2.5 block h-1.5 w-10 rounded-full"
-        style={{ background: dark ? "#cbd8ff" : "#004e89" }}
+        style={{ background: dark ? "#f7e1c6" : "#004e89" }}
       />
       <span
         className="mt-2 ml-2.5 block h-6 w-[70%] rounded-md"
         style={{
-          background: dark ? "#171331" : "#ffffff",
-          border: `1px solid ${dark ? "rgba(203,216,255,0.12)" : "rgba(0,78,137,0.13)"}`,
+          background: dark ? "#141031" : "#ffffff",
+          border: `1px solid ${dark ? "rgba(247,225,198,0.10)" : "rgba(0,78,137,0.13)"}`,
         }}
       />
       <span
@@ -85,11 +87,13 @@ function AppearanceCard() {
         Appearance
       </h2>
       <p className="mt-1 text-sm text-on-surface-variant">
-        Dark is easier on the eyes when you practice at night.
+        The booth is dark. Daylight if you&rsquo;d rather.
       </p>
+      {/* Booth first: it is the app's own look; Daylight is the website's,
+          kept one tap away. */}
       <div className="mt-4 flex gap-3">
-        {option("light", "Light")}
-        {option("dark", "Dark")}
+        {option("dark", "Booth")}
+        {option("light", "Daylight")}
       </div>
     </section>
   );
