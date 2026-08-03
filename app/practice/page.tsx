@@ -26,6 +26,7 @@ import {
   type ChallengeState,
 } from "@/lib/daily";
 import { xpForRep } from "@/lib/levels";
+import { syncReminders } from "@/lib/reminders";
 import {
   clearInterviewBank,
   readGeneratedSpeech,
@@ -553,6 +554,11 @@ function RecordingScreen() {
           });
           xpEarned = result.attempt?.xp ?? 0;
           attemptNumber = result.attempt?.attempt;
+          // Today's rep is done, so drop today's reminder — being nudged to
+          // practice an hour after you practised is how a reminder gets
+          // switched off for good. Not awaited: this is housekeeping, and it
+          // must never sit between the user and their score.
+          void syncReminders();
         } else {
           xpEarned = xpForRep(analysis.overall);
           await awardPracticeXp(xpEarned);
@@ -1264,7 +1270,7 @@ function RecordingScreen() {
           {/* The stage: camera feed when on, waveform when off. Either way it's
               the dominant element on the screen. */}
           <div
-            className="stagger-in w-full bg-oxford rounded-xl h-[34vh] min-h-[220px] relative overflow-hidden"
+            className="practice-stage stagger-in w-full bg-oxford rounded-xl h-[34vh] min-h-[220px] relative overflow-hidden"
             style={{ animationDelay: "150ms" }}
           >
             <video

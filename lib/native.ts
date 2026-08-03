@@ -30,14 +30,27 @@ export function isNativeApp(): boolean {
  * later, on top of a page that was already dark) but is NOT fine for hiding a
  * price. Anything Apple must never see stays on the `.web-only` CSS path,
  * which is settled before first paint.
+ *
+ * Subscribes to attribute changes rather than assuming the stamp is
+ * permanent. In the shipped app it is — stamped pre-paint, never touched —
+ * so the observer never fires and costs nothing. In dev it is not: a
+ * hydration recovery (React discarding the server DOM and client-rendering,
+ * which the `?demo=1` preview mode provokes) rebuilds <html>'s attributes
+ * and wipes the stamp, after which the dev script re-asserts it. A
+ * subscription that never listens would leave every consumer holding
+ * `false` forever after that wipe.
  */
 export function useIsNative(): boolean {
-  return useSyncExternalStore(subscribeNever, isNativeApp, () => false);
+  return useSyncExternalStore(subscribeToNative, isNativeApp, () => false);
 }
 
-/** `data-native` is stamped once, before paint, and never changes after. */
-function subscribeNever(): () => void {
-  return () => {};
+function subscribeToNative(onChange: () => void): () => void {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-native"],
+  });
+  return () => observer.disconnect();
 }
 
 export type Theme = "light" | "dark";

@@ -187,18 +187,24 @@ body::before {
   box-shadow: 0 3px 10px rgba(0, 78, 137, 0.16);
 }
 
-/* Scroll-reveal: elements fade + rise as they enter the viewport
-   (driven by components/Reveal.tsx). */
+/* Scroll-reveal: elements settle out of a blur as they enter the viewport
+   (driven by components/Reveal.tsx). The blur is what makes the arrival
+   read as focus rather than transport — the eye reads "becoming clear"
+   as smoother than "moving in", at the same duration. Distance drops to
+   18px accordingly: the blur is doing the work the extra travel used to. */
 .reveal {
   opacity: 0;
-  transform: translateY(28px);
+  transform: translateY(18px);
+  filter: blur(12px);
   transition:
-    opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 750ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 750ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 750ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .reveal-visible {
   opacity: 1;
   transform: none;
+  filter: blur(0);
 }
 
 /* No scripting, no reveal — so show everything. `.reveal` ships in the server
@@ -277,13 +283,22 @@ body::before {
   opacity: 0;
 }
 .wr-visible .wr-word > span {
-  animation: word-in 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* The bezier overshoots (y1 > 1), so each word sails a touch past its
+     place and settles back — the spring is in the curve, not in extra
+     keyframes. Custom props (--wx/--wy/--wr) are stamped per word by
+     WordReveal.tsx: every word arrives from its own direction with its own
+     tilt, on its own moment. Chaos into order, deterministically. */
+  animation: word-in 820ms cubic-bezier(0.3, 1.36, 0.32, 1) both;
 }
 @keyframes word-in {
   from {
     opacity: 0;
-    transform: translateY(0.55em);
-    filter: blur(6px);
+    transform: translate(var(--wx, 0), var(--wy, 0.55em))
+      rotate(var(--wr, 0deg));
+    filter: blur(10px);
+  }
+  55% {
+    opacity: 1;
   }
   to {
     opacity: 1;
@@ -326,18 +341,29 @@ body::before {
   to { background-position: 100% 50%; }
 }
 
-/* Ambient orbs: the parallax circles also drift on their own so the
-   page breathes even when the user isn't scrolling. */
+/* Ambient orbs: the parallax circles also drift on their own so the page
+   breathes even when the user isn't scrolling. Two DIFFERENT paths at
+   prime-ish durations (17s / 23s): the pair never phase-locks, so the
+   background never visibly repeats — ambient, not looping. Travel is wide
+   enough to register in peripheral vision and slow enough to never read as
+   an animation you're meant to watch. */
 .orb-float {
-  animation: orb-drift 14s ease-in-out infinite alternate;
+  animation: orb-drift 17s ease-in-out infinite alternate;
 }
 .orb-float-slow {
-  animation: orb-drift 20s ease-in-out infinite alternate-reverse;
+  animation: orb-drift-b 23s ease-in-out infinite alternate-reverse;
 }
 @keyframes orb-drift {
   from { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(14px, -18px, 0) scale(1.06); }
-  to { transform: translate3d(-10px, 12px, 0) scale(0.97); }
+  33% { transform: translate3d(26px, -30px, 0) scale(1.08); }
+  66% { transform: translate3d(-14px, -8px, 0) scale(1.02); }
+  to { transform: translate3d(-22px, 20px, 0) scale(0.95); }
+}
+@keyframes orb-drift-b {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  40% { transform: translate3d(-30px, 16px, 0) scale(1.05); }
+  70% { transform: translate3d(10px, 30px, 0) scale(0.96); }
+  to { transform: translate3d(24px, -14px, 0) scale(1.03); }
 }
 
 /* Fine dot grid behind the hero — barely-there texture that keeps the
@@ -705,7 +731,14 @@ body::before {
   .reveal {
     opacity: 1;
     transform: none;
+    filter: none;
     transition: none;
+  }
+  /* The ambient drift is exactly the class of motion this preference asks
+     to remove: untriggered, continuous, peripheral. */
+  .orb-float,
+  .orb-float-slow {
+    animation: none;
   }
   /* Restated at the swipe variant's own specificity: the plain .reveal rule
      above would lose to .reveal-swipe[data-dir="up"] and leave content
@@ -1100,10 +1133,17 @@ html[data-native] .native-hide {
 html[data-native][data-theme="dark"] {
   color-scheme: dark;
 
-  --color-surface: #0d0a20; /* Booth: the ground */
-  --color-surface-lowest: #171331; /* Panel: cards */
-  --color-surface-container: #241d47; /* Rail: wells and tracks */
-  --color-surface-warm: #1d1636;
+  /* The booth scale, deepened 2026-08-03: the ground drops nearly to black
+     so the lamp (below) has darkness to fall into, and panels keep a full
+     step of separation. All four are Oxford moved along its own axis. */
+  --color-surface: #080617; /* Booth: the ground */
+  --color-surface-lowest: #141031; /* Panel: cards */
+  --color-surface-container: #221b45; /* Rail: wells and tracks */
+  --color-surface-warm: #191033;
+  /* The light itself — Yellow Shimmer promoted from a background wash to a
+     named role. Every hairline in the dark chrome draws from this, so the
+     whole room has ONE light source. */
+  --color-lamp: #f7e1c6;
   --color-on-surface: #f2f0ff;
   --color-on-surface-variant: #a6a2c8;
   --color-outline-variant: #322b57;
@@ -1121,13 +1161,40 @@ html[data-native][data-theme="dark"] {
 
 html[data-native][data-theme="dark"] body {
   background: var(--color-surface);
-  /* Light falls from the top of the booth and dies out toward the dock. */
-  background-image: linear-gradient(
-    172deg,
-    #16112f 0%,
-    var(--color-surface) 45%,
-    #0a0819 100%
-  );
+  /* The lamp: one warm pool falling from above the screen, over the cool
+     falloff toward the dock. This is the room's single light source — the
+     hairlines on cards, bar and dock are tinted from the same Shimmer so
+     everything reads as lit by this and nothing else. */
+  background-image:
+    radial-gradient(
+      140% 90% at 50% -25%,
+      rgba(247, 225, 198, 0.13) 0%,
+      rgba(247, 225, 198, 0.04) 35%,
+      transparent 62%
+    ),
+    linear-gradient(172deg, #16112f 0%, #0b0829 45%, #080617 100%);
+}
+
+/* The ground the user actually sees.
+   `body::before` is a fixed, full-viewport layer, so it covers `body`'s own
+   background completely — restyling `body` above and stopping there left the
+   light wash painting over every dark screen. Worse than untouched: that
+   gradient interpolates through `var(--color-surface)`, which IS themed, so
+   dark mode turned it into a light → dark → light band with unreadable body
+   copy in the pale stretches.
+
+   Same three stops as the rule above, because these two have to agree — this
+   is the one that shows, and that one is what remains if the layer is ever
+   dropped. */
+html[data-native][data-theme="dark"] body::before {
+  background-image:
+    radial-gradient(
+      140% 90% at 50% -25%,
+      rgba(247, 225, 198, 0.13) 0%,
+      rgba(247, 225, 198, 0.04) 35%,
+      transparent 62%
+    ),
+    linear-gradient(172deg, #16112f 0%, #0b0829 45%, #080617 100%);
 }
 
 html[data-native][data-theme="dark"] .card {
@@ -1193,7 +1260,9 @@ html[data-native][data-theme="dark"] .loader-track {
    instead, which is how a real panel catches a ceiling light. */
 html[data-native][data-theme="dark"] .card,
 html[data-native][data-theme="dark"] .card-warm {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  /* Lamp-colored, not white: every top edge in the room catches the same
+     warm light the body gradient casts. One light source. */
+  box-shadow: inset 0 1px 0 rgba(247, 225, 198, 0.08);
 }
 
 /* --- Touch behaviour -------------------------------------------------------
@@ -1210,19 +1279,26 @@ html[data-native] body {
   background-attachment: scroll;
 }
 
-/* Chrome is furniture, not a document — long-pressing a tab label should not
-   raise a text-selection loupe. Body copy stays selectable on purpose, since
-   people do copy their transcripts and Felix's notes. */
-html[data-native] nav,
-html[data-native] button,
-html[data-native] a,
-html[data-native] label,
-html[data-native] h1,
-html[data-native] h2,
-html[data-native] h3 {
+/* Selection is opt-in, not opt-out. The old rule switched it off for chrome
+   and left body copy selectable "since people copy their transcripts" — and
+   on the device that read as: a scroll whose finger landed on any paragraph
+   grabbed the selection loupe instead, painted half the screen blue, raised
+   the Copy/Look Up bar, and then fought every gesture after it. iOS apps
+   select almost nothing; the places people genuinely copy from re-enable it
+   with `.native-selectable` (the report transcript), and form fields keep
+   their native behaviour below. */
+html[data-native] body {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
+}
+html[data-native] input,
+html[data-native] textarea,
+html[data-native] [contenteditable],
+html[data-native] .native-selectable,
+html[data-native] .native-selectable * {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* Hover states latch on iOS: tap a card and the lift/glow sticks until you
@@ -1487,4 +1563,344 @@ html[data-native] #main {
   .native-bar {
     transition: none;
   }
+}
+
+/* --- Keyboard --------------------------------------------------------------
+   Keyboard.resize is None, so WebKit does not touch the viewport and these
+   rules are the entire response to the keyboard. NativeRuntime sets
+   `data-keyboard` and `--keyboard-height` on <html>.
+
+   The dock leaves. A tab bar sitting on top of the keyboard is not something
+   iOS does, and it eats the row where the field being typed into usually is. */
+html[data-native][data-keyboard] .native-dock {
+  transform: translate3d(0, calc(100% + env(safe-area-inset-bottom)), 0);
+  pointer-events: none;
+}
+.native-dock {
+  transition: transform 250ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* The dock's reserved space becomes the keyboard's, so a field at the bottom
+   of a form can still be scrolled above the keys. */
+html[data-native][data-keyboard] body {
+  padding-bottom: var(--keyboard-height, 0px);
+}
+
+/* --- Screen transitions ----------------------------------------------------
+   A screen that replaces another with no motion between them is read as a
+   page load, which is the thing this whole layer exists to stop being. This
+   is the enter half only — the outgoing screen is gone before React commits
+   the new one, and animating it out as well needs the View Transitions API
+   (see NativeRuntime's notes).
+
+   Deliberately short and mostly opacity. A long slide would announce itself,
+   and iOS's own push is quicker than people remember: what sells it is that
+   *something* moved, not how far. */
+@keyframes native-screen-in {
+  from {
+    opacity: 0;
+    transform: translate3d(10px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The class is added by NativeRuntime on every navigation, not matched
+   structurally, so that a DOM node React reused across two routes still
+   replays. `both` would leave a reused node stuck at opacity 1 with the
+   animation already finished — which is the state we want anyway, so a
+   forwards fill is all this needs. */
+html[data-native] #main > .native-screen-enter {
+  animation: native-screen-in 260ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+/* The chrome is the fixed reference the content moves against, so it must
+   never be part of the movement. */
+html[data-native] .native-bar,
+html[data-native] .native-dock {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-native] #main > .native-screen-enter {
+    animation: none;
+  }
+  .native-dock {
+    transition: none;
+  }
+}
+
+/* ===========================================================================
+   THE NATIVE LAYOUT LAYER
+   ===========================================================================
+   Everything below is scoped to html[data-native] and exists to make the app
+   read as an iOS app rather than a website in a frame. The brand is kept —
+   same palette, same faces — and the LAYOUT changes: web rhythm (scroll
+   reveals, hover lifts, hero type, roomy cards) becomes app rhythm (content
+   already there, press states, 17px body, tight grouped surfaces).
+
+   The website is untouched by all of it, deliberately: these rules exist
+   precisely because what works in a browser tab reads as a website inside an
+   app shell.
+   --------------------------------------------------------------------------- */
+
+/* --- Motion: content is simply THERE -------------------------------------
+   Scroll-reveal is a website gesture. In an app, arriving on a screen whose
+   cards then fade in one by one reads as loading, not as polish — iOS
+   screens are complete the frame they appear (the screen-enter slide above
+   is the only entrance, and it moves the whole surface as one). These kill
+   the reveal system under the shell; the web keeps all of it. */
+html[data-native] .reveal,
+html[data-native] .reveal-swipe,
+html[data-native] .reveal-zoom,
+html[data-native] .reveal-swipe[data-dir="up"] {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  transition: none;
+}
+html[data-native] .stagger-in > * {
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+html[data-native] .wr .wr-word > span {
+  opacity: 1;
+  transform: none;
+  transition: none;
+  /* The scatter-assemble is animation-driven now, and it blurs — both have
+     to die here too or headlines in the shell arrive scrambled. */
+  animation: none;
+  filter: none;
+}
+/* The ambient orbs and the hero's tilt never render in the shell (the
+   landing page is unreachable there), but the reveal blur upgrade does
+   reach it — and its filter is already forced off by the motion kills
+   above. Stated so nobody re-derives it. */
+
+/* --- Type: the iOS scale ---------------------------------------------------
+   Web display sizes shout on a phone. 17px body is the iOS baseline; page
+   titles step down to 26 because the navigation bar's large title (33px)
+   already owns the top of the hierarchy — a page h1 bigger than the screen
+   title is how two headings end up fighting. */
+html[data-native] body {
+  font-size: 17px;
+}
+html[data-native] .text-title {
+  font-size: 26px;
+  line-height: 1.22;
+  letter-spacing: -0.015em;
+}
+
+/* --- Surfaces --------------------------------------------------------------
+   iOS cards are flatter and rounder than web cards: continuous ~16px
+   corners, fill doing the work instead of borders. The radius token cascades
+   into every .card/.card-warm at once. */
+html[data-native] {
+  --radius-card: 1rem;
+}
+
+/* Web padding steps down one notch. p-6 (24px) is a desktop card's padding;
+   inside a 375pt viewport it reads as emptiness. Scoped to #main so the
+   chrome (bar, dock) keeps its own geometry. */
+html[data-native] #main .p-6 {
+  padding: 18px;
+}
+html[data-native] #main .p-5 {
+  padding: 16px;
+}
+
+/* Section headers inside cards: iOS uses one quiet weight for these, not the
+   web's display sizes. (The uppercase 13px section LABELS above cards are
+   already right and stay as they are.) */
+html[data-native] #main .card h2,
+html[data-native] #main .card-warm h2 {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* --- Buttons: 50pt, full-width, filled -------------------------------------
+   The single biggest "this is a website" tell in the audit: orange buttons
+   sized to their label, sitting mid-column. iOS primary actions run the
+   width of the content and meet the 50pt touch target.
+
+   .pill (the secondary in every pair) gets the same geometry with a quiet
+   fill, so stacked pairs read as iOS button groups. */
+html[data-native] #main .btn,
+html[data-native] #main .pill {
+  display: flex;
+  width: 100%;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  padding: 13px 20px;
+  border-radius: 14px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-align: center;
+}
+html[data-native] #main .pill {
+  background: var(--color-surface-container);
+  border: none;
+  color: var(--color-primary);
+}
+/* Small inline .btn variants (composer "Ask me this", retry-in-stage) keep
+   full width too — a half-width 50pt button looks unfinished, and none of
+   these ever renders beside another control on a phone. */
+
+/* Buttons that sit in a wrapping row on the web (btn + pill pairs) stack. */
+html[data-native] #main .flex-wrap:has(> .btn),
+html[data-native] #main .flex-wrap:has(> .pill) {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* --- Inputs: 50pt cells ----------------------------------------------------
+   Grouped-cell geometry: tall enough to hit, 17px so iOS never zooms the
+   viewport on focus, quiet border, filled from the surface scale. */
+html[data-native] #main input[type="text"],
+html[data-native] #main input[type="email"],
+html[data-native] #main input[type="password"],
+html[data-native] #main input[type="date"],
+html[data-native] #main input[type="time"],
+html[data-native] #main select,
+html[data-native] #main textarea {
+  min-height: 50px;
+  font-size: 17px;
+  border-radius: 12px;
+}
+/* The web's focus glow is a hover-culture affordance; iOS marks focus with
+   the caret and the keyboard. A plain accent border is enough. */
+html[data-native] #main .input-glow:focus {
+  box-shadow: none;
+  border-color: var(--color-accent);
+}
+
+/* --- The record screen -----------------------------------------------------
+   The stage goes edge-to-edge dark and the countdown reads like a timer, not
+   a data readout. The record blob is already center-screen; these make the
+   numbers around it native-sized. */
+html[data-native] #main .record-blob {
+  height: 88px;
+  width: 88px;
+}
+html[data-native] #main .font-data.text-2xl {
+  font-size: 34px;
+  line-height: 1.1;
+}
+
+/* --- Chrome refinements ----------------------------------------------------
+   Large title at the iOS 34pt register, and a date line under it on Today,
+   the way Fitness and News anchor their home screens in the day. */
+.native-title-lg {
+  font-size: 33px;
+  letter-spacing: -0.025em;
+}
+.native-bar-sub {
+  padding: 0 16px 10px;
+  margin-top: -6px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--color-on-surface-variant);
+  transition: opacity 180ms ease;
+}
+.native-bar-scrolled .native-bar-sub {
+  opacity: 0;
+  height: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+}
+
+/* Tab labels at the iOS 10pt register with the 49pt-content dock they sit
+   in; the active tint is already handled above. */
+.native-tab span {
+  margin-top: 1px;
+}
+
+/* --- The Tape ---------------------------------------------------------------
+   The app's signature element: practice history drawn as sound. Fourteen
+   days, one bar per day, in the exact grammar of the five bars on Felix's
+   chest and the app icon — 6px wide, 3px-radius ends, a shared midline.
+
+   THE BINDING RULE, which is what keeps this a signature and not a theme:
+   voice bars appear only for quantities the user's voice produced (days
+   practiced, and the live waveform on the stage). Never for navigation,
+   buttons, dividers, or decoration. The only static instances of the mark
+   are Felix's chest and the Progress tab icon.
+
+   States: a settled day is chalk at its score's amplitude; a missed day is
+   a Vista-ghost stub on the midline; today, while attempts remain, is
+   Signal orange and breathes on the same 900ms alternate the chest bars use
+   — what is live in this app is orange, and only what is live. */
+.voxline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+}
+.voxline-bar {
+  width: 6px;
+  border-radius: 3px;
+  background: var(--color-primary);
+  height: calc(6px + var(--amp, 0) * 40px);
+}
+.voxline-bar[data-empty] {
+  height: 6px;
+  background: rgba(143, 160, 216, 0.35);
+}
+.voxline-bar[data-live] {
+  background: var(--color-accent);
+  /* scaleY about the default 50% origin, so it breathes around the shared
+     midline exactly as the chest bars do (same keyframe, same clock). The
+     component sets --amp for the live bar too — today's best so far, or a
+     tall default when the day is unscored. */
+  animation: felix-bar 900ms ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .voxline-bar[data-live] {
+    animation: none;
+  }
+}
+
+/* The stage is #0b0829 and the booth ground is #080617 — close enough that
+   the rep's surface vanished into the wall. The lamp hairline lifts it off,
+   the same one edge every other panel in the room catches. Functional
+   separation, not decoration. */
+html[data-native][data-theme="dark"] .practice-stage {
+  box-shadow: inset 0 1px 0 rgba(247, 225, 198, 0.1);
+}
+
+/* The scrolled bar in dark mode. The default tint is --color-surface, which
+   in the dark theme is also the page ground — a bar filled with the ground
+   it floats over separates nothing, and the content scrolling beneath reads
+   as colliding with the title. The panel tone is the dark theme's "surface
+   above the ground", which is exactly what a navigation bar is; opacity a
+   notch higher because the blur that softens bleed-through text is the
+   first thing older hardware turns off. */
+html[data-native][data-theme="dark"] .native-bar-scrolled {
+  background: color-mix(in oklab, var(--color-surface-lowest) 94%, transparent);
+  border-bottom-color: rgba(247, 225, 198, 0.08);
+}
+
+/* Same reasoning for the dock: its tint is --color-surface, which in dark
+   mode is the ground itself, so scrolled content stayed legible through it.
+   The panel tone separates it; the hairline gets the dark theme's chalk. */
+html[data-native][data-theme="dark"] .native-dock {
+  background: color-mix(in oklab, var(--color-surface-lowest) 96%, transparent);
+  border-top-color: rgba(247, 225, 198, 0.08);
+}
+
+/* The practice brief's topic line. 26px display type above three bullets and
+   a record button is the web's proportions; 22px keeps it the biggest thing
+   on the screen without it being a poster. (Selector matches the Tailwind
+   arbitrary-value class the page uses.) */
+html[data-native] #main .text-\[26px\] {
+  font-size: 22px;
+  line-height: 1.3;
 }

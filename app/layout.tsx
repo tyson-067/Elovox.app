@@ -8,6 +8,7 @@ import { SubNav } from "@/components/SubNav";
 import { ScrollProgress } from "@/components/ScrollProgress";
 import { Footer } from "@/components/Footer";
 import { NativeShell } from "@/components/NativeShell";
+import { NativeRuntime } from "@/components/NativeRuntime";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
@@ -135,11 +136,30 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html:
               "try{var d=document.documentElement;" +
-              "if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){" +
+              "var stampNative=function(){" +
               "d.setAttribute('data-native','1');" +
+              "if(!d.getAttribute('data-theme')){" +
               "var t=null;try{t=localStorage.getItem('elovox.theme')}catch(e){}" +
-              "if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}" +
-              "d.setAttribute('data-theme',t)}}catch(e){}" +
+              // The booth is dark. Not the phone's preference — the app's own
+              // identity: the practice stage is already Oxford-dark, so a
+              // light default flash-cut into darkness at the exact moment of
+              // performance, and the website (which stays daylight, and has
+              // no dark mode at all) is one Account toggle away. A saved
+              // choice always wins.
+              "if(t!=='light'&&t!=='dark'){t='dark'}" +
+              "d.setAttribute('data-theme',t)}};" +
+              "if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){" +
+              "stampNative();" +
+              // Re-asserted after load because React owns <html> from
+              // hydration on, and a hydration RECOVERY — server DOM
+              // discarded, tree client-rendered — rebuilds the element's
+              // attributes from JSX, which knows nothing of this stamp. That
+              // is not a dev-tool corner case: any prod hydration error would
+              // silently strip the app back to the website chrome. The
+              // attribute is observed (lib/native.ts), so consumers heal.
+              "window.addEventListener('load',function(){" +
+              "setTimeout(stampNative,0);setTimeout(stampNative,350)})" +
+              "}}catch(e){}" +
               // Dev only, and compiled out of production entirely: `?native=1`
               // paints the native UI in a desktop browser so it can be worked
               // on without a rebuild-and-deploy cycle through Xcode. It sticks
@@ -148,10 +168,25 @@ export default function RootLayout({
                 ? ""
                 : "try{var q=location.search.indexOf('native=1')>=0;" +
                   "if(q)sessionStorage.setItem('elovox.devNative','1');" +
+                  // `?demo=1`: pretend Firebase is absent so the localStorage
+                  // fallback renders the signed-in surface without an account.
+                  // Read by isFirebaseConfigured (lib/firebase.ts). Dev only,
+                  // same lifetime and mechanism as the native flag above.
+                  "if(location.search.indexOf('demo=1')>=0)" +
+                  "sessionStorage.setItem('elovox.devDemo','1');" +
                   "if(q||sessionStorage.getItem('elovox.devNative')){" +
-                  "var e2=document.documentElement;e2.setAttribute('data-native','1');" +
+                  "var st=function(){var e2=document.documentElement;" +
+                  "e2.setAttribute('data-native','1');" +
                   "if(!e2.getAttribute('data-theme'))e2.setAttribute('data-theme'," +
-                  "localStorage.getItem('elovox.theme')||'dark')}}catch(e){}"),
+                  "localStorage.getItem('elovox.theme')||'dark')};st();" +
+                  // Re-assert after load: demo mode makes the server render
+                  // "configured" and the client "unconfigured", so React
+                  // discards the server DOM and client-renders, which rebuilds
+                  // <html>'s attributes and wipes the stamp. Dev-only, like
+                  // everything in this block; useIsNative observes the
+                  // attribute, so consumers recover when it returns.
+                  "window.addEventListener('load',function(){setTimeout(st,0);setTimeout(st,300)})" +
+                  "}}catch(e){}"),
           }}
         />
         <a href="#main" className="skip-link">
@@ -206,6 +241,12 @@ export default function RootLayout({
             <ScrollProgress />
           </header>
           <NativeShell />
+          {/* Renders nothing — it owns the native side effects (splash, status
+              bar, keyboard, haptics, edge-swipe back). Its effects reach for
+              #main and the title bar's back button, both of which exist by
+              then: effects run after the whole tree has committed, so source
+              order here is only about reading in the order things happen. */}
+          <NativeRuntime />
           <main id="main" className="flex-1 w-full px-4 md:px-10 xl:px-16 2xl:px-24">
             {children}
           </main>

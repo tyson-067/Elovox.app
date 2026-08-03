@@ -65,13 +65,67 @@ export async function signUpWithEmail(
   if (check.clean.name) {
     await updateProfile(cred.user, { displayName: check.clean.name });
   }
-  // Kick off email verification. Non-fatal: a failure here (e.g. quota) must
-  // not block an otherwise-successful signup.
+  // Kick off email verification. Still non-fatal — the account exists and is
+  // usable, and refusing to complete a signup because one email didn't go out
+  // would be a worse outcome than the missing email.
+  //
+  // But it is no longer SILENT, which it was, and which made "I never got the
+  // verification email" impossible to explain: the throw was discarded
+  // unexamined, so there was no error to read, nothing in the console, and the
+  // user was dropped on a screen telling them to check an inbox nothing had
+  // been sent to. The failure is recorded here and the waiting-room screen
+  // reads it (see components/VerifyEmailScreen.tsx), so the user is told to
+  // press Resend rather than left watching an empty inbox.
   try {
-    await sendEmailVerification(cred.user);
-  } catch {
-    /* verification email can be re-sent later from the dashboard */
+    await sendEmailVerification(cred.user, VERIFY_ACTION);
+    clearVerificationSendFailure();
+  } catch (err) {
+    console.error("[auth] signup verification email failed to send", err);
+    recordVerificationSendFailure(err);
   }
+}
+
+/* --- Did the automatic verification email get out? ------------------------
+   sessionStorage, not a module variable: RequireAuth sends a fresh signup to
+   /verify-email, and that can arrive as a full document load rather than a
+   client-side navigation, which resets module state. Session scope is also
+   the right lifetime — it is a fact about this signup attempt, not about the
+   account. */
+
+const SEND_FAILED_KEY = "elovox.verifyEmailSendFailed";
+
+function recordVerificationSendFailure(err: unknown): void {
+  try {
+    const code = (err as { code?: string })?.code ?? "";
+    sessionStorage.setItem(SEND_FAILED_KEY, code || "unknown");
+  } catch {
+    // Private mode. The screen just won't get the hint.
+  }
+}
+
+function clearVerificationSendFailure(): void {
+  try {
+    sessionStorage.removeItem(SEND_FAILED_KEY);
+  } catch {
+    /* nothing stored, nothing to clear */
+  }
+}
+
+/**
+ * The Firebase error code from a failed automatic verification email, or null
+ * if the last signup's email went out fine (or there wasn't one).
+ */
+export function verificationSendFailure(): string | null {
+  try {
+    return sessionStorage.getItem(SEND_FAILED_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Called once the user has successfully re-sent it by hand. */
+export function clearVerificationSendFailed(): void {
+  clearVerificationSendFailure();
 }
 
 export async function signInWithEmail(
@@ -293,8 +347,21 @@ export async function resendVerificationEmail(): Promise<void> {
   const user = getAuthInstance().currentUser;
   if (!user) throw new Error("You're not signed in.");
   const { sendEmailVerification } = await import("firebase/auth");
-  await sendEmailVerification(user);
+  await sendEmailVerification(user, VERIFY_ACTION);
 }
+
+/**
+ * Where the verification email's link sends people afterwards. Without this,
+ * clicking the link strands the user on the Firebase-hosted action page at
+ * the legacy sonoria-212c1.firebaseapp.com domain (roadmap 7.4) with no way
+ * back into the product — and a bare "continue" URL on our own domain also
+ * gives the message one more signal that it belongs to elovox.app, which is
+ * where deliverability reputation accrues. The domain must stay listed in
+ * Firebase Auth's authorized domains, which it already is.
+ */
+const VERIFY_ACTION = {
+  url: (process.env.NEXT_PUBLIC_APP_URL || "https://elovox.app") + "/verify-email",
+};
 
 /**
  * Refresh the user from Firebase and return their current verified state.
@@ -418,6 +485,20 @@ export function accountErrorMessage(err: unknown): string {
     case "auth/popup-closed-by-user":
     case "auth/cancelled-popup-request":
       return ""; // user backed out of the Google confirmation
+    // App Check failures used to land in `default` and read as "Something went
+    // wrong. Please try again." — advice that cannot work, since retrying
+    // an unattested client fails identically every time. These are the codes
+    // Firebase raises when enforcement is on and this client could not mint a
+    // token; naming them is what makes a report of "it never sends" traceable
+    // to a console setting rather than to the mail.
+    case "auth/firebase-app-check-token-is-invalid":
+    case "auth/app-check-token-invalid":
+    case "auth/unverified-app":
+      return "We couldn't verify this device with our security check. Reload and try again — if it keeps happening, get in touch.";
+    case "auth/quota-exceeded":
+      return "We've hit our email limit for now. Try again in a little while.";
+    case "auth/network-request-failed":
+      return "No connection. Check your network and try again.";
     default:
       return "Something went wrong. Please try again.";
   }

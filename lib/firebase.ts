@@ -17,6 +17,20 @@ const config = {
 };
 
 export function isFirebaseConfigured(): boolean {
+  // Dev-only demo mode: `?demo=1` (stamped into sessionStorage by the inline
+  // script in app/layout.tsx, same mechanism as `?native=1`) makes the client
+  // behave as if Firebase were absent, which sends every feature down its
+  // localStorage fallback. That is the only way to see the signed-in surface
+  // — dashboard, practice, progress, account — without an account, which is
+  // exactly what UI work on the native shell needs. The check is compiled out
+  // of production builds entirely.
+  if (process.env.NODE_ENV !== "production" && typeof window !== "undefined") {
+    try {
+      if (sessionStorage.getItem("elovox.devDemo")) return false;
+    } catch {
+      /* private mode; fall through to the real answer */
+    }
+  }
   return Boolean(config.apiKey && config.projectId && config.appId);
 }
 

@@ -278,6 +278,39 @@ iOS-side wiring, all in Xcode:
 4. Firebase console → Authentication → Settings → Authorized domains: confirm
    `elovox.app` is listed.
 
+### The `[ FirebaseAuthentication ] <RuntimeError: 0x…>` line at every launch
+
+It is benign. Investigated 2026-08-03; do not spend an evening on it twice.
+
+What happens:
+
+1. The plugin's `load()` builds `FirebaseAuthentication`, whose `init`
+   registers `Auth.auth().addIDTokenDidChangeListener`.
+2. Firebase fires that listener immediately on registration, with whatever the
+   current **native** auth state is.
+3. We run `skipNativeAuth: true`, so there is never a native Firebase session —
+   the JS SDK owns it, deliberately (see above). Native `currentUser` is
+   permanently `nil`.
+4. The listener calls `getIdToken`, which guards on `currentUser` and hands
+   back `RuntimeError("No user is signed in.")`.
+5. The plugin logs it with `CAPLog.print("[", tag, "] ", error)`.
+
+It looks alarming only because of step 5. `RuntimeError` is an `NSObject` that
+keeps its text in a *stored property* called `localizedDescription` and never
+overrides `description`, so printing the object yields the class name and a
+pointer and the actual message — "No user is signed in." — is never shown.
+
+Nothing consumes the failing callback: the app calls exactly two plugin
+methods, `signInWithGoogle` and `signOut`, and subscribes to none of its
+events (auth state comes from the JS SDK, via `AuthProvider`). So the line
+fires once per cold launch, forever, signed in or out, and changes nothing.
+
+Verified alongside it, since all three would show up as the same symptom:
+`GoogleService-Info.plist` is in Copy Bundle Resources and ships in the built
+`.app`; its `BUNDLE_ID` matches `app.elovox.ios`; and its `REVERSED_CLIENT_ID`
+matches the URL scheme in `Info.plist`. The native branches in `lib/auth.ts`
+are both real, `signInWithGoogle` **and** `reauthenticate`.
+
 **Also check `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`.** Roadmap item 7.4 says the
 email action URL still points at `sonoria-212c1.firebaseapp.com` and is stuck
 on a Firebase ticket. That does not block native sign-in, but verification and
@@ -368,6 +401,35 @@ timings (2.5s / 11s / 22s) match a real analysis, and whether the
 
 ---
 
+## Legal / App Review posture (audited 2026-08-03)
+
+What Apple's checklist needs, and where Elovox stands:
+
+- **Account deletion in-app** (5.1.1(v)): ✓ — Account → delete, with the
+  mid-subscription refund path already built (lib/refunds.ts).
+- **Privacy policy**: ✓ /privacy is thorough and honest (recordings
+  discarded, retention table, in-app deletion). One wording note for a
+  future copy pass, NOT done autonomously: it says "your browser records
+  audio" — inside the app that reads slightly off; "the app" would cover
+  both. No compliance gap, the mechanics described are identical.
+- **Privacy manifest vs. questionnaire**: the manifest added in
+  ios/App/App/PrivacyInfo.xcprivacy declares email, name, audio, camera
+  frames, typed speech text (all linked, app functionality) and aggregate
+  product interaction (analytics, not linked). Answer the App Store
+  questionnaire identically. "Collected" includes data processed then
+  discarded — transmission counts, retention does not change the answer.
+- **AI-generated content label**: ✓ shipped in the July batch.
+- **No purchase path in the app** (3.1.1): ✓ — .web-only strips CTAs, the
+  native dashboard upsell card is gone entirely, checkout.stripe.com is not
+  in allowNavigation. "Unlocks with Premium" feature labels remain, which is
+  accepted practice; do not add prices or links next to them.
+- **Local notifications**: reminder settings and schedule never leave the
+  device; no policy change required.
+- **Optional hardening, not blocking**: Info.plist carries
+  NSAllowsLocalNetworking so dev builds can reach a local server. It allows
+  cleartext to LOCAL hosts only and ships in release harmlessly, but a
+  release xcconfig could strip it if you ever want the tightest posture.
+
 ## Verification checklist for the first device run
 
 - [ ] App launches to the real elovox.app, not the offline shell
@@ -421,9 +483,214 @@ To work on any of it without Xcode, run the dev server and open
 `http://localhost:3000/dashboard?native=1`. The override is compiled out of
 production builds.
 
+Add `&demo=1` (dev-only, same mechanism) to see the SIGNED-IN surface without
+an account: the client pretends Firebase is absent and every feature runs its
+localStorage fallback. Caveat learned the hard way: in demo mode the server
+still renders "configured", React notices the disagreement on hydration and
+client-renders the tree — the browser recovers; a WKWebView build pointed at
+a demo-flagged URL can land blank. For simulator work, run a server whose env
+is actually blanked instead (`.claude/launch.json` has `elovox-demo` on port
+3001) and point the shell at it: server and client agree, nothing mismatches.
+
+### The 2026-08-03 layout overhaul
+
+The chrome was native but the screens inside it still moved and measured like
+the website — scroll reveals, hover lifts, display headlines, label-width
+orange buttons. All of that is now re-set at app scale under
+`html[data-native]` (see "THE NATIVE LAYOUT LAYER" in globals.css): 17px
+body, 26px page titles under a 33px large title, full-width 50pt buttons,
+50pt input cells, 16px card radius, reveal/stagger entrances off, text
+selection opt-in (`.native-selectable`), panel-toned bar and dock in dark
+mode. Today is a native-only screen (components/NativeToday.tsx) — compact
+Felix identity card, streak/attempts tiles, the Daily Minute as the one
+full-width CTA — and the web hero it replaces carries native-hide.
+
+Verified in the simulator: scroll, bar collapse + blur, pushed-screen back
+chevron, and the edge-swipe back gesture all behave. Two lessons that cost
+real time, recorded so they are only paid once: the pre-paint data-native
+stamp must be re-asserted after load (a hydration recovery rebuilds <html>'s
+attributes and silently de-nativizes the app — the inline script now does
+this, and useIsNative observes the attribute), and the iOS-simulator MCP's
+`swipe` reads as a selection drag in a webview — drive scrolling with
+`touch_path` and ~16ms steps instead.
+
 ### Checks worth repeating on device
 
 - [ ] Launch goes straight to Today (or Log in), never the landing page
 - [ ] The dock clears the home indicator, and the title bar clears the notch
 - [ ] Dark mode survives a cold launch with no flash of light
 - [ ] Tapping a card leaves no stuck hover state behind
+
+---
+
+## The native runtime
+
+Everything above is layout. `components/NativeRuntime.tsx` is the behaviour —
+the parts of "this is an app" that live outside React's tree. It renders
+nothing and is inert in a browser.
+
+- **The splash is held until the app has painted.** The shell is a webview
+  onto a remote site, so hiding it when the webview exists means hiding it
+  onto a blank screen the user then watches load. Config keeps the native 3s
+  timer as a backstop: a splash only JS can dismiss is one bad deploy away
+  from an app frozen behind a picture. `Splash.imageset` is the app's own
+  background gradient, light and dark, so the handoff has nothing to see.
+- **Haptics under every tap**, via one delegated `pointerdown` listener
+  (`lib/haptics.ts`) rather than a call added to hundreds of controls. Dock
+  tabs get the lighter selection detent; everything else gets an impact.
+- **The status bar follows `data-theme`**, and is reasserted on resume.
+- **The keyboard** moves the dock out of the way and nothing else
+  (`Keyboard.resize` is `None`; `data-keyboard` on `<html>` drives the CSS).
+- **Edge-swipe back**, tracking the finger so it can be abandoned halfway.
+  Deliberately not WKWebView's `allowsBackForwardNavigationGestures`, which
+  drives the webview's history and disagrees with Next's router.
+
+Screens fade-and-slide in on navigation. The class is re-armed per navigation
+from the runtime, not matched in CSS: React reuses a DOM node when two routes
+have the same shape, and a reused node keeps its finished animation forever.
+The **outgoing** screen is not animated — a true iOS push needs the View
+Transitions API, which needs React's `<ViewTransition>`, which is not in
+stable React 19.2. That is the one piece of this still missing.
+
+### The app icon, and why it needs replacing before you submit
+
+`ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png` was the
+stock Capacitor logo until 2026-08-03 — i.e. the app on the home screen was
+not branded Elovox at all. It is now the fox, derived from `public/logo.png`.
+
+**That derivation is a stopgap.** `public/logo.png` is not an icon master: it
+is a ~158px *presentation render* of one, with rounded corners baked in, a
+soft drop shadow, and an off-white plate behind it. All three are wrong for an
+app icon, which must be a full-bleed opaque square with square corners — iOS
+applies its own superellipse mask, and a second rounding inside it reads as a
+sticker. So the plate and shadow were flattened to white (keyed on low
+saturation, before resampling, so no grey smeared into the artwork's edges),
+the card was cropped on the *artwork's* centre rather than the plate's (the
+render has the fox ~3% right of centre), and the result was upscaled 6.5x.
+
+It survives that upscale better than it has any right to, because the mark is
+flat colour and smooth curves. But 158px is still the real resolution, and
+1024 is what App Store Connect publishes on the listing page.
+
+**Replace it with a proper export from the original artwork before you
+submit** — 1024x1024, no alpha, square corners. Anything vector-derived will
+be sharper than what is there now.
+
+There is a **dark variant** too — `AppIcon-Dark-1024.png`, tagged
+`luminosity/dark` in Contents.json — so the icon stops being a bright white
+square on a dark home screen. iOS 18+ uses it when Home Screen → Customize is
+set to Dark, or to Auto while the system is dark. (Note for testing: system
+dark mode alone does **not** switch it. That setting is separate, and until it
+is changed even Apple's own icons stay light, which looks exactly like a
+broken dark variant.)
+
+It came from a screen capture as well, so it needed the same corrections plus
+one more: the navy card measured 171x181, and since an app icon is square that
+~5% was capture stretch — left in, it made the dark fox visibly
+longer-snouted than the light one beside it. The white page showing through
+the rounded corners was replaced by compositing over a flat navy field through
+an *eroded* rounded-rect mask. Eroded because the card's outermost ring of
+pixels is part white, and at that scale the ring is ~1% of the icon's width,
+which blows up into a pale keyline around the whole icon. Its fox also sat
+high in the frame, so it is centred on the artwork bbox — the same rule the
+light variant gets.
+
+And a **tinted variant** (`AppIcon-Tinted-1024.png`, `luminosity/tinted`).
+iOS renders that appearance by mapping a greyscale image onto whatever tint
+the user picked — dark values stay dark, bright values take the colour — so
+the only thing that matters is where the artwork's tones land.
+
+Built from the *dark* variant, since that is already a light mark on a dark
+field, which is the shape this appearance wants. A straight desaturation is
+not enough: the orange fox converts to luma 134, a flat mid-grey that comes
+out as a muddy half-strength wash against its own background. The tones are
+remapped through a piecewise-linear curve with measured anchors — the navy
+field 31 → 14, the fox 134 → 188, the cheek and bars 244 → 252. Anchors
+rather than a gamma, because gamma lifts darks hardest and would drag the
+background up along with the fox; anchors move the two independently.
+
+The field goes to 14 rather than 0 on purpose: a pure-black plate reads as a
+hole next to Apple's own tinted icons, which keep some life in the dark.
+
+Verified on the simulator under Home Screen → Customize → Tinted: it reads as
+a light monochrome fox on the tinted field, in the same register as Apple's
+own.
+
+### The daily reminder
+
+`lib/reminders.ts`, switched on in Account. These are **local** notifications,
+scheduled on the device — not pushes from a server, and that is the right tool
+rather than a shortcut around the wrong one. A daily nudge is a clock event in
+the user's own timezone: on-device it fires at the right local minute with no
+server, no cron, no timezone column to sync, no APNs key in the delivery path,
+and it still works with no signal.
+
+Shape of it:
+
+- A rolling window of 14 discrete notifications, not one repeating entry —
+  a repeat cannot skip a single day, and skipping is the point (see below).
+  Re-topped-up on every launch and resume. iOS caps pending notifications at
+  64 per app, so the window cannot simply be a year.
+- **Today is dropped once the rep is done.** Being nudged to practice an hour
+  after you practised is how a reminder gets switched off for good.
+- Permission is asked when the user turns the switch on, never on launch.
+  iOS gives one shot at that prompt; spend it where the prompt is the obvious
+  consequence of what the user just did.
+- Ids live in a reserved block (4200+) so cancelling only ever touches ours.
+- Tapping one routes to `/practice?daily=1`. Safe on a cold launch — the
+  plugin retains the event (`retainUntilConsumed`) until the listener attaches.
+
+Verified on the simulator end to end: prompt → 14 scheduled → delivered on the
+lock screen → tap reopens the app.
+
+**They are silent.** Capacitor only sets a notification sound when you name a
+bundled audio file, so with none specified iOS delivers the banner with no
+sound or vibration. Fine for a gentle nudge, easy to miss in a pocket — if it
+should make a noise, that needs an audio asset in the bundle and `sound` set
+on each notification.
+
+### What remote push would add, and what it needs
+
+Remote push is a different system for a different job: things the *server*
+knows and the phone cannot — a friend passing you on the leaderboard, a
+win-back after two weeks away. None of it is needed for the daily reminder.
+
+It is not free. It needs an **APNs auth key created in the Apple Developer
+account and uploaded to Firebase**, the Push Notifications capability on the
+target, a token stored per user (with `firestore.rules` to match), and
+something to trigger sends — there is no cron in this repo today, and a
+per-user local send time would need an hourly one.
+
+### Working on it without deploying
+
+The app always loads the *deployed* site, so native-UI changes are not in it
+until they ship. Point the shell at a dev server instead:
+
+```bash
+CAP_SERVER_URL=http://localhost:3000 npx cap sync ios && npx cap open ios
+```
+
+`Info.plist` carries `NSAllowsLocalNetworking` for the cleartext load — local
+hosts only, nothing changes about how the app reaches elovox.app. **Re-run
+`npx cap sync ios` with no `CAP_SERVER_URL` before committing**, or the dev
+URL stays baked into `ios/App/App/capacitor.config.json`.
+
+For quick CSS work with no Xcode at all, `?native=1` still paints the native
+UI in a desktop browser.
+
+## The Booth Tape identity (2026-08-03, second pass)
+
+The first layout pass was rejected as still reading like the website. The
+second is an identity split, synthesized from a three-direction design panel:
+the site stays the daylight brochure; the app is the booth. Dark by default
+(saved choice wins; "Daylight" one tap away in Account), the ground deepened
+to #080617 under a single warm Shimmer lamp pool, every dark hairline tinted
+from the same lamp. The signature is THE TAPE on Today: the last 14 days as
+voice bars in the app icon's own grammar — chalk at score amplitude, ghost
+stubs for missed days, today breathing orange while attempts remain. Binding
+rule lives on .voxline in globals.css: bars only for what the voice produced;
+static instances only Felix's chest and the Progress tab icon.
+
+**None of this is visible in the installed app until the site is deployed** —
+the shell loads elovox.app. That sentence has now been true for every UI
+report in this project; check it first.

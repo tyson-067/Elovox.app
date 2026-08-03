@@ -105,6 +105,22 @@
     button { transition: none; }
     button:active { transform: none; }
   }
+
+  /* The app's dark mode is a saved choice on the elovox.app origin, which
+     this page cannot read — it is served from the bundle. So it follows the
+     phone instead. Getting this wrong is glaring: the one time this screen
+     appears is a cold launch with no network, and a white flash at night is
+     what the whole dark theme exists to avoid. */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --primary: #7fb2e5;
+      --on-surface: #eceaf6;
+      --on-surface-variant: #a8a6bd;
+    }
+    body {
+      background: linear-gradient(170deg, #0d0a20 40%, #141033 100%);
+    }
+  }
 </style>
 </head>
 <body>
@@ -114,5 +130,29 @@
     <p>Elovox needs to be online to run your rep and score it. Check your connection and try again.</p>
     <button type="button" onclick="location.reload()">Try again</button>
   </main>
+  <script>
+    // The splash is normally taken down by components/NativeRuntime.tsx once
+    // the real app has painted — code that lives on elovox.app, the one
+    // origin that is unreachable when this page is the one being shown. The
+    // native 3s backstop would clear it eventually; calling hide() here just
+    // spares the no-signal user three seconds of staring at artwork before
+    // "No connection / Try again" appears.
+    //
+    // Called straight through the bridge rather than the plugin's JS wrapper,
+    // which would need a bundler this page deliberately does not have. The
+    // bridge is injected before body scripts, but retried once on load in
+    // case this ever renders before it is ready.
+    (function () {
+      function hideSplash() {
+        try {
+          window.Capacitor.Plugins.SplashScreen.hide();
+        } catch (e) {
+          /* Not native, or no splash up. Either way there is nothing to do. */
+        }
+      }
+      hideSplash();
+      window.addEventListener('load', hideSplash);
+    })();
+  </script>
 </body>
 </html>
