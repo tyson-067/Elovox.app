@@ -1,8 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTheme, useIsNative, type Theme } from "@/lib/native";
 import { LEGAL } from "@/lib/legal";
+import {
+  readSettings,
+  subscribeSettings,
+  serverSettings,
+  reconcilePermission,
+  setEnabled,
+  setTime,
+} from "@/lib/reminders";
 
 /**
  * The two things Account has to absorb once the app stops being a website:
@@ -86,6 +95,117 @@ function AppearanceCard() {
   );
 }
 
+/* An iOS switch. A checkbox styled as a track and a knob, so it keeps the
+   real control's keyboard behaviour and its role for VoiceOver. */
+function Switch({
+  checked,
+  busy,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  busy: boolean;
+  onChange: (next: boolean) => void;
+  label: string;
+}) {
+  return (
+    <label className="relative inline-flex shrink-0 cursor-pointer items-center">
+      <input
+        type="checkbox"
+        className="peer sr-only"
+        checked={checked}
+        disabled={busy}
+        aria-label={label}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span
+        aria-hidden="true"
+        className={`block h-[31px] w-[51px] rounded-full transition-colors duration-200 peer-focus-visible:ring-2 peer-focus-visible:ring-accent peer-focus-visible:ring-offset-2 ${
+          checked ? "bg-accent" : "bg-on-surface-variant/30"
+        } ${busy ? "opacity-60" : ""}`}
+      />
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute left-0.5 h-[27px] w-[27px] rounded-full bg-white shadow-sm transition-transform duration-200 ${
+          checked ? "translate-x-5" : "translate-x-0"
+        }`}
+      />
+    </label>
+  );
+}
+
+function ReminderCard() {
+  // Read through the store rather than into local state: the settings live in
+  // localStorage, which cannot be touched during render, and the schedule is
+  // also rewritten from outside this component (on resume, and after a rep).
+  const settings = useSyncExternalStore(
+    subscribeSettings,
+    readSettings,
+    serverSettings
+  );
+  const [busy, setBusy] = useState(false);
+  const [refused, setRefused] = useState(false);
+
+  // Correcting the saved switch against the real permission is an
+  // external-system sync, so it belongs in an effect — and it writes to the
+  // store, which repaints this through the subscription above.
+  useEffect(() => {
+    void reconcilePermission();
+  }, []);
+
+  const onToggle = async (next: boolean) => {
+    setBusy(true);
+    const applied = await setEnabled(next);
+    setRefused(next && !applied.enabled);
+    setBusy(false);
+  };
+
+  const enabled = settings.enabled;
+
+  return (
+    <section className="card p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="font-headline text-lg font-semibold text-primary">
+            Daily reminder
+          </h2>
+          <p className="mt-1 text-sm text-on-surface-variant">
+            A nudge when today&rsquo;s speech is ready. Nothing on days
+            you&rsquo;ve already practiced.
+          </p>
+        </div>
+        <Switch
+          checked={enabled}
+          busy={busy}
+          onChange={onToggle}
+          label="Daily reminder"
+        />
+      </div>
+
+      {enabled && (
+        <label className="mt-4 flex items-center justify-between border-t border-outline-variant/40 pt-4">
+          <span className="text-base text-on-surface">Remind me at</span>
+          {/* A real time input, so iOS raises its own wheel rather than us
+              rebuilding one badly. */}
+          <input
+            type="time"
+            value={settings.time}
+            onChange={(e) => void setTime(e.target.value)}
+            className="rounded-lg border border-outline-variant/60 bg-transparent px-3 py-1.5 font-mono text-base text-on-surface"
+          />
+        </label>
+      )}
+
+      {refused && (
+        <p className="mt-3 text-sm text-on-surface-variant">
+          Notifications are off for Elovox. Turn them on in Settings &rsaquo;
+          Notifications &rsaquo; Elovox, then flip this back on.
+        </p>
+      )}
+    </section>
+  );
+}
+
 /* A grouped list, the way settings are grouped on iOS: hairline separators
    inside one card, chevrons on anything that navigates. */
 function Row({
@@ -144,6 +264,7 @@ export function NativeAccountSection() {
 
   return (
     <>
+      <ReminderCard />
       <AppearanceCard />
 
       <section className="card overflow-hidden">

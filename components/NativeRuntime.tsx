@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useIsNative } from "@/lib/native";
 import { selection, tapLight } from "@/lib/haptics";
+import { syncReminders } from "@/lib/reminders";
 
 /**
  * The parts of "feels like an app" that live outside React's tree: the
@@ -161,6 +162,67 @@ export function NativeRuntime() {
       root.style.removeProperty("--keyboard-height");
     };
   }, [native]);
+
+  /* --- Daily reminder ----------------------------------------------------
+     The schedule is a window of discrete notifications, not one repeating
+     entry, so it has to be topped up — and it goes stale in ways only a
+     resume can catch: the day rolled over, the rep got done on another
+     device, the user revoked notifications in Settings. Re-syncing on every
+     activation is cheap (it is one cancel plus one schedule) and is the only
+     thing that keeps "already practised today" from being nudged anyway. */
+  useEffect(() => {
+    if (!native) return;
+    let disposed = false;
+    let removeResume: (() => void) | undefined;
+
+    void syncReminders();
+
+    void import("@capacitor/app")
+      .then(({ App }) =>
+        App.addListener("appStateChange", ({ isActive }) => {
+          if (isActive) void syncReminders();
+        })
+      )
+      .then((handle) => {
+        if (disposed) void handle.remove();
+        else removeResume = () => void handle.remove();
+      })
+      .catch(() => {});
+
+    return () => {
+      disposed = true;
+      removeResume?.();
+    };
+  }, [native]);
+
+  /* Tapping a reminder should land on today's drill, not on whatever screen
+     the app was last left on — the notification made a promise. */
+  useEffect(() => {
+    if (!native) return;
+    let disposed = false;
+    let remove: (() => void) | undefined;
+
+    void import("@capacitor/local-notifications")
+      .then(({ LocalNotifications }) =>
+        LocalNotifications.addListener(
+          "localNotificationActionPerformed",
+          ({ notification }) => {
+            const route = notification.extra?.route;
+            if (typeof route === "string") router.push(route);
+          }
+        )
+      )
+      .then((handle) => {
+        if (disposed) void handle.remove();
+        else remove = () => void handle.remove();
+      })
+      .catch(() => {});
+
+    return () => {
+      disposed = true;
+      remove?.();
+    };
+  }, [native, router]);
 
   /* --- The tick under every tap ------------------------------------------
      One delegated listener rather than a haptic call added to a few hundred

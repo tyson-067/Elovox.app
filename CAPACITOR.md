@@ -459,6 +459,51 @@ The **outgoing** screen is not animated — a true iOS push needs the View
 Transitions API, which needs React's `<ViewTransition>`, which is not in
 stable React 19.2. That is the one piece of this still missing.
 
+### The daily reminder
+
+`lib/reminders.ts`, switched on in Account. These are **local** notifications,
+scheduled on the device — not pushes from a server, and that is the right tool
+rather than a shortcut around the wrong one. A daily nudge is a clock event in
+the user's own timezone: on-device it fires at the right local minute with no
+server, no cron, no timezone column to sync, no APNs key in the delivery path,
+and it still works with no signal.
+
+Shape of it:
+
+- A rolling window of 14 discrete notifications, not one repeating entry —
+  a repeat cannot skip a single day, and skipping is the point (see below).
+  Re-topped-up on every launch and resume. iOS caps pending notifications at
+  64 per app, so the window cannot simply be a year.
+- **Today is dropped once the rep is done.** Being nudged to practice an hour
+  after you practised is how a reminder gets switched off for good.
+- Permission is asked when the user turns the switch on, never on launch.
+  iOS gives one shot at that prompt; spend it where the prompt is the obvious
+  consequence of what the user just did.
+- Ids live in a reserved block (4200+) so cancelling only ever touches ours.
+- Tapping one routes to `/practice?daily=1`. Safe on a cold launch — the
+  plugin retains the event (`retainUntilConsumed`) until the listener attaches.
+
+Verified on the simulator end to end: prompt → 14 scheduled → delivered on the
+lock screen → tap reopens the app.
+
+**They are silent.** Capacitor only sets a notification sound when you name a
+bundled audio file, so with none specified iOS delivers the banner with no
+sound or vibration. Fine for a gentle nudge, easy to miss in a pocket — if it
+should make a noise, that needs an audio asset in the bundle and `sound` set
+on each notification.
+
+### What remote push would add, and what it needs
+
+Remote push is a different system for a different job: things the *server*
+knows and the phone cannot — a friend passing you on the leaderboard, a
+win-back after two weeks away. None of it is needed for the daily reminder.
+
+It is not free. It needs an **APNs auth key created in the Apple Developer
+account and uploaded to Firebase**, the Push Notifications capability on the
+target, a token stored per user (with `firestore.rules` to match), and
+something to trigger sends — there is no cron in this repo today, and a
+per-user local send time would need an hourly one.
+
 ### Working on it without deploying
 
 The app always loads the *deployed* site, so native-UI changes are not in it
