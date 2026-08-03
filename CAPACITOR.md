@@ -492,6 +492,34 @@ The **outgoing** screen is not animated — a true iOS push needs the View
 Transitions API, which needs React's `<ViewTransition>`, which is not in
 stable React 19.2. That is the one piece of this still missing.
 
+### The app icon, and why it needs replacing before you submit
+
+`ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png` was the
+stock Capacitor logo until 2026-08-03 — i.e. the app on the home screen was
+not branded Elovox at all. It is now the fox, derived from `public/logo.png`.
+
+**That derivation is a stopgap.** `public/logo.png` is not an icon master: it
+is a ~158px *presentation render* of one, with rounded corners baked in, a
+soft drop shadow, and an off-white plate behind it. All three are wrong for an
+app icon, which must be a full-bleed opaque square with square corners — iOS
+applies its own superellipse mask, and a second rounding inside it reads as a
+sticker. So the plate and shadow were flattened to white (keyed on low
+saturation, before resampling, so no grey smeared into the artwork's edges),
+the card was cropped on the *artwork's* centre rather than the plate's (the
+render has the fox ~3% right of centre), and the result was upscaled 6.5x.
+
+It survives that upscale better than it has any right to, because the mark is
+flat colour and smooth curves. But 158px is still the real resolution, and
+1024 is what App Store Connect publishes on the listing page.
+
+**Replace it with a proper export from the original artwork before you
+submit** — 1024x1024, no alpha, square corners. Anything vector-derived will
+be sharper than what is there now.
+
+Not done, worth considering: iOS 18+ takes `dark` and `tinted` icon variants
+in the same asset. Without a dark variant this icon stays a bright white
+square on a dark home screen.
+
 ### The daily reminder
 
 `lib/reminders.ts`, switched on in Account. These are **local** notifications,
