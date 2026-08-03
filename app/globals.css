@@ -1230,19 +1230,26 @@ html[data-native] body {
   background-attachment: scroll;
 }
 
-/* Chrome is furniture, not a document — long-pressing a tab label should not
-   raise a text-selection loupe. Body copy stays selectable on purpose, since
-   people do copy their transcripts and Felix's notes. */
-html[data-native] nav,
-html[data-native] button,
-html[data-native] a,
-html[data-native] label,
-html[data-native] h1,
-html[data-native] h2,
-html[data-native] h3 {
+/* Selection is opt-in, not opt-out. The old rule switched it off for chrome
+   and left body copy selectable "since people copy their transcripts" — and
+   on the device that read as: a scroll whose finger landed on any paragraph
+   grabbed the selection loupe instead, painted half the screen blue, raised
+   the Copy/Look Up bar, and then fought every gesture after it. iOS apps
+   select almost nothing; the places people genuinely copy from re-enable it
+   with `.native-selectable` (the report transcript), and form fields keep
+   their native behaviour below. */
+html[data-native] body {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
+}
+html[data-native] input,
+html[data-native] textarea,
+html[data-native] [contenteditable],
+html[data-native] .native-selectable,
+html[data-native] .native-selectable * {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* Hover states latch on iOS: tap a card and the lift/glow sticks until you

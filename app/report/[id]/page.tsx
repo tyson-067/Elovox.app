@@ -253,8 +253,14 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
               <span className="grow-line" aria-hidden="true" />
             </h2>
             {/* Felix's marks sweep across the words once the transcript
-                is in view, one after another */}
-            <div className="mt-4 text-lg leading-8 text-on-surface">
+                is in view, one after another.
+
+                native-selectable: the shell turns text selection OFF
+                app-wide (a scroll that brushes body copy grabbed the
+                selection loupe and then fought every gesture after it) and
+                back on per surface. This is the surface people actually
+                copy. */}
+            <div className="native-selectable mt-4 text-lg leading-8 text-on-surface">
               {analysis.transcript.map((seg, i) =>
                 seg.mark ? (
                   <span

@@ -136,11 +136,24 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html:
               "try{var d=document.documentElement;" +
-              "if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){" +
+              "var stampNative=function(){" +
               "d.setAttribute('data-native','1');" +
+              "if(!d.getAttribute('data-theme')){" +
               "var t=null;try{t=localStorage.getItem('elovox.theme')}catch(e){}" +
               "if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}" +
-              "d.setAttribute('data-theme',t)}}catch(e){}" +
+              "d.setAttribute('data-theme',t)}};" +
+              "if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){" +
+              "stampNative();" +
+              // Re-asserted after load because React owns <html> from
+              // hydration on, and a hydration RECOVERY — server DOM
+              // discarded, tree client-rendered — rebuilds the element's
+              // attributes from JSX, which knows nothing of this stamp. That
+              // is not a dev-tool corner case: any prod hydration error would
+              // silently strip the app back to the website chrome. The
+              // attribute is observed (lib/native.ts), so consumers heal.
+              "window.addEventListener('load',function(){" +
+              "setTimeout(stampNative,0);setTimeout(stampNative,350)})" +
+              "}}catch(e){}" +
               // Dev only, and compiled out of production entirely: `?native=1`
               // paints the native UI in a desktop browser so it can be worked
               // on without a rebuild-and-deploy cycle through Xcode. It sticks
