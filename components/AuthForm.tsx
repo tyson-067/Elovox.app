@@ -10,6 +10,7 @@ import {
   PASSWORD_RESET_NOTICE,
   signInWithEmail,
   signInWithGoogle,
+  signInWithApple,
   discardJustCreatedUser,
   signUpWithEmail,
   prewarmProviderSignIn,
@@ -27,6 +28,7 @@ import {
   rememberAgeBlock,
   useAgeBlocked,
 } from "@/lib/age";
+import { useIsNative } from "@/lib/native";
 
 // If the visitor arrived from a pricing CTA (/signup?plan=premium&cycle=…),
 // resume Stripe Checkout the moment the account exists. Read from the URL
@@ -71,6 +73,7 @@ const inputClass =
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
   const { user, loading, configured } = useAuth();
+  const isNative = useIsNative();
   const finishedRef = useRef(false);
 
   const [name, setName] = useState("");
@@ -87,7 +90,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   // Signup only. Holds the sign-in method whose details are filled in and
   // validated but not yet acted on, because the age confirmation screen is
   // standing in front of it. Null means no account creation is pending.
-  const [pending, setPending] = useState<null | "email" | "google">(null);
+  const [pending, setPending] = useState<null | "email" | "google" | "apple">(null);
 
   // The query string is carried across the login/signup cross-links so a
   // checkout intent (?plan=premium&cycle=…) survives switching forms. Read
@@ -245,7 +248,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
   // The one place an account actually gets created or entered. Everything
   // else either validates first or waits behind the confirmation screen.
-  const runAuth = async (method: "email" | "google") => {
+  const runAuth = async (method: "email" | "google" | "apple") => {
     // Belt and braces. Nothing should be able to reach here under-age — the
     // confirmation screen doesn't offer the path — but this is the function
     // that creates accounts, so it checks for itself rather than trusting
@@ -255,17 +258,19 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     setNotice("");
     setBusy(true);
     try {
-      if (method === "google") {
-        const { isNewUser } = await signInWithGoogle();
-        // Firebase creates the account on first sight of a Google identity,
-        // so this button makes accounts on the LOGIN screen too — where no
-        // date of birth has been asked for. That was a complete way around
-        // the age gate: an under-age visitor (including one already blocked
-        // on /signup, since that flag was only consulted during signup) got a
-        // full account in one tap. Undo it and send them to the real gate.
+      if (method === "google" || method === "apple") {
+        const { isNewUser } =
+          method === "apple" ? await signInWithApple() : await signInWithGoogle();
+        // Firebase creates the account on first sight of a federated
+        // identity, so these buttons make accounts on the LOGIN screen too —
+        // where no date of birth has been asked for. That was a complete way
+        // around the age gate: an under-age visitor (including one already
+        // blocked on /signup, since that flag was only consulted during
+        // signup) got a full account in one tap. Undo it and send them to
+        // the real gate. (The query flag is a breadcrumb, nothing reads it.)
         if (isNewUser && !isSignup) {
           await discardJustCreatedUser();
-          router.replace("/signup?google=1");
+          router.replace(`/signup?${method}=1`);
           return;
         }
       } else if (isSignup) {
@@ -319,21 +324,21 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     await runAuth("email");
   };
 
-  const withProvider = () => async () => {
+  const withProvider = (provider: "google" | "apple") => async () => {
     setError("");
     setNotice("");
-    // Google clears the same gate. This button isn't a submit, so there's no
-    // native validation to lean on — an empty date has to be named here or
+    // Providers clear the same gate. These buttons aren't submits, so there's
+    // no native validation to lean on — an empty date has to be named here or
     // the button appears to do nothing at all.
     if (!ageOk) {
       setError(DOB_PROMPT);
       return;
     }
     if (isSignup) {
-      setPending("google");
+      setPending(provider);
       return;
     }
-    await runAuth("google");
+    await runAuth(provider);
   };
 
   // Password reset always shows the same neutral notice, whether or not the
@@ -418,7 +423,9 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
                 ? `Yes, I'm ${age}`
                 : pending === "google"
                   ? `Yes, I'm ${age} — continue with Google`
-                  : `Yes, I'm ${age} — create my account`}
+                  : pending === "apple"
+                    ? `Yes, I'm ${age} — continue with Apple`
+                    : `Yes, I'm ${age} — create my account`}
           </button>
           <button
             type="button"
@@ -620,9 +627,26 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       </div>
 
       <div className="mt-4 space-y-3">
+        {/* Native shell only (Guideline 4.8): the app must offer a sign-in
+            that can hide the user's email. The website deliberately doesn't —
+            web Apple sign-in needs a Services ID the project hasn't set up,
+            and no guideline asks the site to have it. Apple's own HIG rules
+            for the button: their mark, their wording, equal-or-greater
+            prominence than the other provider — hence listed first. */}
+        {isNative && (
+          <button
+            type="button"
+            onClick={withProvider("apple")}
+            disabled={busy}
+            className="btn apple-signin-btn pill w-full px-4 py-3 text-base font-semibold disabled:opacity-50"
+          >
+            <span aria-hidden="true" className="apple-signin-mark"></span>
+            Continue with Apple
+          </button>
+        )}
         <button
           type="button"
-          onClick={withProvider()}
+          onClick={withProvider("google")}
           disabled={busy}
           className="card pill w-full px-4 py-3 text-base font-semibold text-primary hover:border-primary/30 disabled:opacity-50"
         >

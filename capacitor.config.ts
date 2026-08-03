@@ -121,7 +121,11 @@ const config: CapacitorConfig = {
     // delete-account down with it (they all re-authenticate through the same
     // call).
     FirebaseAuthentication: {
-      providers: ['google.com'],
+      // apple.com also needs the Sign in with Apple capability on the App
+      // target (ios/App/App/App.entitlements) and the Apple provider switched
+      // on in the Firebase console — the plugin call fails cleanly without
+      // either, it doesn't crash.
+      providers: ['google.com', 'apple.com'],
       // The native layer hands back a Google ID token and nothing else; the
       // JS SDK owns the session. That is what lib/auth.ts assumes, and it is
       // what keeps App Check, firestore.rules and verifyVerifiedUser all

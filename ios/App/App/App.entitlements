@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Sign in with Apple (Guideline 4.8: an app offering Google sign-in
+	     must offer a privacy-preserving alternative). Wired to the target via
+	     CODE_SIGN_ENTITLEMENTS in project.pbxproj; automatic signing adds the
+	     capability to the App ID on the next archive. -->
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
+</dict>
+</plist>

@@ -1904,3 +1904,28 @@ html[data-native] #main .text-\[26px\] {
   font-size: 22px;
   line-height: 1.3;
 }
+
+/* Sign in with Apple, native shell only (the button never renders on the
+   web). Apple's HIG for the button: their mark, black in light, reversed in
+   dark, no restyling of either. The mark is the SF glyph at U+F8FF — safe
+   here precisely because this only ever renders on an Apple device's own
+   font stack. */
+.apple-signin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: #000;
+  color: #fff;
+  border: 1px solid #000;
+}
+html[data-native][data-theme="dark"] .apple-signin-btn {
+  background: #fff;
+  color: #000;
+  border-color: #fff;
+}
+.apple-signin-mark::before {
+  content: "\f8ff";
+  font-size: 1.15em;
+  line-height: 1;
+}

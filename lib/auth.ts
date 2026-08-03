@@ -167,6 +167,82 @@ async function nativeGoogleIdToken(): Promise<string> {
 }
 
 /**
+ * Ask the native Apple sheet for a credential.
+ *
+ * Same shape as nativeGoogleIdToken, with one Apple-specific wrinkle: Firebase
+ * validates Apple tokens against a nonce, so the raw nonce the plugin
+ * generated has to travel alongside the ID token into the JS-side credential.
+ * And one more: Apple only reveals the user's name on the FIRST authorization,
+ * ever — miss it then and the account stays nameless for good — so the display
+ * name rides along for the caller to apply to a brand-new account.
+ */
+async function nativeAppleAuth(): Promise<{
+  idToken: string;
+  rawNonce?: string;
+  displayName: string | null;
+}> {
+  const { FirebaseAuthentication } = await import(
+    "@capacitor-firebase/authentication"
+  );
+  const result = await FirebaseAuthentication.signInWithApple();
+  const idToken = result.credential?.idToken;
+  if (!idToken) throw new Error("Apple sign-in was canceled.");
+  return {
+    idToken,
+    rawNonce: result.credential?.nonce ?? undefined,
+    displayName: result.user?.displayName ?? null,
+  };
+}
+
+/**
+ * Signs in with Apple, and reports whether that call CREATED the account —
+ * the same contract as signInWithGoogle, for the same age-gate reason.
+ *
+ * Only offered in the native shell (Guideline 4.8: an app with third-party
+ * login must offer one that hides the user's email, which is exactly what
+ * Apple's "Hide My Email" is). The web branch exists so nothing breaks if the
+ * button ever shows in a browser, but the website deliberately doesn't offer
+ * it today.
+ */
+export async function signInWithApple(): Promise<{ isNewUser: boolean }> {
+  const {
+    OAuthProvider,
+    signInWithPopup,
+    signInWithCredential,
+    getAdditionalUserInfo,
+    updateProfile,
+  } = await import("firebase/auth");
+
+  const { Capacitor } = await import("@capacitor/core");
+  if (Capacitor.isNativePlatform()) {
+    const { idToken, rawNonce, displayName } = await nativeAppleAuth();
+    const provider = new OAuthProvider("apple.com");
+    const cred = await signInWithCredential(
+      getAuthInstance(),
+      provider.credential({ idToken, rawNonce })
+    );
+    const isNewUser = getAdditionalUserInfo(cred)?.isNewUser === true;
+    // First authorization is the only time Apple hands over the name.
+    // Non-fatal: an account with no display name is a cosmetic gap, not a
+    // reason to fail a sign-in that already succeeded.
+    if (isNewUser && displayName && !cred.user.displayName) {
+      try {
+        await updateProfile(cred.user, { displayName });
+      } catch {
+        /* keep the session; the name can be lived without */
+      }
+    }
+    return { isNewUser };
+  }
+
+  const cred = await signInWithPopup(
+    getAuthInstance(),
+    new OAuthProvider("apple.com")
+  );
+  return { isNewUser: getAdditionalUserInfo(cred)?.isNewUser === true };
+}
+
+/**
  * Signs in with Google, and reports whether that call CREATED the account.
  *
  * The distinction matters because Firebase provisions a user the first time a
@@ -325,12 +401,22 @@ async function reauthenticate(user: User, currentPassword?: string): Promise<voi
     const cred = auth.EmailAuthProvider.credential(user.email, currentPassword);
     await auth.reauthenticateWithCredential(user, cred);
   } else {
-    // Google (or other federated) account, confirm via a fresh sign-in.
-    // Same webview constraint as signInWithGoogle: no popup on native. Miss
-    // this branch and change-email, change-password and delete-account all
-    // hang silently on iOS for anyone who signed up with Google.
+    // Federated account, confirm via a fresh sign-in with the SAME provider
+    // the account carries — an Apple user shown a Google picker can only
+    // cancel. Same webview constraint as signInWithGoogle: no popup on
+    // native. Miss this branch and change-email, change-password and
+    // delete-account all hang silently on iOS.
+    const isApple = user.providerData.some((p) => p.providerId === "apple.com");
     const { Capacitor } = await import("@capacitor/core");
     if (Capacitor.isNativePlatform()) {
+      if (isApple) {
+        const { idToken, rawNonce } = await nativeAppleAuth();
+        await auth.reauthenticateWithCredential(
+          user,
+          new auth.OAuthProvider("apple.com").credential({ idToken, rawNonce })
+        );
+        return;
+      }
       const idToken = await nativeGoogleIdToken();
       await auth.reauthenticateWithCredential(
         user,
@@ -338,7 +424,10 @@ async function reauthenticate(user: User, currentPassword?: string): Promise<voi
       );
       return;
     }
-    await auth.reauthenticateWithPopup(user, new auth.GoogleAuthProvider());
+    await auth.reauthenticateWithPopup(
+      user,
+      isApple ? new auth.OAuthProvider("apple.com") : new auth.GoogleAuthProvider()
+    );
   }
 }
 
@@ -424,7 +513,10 @@ export async function changePassword(
   const user = getAuthInstance().currentUser;
   if (!user) throw new Error("You're not signed in.");
   if (!hasPasswordProvider(user)) {
-    throw new Error("This account signs in with Google, so it has no password.");
+    const provider = user.providerData.some((p) => p.providerId === "apple.com")
+      ? "Apple"
+      : "Google";
+    throw new Error(`This account signs in with ${provider}, so it has no password.`);
   }
   await reauthenticate(user, currentPassword);
   const { updatePassword } = await import("firebase/auth");
