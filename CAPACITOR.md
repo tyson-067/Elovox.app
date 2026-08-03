@@ -677,3 +677,20 @@ URL stays baked into `ios/App/App/capacitor.config.json`.
 
 For quick CSS work with no Xcode at all, `?native=1` still paints the native
 UI in a desktop browser.
+
+## The Booth Tape identity (2026-08-03, second pass)
+
+The first layout pass was rejected as still reading like the website. The
+second is an identity split, synthesized from a three-direction design panel:
+the site stays the daylight brochure; the app is the booth. Dark by default
+(saved choice wins; "Daylight" one tap away in Account), the ground deepened
+to #080617 under a single warm Shimmer lamp pool, every dark hairline tinted
+from the same lamp. The signature is THE TAPE on Today: the last 14 days as
+voice bars in the app icon's own grammar — chalk at score amplitude, ghost
+stubs for missed days, today breathing orange while attempts remain. Binding
+rule lives on .voxline in globals.css: bars only for what the voice produced;
+static instances only Felix's chest and the Progress tab icon.
+
+**None of this is visible in the installed app until the site is deployed** —
+the shell loads elovox.app. That sentence has now been true for every UI
+report in this project; check it first.
