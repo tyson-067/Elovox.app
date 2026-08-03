@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
-import type { Firestore } from "firebase-admin/firestore";
 import { getStripe } from "@/lib/stripe";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
 import { makeRateLimiter } from "@/lib/verify";
+import { refundUnusedPortion } from "@/lib/refunds";
 
 // Account erasure, the self-serve half of the deletion right promised in
 // /privacy. Runs server-side because deleting a user's data needs the Admin
@@ -38,120 +38,6 @@ const LIVE_SUB = ["trialing", "active", "past_due", "unpaid"];
 // handful of attempts per hour is generous. A retry after a transient failure
 // still works; a loop does not.
 const rateLimited = makeRateLimiter(5);
-
-// Refund the UNUSED portion of a paid subscription period when the account is
-// deleted mid-term. Deleting cancels the subscription immediately (below), so
-// without this an annual subscriber who leaves in month two would forfeit ~10
-// paid months. This gives that time back to their card, prorated.
-//
-// Best-effort BY DESIGN: the deletion the user asked for must never be blocked
-// by a refund we couldn't make, so this never throws — every failure is written
-// to billingAlerts (a top-level doc that survives the user-subtree wipe) for
-// manual follow-up, then swallowed. Idempotent on the subscription id, and the
-// cancel above drops the sub out of the LIVE set on any retry, so a re-run can't
-// double-refund.
-async function refundUnusedPortion(
-  stripe: Stripe,
-  db: Firestore,
-  uid: string,
-  sub: Stripe.Subscription
-): Promise<void> {
-  const alertRef = db.doc(`billingAlerts/deletion-refund-${sub.id}`);
-  try {
-    // A trial was never paid for — nothing unused to give back.
-    if (sub.status === "trialing") return;
-
-    const item = sub.items.data[0];
-    const start = item?.current_period_start;
-    const end = item?.current_period_end;
-    if (!start || !end || end <= start) return;
-    const now = Math.floor(Date.now() / 1000);
-    const remaining = end - now;
-    if (remaining <= 0) return; // period already fully used, nothing owed back
-    const unusedFraction = Math.min(1, remaining / (end - start));
-
-    // What they actually paid for this period (tax-inclusive), from the most
-    // recent paid invoice on the subscription. Refunding a fraction of
-    // amount_paid returns the proportional tax too.
-    const invoices = await stripe.invoices.list({
-      subscription: sub.id,
-      status: "paid",
-      limit: 5,
-    });
-    const invoice = invoices.data
-      .filter((i) => (i.amount_paid ?? 0) > 0)
-      .sort((a, b) => (b.created ?? 0) - (a.created ?? 0))[0];
-    if (!invoice?.id || !invoice.amount_paid) return;
-
-    const amount = Math.floor(invoice.amount_paid * unusedFraction);
-    if (amount <= 0) return;
-
-    // The payment to refund against. This API version keeps it on
-    // invoice.payments, not a top-level charge field.
-    const pays = await stripe.invoicePayments.list({ invoice: invoice.id, limit: 1 });
-    const payment = pays.data[0]?.payment;
-    const paymentIntent =
-      typeof payment?.payment_intent === "string"
-        ? payment.payment_intent
-        : payment?.payment_intent?.id;
-    const charge =
-      typeof payment?.charge === "string" ? payment.charge : payment?.charge?.id;
-    if (!paymentIntent && !charge) return;
-
-    const refund = await stripe.refunds.create(
-      {
-        ...(paymentIntent ? { payment_intent: paymentIntent } : { charge: charge! }),
-        amount,
-        reason: "requested_by_customer",
-        metadata: {
-          reason: "account-deletion-unused-portion",
-          uid,
-          subscriptionId: sub.id,
-        },
-      },
-      // Same key across retries → Stripe returns the first refund, never a second.
-      { idempotencyKey: `acctdel-refund-${sub.id}` }
-    );
-
-    await alertRef
-      .set(
-        {
-          kind: "deletion-refund",
-          uid,
-          subscriptionId: sub.id,
-          customerId:
-            typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null,
-          invoiceId: invoice.id,
-          amount,
-          currency: invoice.currency ?? null,
-          unusedFraction,
-          refundId: refund.id,
-          resolved: true,
-          at: Date.now(),
-        },
-        { merge: true }
-      )
-      .catch(() => {});
-  } catch (err) {
-    // Couldn't refund (Stripe error, missing payment, network). Record it so a
-    // human can settle it, and let the deletion proceed regardless.
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[account] unused-portion refund failed for ${sub.id}`, err);
-    await alertRef
-      .set(
-        {
-          kind: "deletion-refund",
-          uid,
-          subscriptionId: sub.id,
-          error: message,
-          resolved: false,
-          at: Date.now(),
-        },
-        { merge: true }
-      )
-      .catch(() => {});
-  }
-}
 
 export async function POST(req: NextRequest) {
   const app = getAdminApp();
@@ -257,9 +143,13 @@ export async function POST(req: NextRequest) {
           const code = (err as { code?: string })?.code;
           if (code !== "resource_missing") throw err;
         }
-        // Hand back the unused portion of the period they'd already paid for.
-        // Best-effort: never blocks the deletion, idempotent on the sub id.
-        await refundUnusedPortion(stripe, db, uid, sub);
+        // Hand back the unused portion of the period they'd already paid for,
+        // to the card. Best-effort: never blocks the deletion, idempotent on
+        // the sub id.
+        await refundUnusedPortion(stripe, db, sub, {
+          uid,
+          context: "account-deletion",
+        });
       }
     } catch (err) {
       // We could not confirm billing is stopped. Do NOT delete: erasing now

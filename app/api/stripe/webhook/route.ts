@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { getStripe, isEntitled } from "@/lib/stripe";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
 import { cycleForPriceId } from "@/lib/pricing";
+import { refundUnusedPortion } from "@/lib/refunds";
 
 // Stripe → Firestore entitlement sync. This is the ONLY writer of
 // users/{uid}/profile/plan (the Admin SDK bypasses the read-only rule on
@@ -161,30 +162,40 @@ async function syncSubscription(
       // something already replaced, and letting it ride to the end of the
       // period is another month of exactly the bug.
       //
-      // prorate + invoice_now: the unused time becomes a customer-balance
-      // credit that auto-applies to the surviving subscription's next
-      // invoice, rather than silently keeping the double-charged money (both
-      // subs share one Stripe customer, so the credit lands on the right
-      // account). A durable billingAlerts doc is written per canceled sub so
-      // the case is queryable from the admin side and any residual refund
-      // decision isn't lost in the logs. Keyed by the canceled sub id, so a
-      // webhook redelivery is idempotent.
+      // Plain cancel (no prorate), then refund the unused portion to the CARD
+      // via lib/refunds — NOT a customer-balance credit. Elovox's rule is that
+      // money given back for an early-ended subscription comes back to the card,
+      // never as account credit the user can't withdraw. A durable billingAlerts
+      // doc is still written per canceled sub so the case stays queryable from
+      // the admin side; the refund writes its own alert too. Keyed by the
+      // canceled sub id, so a webhook redelivery is idempotent (and the refund
+      // itself carries a Stripe idempotency key).
       if (entitling.length > 1) {
         const superseded = entitling.filter((s) => s.id !== source.id);
         console.warn(
           `[stripe] customer ${customerId} held ${entitling.length} live subscriptions; keeping ${source.id}, canceling ${superseded.map((s) => s.id).join(", ")}`
         );
         for (const dupe of superseded) {
+          let canceled = false;
           try {
-            await stripe.subscriptions.cancel(dupe.id, {
-              prorate: true,
-              invoice_now: true,
-            });
+            await stripe.subscriptions.cancel(dupe.id);
+            canceled = true;
           } catch (err) {
             // Already gone, or canceled by a concurrent delivery of this
             // same event. Not worth failing the webhook and replaying it —
             // the entitlement write below is the part that must land.
-            console.error(`[stripe] couldn't cancel duplicate ${dupe.id}`, err);
+            const code = (err as { code?: string })?.code;
+            if (code === "resource_missing") canceled = true; // already stopped
+            else console.error(`[stripe] couldn't cancel duplicate ${dupe.id}`, err);
+          }
+          // Give the unused portion of the superseded sub back to the card.
+          // Best-effort, never throws (see lib/refunds). Only after a confirmed
+          // cancel, so we never refund a subscription that's still billing.
+          if (canceled) {
+            await refundUnusedPortion(stripe, db, dupe, {
+              uid: uid ?? null,
+              context: "superseded-subscription",
+            });
           }
           try {
             await db.doc(`billingAlerts/${dupe.id}`).set(
