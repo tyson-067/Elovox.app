@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { RequireAuth } from "@/components/RequireAuth";
+import { NativeProgress } from "@/components/native/NativeProgress";
 import { Reveal } from "@/components/Reveal";
 import { WordReveal } from "@/components/WordReveal";
 import { GlowCard } from "@/components/GlowCard";
@@ -462,7 +463,10 @@ function ProgressScreen() {
     if (!sessions?.length) return [];
     const byName = new Map<string, number[]>();
     for (const s of sessions) {
-      for (const sk of s.analysis.skills) {
+      // Sessions saved before per-skill scoring carry an overall but no
+      // skills array; iterating undefined crashed the whole screen into
+      // Next's error page for any account (or localStorage) that old.
+      for (const sk of s.analysis.skills ?? []) {
         byName.set(sk.skill, [...(byName.get(sk.skill) ?? []), sk.score]);
       }
     }
@@ -525,21 +529,28 @@ function ProgressScreen() {
 
   if (sessions.length === 0) {
     return (
-      <div className="stagger-in py-16 max-w-[640px] mx-auto">
-        <h1 className="text-title font-headline font-semibold text-primary">
-          Nothing here yet
-        </h1>
-        <p className="mt-3 text-lg leading-7 text-on-surface-variant">
-          Your first recording becomes your baseline. Everything after that is
-          progress you can see, and your Daily Minute is waiting.
-        </p>
-        <Link
-          href="/practice?daily=1"
-          className="btn rounded-lg mt-8 inline-block bg-accent-strong text-white font-semibold px-8 py-3.5"
-        >
-          Start your Daily Minute
-        </Link>
-      </div>
+      <>
+        {/* The app's empty state: a ghosted chart with one line and one
+            action. The web copy below carries native-hide — the h1 was
+            double-titling under the nav bar, and NvEmpty already holds the
+            line and the button. */}
+        <NativeProgress sessions={sessions} stats={stats} />
+        <div className="stagger-in py-16 max-w-[640px] mx-auto">
+          <h1 className="native-hide text-title font-headline font-semibold text-primary">
+            Nothing here yet
+          </h1>
+          <p className="native-hide mt-3 text-lg leading-7 text-on-surface-variant">
+            Your first recording becomes your baseline. Everything after that is
+            progress you can see, and your Daily Minute is waiting.
+          </p>
+          <Link
+            href="/practice?daily=1"
+            className="native-hide btn rounded-lg mt-8 inline-block bg-accent-strong text-white font-semibold px-8 py-3.5"
+          >
+            Start your Daily Minute
+          </Link>
+        </div>
+      </>
     );
   }
 
@@ -549,9 +560,14 @@ function ProgressScreen() {
         <WordReveal text="Your progress" delay={80} />
       </h1>
 
+      {/* The app-scale Progress. Same sessions/stats the web sections below
+          read; those sections carry native-hide. Renders nothing in a
+          browser. */}
+      <NativeProgress sessions={sessions} stats={stats} />
+
       {/* 1. Level and streak, the running story */}
       {stats && (
-        <section className="mt-8">
+        <section className="native-hide mt-8">
           <Reveal>
             <LevelPanel
               stats={stats}
@@ -564,7 +580,7 @@ function ProgressScreen() {
       )}
 
       {/* 2. Trend line */}
-      <section className="mt-10">
+      <section className="native-hide mt-10">
         <Reveal>
           <div className="flex items-center gap-2">
             <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
@@ -588,7 +604,7 @@ function ProgressScreen() {
           list instead. */}
 
       {/* 4. Voice skill breakdown */}
-      <section className="mt-12">
+      <section className="native-hide mt-12">
         <Reveal>
           <div className="flex items-center gap-2">
             <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
@@ -630,7 +646,7 @@ function ProgressScreen() {
 
       {/* 5. Body language, when they've used the camera */}
       {stageAverages.length > 0 && (
-        <section className="mt-12">
+        <section className="native-hide mt-12">
           <Reveal>
             <div className="flex items-center gap-2">
               <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
@@ -676,7 +692,7 @@ function ProgressScreen() {
           returns null without it, which left a heading standing over nothing
           whenever the shop read failed. */}
       {shop && (
-        <section className="mt-12">
+        <section className="native-hide mt-12">
           <Reveal>
             <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
               Felix&apos;s world
@@ -690,7 +706,7 @@ function ProgressScreen() {
       )}
 
       {/* 7. Session list last */}
-      <section className="mt-12 mb-10">
+      <section className="native-hide mt-12 mb-10">
         <Reveal>
           <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
             Past sessions
