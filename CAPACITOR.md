@@ -348,9 +348,12 @@ Two webview behaviours to verify, not assume:
   don't reason about it.
 - **The recorded MIME type will differ.** Desktop Chrome gives you
   `audio/webm`; WKWebView gives `audio/mp4`. `app/practice/page.tsx:484` builds
-  the blob from `recorder.mimeType`, so it propagates correctly — but confirm
-  end-to-end that `/api/analyze` accepts what iOS actually produces, and log
-  the received type on the first real device run. Also confirm the Premium
+  the blob from `recorder.mimeType`, so it propagates correctly — and this is
+  now PROVEN end-to-end (2026-08-03, simulator): a full rep recorded in the
+  WKWebView was accepted by `/api/analyze`, transcribed, and returned the
+  honest no-speech error (the sim mic hears room silence), with the daily
+  attempt refunded. The format question is closed; what still needs a real
+  device is a rep with actual speech in it. Also confirm the Premium
   camera pass: `lib/frames.ts` draws the live `<video>` to a canvas, which
   needs `playsinline` on the element or iOS takes it fullscreen.
 
