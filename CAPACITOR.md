@@ -535,9 +535,26 @@ which blows up into a pale keyline around the whole icon. Its fox also sat
 high in the frame, so it is centred on the artwork bbox — the same rule the
 light variant gets.
 
-Still not done: the `tinted` variant. Without one iOS derives it from the
-light icon, which is a reasonable result — worth an eye before submitting, not
-worth blocking on.
+And a **tinted variant** (`AppIcon-Tinted-1024.png`, `luminosity/tinted`).
+iOS renders that appearance by mapping a greyscale image onto whatever tint
+the user picked — dark values stay dark, bright values take the colour — so
+the only thing that matters is where the artwork's tones land.
+
+Built from the *dark* variant, since that is already a light mark on a dark
+field, which is the shape this appearance wants. A straight desaturation is
+not enough: the orange fox converts to luma 134, a flat mid-grey that comes
+out as a muddy half-strength wash against its own background. The tones are
+remapped through a piecewise-linear curve with measured anchors — the navy
+field 31 → 14, the fox 134 → 188, the cheek and bars 244 → 252. Anchors
+rather than a gamma, because gamma lifts darks hardest and would drag the
+background up along with the fox; anchors move the two independently.
+
+The field goes to 14 rather than 0 on purpose: a pure-black plate reads as a
+hole next to Apple's own tinted icons, which keep some life in the dark.
+
+Verified on the simulator under Home Screen → Customize → Tinted: it reads as
+a light monochrome fox on the tinted field, in the same register as Apple's
+own.
 
 ### The daily reminder
 
