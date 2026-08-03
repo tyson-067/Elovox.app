@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { RequireAuth } from "@/components/RequireAuth";
+import { NativeReport } from "@/components/NativeReport";
 import { Reveal } from "@/components/Reveal";
 import { GlowCard } from "@/components/GlowCard";
 import { getSession } from "@/lib/store";
@@ -33,6 +34,38 @@ export default function ReportPage({
   );
 }
 
+/**
+ * The Analysis type promises every array; storage predating parts of the
+ * schema (old localStorage, early accounts) does not, and one missing array
+ * crashed the whole report into Next's error page. Filled ONCE here, at the
+ * load boundary, so both the web and native layouts can keep reading the
+ * type at face value.
+ */
+function normalizeSession(s: Session): Session {
+  const a = s.analysis;
+  if (!a) return s;
+  return {
+    ...s,
+    analysis: {
+      ...a,
+      skills: a.skills ?? [],
+      transcript: a.transcript ?? [],
+      strengths: a.strengths ?? [],
+      tips: a.tips ?? [],
+      drills: a.drills ?? [],
+      ...(a.stage
+        ? {
+            stage: {
+              ...a.stage,
+              metrics: a.stage.metrics ?? [],
+              tips: a.stage.tips ?? [],
+            },
+          }
+        : {}),
+    },
+  };
+}
+
 function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { plan } = usePlan();
@@ -50,7 +83,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
   useEffect(() => {
     let cancelled = false;
     getSession(id)
-      .then((s) => !cancelled && setSession(s ?? null))
+      .then((s) => !cancelled && setSession(s ? normalizeSession(s) : null))
       .catch(() => !cancelled && setSession("error"));
     return () => {
       cancelled = true;
@@ -108,10 +141,43 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
   const { analysis } = session;
   const cat = getCategory(session.category);
 
+  // Derived once, used by both layouts, so they can never disagree.
+  const practiceHref =
+    session.mode === "daily"
+      ? "/practice?daily=1"
+      : session.interviewType
+        ? `/practice?interview=${session.interviewType}`
+        : session.socialSkillId
+          ? `/practice?social=${session.socialSkillId}`
+          : session.speechId
+            ? `/practice?speech=${session.speechId}`
+            : session.mode === "custom"
+              ? // The one-shot sessionStorage gen-key is long gone, so the
+                // exact script can't be replayed; send them back to the
+                // custom flow rather than a random prepared prompt.
+                "/custom"
+              : `/practice?category=${session.category}`;
+  const practiceLabel =
+    session.mode === "daily" && (session.attempt ?? 0) < 3
+      ? "Try again, beat this score"
+      : "Run it again";
+
   return (
     <div className="py-8 md:py-12">
+      {/* The app-scale report. Same session, same derived values; the web
+          pieces it replaces carry native-hide. Renders nothing in a
+          browser. */}
+      <NativeReport
+        session={session}
+        plan={plan}
+        titleLabel={session.speechTitle ?? cat.name}
+        dateLabel={formatDate(session.createdAt)}
+        practiceHref={practiceHref}
+        practiceLabel={practiceLabel}
+      />
+
       {/* Score: one large confident element, not a card among equals */}
-      <div className="stagger-in flex flex-wrap items-end gap-x-10 gap-y-4">
+      <div className="native-hide stagger-in flex flex-wrap items-end gap-x-10 gap-y-4">
         <div>
           {/* The score IS this page's title, so it's the h1. There was no h1
               at all before, and the first heading was an <h2> halfway down. */}
@@ -190,14 +256,14 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
       </div>
 
       {analysis.isSample && (
-        <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-surface-container px-3 py-1.5 text-[13px] font-semibold tracking-wide text-on-surface-variant">
+        <div className="native-hide mt-5 inline-flex items-center gap-2 rounded-full bg-surface-container px-3 py-1.5 text-[13px] font-semibold tracking-wide text-on-surface-variant">
           Sample feedback, Felix&apos;s real voice analysis arrives when the
           backend is connected
         </div>
       )}
 
       {/* Asymmetric: narrow skill column, wide transcript column */}
-      <div className="mt-10 grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10">
+      <div className="native-hide mt-10 grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10">
         <section className="md:col-span-5">
           <Reveal>
             <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
@@ -315,7 +381,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
       {/* The camera pass (Premium). Only present when they recorded with
           video on, the body half of the delivery. */}
       {analysis.stage && (
-        <section className="mt-12">
+        <section className="native-hide mt-12">
           <Reveal>
             <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
               <h2 className="font-headline text-[28px] leading-9 font-medium text-primary">
@@ -370,7 +436,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
       )}
 
       {analysis.strengths && analysis.strengths.length > 0 && (
-        <section className="mt-12">
+        <section className="native-hide mt-12">
           <Reveal>
             <h2 className="font-headline text-[28px] leading-9 font-medium text-primary">
               What worked
@@ -392,7 +458,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
       )}
 
       {analysis.audienceImpact && (
-        <section className="mt-12">
+        <section className="native-hide mt-12">
           <Reveal>
             <h2 className="font-headline text-[28px] leading-9 font-medium text-primary">
               How the audience heard it
@@ -404,7 +470,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
         </section>
       )}
 
-      <section className="mt-12">
+      <section className="native-hide mt-12">
         <Reveal>
           <h2 className="font-headline text-[28px] leading-9 font-medium text-primary">
             Try this next time
@@ -425,7 +491,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
       </section>
 
       {analysis.drills && analysis.drills.length > 0 && (
-        <section className="mt-12">
+        <section className="native-hide mt-12">
           <Reveal>
             <h2 className="font-headline text-[28px] leading-9 font-medium text-primary">
               Drills to run
@@ -457,7 +523,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
           deeper breakdown, and camera coaching. Show free users what's behind
           the wall, right where they can feel the difference. */}
       {plan === "free" && !analysis.isSample && (
-        <section className="mt-12">
+        <section className="native-hide mt-12">
           <div className="card navy-gradient border-none! p-6 md:p-7 text-white">
             <h2 className="font-headline text-2xl font-semibold">
               Go deeper with Premium
@@ -478,29 +544,12 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
         </section>
       )}
 
-      <div className="mt-12 mb-8 flex flex-wrap gap-4">
+      <div className="native-hide mt-12 mb-8 flex flex-wrap gap-4">
         <Link
-          href={
-            session.mode === "daily"
-              ? "/practice?daily=1"
-              : session.interviewType
-                ? `/practice?interview=${session.interviewType}`
-                : session.socialSkillId
-                  ? `/practice?social=${session.socialSkillId}`
-                  : session.speechId
-                    ? `/practice?speech=${session.speechId}`
-                    : session.mode === "custom"
-                      ? // The one-shot sessionStorage gen-key is long gone, so
-                        // the exact script can't be replayed; send them back to
-                        // the custom flow rather than a random prepared prompt.
-                        "/custom"
-                      : `/practice?category=${session.category}`
-          }
+          href={practiceHref}
           className="btn rounded-lg bg-accent-strong text-white font-semibold px-7 py-3"
         >
-          {session.mode === "daily" && (session.attempt ?? 0) < 3
-            ? "Try again, beat this score"
-            : "Run it again"}
+          {practiceLabel}
         </Link>
         <Link
           href="/progress"

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Felix } from "@/components/FoxLogo";
+import { useIsNative } from "@/lib/native";
+import { NvChip } from "@/components/native/ui";
 import { AnalyzingLoader } from "@/components/AnalyzingLoader";
 import { getCategory, pickPrompt } from "@/lib/categories";
 import { getSpeech } from "@/lib/speeches";
@@ -94,6 +96,12 @@ function formatTime(sec: number) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+// The native takeover's progress ring: a 45-radius circle in a 96 box (the
+// record control's wrapper), its arc fed by the same elapsed/limit numbers
+// the countdown renders. Presentation only.
+const DIAL_R = 45;
+const DIAL_C = 2 * Math.PI * DIAL_R;
+
 /**
  * What the user is practicing, resolved from the query string:
  *   ?daily=1              the Daily Minute (free + premium)
@@ -107,6 +115,9 @@ function RecordingScreen() {
   const router = useRouter();
   const params = useSearchParams();
   const { plan, isPremium } = usePlan();
+  // The iOS shell re-skins this screen (chips, the recording takeover); the
+  // browser never renders any of it. Every native branch below guards on this.
+  const native = useIsNative();
 
   const isDaily = params.get("daily") === "1";
   const speech = getSpeech(params.get("speech") ?? "");
@@ -322,6 +333,9 @@ function RecordingScreen() {
   const [goalId, setGoalId] = useState<GoalId | null>(null);
   const [videoOn, setVideoOn] = useState(false);
   const [state, setState] = useState<RecState>("idle");
+  // Native takeover only: whether the one-line prompt peek is expanded to the
+  // full brief. Pure presentation — nothing about the take reads it.
+  const [peekOpen, setPeekOpen] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   // The only spoken account of the take: start, the countdown warnings, and the
   // stop. Nothing else on this screen says any of it out loud — the countdown
@@ -957,22 +971,43 @@ function RecordingScreen() {
           </div>
 
           {scenario && (
-            <p className="mt-3 text-base leading-6 text-on-surface-variant max-w-[60ch]">
+            <p
+              className={
+                "mt-3 text-base leading-6 text-on-surface-variant max-w-[60ch]" +
+                (native ? " nv-subhead" : "")
+              }
+            >
               {scenario}
             </p>
           )}
 
           {isDaily && daily ? (
             <div className="mt-3 max-w-[60ch]">
-              <p className="font-headline text-[26px] leading-9 text-primary">
+              <p
+                className={
+                  "font-headline text-[26px] leading-9 text-primary" +
+                  (native ? " nv-title" : "")
+                }
+              >
                 {daily.topic}
               </p>
-              <p className="mt-2 text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
+              <p
+                className={
+                  "mt-2 text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant" +
+                  (native ? " nv-caption" : "")
+                }
+              >
                 Improvise. Hit these three, in your own words.
               </p>
               <ul className="mt-2 space-y-2">
                 {(daily.bullets ?? []).map((b, i) => (
-                  <li key={i} className="flex gap-3 text-lg leading-7 text-on-surface">
+                  <li
+                    key={i}
+                    className={
+                      "flex gap-3 text-lg leading-7 text-on-surface" +
+                      (native ? " nv-body" : "")
+                    }
+                  >
                     <span className="font-data text-sm text-accent-strong mt-1">{i + 1}</span>
                     <span>{b}</span>
                   </li>
@@ -990,10 +1025,20 @@ function RecordingScreen() {
                   script it, and people run long on point one and then trail
                   off. The rest was good advice nobody was going to read. */}
               <div className="card-warm mt-5 p-4">
-                <p className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
+                <p
+                  className={
+                    "text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant" +
+                    (native ? " nv-caption" : "")
+                  }
+                >
                   How to run this
                 </p>
-                <ol className="mt-2.5 space-y-2 text-[15px] leading-6 text-on-surface-variant">
+                <ol
+                  className={
+                    "mt-2.5 space-y-2 text-[15px] leading-6 text-on-surface-variant" +
+                    (native ? " nv-subhead" : "")
+                  }
+                >
                   <li>
                     <span className="font-semibold text-primary">
                       Don&apos;t script it.
@@ -1015,8 +1060,10 @@ function RecordingScreen() {
             <p
               className={
                 isScript
-                  ? "mt-3 text-lg leading-8 text-on-surface max-w-[68ch]"
-                  : "mt-3 font-headline text-[26px] leading-9 text-primary max-w-[60ch]"
+                  ? "mt-3 text-lg leading-8 text-on-surface max-w-[68ch]" +
+                    (native ? " nv-body" : "")
+                  : "mt-3 font-headline text-[26px] leading-9 text-primary max-w-[60ch]" +
+                    (native ? " nv-title" : "")
               }
             >
               {script}
@@ -1189,15 +1236,33 @@ function RecordingScreen() {
 
           {/* Coaching goal: what should this delivery do to the audience? */}
           <div className="mt-5">
-            <span className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+            <span
+              className={
+                "text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant" +
+                (native ? " nv-caption" : "")
+              }
+            >
               What do you want this to do?{" "}
               <span className="normal-case font-medium tracking-normal">
                 (Felix judges against it)
               </span>
             </span>
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div className={"mt-2 flex flex-wrap gap-2" + (native ? " nv-grid-2" : "")}>
               {GOALS.map((g) => {
                 const active = goalId === g.id;
+                if (native) {
+                  return (
+                    <NvChip
+                      key={g.id}
+                      selected={active}
+                      disabled={state !== "idle" && state !== "error"}
+                      onClick={() => setGoalId(active ? null : g.id)}
+                      className="disabled:opacity-50"
+                    >
+                      {g.label}
+                    </NvChip>
+                  );
+                }
                 return (
                   <button
                     key={g.id}
@@ -1265,12 +1330,40 @@ function RecordingScreen() {
           </div>
         </div>
 
-        {/* The stage and the button, the half of the screen you act on. */}
-        <div className="min-w-0 lg:col-span-5 lg:sticky lg:top-28">
+        {/* The stage and the button, the half of the screen you act on.
+            While the app records, this whole column becomes the screen: the
+            nv-takeover class lifts it to a fixed, dark, full-screen booth
+            (stage, timer, stop control — all already inside, so no node
+            moves). Web never sees the class. */}
+        <div
+          className={
+            "min-w-0 lg:col-span-5 lg:sticky lg:top-28" +
+            (native && recording ? " nv-takeover" : "")
+          }
+        >
+          {native && recording && (
+            // The brief, collapsed to one peek line so the speaker can glance
+            // without reading. Tap to expand. Color inherits from the takeover
+            // (nv-footnote's ink would vanish on the always-dark booth).
+            <button
+              type="button"
+              onClick={() => setPeekOpen((o) => !o)}
+              aria-expanded={peekOpen}
+              className={`nv-footnote mb-3 min-h-11 w-full text-left opacity-75 ${
+                peekOpen ? "max-h-40 overflow-y-auto whitespace-pre-line" : "truncate"
+              }`}
+              style={{ color: "inherit" }}
+            >
+              {script}
+            </button>
+          )}
           {/* The stage: camera feed when on, waveform when off. Either way it's
               the dominant element on the screen. */}
           <div
-            className="practice-stage stagger-in w-full bg-oxford rounded-xl h-[34vh] min-h-[220px] relative overflow-hidden"
+            className={
+              "practice-stage stagger-in w-full bg-oxford rounded-xl h-[34vh] min-h-[220px] relative overflow-hidden" +
+              (native && recording ? " flex-1" : "")
+            }
             style={{ animationDelay: "150ms" }}
           >
             <video
@@ -1335,11 +1428,22 @@ function RecordingScreen() {
                 exercise and running out is the point. Everything else counts up,
                 because nothing is running out. */}
             <span
-              className={`font-data text-2xl tabular-nums ${
-                isDaily && recording && elapsed > DAILY_LIMIT_SEC - 10
-                  ? "text-accent-strong"
-                  : "text-primary"
-              }`}
+              className={
+                native && recording
+                  ? "nv-timer nv-num"
+                  : `font-data text-2xl tabular-nums ${
+                      isDaily && recording && elapsed > DAILY_LIMIT_SEC - 10
+                        ? "text-accent-strong"
+                        : "text-primary"
+                    }`
+              }
+              // In the takeover the timer inherits the booth's chalk; the
+              // last ten seconds go live-orange, driven by the same countdown.
+              style={
+                native && recording && isDaily && elapsed > DAILY_LIMIT_SEC - 10
+                  ? { color: "var(--nv-accent-500)" }
+                  : undefined
+              }
               // Hidden rather than merely silent. This node's text is rewritten
               // ten times a second; keeping it in the accessibility tree buys a
               // reading of "0:44" — punctuation a screen reader has to guess at
@@ -1364,9 +1468,43 @@ function RecordingScreen() {
               {announcement}
             </span>
 
-            <div className="relative h-24 w-24">
+            <div
+              className={
+                "relative h-24 w-24" +
+                (native && recording ? " flex items-center justify-center" : "")
+              }
+            >
               {recording && (
                 <span className="pulse-ring absolute inset-0 bg-accent/60" aria-hidden="true" />
+              )}
+              {native && recording && (
+                // The ring that fills with the take: same elapsed/limit pair
+                // the countdown renders, drawn with the system's dial classes.
+                <svg
+                  className="pointer-events-none absolute inset-0 h-full w-full"
+                  viewBox="0 0 96 96"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <circle
+                    className="nv-dial-track"
+                    cx="48"
+                    cy="48"
+                    r={DIAL_R}
+                    strokeWidth="3"
+                  />
+                  <circle
+                    className="nv-dial-arc"
+                    cx="48"
+                    cy="48"
+                    r={DIAL_R}
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeDasharray={DIAL_C}
+                    strokeDashoffset={DIAL_C * Math.max(0, 1 - elapsed / limitSec)}
+                    transform="rotate(-90 48 48)"
+                  />
+                </svg>
               )}
               <button
                 type="button"
@@ -1383,7 +1521,15 @@ function RecordingScreen() {
               </button>
             </div>
 
-            <span className="text-[13px] font-semibold tracking-wide text-on-surface-variant">
+            <span
+              className={
+                "text-[13px] font-semibold tracking-wide text-on-surface-variant" +
+                (native && recording ? " opacity-75" : "")
+              }
+              // Same inheritance as the peek line: the variant ink is invisible
+              // on the always-dark takeover, the booth's own chalk is not.
+              style={native && recording ? { color: "inherit" } : undefined}
+            >
               {recording
                 ? isDaily
                   ? "Tap to finish, or it stops itself at zero"
