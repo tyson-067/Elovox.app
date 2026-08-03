@@ -208,7 +208,18 @@ export function NativeRuntime() {
           "localNotificationActionPerformed",
           ({ notification }) => {
             const route = notification.extra?.route;
-            if (typeof route === "string") router.push(route);
+            // Internal paths only. Today the only writer of `extra.route` is
+            // lib/reminders.ts, but this handler fires for ANY notification
+            // this app ever delivers — including whatever a future push
+            // integration carries — and router.push with an absolute URL is
+            // a full navigation. "/x" yes; "//host", "https:…" no.
+            if (
+              typeof route === "string" &&
+              route.startsWith("/") &&
+              !route.startsWith("//")
+            ) {
+              router.push(route);
+            }
           }
         )
       )
