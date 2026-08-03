@@ -163,10 +163,7 @@ export function NativeReport({
               <span className="sr-only">
                 Report: scored {analysis.overall} out of 100
               </span>
-              <span
-                aria-hidden="true"
-                className="nv-num text-[44px] font-bold leading-none tracking-[-0.02em]"
-              >
+              <span aria-hidden="true" className="nv-display nv-num text-[44px]">
                 {analysis.overall}
               </span>
               <span aria-hidden="true" className="nv-caption mt-1">

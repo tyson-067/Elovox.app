@@ -741,3 +741,89 @@ html[data-native] {
     transition: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   THE TYPOGRAPHY PASS — display character over a quiet body
+   ---------------------------------------------------------------------------
+   The pure system stack read as bland — the user's word — so the DISPLAY
+   layer moves to Montserrat (already loaded for the website: geometric,
+   deco-flavored, the closest licensed face to the boards they pinned) set
+   TIGHT: tracking around -100 and leading at 0.8 on single-line display
+   sizes, per their spec. The BODY stays the system face — that split is the
+   contrast: personality where type is big, invisibility where type is read.
+   Numerals that change per-frame (the timer) stay mono so they don't jitter;
+   static numerals (scores, stats) take the display face.
+   --------------------------------------------------------------------------- */
+html[data-native] {
+  --nv-font-display: var(--font-montserrat), -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --nv-track-display: -0.08em; /* the -100 look; digits get less, below */
+  --nv-track-title: -0.05em;
+  --nv-track-ui: -0.02em;
+  /* More contrast, both modes: secondary ink darkens a step, the light
+     hairline sharpens a step. */
+  --nv-ink-2: rgba(18, 16, 31, 0.66);
+  --nv-hairline: #e2e2e8;
+}
+html[data-native][data-theme="dark"] {
+  --nv-ink-2: rgba(245, 244, 248, 0.68);
+  --nv-hairline: rgba(255, 255, 255, 0.1);
+}
+
+/* The chrome titles. */
+html[data-native] .native-title-lg {
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  letter-spacing: var(--nv-track-display);
+  line-height: 0.8;
+  padding-top: 6px; /* 0.8 leading needs the room the old leading provided */
+}
+html[data-native] .native-title-sm {
+  font-family: var(--nv-font-display);
+  font-weight: 700;
+  letter-spacing: var(--nv-track-title);
+}
+
+/* Screen and card titles. Multi-line titles keep enough leading to not
+   collide; the 0.8 spec belongs to single-line display setting. */
+html[data-native] .nv-title {
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  letter-spacing: var(--nv-track-title);
+  line-height: 1.04;
+}
+html[data-native] .nv-headline {
+  letter-spacing: var(--nv-track-ui);
+}
+
+/* Display numerals: the Progress score, stats, the report dial. Digits
+   collide before letters do, so they take a gentler cut of the tracking. */
+html[data-native] .nv-display {
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 0.8;
+}
+html[data-native] .nv-stat-value {
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Actions carry the face too — a CTA is display type you press. */
+html[data-native] .nv-btn {
+  font-family: var(--nv-font-display);
+  font-weight: 700;
+  letter-spacing: var(--nv-track-ui);
+}
+html[data-native] .nv-chip {
+  font-family: var(--nv-font-display);
+  font-weight: 600;
+}
+
+/* Captions widen while everything display tightens — the counterpoint that
+   makes the tight setting read as intent, not error. */
+html[data-native] .nv-caption {
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
