@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { RequireAuth } from "@/components/RequireAuth";
-import { NativeAccountSection } from "@/components/NativeAccountSection";
+import { NativeAccount } from "@/components/native/NativeAccount";
 import { useAuth } from "@/components/AuthProvider";
 import { usePlanRecord, refreshPlan, hasComp, type PlanRecord } from "@/lib/plan";
 import { STREAK_REWARD_DAYS } from "@/lib/streakClaim";
@@ -239,7 +239,9 @@ function BillingSection() {
   }
 
   return (
-    <section className={cardClass}>
+    // native-hide: the app shows the plan read-only in NativeAccount — no
+    // billing buttons, no prices (App Store rule). The web keeps all of it.
+    <section className={`${cardClass} native-hide`}>
       <h2 className="font-headline text-lg font-semibold text-primary">
         Plan &amp; billing
       </h2>
@@ -423,10 +425,19 @@ function AccountScreen() {
         </p>
       </div>
 
+      {/* The app-scale Account: five grouped lists with the forms in sheets,
+          running the same lib/auth calls as the cards below. Renders nothing
+          in a browser; the web cards it replaces carry native-hide. */}
+      <NativeAccount
+        email={user?.email ?? null}
+        hasPassword={hasPassword}
+        initialVerified={verified}
+      />
+
       <BillingSection />
 
       {/* Email + verification */}
-      <section className={cardClass}>
+      <section className={`${cardClass} native-hide`}>
         <h2 className="font-headline text-lg font-semibold text-primary">
           Your email
         </h2>
@@ -471,7 +482,7 @@ function AccountScreen() {
       </section>
 
       {/* Change email */}
-      <section className={cardClass}>
+      <section className={`${cardClass} native-hide`}>
         <h2 className="font-headline text-lg font-semibold text-primary">
           Change email
         </h2>
@@ -527,7 +538,7 @@ function AccountScreen() {
       </section>
 
       {/* Change password */}
-      <section className={cardClass}>
+      <section className={`${cardClass} native-hide`}>
         <h2 className="font-headline text-lg font-semibold text-primary">
           Change password
         </h2>
@@ -578,10 +589,6 @@ function AccountScreen() {
         )}
       </section>
 
-      {/* Appearance and the legal rows the footer used to carry. Native
-          only — the web still has a footer. */}
-      <NativeAccountSection />
-
       <ExportDataSection />
 
       <DeleteAccountSection hasPassword={hasPassword} />
@@ -616,7 +623,9 @@ function ExportDataSection() {
   };
 
   return (
-    <section className={cardClass}>
+    // native-hide: the app carries export as a row in NativeAccount's Data
+    // group, wired to the same fetchDataExport flow.
+    <section className={`${cardClass} native-hide`}>
       <h2 className="font-headline text-lg font-semibold">Download your data</h2>
       <p className="mt-1 text-sm text-on-surface-variant">
         A copy of everything Elovox holds for your account (your practice
@@ -670,7 +679,9 @@ function DeleteAccountSection({ hasPassword }: { hasPassword: boolean }) {
   };
 
   return (
-    <section className={`${cardClass} border border-error/30`}>
+    // native-hide: the app presents deletion as a destructive row opening a
+    // sheet in NativeAccount, with this same confirmation flow.
+    <section className={`${cardClass} border border-error/30 native-hide`}>
       <h2 className="font-headline text-lg font-semibold text-error">
         Delete account
       </h2>
