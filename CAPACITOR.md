@@ -401,6 +401,35 @@ timings (2.5s / 11s / 22s) match a real analysis, and whether the
 
 ---
 
+## Legal / App Review posture (audited 2026-08-03)
+
+What Apple's checklist needs, and where Elovox stands:
+
+- **Account deletion in-app** (5.1.1(v)): ✓ — Account → delete, with the
+  mid-subscription refund path already built (lib/refunds.ts).
+- **Privacy policy**: ✓ /privacy is thorough and honest (recordings
+  discarded, retention table, in-app deletion). One wording note for a
+  future copy pass, NOT done autonomously: it says "your browser records
+  audio" — inside the app that reads slightly off; "the app" would cover
+  both. No compliance gap, the mechanics described are identical.
+- **Privacy manifest vs. questionnaire**: the manifest added in
+  ios/App/App/PrivacyInfo.xcprivacy declares email, name, audio, camera
+  frames, typed speech text (all linked, app functionality) and aggregate
+  product interaction (analytics, not linked). Answer the App Store
+  questionnaire identically. "Collected" includes data processed then
+  discarded — transmission counts, retention does not change the answer.
+- **AI-generated content label**: ✓ shipped in the July batch.
+- **No purchase path in the app** (3.1.1): ✓ — .web-only strips CTAs, the
+  native dashboard upsell card is gone entirely, checkout.stripe.com is not
+  in allowNavigation. "Unlocks with Premium" feature labels remain, which is
+  accepted practice; do not add prices or links next to them.
+- **Local notifications**: reminder settings and schedule never leave the
+  device; no policy change required.
+- **Optional hardening, not blocking**: Info.plist carries
+  NSAllowsLocalNetworking so dev builds can reach a local server. It allows
+  cleartext to LOCAL hosts only and ships in release harmlessly, but a
+  release xcconfig could strip it if you ever want the tightest posture.
+
 ## Verification checklist for the first device run
 
 - [ ] App launches to the real elovox.app, not the offline shell
@@ -453,6 +482,37 @@ What changes:
 To work on any of it without Xcode, run the dev server and open
 `http://localhost:3000/dashboard?native=1`. The override is compiled out of
 production builds.
+
+Add `&demo=1` (dev-only, same mechanism) to see the SIGNED-IN surface without
+an account: the client pretends Firebase is absent and every feature runs its
+localStorage fallback. Caveat learned the hard way: in demo mode the server
+still renders "configured", React notices the disagreement on hydration and
+client-renders the tree — the browser recovers; a WKWebView build pointed at
+a demo-flagged URL can land blank. For simulator work, run a server whose env
+is actually blanked instead (`.claude/launch.json` has `elovox-demo` on port
+3001) and point the shell at it: server and client agree, nothing mismatches.
+
+### The 2026-08-03 layout overhaul
+
+The chrome was native but the screens inside it still moved and measured like
+the website — scroll reveals, hover lifts, display headlines, label-width
+orange buttons. All of that is now re-set at app scale under
+`html[data-native]` (see "THE NATIVE LAYOUT LAYER" in globals.css): 17px
+body, 26px page titles under a 33px large title, full-width 50pt buttons,
+50pt input cells, 16px card radius, reveal/stagger entrances off, text
+selection opt-in (`.native-selectable`), panel-toned bar and dock in dark
+mode. Today is a native-only screen (components/NativeToday.tsx) — compact
+Felix identity card, streak/attempts tiles, the Daily Minute as the one
+full-width CTA — and the web hero it replaces carries native-hide.
+
+Verified in the simulator: scroll, bar collapse + blur, pushed-screen back
+chevron, and the edge-swipe back gesture all behave. Two lessons that cost
+real time, recorded so they are only paid once: the pre-paint data-native
+stamp must be re-asserted after load (a hydration recovery rebuilds <html>'s
+attributes and silently de-nativizes the app — the inline script now does
+this, and useIsNative observes the attribute), and the iOS-simulator MCP's
+`swipe` reads as a selection drag in a webview — drive scrolling with
+`touch_path` and ~16ms steps instead.
 
 ### Checks worth repeating on device
 
