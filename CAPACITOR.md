@@ -427,3 +427,51 @@ production builds.
 - [ ] The dock clears the home indicator, and the title bar clears the notch
 - [ ] Dark mode survives a cold launch with no flash of light
 - [ ] Tapping a card leaves no stuck hover state behind
+
+---
+
+## The native runtime
+
+Everything above is layout. `components/NativeRuntime.tsx` is the behaviour —
+the parts of "this is an app" that live outside React's tree. It renders
+nothing and is inert in a browser.
+
+- **The splash is held until the app has painted.** The shell is a webview
+  onto a remote site, so hiding it when the webview exists means hiding it
+  onto a blank screen the user then watches load. Config keeps the native 3s
+  timer as a backstop: a splash only JS can dismiss is one bad deploy away
+  from an app frozen behind a picture. `Splash.imageset` is the app's own
+  background gradient, light and dark, so the handoff has nothing to see.
+- **Haptics under every tap**, via one delegated `pointerdown` listener
+  (`lib/haptics.ts`) rather than a call added to hundreds of controls. Dock
+  tabs get the lighter selection detent; everything else gets an impact.
+- **The status bar follows `data-theme`**, and is reasserted on resume.
+- **The keyboard** moves the dock out of the way and nothing else
+  (`Keyboard.resize` is `None`; `data-keyboard` on `<html>` drives the CSS).
+- **Edge-swipe back**, tracking the finger so it can be abandoned halfway.
+  Deliberately not WKWebView's `allowsBackForwardNavigationGestures`, which
+  drives the webview's history and disagrees with Next's router.
+
+Screens fade-and-slide in on navigation. The class is re-armed per navigation
+from the runtime, not matched in CSS: React reuses a DOM node when two routes
+have the same shape, and a reused node keeps its finished animation forever.
+The **outgoing** screen is not animated — a true iOS push needs the View
+Transitions API, which needs React's `<ViewTransition>`, which is not in
+stable React 19.2. That is the one piece of this still missing.
+
+### Working on it without deploying
+
+The app always loads the *deployed* site, so native-UI changes are not in it
+until they ship. Point the shell at a dev server instead:
+
+```bash
+CAP_SERVER_URL=http://localhost:3000 npx cap sync ios && npx cap open ios
+```
+
+`Info.plist` carries `NSAllowsLocalNetworking` for the cleartext load — local
+hosts only, nothing changes about how the app reaches elovox.app. **Re-run
+`npx cap sync ios` with no `CAP_SERVER_URL` before committing**, or the dev
+URL stays baked into `ios/App/App/capacitor.config.json`.
+
+For quick CSS work with no Xcode at all, `?native=1` still paints the native
+UI in a desktop browser.

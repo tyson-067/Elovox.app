@@ -1130,6 +1130,26 @@ html[data-native][data-theme="dark"] body {
   );
 }
 
+/* The ground the user actually sees.
+   `body::before` is a fixed, full-viewport layer, so it covers `body`'s own
+   background completely — restyling `body` above and stopping there left the
+   light wash painting over every dark screen. Worse than untouched: that
+   gradient interpolates through `var(--color-surface)`, which IS themed, so
+   dark mode turned it into a light → dark → light band with unreadable body
+   copy in the pale stretches.
+
+   Same three stops as the rule above, because these two have to agree — this
+   is the one that shows, and that one is what remains if the layer is ever
+   dropped. */
+html[data-native][data-theme="dark"] body::before {
+  background-image: linear-gradient(
+    172deg,
+    #16112f 0%,
+    var(--color-surface) 45%,
+    #0a0819 100%
+  );
+}
+
 html[data-native][data-theme="dark"] .card {
   background: var(--color-surface-lowest);
   border-color: rgba(203, 216, 255, 0.11);
@@ -1485,6 +1505,73 @@ html[data-native] #main {
   .native-title-lg,
   .native-title-sm,
   .native-bar {
+    transition: none;
+  }
+}
+
+/* --- Keyboard --------------------------------------------------------------
+   Keyboard.resize is None, so WebKit does not touch the viewport and these
+   rules are the entire response to the keyboard. NativeRuntime sets
+   `data-keyboard` and `--keyboard-height` on <html>.
+
+   The dock leaves. A tab bar sitting on top of the keyboard is not something
+   iOS does, and it eats the row where the field being typed into usually is. */
+html[data-native][data-keyboard] .native-dock {
+  transform: translate3d(0, calc(100% + env(safe-area-inset-bottom)), 0);
+  pointer-events: none;
+}
+.native-dock {
+  transition: transform 250ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* The dock's reserved space becomes the keyboard's, so a field at the bottom
+   of a form can still be scrolled above the keys. */
+html[data-native][data-keyboard] body {
+  padding-bottom: var(--keyboard-height, 0px);
+}
+
+/* --- Screen transitions ----------------------------------------------------
+   A screen that replaces another with no motion between them is read as a
+   page load, which is the thing this whole layer exists to stop being. This
+   is the enter half only — the outgoing screen is gone before React commits
+   the new one, and animating it out as well needs the View Transitions API
+   (see NativeRuntime's notes).
+
+   Deliberately short and mostly opacity. A long slide would announce itself,
+   and iOS's own push is quicker than people remember: what sells it is that
+   *something* moved, not how far. */
+@keyframes native-screen-in {
+  from {
+    opacity: 0;
+    transform: translate3d(10px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The class is added by NativeRuntime on every navigation, not matched
+   structurally, so that a DOM node React reused across two routes still
+   replays. `both` would leave a reused node stuck at opacity 1 with the
+   animation already finished — which is the state we want anyway, so a
+   forwards fill is all this needs. */
+html[data-native] #main > .native-screen-enter {
+  animation: native-screen-in 260ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+/* The chrome is the fixed reference the content moves against, so it must
+   never be part of the movement. */
+html[data-native] .native-bar,
+html[data-native] .native-dock {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-native] #main > .native-screen-enter {
+    animation: none;
+  }
+  .native-dock {
     transition: none;
   }
 }

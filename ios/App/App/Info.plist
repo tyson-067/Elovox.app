@@ -35,6 +35,15 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- Permits cleartext HTTP to local hosts only, so the shell can be
+		     pointed at a dev server (see CAP_SERVER_URL in capacitor.config.ts)
+		     without an arbitrary-loads exception. Connections to elovox.app and
+		     every other internet host stay under full ATS. -->
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Elovox watches your posture, gestures, and eye contact during a rep to coach your body language.</string>
 	<key>NSMicrophoneUsageDescription</key>
@@ -45,13 +54,11 @@
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>

@@ -87,7 +87,17 @@ const csp = [
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "object-src 'none'",
-  "upgrade-insecure-requests",
+
+  // Production only. `next dev` serves over plain http, and this directive
+  // rewrites every subresource URL to https — so the dev server is asked for
+  // https://localhost:3000/_next/... , which it does not speak, and the page
+  // renders as unstyled HTML with no JS. A desktop browser hides this because
+  // it is exempt for localhost; the iOS shell pointed at a dev server via
+  // CAP_SERVER_URL is not, and gets the broken page.
+  //
+  // Nothing is lost by omitting it here: it only ever upgrades http, and in
+  // production every URL is already https.
+  ...(isDev ? [] : ["upgrade-insecure-requests"]),
 ].join("; ");
 
 const securityHeaders = [

@@ -8,6 +8,7 @@ import { SubNav } from "@/components/SubNav";
 import { ScrollProgress } from "@/components/ScrollProgress";
 import { Footer } from "@/components/Footer";
 import { NativeShell } from "@/components/NativeShell";
+import { NativeRuntime } from "@/components/NativeRuntime";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
@@ -206,6 +207,12 @@ export default function RootLayout({
             <ScrollProgress />
           </header>
           <NativeShell />
+          {/* Renders nothing — it owns the native side effects (splash, status
+              bar, keyboard, haptics, edge-swipe back). Its effects reach for
+              #main and the title bar's back button, both of which exist by
+              then: effects run after the whole tree has committed, so source
+              order here is only about reading in the order things happen. */}
+          <NativeRuntime />
           <main id="main" className="flex-1 w-full px-4 md:px-10 xl:px-16 2xl:px-24">
             {children}
           </main>
