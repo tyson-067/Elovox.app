@@ -827,3 +827,38 @@ html[data-native] .nv-caption {
   font-weight: 700;
   letter-spacing: 0.09em;
 }
+
+/* ---------------------------------------------------------------------------
+   THE BODY JOINS THE TYPE SYSTEM
+   ---------------------------------------------------------------------------
+   Round two of "bland": the display pass left the body on the system stack,
+   and the whole screen still read as SF between headlines. The body moves to
+   Jost — the geometric, Futura-blooded face the boards' Mango/Amenti/Gilgan
+   all descend from, already loaded for the website — so every row label,
+   blurb and footnote now speaks the same family the titles shout in.
+   Montserrat keeps the display layer; Jost carries the reading layer; the
+   recording timer stays mono so its digits never jitter. App only, as ever:
+   nothing here reaches the website's own type.
+   --------------------------------------------------------------------------- */
+html[data-native] {
+  --nv-font-body: var(--font-jost), -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+}
+html[data-native] body {
+  font-family: var(--nv-font-body);
+}
+html[data-native] {
+  --font-body: var(--nv-font-body);
+}
+
+/* Jost ships here in 400/500/600 — pin the weights that asked for more to
+   real cuts so nothing renders synthetic-bold. */
+html[data-native] .nv-caption {
+  font-weight: 600;
+}
+html[data-native] .nv-headline {
+  font-weight: 600;
+}
+/* Body-size emphasis (the "font-semibold" sprinkled through rows and
+   footnotes) lands on Jost 600, which reads a notch heavier than SF 600 —
+   exactly the extra contrast the boards carry. Nothing to override. */
