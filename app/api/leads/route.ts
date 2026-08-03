@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { validateEmail } from "@/lib/validation";
-import { makeRateLimiter, clientIp } from "@/lib/verify";
+import { makeRateLimiter, clientIp, logRejectedInput } from "@/lib/verify";
 import { FieldValue } from "firebase-admin/firestore";
 
 // The tips list: a low-commitment way in for someone not ready to make an
@@ -28,12 +28,14 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
+    logRejectedInput("leads", "bad-json");
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
   // `JSON.parse("null")` and `JSON.parse("[]")` parse fine but aren't the
   // object the rest of this handler reads; guard before touching properties
   // so a `null`/array body is a clean 400, not an unhandled 500.
   if (!body || typeof body !== "object" || Array.isArray(body)) {
+    logRejectedInput("leads", "bad-shape");
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
 
@@ -45,6 +47,7 @@ export async function POST(req: NextRequest) {
 
   const check = validateEmail(body.email);
   if (!check.ok) {
+    logRejectedInput("leads", check.reason ?? "invalid-email");
     return NextResponse.json(
       { error: "That doesn't look like an email address." },
       { status: 400 }
@@ -69,6 +72,7 @@ export async function POST(req: NextRequest) {
   // unauthenticated route answered a bare 500. Same shape of check the session
   // delete route already applies to ids it is handed.
   if (/^__.*__$/.test(docId) || docId === "." || docId === "..") {
+    logRejectedInput("leads", "reserved-doc-id");
     return NextResponse.json(
       { error: "That doesn't look like an email address." },
       { status: 400 }

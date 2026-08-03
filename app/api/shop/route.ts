@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import { verifyUser, makeRateLimiter } from "@/lib/verify";
+import { verifyUser, makeRateLimiter, logRejectedInput } from "@/lib/verify";
 import { equip, purchase } from "@/lib/coinsServer";
 
 // Buying and wearing Felix's things.
@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
+    logRejectedInput("shop", "bad-json");
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
   // A `null`/array body parses fine but isn't the object we read below;
@@ -84,6 +85,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(result);
     }
 
+    logRejectedInput("shop", "bad-action");
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   } catch (err) {
     console.error("[shop] failed", uid, body.action, err);

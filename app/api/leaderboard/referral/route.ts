@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import { verifyUser, makeRateLimiter } from "@/lib/verify";
+import { verifyUser, makeRateLimiter, logRejectedInput } from "@/lib/verify";
 import { normalizeCode, redeemInvite } from "@/lib/referral";
 
 // Redeems an invite code for the signed-in account: records who invited them
@@ -34,11 +34,13 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
+    logRejectedInput("leaderboard/referral", "bad-json");
     return NextResponse.json({ error: "No code." }, { status: 400 });
   }
 
   const code = normalizeCode((body as { code?: unknown })?.code);
   if (!code) {
+    logRejectedInput("leaderboard/referral", "bad-code");
     return NextResponse.json({ error: "That invite link isn't valid." }, { status: 400 });
   }
 

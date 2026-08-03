@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import { verifyUser, makeRateLimiter } from "@/lib/verify";
+import { verifyUser, makeRateLimiter, logRejectedInput } from "@/lib/verify";
 import { checkHandle, setHandle } from "@/lib/leaderboardServer";
 
 // Sets the name a user appears under on the leaderboard.
@@ -35,11 +35,13 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
+    logRejectedInput("leaderboard/handle", "bad-json");
     return NextResponse.json({ error: "Pick a name." }, { status: 400 });
   }
 
   const check = checkHandle((body as { handle?: unknown })?.handle);
   if (!check.ok) {
+    logRejectedInput("leaderboard/handle", "bad-handle");
     return NextResponse.json({ error: check.error }, { status: 400 });
   }
 

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import { verifyUser, makeRateLimiter, isPremiumServer } from "@/lib/verify";
+import {
+  verifyUser,
+  makeRateLimiter,
+  isPremiumServer,
+  logRejectedInput,
+} from "@/lib/verify";
 import { usageDateKey, reserveMeteredUse, refundMeteredUse } from "@/lib/quota";
 
 // Deletes one practice session from the user's history, with a reason, under
@@ -80,9 +85,11 @@ export async function POST(req: NextRequest) {
     sessionId === ".." ||
     /^__.*__$/.test(sessionId)
   ) {
+    logRejectedInput("session/delete", "bad-session-id");
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
   if (!REASONS.has(reason)) {
+    logRejectedInput("session/delete", "bad-reason");
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
 

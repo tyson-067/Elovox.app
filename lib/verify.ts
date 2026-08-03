@@ -268,6 +268,13 @@ export async function isPremiumServer(
   }
 }
 
+/** One warn line per rejected input so probing of the validation
+ *  boundaries shows up in monitoring. Reasons are machine codes; the
+ *  input itself is never logged. */
+export function logRejectedInput(route: string, reason: string): void {
+  console.warn(`[validate] ${route}: ${reason}`);
+}
+
 /**
  * Best-effort per-instance rate limiting. Not a security boundary, it's a
  * budget guard that stops one signed-in user (or one IP) from looping a route.

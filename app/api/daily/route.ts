@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateJson, geminiKey } from "@/lib/gemini";
-import { makeRateLimiter, clientIp } from "@/lib/verify";
+import { makeRateLimiter, clientIp, logRejectedInput } from "@/lib/verify";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 
 // Writes the improv challenge of the day. Called once per day by whichever
@@ -279,6 +279,7 @@ async function publishChallenge(
 export async function GET(req: NextRequest) {
   const date = req.nextUrl.searchParams.get("date") ?? "";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    logRejectedInput("daily", "bad-date");
     return NextResponse.json({ error: "bad date" }, { status: 400 });
   }
 
@@ -293,6 +294,7 @@ export async function GET(req: NextRequest) {
   const drift =
     Date.parse(`${date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`);
   if (Number.isNaN(drift) || Math.abs(drift) > 86_400_000) {
+    logRejectedInput("daily", "date-out-of-range");
     return NextResponse.json({ error: "bad date" }, { status: 400 });
   }
 

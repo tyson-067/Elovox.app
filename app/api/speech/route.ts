@@ -5,6 +5,7 @@ import {
   makeRateLimiter,
   isPremiumServer,
   enforceAppCheck,
+  logRejectedInput,
 } from "@/lib/verify";
 import { sanitizeText } from "@/lib/validation";
 import { getAdminDb } from "@/lib/firebaseAdmin";
@@ -257,6 +258,7 @@ export async function POST(req: NextRequest) {
     // length-capped, and quoted as data rather than interpolated as prose.
     const situation = sanitizeText(body.situation).slice(0, 600);
     if (!situation.trim()) {
+      logRejectedInput("speech", "missing-situation");
       return NextResponse.json(
         { error: "tell Felix what you're interviewing for" },
         { status: 400 }
@@ -319,6 +321,7 @@ Return exactly ${INTERVIEW_QUESTION_COUNT} questions.`,
     // and quoted as data rather than interpolated as prose.
     const need = sanitizeText(body.need).slice(0, 600);
     if (!need.trim()) {
+      logRejectedInput("speech", "missing-need");
       return NextResponse.json({ error: "tell Felix what you need" }, { status: 400 });
     }
     const audience = sanitizeText(body.audience).slice(0, 200);

@@ -8,6 +8,7 @@ import {
   makeRateLimiter,
   isPremiumServer,
   enforceAppCheck,
+  logRejectedInput,
 } from "@/lib/verify";
 import { sanitizeText } from "@/lib/validation";
 import { getAdminDb } from "@/lib/firebaseAdmin";
@@ -799,6 +800,7 @@ export async function POST(req: NextRequest) {
   // parts that ride along with the audio.
   const declaredLength = Number(req.headers.get("content-length") ?? 0);
   if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BYTES) {
+    logRejectedInput("analyze", "request-too-large");
     return NextResponse.json({ error: "recording too long" }, { status: 413 });
   }
 
@@ -806,6 +808,7 @@ export async function POST(req: NextRequest) {
   try {
     form = await req.formData();
   } catch {
+    logRejectedInput("analyze", "not-multipart");
     return NextResponse.json(
       { error: "bad-request", message: "Expected a multipart form upload." },
       { status: 400 }
@@ -841,10 +844,12 @@ export async function POST(req: NextRequest) {
     (audio instanceof Blob && audio.size > MAX_AUDIO_BYTES) ||
     durationSec > MAX_DURATION_SEC
   ) {
+    logRejectedInput("analyze", "recording-too-long");
     return NextResponse.json({ error: "recording too long" }, { status: 413 });
   }
 
   if (!(audio instanceof Blob)) {
+    logRejectedInput("analyze", "no-audio");
     return NextResponse.json({ error: "no audio" }, { status: 400 });
   }
 
