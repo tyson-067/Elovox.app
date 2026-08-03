@@ -1294,7 +1294,13 @@ function RecordingScreen() {
               }
             />
             {!recording && !busy && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
+              // The scrim earns its keep in the error state: the canvas behind
+              // still holds the frozen take at full amplitude, and amber text
+              // straight over orange bars is unreadable (seen on the no-speech
+              // error in the iOS sim). Ghosting the take through the stage's
+              // own dark also backs up "Try again, same recording" — the take
+              // is visibly still there.
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-oxford/85 px-6 text-center">
                 {/* role="alert" because this <p> is the ONLY surface for
                     "Elovox needs microphone access", "that take didn't
                     capture any audio", and every analysis failure. Without
