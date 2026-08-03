@@ -8,6 +8,8 @@ import {
   refreshVerifiedStatus,
   signOutUser,
   accountErrorMessage,
+  verificationSendFailure,
+  clearVerificationSendFailed,
 } from "@/lib/auth";
 import { startCheckout, peekCheckoutIntent, clearCheckoutIntent } from "@/lib/checkout";
 
@@ -33,6 +35,13 @@ export function VerifyEmailScreen() {
   const [checking, setChecking] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  // Whether signup's automatic send actually failed. Read once, lazily, so it
+  // is settled before first paint — the whole point is to not tell someone to
+  // go and check an inbox nothing was sent to.
+  const [autoSendFailed, setAutoSendFailed] = useState(() =>
+    typeof window === "undefined" ? false : verificationSendFailure() !== null
+  );
 
   // Now that the address is verified, resume a checkout the user started at
   // signup (stashed by AuthForm when the checkout route rejected the still
@@ -102,6 +111,8 @@ export function VerifyEmailScreen() {
     setBusy(true);
     try {
       await resendVerificationEmail();
+      clearVerificationSendFailed();
+      setAutoSendFailed(false);
       setMessage("Sent. Check your inbox, and your spam folder.");
     } catch (err) {
       setError(accountErrorMessage(err) || "Couldn't send that. Try again.");
@@ -138,14 +149,35 @@ export function VerifyEmailScreen() {
         <h1 className="font-headline text-2xl font-semibold">
           Confirm your email
         </h1>
-        <p className="mt-2 text-on-surface-variant">
-          We sent a link to <span className="font-semibold">{user.email}</span>.
-          Click it to activate your account. It only takes a second.
-        </p>
-        <p className="mt-3 text-sm text-on-surface-variant">
-          Not there? Check your spam folder. The message comes from Firebase on
-          behalf of Elovox.
-        </p>
+        {/* Two different situations, and telling them apart is the point. The
+            screen used to claim an email had been sent either way, so a signup
+            whose send had failed sat here waiting on a message that was never
+            coming, with the button that would have fixed it looking like a
+            spare. */}
+        {autoSendFailed ? (
+          <>
+            <p className="mt-2 text-on-surface-variant">
+              We couldn&rsquo;t send the link to{" "}
+              <span className="font-semibold">{user.email}</span> just now.
+            </p>
+            <p className="mt-3 text-sm text-on-surface-variant">
+              Your account is fine — press Resend email below and it should go
+              through.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="mt-2 text-on-surface-variant">
+              We sent a link to{" "}
+              <span className="font-semibold">{user.email}</span>. Click it to
+              activate your account. It only takes a second.
+            </p>
+            <p className="mt-3 text-sm text-on-surface-variant">
+              Not there? Check your spam folder. The message comes from Firebase
+              on behalf of Elovox.
+            </p>
+          </>
+        )}
 
         <div className="mt-6 flex flex-col gap-2 sm:flex-row">
           <button
