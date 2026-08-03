@@ -68,8 +68,12 @@ export const WEBAPP = {
       name: "Premium",
       price: "11.99",
       priceCurrency: "USD",
+      // Mirrors the visible copy's honest wording (see lib/faq.ts): Premium
+      // lifts the three-a-day limit, it is not literally unlimited — there is
+      // a fair-use ceiling. "Unlimited" here was the one survivor of the
+      // billing-honesty pass, live on every page that embeds this node.
       description:
-        "Unlimited practice, camera coaching, the full speech library, interview practice, and social skills.",
+        "Practice with no three-a-day limit, camera coaching, the full speech library, interview practice, and social skills.",
     },
   ],
 };

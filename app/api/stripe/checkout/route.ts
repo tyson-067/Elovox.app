@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe, appBaseUrl } from "@/lib/stripe";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import { verifyVerifiedUser, makeRateLimiter } from "@/lib/verify";
+import {
+  verifyVerifiedUser,
+  makeRateLimiter,
+  logRejectedInput,
+} from "@/lib/verify";
 import { PLANS, stripePriceIdFor, type BillingCycle } from "@/lib/pricing";
 
 // Starts a Stripe Checkout session for a signed-in user. Subscription mode
@@ -61,9 +65,11 @@ export async function POST(req: NextRequest) {
   try {
     ({ cycle, skipTrial } = await req.json());
   } catch {
+    logRejectedInput("stripe/checkout", "bad-json");
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
   if (!CYCLES.includes(cycle)) {
+    logRejectedInput("stripe/checkout", "unknown-cycle");
     return NextResponse.json({ error: "Unknown plan." }, { status: 400 });
   }
 
@@ -261,6 +267,32 @@ export async function POST(req: NextRequest) {
     // rather be billed today than remember a conversion date.
     const hadTrial = existing.data.some((s) => s.trial_start != null);
     const grantTrial = plan.trialDays > 0 && !hadTrial && skipTrial !== true;
+
+    // The one place client-side honesty can't reach: delete account → sign up
+    // again. The fresh users/{uid} doc has no trialEnd, so the pricing page
+    // promises "Start 7-day free trial" while this route, having found the
+    // surviving Stripe customer above, will grant no trial. Stripe's own
+    // Checkout page does show the real terms before any card entry, but the
+    // button still lied. Write the history the customer lookup just proved
+    // back into the plan doc, so every later render of /pricing goes through
+    // its existing trialUsed branch and the CTA reads "Get Premium" instead.
+    // Metadata only — the entitlement bit stays webhook-written. Best-effort:
+    // a failed write must never block a checkout.
+    if (hadTrial && plan.trialDays > 0) {
+      try {
+        const ends = existing.data
+          .map((s) => s.trial_end)
+          .filter((t): t is number => t != null);
+        if (ends.length) {
+          await db.doc(`users/${uid}/profile/plan`).set(
+            { trialEnd: Math.max(...ends) * 1000, stripeCustomerId: customerId },
+            { merge: true }
+          );
+        }
+      } catch (err) {
+        console.error(`[stripe] couldn't record spent trial for ${uid}`, err);
+      }
+    }
 
     // "No trial" is expressed by omitting trial_period_days below, because
     // Stripe rejects a zero-day trial. That is only correct while the Price
