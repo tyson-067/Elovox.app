@@ -6,12 +6,15 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { Reveal } from "@/components/Reveal";
 import { InfoTip } from "@/components/InfoTip";
 import { FelixScene, Biome } from "@/components/Biome";
+import { BackdropScene } from "@/components/Backdrop";
 import { Felix, type FelixAccessory } from "@/components/FoxLogo";
 import {
   BIOMES,
   COINS_DAILY,
   COINS_PER_LEVEL,
   SHOP_ACCESSORIES,
+  SHOP_BACKDROPS,
+  type BackdropId,
   type ShopItem,
 } from "@/lib/coins";
 import {
@@ -20,6 +23,7 @@ import {
   fetchShopState,
   type ShopState,
 } from "@/lib/shop";
+import { useIsNative } from "@/lib/native";
 
 // Felix's shop. Spend coins on what he wears and where he stands.
 //
@@ -55,14 +59,27 @@ function ItemCard({
   const worn =
     item.kind === "biome"
       ? state.equippedBiome === item.id
-      : state.equippedAccessory === item.id;
+      : item.kind === "backdrop"
+        ? state.equippedBackdrop === item.id
+        : state.equippedAccessory === item.id;
   const afford = state.coins >= item.price;
 
   return (
     <li className="card flex flex-col overflow-hidden p-0">
-      <div className="relative aspect-square w-full bg-shrimp/30">
+      {/* Backdrops preview landscape (they're a site-wide scene, not a
+          portrait of Felix); the card's own rounding clips the corners. */}
+      <div
+        className={`relative w-full bg-shrimp/30 ${
+          item.kind === "backdrop" ? "aspect-[3/2]" : "aspect-square"
+        }`}
+      >
         {item.kind === "biome" ? (
           <Biome id={item.id} className="h-full w-full" />
+        ) : item.kind === "backdrop" ? (
+          <BackdropScene
+            id={item.id as BackdropId}
+            className="h-full w-full"
+          />
         ) : (
           <Felix
             className="h-full w-full"
@@ -87,7 +104,7 @@ function ItemCard({
         <div className="mt-3">
           {worn ? (
             <span className="block rounded-lg bg-shrimp/60 py-2 text-center text-[13px] font-semibold text-primary">
-              Wearing this
+              {item.kind === "backdrop" ? "Behind the site" : "Wearing this"}
             </span>
           ) : owned ? (
             <button
@@ -96,7 +113,11 @@ function ItemCard({
               disabled={busy}
               className="btn w-full rounded-lg bg-primary py-2 text-[13px] font-semibold text-white disabled:opacity-60"
             >
-              {item.kind === "biome" ? "Move here" : "Wear it"}
+              {item.kind === "biome"
+                ? "Move here"
+                : item.kind === "backdrop"
+                  ? "Put it up"
+                  : "Wear it"}
             </button>
           ) : (
             <button
@@ -133,6 +154,8 @@ function ShopScreen() {
   const [state, setState] = useState<ShopState | null | undefined>(undefined);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Backgrounds are a website-only shelf; see the section below for why.
+  const isNative = useIsNative();
 
   const load = useCallback(async () => {
     setState(await fetchShopState());
@@ -169,6 +192,17 @@ function ShopScreen() {
     },
     [load]
   );
+
+  // Tells <SiteBackdrop /> (mounted in the root layout) what the server just
+  // agreed to, so the scene behind this very page changes the moment an equip
+  // lands — without it, the buyer reloads to see the thing they paid for.
+  // Only ever fired after a success: announcing an optimistic id would paint
+  // a backdrop the server may have refused.
+  const announceBackdrop = useCallback((id: string | null) => {
+    window.dispatchEvent(
+      new CustomEvent<string | null>("elovox:backdrop", { detail: id })
+    );
+  }, []);
 
   if (state === undefined) {
     return (
@@ -314,6 +348,68 @@ function ShopScreen() {
           ))}
         </ul>
       </Reveal>
+
+      {/* Site backgrounds — the WEBSITE's dress-up, never the app's. The iOS
+          shell must not show or sell these, so the section is gated twice:
+          skipped in render once useIsNative() settles, and `native-hide` so
+          the CSS covers the frame before it does. Same belt-and-braces as
+          SiteBackdrop itself. */}
+      {!isNative && (
+        <div className="native-hide">
+          <Reveal className="mt-10">
+            <h2 className="font-headline text-xl font-semibold text-primary">
+              Backgrounds
+            </h2>
+            <p className="mt-1 text-[14px] text-on-surface-variant">
+              A scene behind the whole site, here in the browser. Plain stays
+              the free default.
+            </p>
+            {state.equippedBackdrop && (
+              <button
+                type="button"
+                onClick={() =>
+                  void act("plain", async () => {
+                    const result = await equipItem(null, "backdrop");
+                    if (!result.error) announceBackdrop(null);
+                    return result;
+                  })
+                }
+                disabled={busy !== null}
+                className="mt-2 text-[13px] font-semibold text-accent-strong disabled:opacity-60"
+              >
+                Back to plain
+              </button>
+            )}
+            <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+              {SHOP_BACKDROPS.map((item) => (
+                <ItemCard
+                  key={item.id}
+                  item={item}
+                  state={state}
+                  busy={busy !== null}
+                  // A purchase equips server-side (see lib/coinsServer.ts),
+                  // so a successful buy announces too — the sky changes as
+                  // the coins leave.
+                  onBuy={() =>
+                    void act(item.id, async () => {
+                      const result = await buyItem(item.id);
+                      if (!result.error) announceBackdrop(item.id);
+                      return result;
+                    })
+                  }
+                  onEquip={() =>
+                    void act(item.id, async () => {
+                      const result = await equipItem(item.id, "backdrop");
+                      if (!result.error) announceBackdrop(item.id);
+                      return result;
+                    })
+                  }
+                />
+              ))}
+            </ul>
+          </Reveal>
+        </div>
+      )}
 
       <Reveal className="mt-10">
         <p className="text-[14px] text-on-surface-variant">

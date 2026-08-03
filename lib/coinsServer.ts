@@ -1,5 +1,5 @@
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
-import { ownedItems, seedCoins, shopItem } from "./coins";
+import { ownedItems, seedCoins, shopItem, type ShopKind } from "./coins";
 import type { ServerProgress } from "./leaderboardServer";
 
 // Spending. The other half of lib/coins.ts, and the only code in the app that
@@ -78,7 +78,11 @@ export async function purchase(
     // Wearing it immediately is the payoff. Buying a cape and then having to
     // find a second control to put it on is a shop that feels like paperwork.
     const equipKey =
-      item.kind === "accessory" ? "equippedAccessory" : "equippedBiome";
+      item.kind === "accessory"
+        ? "equippedAccessory"
+        : item.kind === "biome"
+          ? "equippedBiome"
+          : "equippedBackdrop";
 
     tx.set(
       ref,
@@ -105,7 +109,12 @@ export async function purchase(
 }
 
 export type EquipOutcome =
-  | { ok: true; equippedAccessory: string | null; equippedBiome: string | null }
+  | {
+      ok: true;
+      equippedAccessory: string | null;
+      equippedBiome: string | null;
+      equippedBackdrop: string | null;
+    }
   | { ok: false; reason: "unknown-item" | "not-owned" };
 
 /**
@@ -119,10 +128,15 @@ export async function equip(
   db: Firestore,
   uid: string,
   itemId: string | null,
-  kind: "accessory" | "biome"
+  kind: ShopKind
 ): Promise<EquipOutcome> {
   const ref = db.doc(`users/${uid}/score/progress`);
-  const key = kind === "accessory" ? "equippedAccessory" : "equippedBiome";
+  const key =
+    kind === "accessory"
+      ? "equippedAccessory"
+      : kind === "biome"
+        ? "equippedBiome"
+        : "equippedBackdrop";
 
   if (itemId !== null) {
     const item = shopItem(itemId);
@@ -166,6 +180,8 @@ export async function equip(
       equippedAccessory:
         kind === "accessory" ? itemId : (prev.equippedAccessory ?? null),
       equippedBiome: kind === "biome" ? itemId : (prev.equippedBiome ?? null),
+      equippedBackdrop:
+        kind === "backdrop" ? itemId : (prev.equippedBackdrop ?? null),
     };
   });
 }

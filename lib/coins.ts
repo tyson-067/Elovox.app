@@ -91,7 +91,7 @@ export function seedCoins(xp: number): number {
 
 // --- The shop ------------------------------------------------------------
 
-export type ShopKind = "accessory" | "biome";
+export type ShopKind = "accessory" | "biome" | "backdrop";
 
 /**
  * The biomes, as a closed set. This is the single source of the ids: the
@@ -103,6 +103,30 @@ export type BiomeId = (typeof BIOME_IDS)[number];
 
 export function isBiomeId(id: string | null | undefined): id is BiomeId {
   return !!id && (BIOME_IDS as readonly string[]).includes(id);
+}
+
+/**
+ * Site backdrops, the same closed-set idea as the biomes. The scenes live in
+ * components/Backdrop.tsx; the shop and SiteBackdrop pass these ids straight
+ * into BackdropScene, so an id listed here without a drawing there is a
+ * compile error at the call site rather than a blank page.
+ */
+export const BACKDROP_IDS = [
+  "starry-night",
+  "woodsy",
+  "beachy",
+  "mountainy",
+  "grassy",
+  "sunsety",
+  "urbany",
+  "suburbany",
+  "villagy",
+  "daylighty",
+] as const;
+export type BackdropId = (typeof BACKDROP_IDS)[number];
+
+export function isBackdropId(id: string | null | undefined): id is BackdropId {
+  return !!id && (BACKDROP_IDS as readonly string[]).includes(id);
 }
 
 export interface ShopItem {
@@ -194,7 +218,98 @@ export const SHOP_ACCESSORIES: (ShopItem & { id: FelixAccessory })[] = [
   },
 ];
 
-export const SHOP_ITEMS: ShopItem[] = [...SHOP_ACCESSORIES, ...BIOMES];
+/**
+ * Backdrops: a scene behind the whole website. Web only — the shop hides the
+ * section inside the iOS shell and components/SiteBackdrop.tsx refuses to
+ * render there — but the catalog lives here with everything else so the
+ * server validates a backdrop purchase off the same list as a cape.
+ *
+ * Unlike the biomes there is NO free entry: plain white is the default, costs
+ * nothing, and isn't an item. "Owns no backdrop" IS the plain look, which is
+ * why equippedBackdrop is nullable where equippedBiome never is — there is no
+ * id to fall back to, just the site as it ships.
+ *
+ * Priced under the biomes' ceiling on purpose. A backdrop restyles a website;
+ * a biome moves Felix, and Felix is the one people are attached to.
+ */
+export const SHOP_BACKDROPS: (ShopItem & { id: BackdropId })[] = [
+  {
+    id: "daylighty",
+    kind: "backdrop",
+    name: "Broad daylight",
+    detail: "Blue sky, nowhere to be.",
+    price: 120,
+  },
+  {
+    id: "grassy",
+    kind: "backdrop",
+    name: "Open grass",
+    detail: "Green from edge to edge.",
+    price: 150,
+  },
+  {
+    id: "suburbany",
+    kind: "backdrop",
+    name: "The suburbs",
+    detail: "Quiet streets, mowed lawns.",
+    price: 180,
+  },
+  {
+    id: "woodsy",
+    kind: "backdrop",
+    name: "The woods",
+    detail: "Tall trees, soft light.",
+    price: 220,
+  },
+  {
+    id: "villagy",
+    kind: "backdrop",
+    name: "The village",
+    detail: "Rooftops and slow smoke.",
+    price: 250,
+  },
+  {
+    id: "beachy",
+    kind: "backdrop",
+    name: "The beach",
+    detail: "Sand, surf, no hurry.",
+    price: 280,
+  },
+  {
+    id: "mountainy",
+    kind: "backdrop",
+    name: "The mountains",
+    detail: "Thin air, long views.",
+    price: 320,
+  },
+  {
+    id: "urbany",
+    kind: "backdrop",
+    name: "Downtown",
+    detail: "Glass, noise, momentum.",
+    price: 350,
+  },
+  {
+    id: "sunsety",
+    kind: "backdrop",
+    name: "Sunset",
+    detail: "The sky, showing off.",
+    price: 400,
+  },
+  {
+    id: "starry-night",
+    kind: "backdrop",
+    name: "Starry night",
+    detail: "Out late, whole sky.",
+    price: 450,
+  },
+];
+
+export const SHOP_ITEMS: ShopItem[] = [
+  ...SHOP_ACCESSORIES,
+  ...BIOMES,
+  ...SHOP_BACKDROPS,
+];
 
 /** The biome a user with nothing bought is standing in. */
 export const DEFAULT_BIOME = "den";

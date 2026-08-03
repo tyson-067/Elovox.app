@@ -9,6 +9,7 @@ import { ScrollProgress } from "@/components/ScrollProgress";
 import { Footer } from "@/components/Footer";
 import { NativeShell } from "@/components/NativeShell";
 import { NativeRuntime } from "@/components/NativeRuntime";
+import { SiteBackdrop } from "@/components/SiteBackdrop";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 // After globals on purpose: the native theme re-points the web's semantic
@@ -195,6 +196,11 @@ export default function RootLayout({
           Skip to content
         </a>
         <AuthProvider>
+          {/* The purchased site backdrop (web only), first inside the
+              provider because it reads useAuth, and at z-[-1] so it sits
+              under every surface that follows. Renders nothing signed out,
+              on the default plain look, or inside the native shell. */}
+          <SiteBackdrop />
           {/* The website's header. `native-hide` because a logo, a row of
               text links, and a horizontally-scrolling tab strip is browser
               chrome — inside the app, NativeShell puts a title bar and a dock

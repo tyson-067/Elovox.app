@@ -1,7 +1,7 @@
 "use client";
 
 import { isFirebaseConfigured, getDb, getUser } from "./firebase";
-import { DEFAULT_BIOME, ownedItems, seedCoins } from "./coins";
+import { DEFAULT_BIOME, ownedItems, seedCoins, type ShopKind } from "./coins";
 
 // Browser half of the shop. Reads straight from Firestore, writes through
 // /api/shop and nowhere else.
@@ -19,6 +19,8 @@ export interface ShopState {
   owned: string[];
   equippedAccessory: string | null;
   equippedBiome: string;
+  /** Site backdrop (web only). Null means plain — there is no default item. */
+  equippedBackdrop: string | null;
 }
 
 const EMPTY: ShopState = {
@@ -26,6 +28,7 @@ const EMPTY: ShopState = {
   owned: ownedItems([]),
   equippedAccessory: null,
   equippedBiome: DEFAULT_BIOME,
+  equippedBackdrop: null,
 };
 
 export async function fetchShopState(): Promise<ShopState> {
@@ -43,6 +46,7 @@ export async function fetchShopState(): Promise<ShopState> {
     purchased?: string[];
     equippedAccessory?: string | null;
     equippedBiome?: string | null;
+    equippedBackdrop?: string | null;
   };
 
   // The same seed the server applies on first write (see balanceOf in
@@ -58,6 +62,7 @@ export async function fetchShopState(): Promise<ShopState> {
     owned: ownedItems(data.purchased),
     equippedAccessory: data.equippedAccessory ?? null,
     equippedBiome: data.equippedBiome ?? DEFAULT_BIOME,
+    equippedBackdrop: data.equippedBackdrop ?? null,
   };
 }
 
@@ -86,6 +91,6 @@ export function buyItem(item: string) {
 }
 
 /** Wear something owned, or pass null to take it off. */
-export function equipItem(item: string | null, kind: "accessory" | "biome") {
+export function equipItem(item: string | null, kind: ShopKind) {
   return post({ action: "equip", item, kind });
 }

@@ -48,7 +48,12 @@ export async function POST(req: NextRequest) {
 
   try {
     if (body.action === "equip") {
-      const kind = body.kind === "biome" ? "biome" : "accessory";
+      const kind =
+        body.kind === "biome"
+          ? "biome"
+          : body.kind === "backdrop"
+            ? "backdrop"
+            : "accessory";
       // A null item is "take it off", which is a legitimate thing to ask for
       // and must not be read as a missing field.
       const result = await equip(db, uid, item, kind);

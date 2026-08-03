@@ -59,6 +59,8 @@ export interface ServerProgress {
   purchased?: string[];
   equippedAccessory?: string | null;
   equippedBiome?: string | null;
+  /** Site backdrop (web only). Null/absent means the plain default. */
+  equippedBackdrop?: string | null;
   /**
    * Activity key → the day it was last practiced, which is what makes the
    * comeback bonus payable off evidence rather than off the client saying
@@ -79,6 +81,7 @@ const EMPTY: ServerProgress = {
   purchased: [],
   equippedAccessory: null,
   equippedBiome: null,
+  equippedBackdrop: null,
   lastPlayed: {},
 };
 
