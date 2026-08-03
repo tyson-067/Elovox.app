@@ -16,14 +16,14 @@ import type { ShopState } from "@/lib/shop";
 import type { Session } from "@/lib/types";
 
 /**
- * Today's above-the-fold, rebuilt at app scale.
+ * Today, on the native design system (app/native-theme.css).
  *
- * The web dashboard opens with a display-size headline, a hero card the
- * height of the viewport and a three-column grid — a landing page's rhythm,
- * and the single loudest "this is a website" signal in the shell. This is
- * the same information at iOS density: one compact identity row (Felix, his
- * line, the level bar), a streak/attempts strip, and the Daily Minute as a
- * proper full-width card whose button sits in the thumb zone of the scroll.
+ * Order is the argument: the Daily Minute is the one thing this screen wants
+ * from you, so it opens the screen as the hero card — topic, one line, three
+ * attempt dots, one accent button. Under it the day's numbers as a quiet
+ * Whoop-style strip (Felix keeps his corner of it), then the Tape — the last
+ * fourteen days as sound, the app's signature — then "More ways to practice"
+ * as an inset grouped list (NativeSections).
  *
  * Same data, same helpers, no second source of truth: everything here is
  * derived from the exact props the web hero reads. Renders nothing in a
@@ -93,61 +93,122 @@ export function NativeToday({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Felix, in one quiet row: small, on the card surface, no gradient.
-          The minimal rule for this screen: white cards, navy text, and ONE
-          saturated element — the Daily Minute's button. Felix himself is
-          the only illustration. */}
+      {/* THE HERO: the Daily Minute. The screen's one saturated element is
+          this card's button — everything else on Today is ink and hairlines. */}
       <section className="card p-4">
-        <div className="flex items-center gap-3.5">
-          <Link
-            href="/shop"
-            aria-label="Felix's shop"
-            className="native-press shrink-0 rounded-2xl"
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="nv-caption">The Daily Minute</span>
+          {daily?.theme && (
+            <span className="nv-footnote truncate">{daily.theme}</span>
+          )}
+        </div>
+
+        <h2 className="nv-title mt-2">
+          {daily?.title ?? "Felix is picking today's topic…"}
+        </h2>
+        {daily?.topic && <p className="nv-subhead mt-1">{daily.topic}</p>}
+
+        {challenge === null ? (
+          <p className="nv-footnote mt-3" role="status">
+            Checking today&apos;s attempts…
+          </p>
+        ) : (
+          <div
+            className="mt-4 flex items-center gap-2"
+            aria-label={
+              done
+                ? "All attempts used"
+                : `${MAX_DAILY_ATTEMPTS - used} of ${MAX_DAILY_ATTEMPTS} attempts left`
+            }
           >
+            {Array.from({ length: MAX_DAILY_ATTEMPTS }, (_, i) => (
+              <span
+                key={i}
+                className="nv-dot"
+                data-filled={i < used ? "" : undefined}
+                aria-hidden="true"
+              />
+            ))}
+            <span className="nv-footnote font-semibold">
+              {done
+                ? "done for today"
+                : used === 0
+                  ? `${MAX_DAILY_ATTEMPTS} attempts`
+                  : `best ${challenge.bestScore} · ${MAX_DAILY_ATTEMPTS - used} left`}
+            </span>
+          </div>
+        )}
+
+        {challenge !== null && !done && (
+          <Link
+            href="/practice?daily=1"
+            className="nv-btn nv-btn-primary mt-4"
+          >
+            {used === 0
+              ? "Start your Daily Minute"
+              : `Attempt ${used + 1} — beat ${challenge.bestScore}`}
+          </Link>
+        )}
+        {challenge !== null && done && (
+          <p className="nv-footnote mt-3">
+            New topic at midnight. The rest is rest.
+          </p>
+        )}
+      </section>
+
+      {/* The day's numbers, Whoop-quiet: Felix holds the left edge (he is
+          the brand's whole illustration budget on this screen), the level
+          bar runs under his line, streak and level sit as tabular stats. */}
+      <section className="card p-4" aria-label="Level and streak">
+        <div className="flex items-center gap-3.5">
+          <Link href="/shop" aria-label="Felix's shop" className="nv-press shrink-0 rounded-2xl">
             <FelixScene
               biome={shop?.equippedBiome}
               mood={mood}
               animate
               accessory={wearing}
-              className="h-[64px] w-[64px] rounded-2xl"
+              className="h-[56px] w-[56px] rounded-2xl"
             />
           </Link>
           <div className="min-w-0 flex-1">
-            <p className="font-headline text-[15px] font-semibold leading-[1.35] text-on-surface">
-              {line}
-            </p>
+            <p className="nv-subhead leading-snug">{line}</p>
             {level && (
-              <div className="mt-2.5">
+              <div className="mt-2">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-[12px] font-semibold text-on-surface-variant">
+                  <span className="nv-footnote font-semibold">
                     Level {level.level} · {level.title}
                   </span>
-                  <span className="font-data text-[11px] text-on-surface-variant">
+                  <span className="nv-footnote nv-num">
                     {level.isMax
                       ? `${level.xp} XP`
                       : `${level.xpForNextLevel} XP to L${level.level + 1}`}
                   </span>
                 </div>
-                <div className="mt-1.5 h-[4px] overflow-hidden rounded-full bg-surface-container">
+                <div className="nv-meter-track mt-1.5">
                   <div
-                    className="h-full rounded-full bg-primary/70"
+                    className="nv-meter-fill"
                     style={{ width: `${level.percent}%` }}
                   />
                 </div>
               </div>
             )}
           </div>
+          {streak > 0 && (
+            <div className="shrink-0 pl-1 text-center">
+              <div className="nv-stat-value nv-num">{streak}</div>
+              <div className="nv-stat-label">day streak</div>
+            </div>
+          )}
         </div>
       </section>
 
       {/* THE TAPE: the last fourteen days as a waveform strip — the app's
           signature element, in the exact bar grammar of Felix's chest and
-          the app icon. Chalk bars are settled days at their score's
-          amplitude, ghost stubs are missed days, and today breathes orange
-          while attempts remain. Nothing renders when history couldn't be
-          read: a fake flatline would say "you did nothing", which is worse
-          than saying nothing. */}
-      {!sessionsFailed && (
+          the app icon. Settled days at their score's amplitude, ghost stubs
+          for missed days, today breathing orange while attempts remain.
+          Nothing renders when history couldn't be read: a fake flatline
+          would say "you did nothing", which is worse than saying nothing. */}
+      {!sessionsFailed &&
         (() => {
           const days = tapeDays(sessions);
           const practiced = days.filter((d) => d.best !== null).length;
@@ -159,8 +220,7 @@ export function NativeToday({
               <div className="voxline" aria-hidden="true">
                 {days.map((d) => {
                   const live = d.isToday && !done;
-                  const amp =
-                    d.best !== null ? d.best / 100 : live ? 0.85 : 0;
+                  const amp = d.best !== null ? d.best / 100 : live ? 0.85 : 0;
                   return (
                     <span
                       key={d.key}
@@ -172,11 +232,9 @@ export function NativeToday({
                   );
                 })}
               </div>
-              <div className="mt-2 flex items-baseline justify-between text-[11px]">
-                <span className="font-data text-on-surface-variant">
-                  {TAPE_DAYS}D
-                </span>
-                <span className="font-semibold text-on-surface-variant">
+              <div className="mt-2 flex items-baseline justify-between">
+                <span className="nv-footnote nv-num">{TAPE_DAYS}D</span>
+                <span className="nv-footnote font-semibold">
                   {streak > 0
                     ? `${streak}-day streak`
                     : practiced > 0
@@ -186,77 +244,7 @@ export function NativeToday({
               </div>
             </section>
           );
-        })()
-      )}
-
-      {/* The Daily Minute, flat. The button is the only saturated thing on
-          the screen, which is exactly what makes it the thing to press. */}
-      <section className="card p-4">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-on-surface-variant">
-            The Daily Minute
-          </span>
-          {daily?.theme && (
-            <span className="truncate text-[12px] font-semibold text-on-surface-variant/70">
-              {daily.theme}
-            </span>
-          )}
-        </div>
-
-        <h2 className="mt-2 font-headline text-[20px] font-semibold leading-[1.28] text-on-surface">
-          {daily?.title ?? "Felix is picking today's topic…"}
-        </h2>
-        {daily?.topic && (
-          <p className="mt-1 text-[14px] leading-[1.45] text-on-surface-variant">
-            {daily.topic}
-          </p>
-        )}
-
-        {challenge === null ? (
-          <p className="mt-3 text-[13px] text-on-surface-variant" role="status">
-            Checking today&apos;s attempts…
-          </p>
-        ) : (
-          <div className="mt-3.5 flex items-center gap-2">
-            {Array.from({ length: MAX_DAILY_ATTEMPTS }, (_, i) => {
-              const attempt = challenge.attempts[i];
-              return (
-                <span
-                  key={i}
-                  className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full px-2 font-data text-[12px] ${
-                    attempt
-                      ? "bg-surface-container text-on-surface"
-                      : i === used
-                        ? "border border-on-surface-variant/45 text-on-surface-variant"
-                        : "border border-on-surface-variant/20 text-on-surface-variant/45"
-                  }`}
-                >
-                  {attempt ? attempt.score : i + 1}
-                </span>
-              );
-            })}
-            <span className="text-[12px] font-semibold text-on-surface-variant/80">
-              {done ? "done for today" : `${MAX_DAILY_ATTEMPTS - used} left`}
-            </span>
-          </div>
-        )}
-
-        {challenge !== null && !done && (
-          <Link
-            href="/practice?daily=1"
-            className="btn mt-4 bg-accent-strong text-white"
-          >
-            {used === 0
-              ? "Start your Daily Minute"
-              : `Attempt ${used + 1} — beat ${challenge.bestScore}`}
-          </Link>
-        )}
-        {challenge !== null && done && (
-          <p className="mt-3 text-[13px] text-on-surface-variant">
-            New topic at midnight. The rest is rest.
-          </p>
-        )}
-      </section>
+        })()}
     </div>
   );
 }

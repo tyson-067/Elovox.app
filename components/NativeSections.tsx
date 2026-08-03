@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useIsNative } from "@/lib/native";
 import { usePlan } from "@/lib/plan";
+import { NvGroup, NvRow, NvSectionHeader } from "@/components/native/ui";
 
 /**
  * The rest of the app, on Today.
@@ -79,58 +79,43 @@ const SECTIONS: Section[] = [
   },
 ];
 
+/** The one lock affordance a locked row gets: a small mono glyph, nothing else. */
+function LockGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" {...stroke} strokeWidth={2} aria-hidden="true">
+      <rect x="5" y="10.5" width="14" height="9.5" rx="2" />
+      <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
+    </svg>
+  );
+}
+
 export function NativeSections() {
   const native = useIsNative();
   const { plan } = usePlan();
   if (!native) return null;
 
   return (
-    <section className="mt-10">
-      <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
-        More ways to practice
-      </h2>
-      <div className="mt-3 flex flex-col gap-2.5">
+    <section className="mt-8">
+      <NvSectionHeader>More ways to practice</NvSectionHeader>
+      <NvGroup>
         {SECTIONS.map((s) => (
-          <Link
+          <NvRow
             key={s.href}
             href={s.href}
-            className="card flex items-center gap-3.5 p-4 transition-transform active:scale-[0.985]"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-container text-primary">
-              {s.glyph}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-1.5">
-                <span className="font-headline text-[15px] font-semibold text-primary">
-                  {s.label}
-                </span>
-                {plan === "free" && (
-                  <span
-                    title="Premium"
-                    className="h-1.5 w-1.5 rounded-full bg-violet"
-                  >
-                    <span className="sr-only">Premium</span>
-                  </span>
-                )}
-              </span>
-              <span className="mt-0.5 block truncate text-[13px] text-on-surface-variant">
-                {s.blurb}
-              </span>
-            </span>
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              {...stroke}
-              strokeWidth={2}
-              aria-hidden="true"
-              className="shrink-0 text-on-surface-variant/50"
-            >
-              <path d="m9.5 5 7 7-7 7" />
-            </svg>
-          </Link>
+            icon={s.glyph}
+            label={<span className="nv-headline">{s.label}</span>}
+            sub={s.blurb}
+            value={
+              plan === "free" ? (
+                <>
+                  <LockGlyph />
+                  <span className="sr-only">Premium</span>
+                </>
+              ) : undefined
+            }
+          />
         ))}
-      </div>
+      </NvGroup>
     </section>
   );
 }
