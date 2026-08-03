@@ -77,7 +77,7 @@ export async function signUpWithEmail(
   // reads it (see components/VerifyEmailScreen.tsx), so the user is told to
   // press Resend rather than left watching an empty inbox.
   try {
-    await sendEmailVerification(cred.user);
+    await sendEmailVerification(cred.user, VERIFY_ACTION);
     clearVerificationSendFailure();
   } catch (err) {
     console.error("[auth] signup verification email failed to send", err);
@@ -347,8 +347,21 @@ export async function resendVerificationEmail(): Promise<void> {
   const user = getAuthInstance().currentUser;
   if (!user) throw new Error("You're not signed in.");
   const { sendEmailVerification } = await import("firebase/auth");
-  await sendEmailVerification(user);
+  await sendEmailVerification(user, VERIFY_ACTION);
 }
+
+/**
+ * Where the verification email's link sends people afterwards. Without this,
+ * clicking the link strands the user on the Firebase-hosted action page at
+ * the legacy sonoria-212c1.firebaseapp.com domain (roadmap 7.4) with no way
+ * back into the product — and a bare "continue" URL on our own domain also
+ * gives the message one more signal that it belongs to elovox.app, which is
+ * where deliverability reputation accrues. The domain must stay listed in
+ * Firebase Auth's authorized domains, which it already is.
+ */
+const VERIFY_ACTION = {
+  url: (process.env.NEXT_PUBLIC_APP_URL || "https://elovox.app") + "/verify-email",
+};
 
 /**
  * Refresh the user from Firebase and return their current verified state.

@@ -5,6 +5,8 @@ import { Reveal } from "@/components/Reveal";
 import { Parallax } from "@/components/Parallax";
 import { WordReveal } from "@/components/WordReveal";
 import { GlowCard } from "@/components/GlowCard";
+import { CountUp } from "@/components/CountUp";
+import { TiltCard } from "@/components/TiltCard";
 import { GOALS } from "@/lib/goals";
 import { LEVELS } from "@/lib/levels";
 import { TESTIMONIALS } from "@/lib/testimonials";
@@ -348,7 +350,7 @@ export default function LandingPage() {
                 where the FoxDen postcard used to sit (the den still opens
                 Felix's story further down). All of it freezes at the final
                 frame under prefers-reduced-motion. */}
-            <div className="relative">
+            <TiltCard className="relative">
               <div
                 className="demo-card pop-in rounded-card p-5 text-white dusk-gradient md:p-6"
                 style={{ animationDelay: "250ms" }}
@@ -398,7 +400,14 @@ export default function LandingPage() {
                   style={{ animationDelay: "2900ms" }}
                 >
                   <span className="rounded-full bg-white/15 px-3 py-1 text-[13px] font-semibold">
-                    <span className="font-data text-accent">86</span> / 100
+                    {/* Rolls 0→86 as its chip pops in (the 2900ms cue above),
+                        landing the score rather than stating it. */}
+                    <CountUp
+                      value={86}
+                      startDelay={2950}
+                      className="font-data text-accent"
+                    />{" "}
+                    / 100
                   </span>
                   <span className="text-[13px] font-semibold text-white/80">
                     Strong close. Lose the hedge.
@@ -410,7 +419,7 @@ export default function LandingPage() {
                 animate
                 className="absolute -bottom-6 -right-3 h-24 w-24 drop-shadow-[0_12px_24px_rgba(11,8,41,0.35)] md:h-28 md:w-28"
               />
-            </div>
+            </TiltCard>
             <p className="mt-9 text-base leading-6 text-on-surface-variant">
               <span className="font-semibold text-primary">Felix</span> hears
               you the way your audience does.

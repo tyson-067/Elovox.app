@@ -187,18 +187,24 @@ body::before {
   box-shadow: 0 3px 10px rgba(0, 78, 137, 0.16);
 }
 
-/* Scroll-reveal: elements fade + rise as they enter the viewport
-   (driven by components/Reveal.tsx). */
+/* Scroll-reveal: elements settle out of a blur as they enter the viewport
+   (driven by components/Reveal.tsx). The blur is what makes the arrival
+   read as focus rather than transport — the eye reads "becoming clear"
+   as smoother than "moving in", at the same duration. Distance drops to
+   18px accordingly: the blur is doing the work the extra travel used to. */
 .reveal {
   opacity: 0;
-  transform: translateY(28px);
+  transform: translateY(18px);
+  filter: blur(12px);
   transition:
-    opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 750ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 750ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 750ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .reveal-visible {
   opacity: 1;
   transform: none;
+  filter: blur(0);
 }
 
 /* No scripting, no reveal — so show everything. `.reveal` ships in the server
@@ -277,13 +283,22 @@ body::before {
   opacity: 0;
 }
 .wr-visible .wr-word > span {
-  animation: word-in 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* The bezier overshoots (y1 > 1), so each word sails a touch past its
+     place and settles back — the spring is in the curve, not in extra
+     keyframes. Custom props (--wx/--wy/--wr) are stamped per word by
+     WordReveal.tsx: every word arrives from its own direction with its own
+     tilt, on its own moment. Chaos into order, deterministically. */
+  animation: word-in 820ms cubic-bezier(0.3, 1.36, 0.32, 1) both;
 }
 @keyframes word-in {
   from {
     opacity: 0;
-    transform: translateY(0.55em);
-    filter: blur(6px);
+    transform: translate(var(--wx, 0), var(--wy, 0.55em))
+      rotate(var(--wr, 0deg));
+    filter: blur(10px);
+  }
+  55% {
+    opacity: 1;
   }
   to {
     opacity: 1;
@@ -326,18 +341,29 @@ body::before {
   to { background-position: 100% 50%; }
 }
 
-/* Ambient orbs: the parallax circles also drift on their own so the
-   page breathes even when the user isn't scrolling. */
+/* Ambient orbs: the parallax circles also drift on their own so the page
+   breathes even when the user isn't scrolling. Two DIFFERENT paths at
+   prime-ish durations (17s / 23s): the pair never phase-locks, so the
+   background never visibly repeats — ambient, not looping. Travel is wide
+   enough to register in peripheral vision and slow enough to never read as
+   an animation you're meant to watch. */
 .orb-float {
-  animation: orb-drift 14s ease-in-out infinite alternate;
+  animation: orb-drift 17s ease-in-out infinite alternate;
 }
 .orb-float-slow {
-  animation: orb-drift 20s ease-in-out infinite alternate-reverse;
+  animation: orb-drift-b 23s ease-in-out infinite alternate-reverse;
 }
 @keyframes orb-drift {
   from { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(14px, -18px, 0) scale(1.06); }
-  to { transform: translate3d(-10px, 12px, 0) scale(0.97); }
+  33% { transform: translate3d(26px, -30px, 0) scale(1.08); }
+  66% { transform: translate3d(-14px, -8px, 0) scale(1.02); }
+  to { transform: translate3d(-22px, 20px, 0) scale(0.95); }
+}
+@keyframes orb-drift-b {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  40% { transform: translate3d(-30px, 16px, 0) scale(1.05); }
+  70% { transform: translate3d(10px, 30px, 0) scale(0.96); }
+  to { transform: translate3d(24px, -14px, 0) scale(1.03); }
 }
 
 /* Fine dot grid behind the hero — barely-there texture that keeps the
@@ -705,7 +731,14 @@ body::before {
   .reveal {
     opacity: 1;
     transform: none;
+    filter: none;
     transition: none;
+  }
+  /* The ambient drift is exactly the class of motion this preference asks
+     to remove: untriggered, continuous, peripheral. */
+  .orb-float,
+  .orb-float-slow {
+    animation: none;
   }
   /* Restated at the swipe variant's own specificity: the plain .reveal rule
      above would lose to .reveal-swipe[data-dir="up"] and leave content
@@ -1637,7 +1670,15 @@ html[data-native] .wr .wr-word > span {
   opacity: 1;
   transform: none;
   transition: none;
+  /* The scatter-assemble is animation-driven now, and it blurs — both have
+     to die here too or headlines in the shell arrive scrambled. */
+  animation: none;
+  filter: none;
 }
+/* The ambient orbs and the hero's tilt never render in the shell (the
+   landing page is unreachable there), but the reveal blur upgrade does
+   reach it — and its filter is already forced off by the motion kills
+   above. Stated so nobody re-derives it. */
 
 /* --- Type: the iOS scale ---------------------------------------------------
    Web display sizes shout on a phone. 17px body is the iOS baseline; page
