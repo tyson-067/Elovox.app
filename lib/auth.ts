@@ -1,5 +1,5 @@
 import type { User } from "firebase/auth";
-import { getAuthInstance } from "./firebase";
+import { getAuthInstance, isFirebaseConfigured } from "./firebase";
 import {
   validateAuthInput,
   validateEmail,
@@ -146,6 +146,38 @@ export async function signInWithGoogle(): Promise<{ isNewUser: boolean }> {
 
   const cred = await signInWithPopup(getAuthInstance(), new GoogleAuthProvider());
   return { isNewUser: getAdditionalUserInfo(cred)?.isNewUser === true };
+}
+
+/**
+ * Warm everything the first "Continue with Google" click needs, ahead of the
+ * click. Call it when the auth form mounts.
+ *
+ * The bug this fixes: signInWithGoogle `await import()`s firebase/auth and
+ * @capacitor/core BEFORE it calls signInWithPopup. On the very first click those
+ * modules aren't in cache yet, so fetching+parsing them spends the browser's
+ * user-activation window — by the time signInWithPopup tries to open the popup
+ * the click no longer counts as a user gesture, the browser blocks it
+ * (auth/popup-blocked), and the caller shows the generic "Something went wrong".
+ * The second click finds the modules cached, reaches signInWithPopup inside the
+ * gesture, and works. Pre-loading them on mount means the first real click is
+ * already the "second click".
+ *
+ * Fire-and-forget: every step is optional and self-healing (the real call
+ * imports again if this didn't finish), so failures here are safe to ignore.
+ */
+export function prewarmProviderSignIn(): void {
+  void import("firebase/auth");
+  void import("@capacitor/core");
+  // Also nudge the Firebase app + App Check to initialize now, so a reCAPTCHA
+  // attestation token is being fetched ahead of the first sign-in rather than
+  // during it.
+  if (isFirebaseConfigured()) {
+    try {
+      getAuthInstance();
+    } catch {
+      // Not configured, or no window (SSR): nothing to warm.
+    }
+  }
 }
 
 /**

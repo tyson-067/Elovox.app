@@ -12,6 +12,7 @@ import {
   signInWithGoogle,
   discardJustCreatedUser,
   signUpWithEmail,
+  prewarmProviderSignIn,
 } from "@/lib/auth";
 import { startCheckout, stashCheckoutIntent } from "@/lib/checkout";
 import { useReturnReset } from "@/lib/useReturnReset";
@@ -118,6 +119,13 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   // redeemed on the dashboard, once there's a uid to attach it to.
   useEffect(() => {
     stashReferral();
+  }, []);
+
+  // Warm the modules "Continue with Google" needs before it's clicked, so the
+  // first click doesn't spend its user-activation window loading them and get
+  // its popup blocked. See prewarmProviderSignIn.
+  useEffect(() => {
+    prewarmProviderSignIn();
   }, []);
 
   // --- Age gate (signup only) ---------------------------------------------
