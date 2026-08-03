@@ -87,13 +87,12 @@ function AppearanceCard() {
         Appearance
       </h2>
       <p className="mt-1 text-sm text-on-surface-variant">
-        The booth is dark. Daylight if you&rsquo;d rather.
+        The booth is easier on the eyes when you practice at night.
       </p>
-      {/* Booth first: it is the app's own look; Daylight is the website's,
-          kept one tap away. */}
+      {/* Light first — it is the default; the booth is the choice. */}
       <div className="mt-4 flex gap-3">
+        {option("light", "Light")}
         {option("dark", "Booth")}
-        {option("light", "Daylight")}
       </div>
     </section>
   );

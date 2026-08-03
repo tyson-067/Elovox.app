@@ -627,7 +627,13 @@ function TodayScreen() {
         <Reveal delay={80} className="native-hide lg:col-span-2">
           <DailyCard challenge={daily} state={challenge} />
         </Reveal>
-        <Reveal delay={160}>
+        {/* native-hide: the Den is the busiest card the product has — a
+            badges grid, a scene, three links — and inside the app it sat
+            between the Daily Minute and the section rows. The shell's Today
+            stays minimal: Felix's line, the Tape, the one thing to do.
+            Everything the Den shows is still reachable (shop via Felix,
+            progress via the dock). */}
+        <Reveal delay={160} className="native-hide">
           <DenWidget
             stats={stats}
             sessions={sessions}
@@ -637,7 +643,12 @@ function TodayScreen() {
         </Reveal>
       </div>
 
-      <section className="mt-12">
+      {/* native-hide: three quest cards with progress bars, XP chips and
+          tooltips are web richness; in the app they read as noise between
+          the Daily Minute and the section rows. The XP they grant still
+          accrues from the same actions — the quests are derived, and doing
+          the reps clears them whether or not this panel is watching. */}
+      <section className="native-hide mt-12">
         <Reveal>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">

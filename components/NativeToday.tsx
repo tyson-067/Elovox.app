@@ -93,9 +93,11 @@ export function NativeToday({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Felix, in one row: the mascot at avatar size, his line as the
-          greeting, the level bar as a single quiet strip underneath. */}
-      <section className="card den-gradient border-none! overflow-hidden p-4">
+      {/* Felix, in one quiet row: small, on the card surface, no gradient.
+          The minimal rule for this screen: white cards, navy text, and ONE
+          saturated element — the Daily Minute's button. Felix himself is
+          the only illustration. */}
+      <section className="card p-4">
         <div className="flex items-center gap-3.5">
           <Link
             href="/shop"
@@ -107,39 +109,35 @@ export function NativeToday({
               mood={mood}
               animate
               accessory={wearing}
-              className="h-[76px] w-[76px] rounded-2xl"
+              className="h-[64px] w-[64px] rounded-2xl"
             />
           </Link>
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-oxford/55">
-              Felix says
-            </p>
-            <p className="mt-0.5 font-headline text-[17px] font-semibold leading-[1.32] text-oxford">
+            <p className="font-headline text-[15px] font-semibold leading-[1.35] text-on-surface">
               {line}
             </p>
+            {level && (
+              <div className="mt-2.5">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[12px] font-semibold text-on-surface-variant">
+                    Level {level.level} · {level.title}
+                  </span>
+                  <span className="font-data text-[11px] text-on-surface-variant">
+                    {level.isMax
+                      ? `${level.xp} XP`
+                      : `${level.xpForNextLevel} XP to L${level.level + 1}`}
+                  </span>
+                </div>
+                <div className="mt-1.5 h-[4px] overflow-hidden rounded-full bg-surface-container">
+                  <div
+                    className="h-full rounded-full bg-primary/70"
+                    style={{ width: `${level.percent}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
-
-        {level && (
-          <div className="mt-3.5">
-            <div className="flex items-baseline justify-between">
-              <span className="text-[13px] font-semibold text-oxford">
-                Level {level.level} · {level.title}
-              </span>
-              <span className="font-data text-[11px] text-oxford/60">
-                {level.isMax
-                  ? `${level.xp} XP`
-                  : `${level.xpForNextLevel} XP to L${level.level + 1}`}
-              </span>
-            </div>
-            <div className="mt-1.5 h-[5px] overflow-hidden rounded-full bg-oxford/15">
-              <div
-                className="h-full rounded-full bg-oxford"
-                style={{ width: `${level.percent}%` }}
-              />
-            </div>
-          </div>
-        )}
       </section>
 
       {/* THE TAPE: the last fourteen days as a waveform strip — the app's
@@ -191,56 +189,54 @@ export function NativeToday({
         })()
       )}
 
-      {/* The Daily Minute. The one thing to do today, so it gets the dark
-          brand surface and the screen's only full-width call to action. */}
-      <section className="card dusk-gradient border-none! overflow-hidden p-5 text-white">
-        <div className="flex items-center justify-between gap-2">
-          <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.06em]">
+      {/* The Daily Minute, flat. The button is the only saturated thing on
+          the screen, which is exactly what makes it the thing to press. */}
+      <section className="card p-4">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-on-surface-variant">
             The Daily Minute
           </span>
           {daily?.theme && (
-            <span className="truncate text-[13px] font-semibold text-white/65">
+            <span className="truncate text-[12px] font-semibold text-on-surface-variant/70">
               {daily.theme}
             </span>
           )}
         </div>
 
-        <h2 className="mt-3 font-headline text-[22px] font-semibold leading-[1.25]">
+        <h2 className="mt-2 font-headline text-[20px] font-semibold leading-[1.28] text-on-surface">
           {daily?.title ?? "Felix is picking today's topic…"}
         </h2>
         {daily?.topic && (
-          <p className="mt-1.5 text-[15px] leading-[1.45] text-white/80">
+          <p className="mt-1 text-[14px] leading-[1.45] text-on-surface-variant">
             {daily.topic}
           </p>
         )}
 
         {challenge === null ? (
-          <p className="mt-4 text-[13px] font-semibold text-white/60" role="status">
+          <p className="mt-3 text-[13px] text-on-surface-variant" role="status">
             Checking today&apos;s attempts…
           </p>
         ) : (
-          <div className="mt-4 flex items-center gap-2.5">
+          <div className="mt-3.5 flex items-center gap-2">
             {Array.from({ length: MAX_DAILY_ATTEMPTS }, (_, i) => {
               const attempt = challenge.attempts[i];
               return (
                 <span
                   key={i}
-                  className={`inline-flex h-8 min-w-8 items-center justify-center rounded-full px-2.5 font-data text-[13px] ${
+                  className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full px-2 font-data text-[12px] ${
                     attempt
-                      ? "bg-accent-strong text-white"
+                      ? "bg-surface-container text-on-surface"
                       : i === used
-                        ? "border border-white/50 text-white"
-                        : "border border-white/20 text-white/40"
+                        ? "border border-on-surface-variant/45 text-on-surface-variant"
+                        : "border border-on-surface-variant/20 text-on-surface-variant/45"
                   }`}
                 >
                   {attempt ? attempt.score : i + 1}
                 </span>
               );
             })}
-            <span className="text-[13px] font-semibold text-white/65">
-              {done
-                ? "done for today"
-                : `${MAX_DAILY_ATTEMPTS - used} left`}
+            <span className="text-[12px] font-semibold text-on-surface-variant/80">
+              {done ? "done for today" : `${MAX_DAILY_ATTEMPTS - used} left`}
             </span>
           </div>
         )}
@@ -256,7 +252,7 @@ export function NativeToday({
           </Link>
         )}
         {challenge !== null && done && (
-          <p className="mt-3 text-[13px] text-white/65">
+          <p className="mt-3 text-[13px] text-on-surface-variant">
             New topic at midnight. The rest is rest.
           </p>
         )}

@@ -140,13 +140,11 @@ export default function RootLayout({
               "d.setAttribute('data-native','1');" +
               "if(!d.getAttribute('data-theme')){" +
               "var t=null;try{t=localStorage.getItem('elovox.theme')}catch(e){}" +
-              // The booth is dark. Not the phone's preference — the app's own
-              // identity: the practice stage is already Oxford-dark, so a
-              // light default flash-cut into darkness at the exact moment of
-              // performance, and the website (which stays daylight, and has
-              // no dark mode at all) is one Account toggle away. A saved
-              // choice always wins.
-              "if(t!=='light'&&t!=='dark'){t='dark'}" +
+              // Light by default — the user's call, reversing the booth
+              // default after living with it: the app should open the way
+              // the brand looks in daylight, and the booth stays one toggle
+              // away in Account. A saved choice always wins.
+              "if(t!=='light'&&t!=='dark'){t='light'}" +
               "d.setAttribute('data-theme',t)}};" +
               "if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){" +
               "stampNative();" +
@@ -178,7 +176,7 @@ export default function RootLayout({
                   "var st=function(){var e2=document.documentElement;" +
                   "e2.setAttribute('data-native','1');" +
                   "if(!e2.getAttribute('data-theme'))e2.setAttribute('data-theme'," +
-                  "localStorage.getItem('elovox.theme')||'dark')};st();" +
+                  "localStorage.getItem('elovox.theme')||'light')};st();" +
                   // Re-assert after load: demo mode makes the server render
                   // "configured" and the client "unconfigured", so React
                   // discards the server DOM and client-renders, which rebuilds

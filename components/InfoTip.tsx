@@ -113,7 +113,12 @@ export function InfoTip({
       // so the "?" landed in normal flow at the card's LEFT edge. The bubble is
       // portaled to <body>, so the wrapper never needs to be a positioning
       // context; the caller's position class now applies cleanly.
-      className={`inline-flex ${className}`}
+      // native-hide: a screen full of "?" buttons is web furniture. In the
+      // shell the explanations live where iOS puts them — in the copy and
+      // in Account — and the minimal pass wants every non-essential control
+      // gone. The bubble portal never mounts either, since the trigger is
+      // display:none.
+      className={`native-hide inline-flex ${className}`}
       onPointerEnter={(e) => e.pointerType === "mouse" && setOpen(true)}
       onPointerLeave={(e) => e.pointerType === "mouse" && setOpen(false)}
     >
