@@ -8,6 +8,7 @@ import { GlowCard } from "@/components/GlowCard";
 import { InfoTip } from "@/components/InfoTip";
 import { PremiumBadge } from "@/components/PremiumBadge";
 import { Felix } from "@/components/FoxLogo";
+import { NativeLibraryList } from "@/components/native/NativeLibraryList";
 import { INTERVIEW_TYPES } from "@/lib/interviews";
 import { usePlan } from "@/lib/plan";
 
@@ -20,7 +21,22 @@ function InterviewsScreen() {
 
   return (
     <div className="py-10 md:py-16">
-      <Reveal>
+      {/* App shape: one calm grouped list, same types, same lock rule as the
+          cards below. Renders nothing in a browser. */}
+      <NativeLibraryList
+        sections={[
+          {
+            items: INTERVIEW_TYPES.map((t) => ({
+              title: t.name,
+              blurb: t.description,
+              locked: plan === "free",
+              href: isPremium ? `/practice?interview=${t.id}` : undefined,
+            })),
+          },
+        ]}
+      />
+
+      <Reveal className="native-hide">
         <div className="flex flex-wrap items-center gap-3">
           <Felix mood="coach" className="h-14 w-14 shrink-0" />
           <h1 className="native-hide text-title font-headline font-semibold text-primary">
@@ -39,7 +55,7 @@ function InterviewsScreen() {
         </p>
       </Reveal>
 
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+      <div className="native-hide mt-8 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
         {INTERVIEW_TYPES.map((t, i) => (
           <Reveal key={t.id} delay={i * 70} className="h-full">
             {isPremium ? (
@@ -86,7 +102,7 @@ function InterviewsScreen() {
       </div>
 
       {plan === "free" && (
-        <Reveal>
+        <Reveal className="native-hide">
           <div className="card mt-10 p-6 navy-gradient border-none! text-white">
             <h2 className="font-headline text-2xl font-semibold">
               Practicing for something specific?

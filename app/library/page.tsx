@@ -10,6 +10,7 @@ import { GlowCard } from "@/components/GlowCard";
 import { InfoTip } from "@/components/InfoTip";
 import { PremiumBadge } from "@/components/PremiumBadge";
 import { Felix } from "@/components/FoxLogo";
+import { NativeLibraryList } from "@/components/native/NativeLibraryList";
 import { SPEECHES } from "@/lib/speeches";
 import { usePlan } from "@/lib/plan";
 import {
@@ -182,6 +183,7 @@ function SpeechCard({
 }
 
 function LibraryScreen() {
+  const router = useRouter();
   const { plan } = usePlan();
   const replacements = useSyncExternalStore(
     subscribeReplacements,
@@ -191,7 +193,36 @@ function LibraryScreen() {
 
   return (
     <div className="py-10 md:py-16">
-      <Reveal>
+      {/* App shape: one calm grouped list — same slots, same replacements,
+          same lock rule as the cards below. Renders nothing in a browser. */}
+      <NativeLibraryList
+        sections={[
+          {
+            items: SPEECHES.map((s) => {
+              const replacement = replacements[s.id];
+              const speech = replacement ?? s;
+              return {
+                title: speech.title,
+                blurb: speech.scenario,
+                locked: plan === "free",
+                href:
+                  plan === "premium" && !replacement
+                    ? `/practice?speech=${s.id}`
+                    : undefined,
+                onClick:
+                  plan === "premium" && replacement
+                    ? () =>
+                        router.push(
+                          `/practice?gen=${stashGeneratedSpeech(replacement)}`
+                        )
+                    : undefined,
+              };
+            }),
+          },
+        ]}
+      />
+
+      <Reveal className="native-hide">
         <div className="flex flex-wrap items-center gap-3">
           <Felix mood="idle" className="h-14 w-14 shrink-0" />
           <h1 className="native-hide text-title font-headline font-semibold text-primary">
@@ -211,7 +242,7 @@ function LibraryScreen() {
         </p>
       </Reveal>
 
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+      <div className="native-hide mt-8 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
         {SPEECHES.map((s, i) => {
           const replacement = replacements[s.id];
           return (
@@ -228,7 +259,7 @@ function LibraryScreen() {
       </div>
 
       {plan === "free" && (
-        <Reveal>
+        <Reveal className="native-hide">
           <div className="card mt-10 p-6 navy-gradient border-none! text-white">
             <h2 className="font-headline text-2xl font-semibold">
               Free practice never stops

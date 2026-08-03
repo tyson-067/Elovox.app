@@ -8,6 +8,7 @@ import { GlowCard } from "@/components/GlowCard";
 import { InfoTip } from "@/components/InfoTip";
 import { PremiumBadge } from "@/components/PremiumBadge";
 import { Felix } from "@/components/FoxLogo";
+import { NativeLibraryList } from "@/components/native/NativeLibraryList";
 import { SOCIAL_SKILLS } from "@/lib/social";
 import { usePlan } from "@/lib/plan";
 
@@ -20,7 +21,22 @@ function SocialScreen() {
 
   return (
     <div className="py-10 md:py-16">
-      <Reveal>
+      {/* App shape: one calm grouped list, same skills, same lock rule as
+          the cards below. Renders nothing in a browser. */}
+      <NativeLibraryList
+        sections={[
+          {
+            items: SOCIAL_SKILLS.map((s) => ({
+              title: s.name,
+              blurb: s.description,
+              locked: plan === "free",
+              href: isPremium ? `/practice?social=${s.id}` : undefined,
+            })),
+          },
+        ]}
+      />
+
+      <Reveal className="native-hide">
         <div className="flex flex-wrap items-center gap-3">
           <Felix mood="coach" className="h-14 w-14 shrink-0" />
           <h1 className="native-hide text-title font-headline font-semibold text-primary">
@@ -39,7 +55,7 @@ function SocialScreen() {
         </p>
       </Reveal>
 
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+      <div className="native-hide mt-8 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
         {SOCIAL_SKILLS.map((s, i) => (
           <Reveal key={s.id} delay={i * 70} className="h-full">
             {isPremium ? (
@@ -84,7 +100,7 @@ function SocialScreen() {
       </div>
 
       {plan === "free" && (
-        <Reveal>
+        <Reveal className="native-hide">
           <div className="card mt-10 p-6 navy-gradient border-none! text-white">
             <h2 className="font-headline text-2xl font-semibold">
               Most speaking isn&apos;t a speech
