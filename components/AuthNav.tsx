@@ -1,10 +1,14 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { FelixScene } from "@/components/Biome";
+import { type FelixAccessory } from "@/components/FoxLogo";
 import { NavMenu } from "@/components/NavMenu";
 import { usePlan } from "@/lib/plan";
+import { fetchShopState, type ShopState } from "@/lib/shop";
 import { signOutUser } from "@/lib/auth";
 
 // Header navigation that adapts to auth state: app links + sign out when
@@ -15,6 +19,34 @@ export function AuthNav() {
   const { user, loading, configured } = useAuth();
   const { plan } = usePlan();
   const router = useRouter();
+
+  // The avatar is Felix in the user's equipped gear, not a letter in a
+  // circle: the fox they dress in the shop is the closest thing an account
+  // here has to a face, so the account chip should wear it too. One read on
+  // mount is enough — equipping happens on /shop, and the header remounts on
+  // the way back.
+  //
+  // Deliberately NOT the quests machinery: NativeToday falls back from the
+  // equipped accessory to the level outfit, but that needs stats this header
+  // doesn't have and shouldn't fetch. Nothing equipped is just bare Felix,
+  // which is a fine face.
+  // Keyed by the uid it was fetched FOR, and only read back under that same
+  // uid — so a sign-out needs no state reset in the effect (the compiler
+  // lint is right that those cascade), and another account's gear can never
+  // flash during the switchover.
+  const [fetched, setFetched] = useState<{ uid: string; shop: ShopState } | null>(null);
+  const uid = user?.uid ?? null;
+  useEffect(() => {
+    if (!uid) return;
+    let stale = false;
+    void fetchShopState().then((shop) => {
+      if (!stale) setFetched({ uid, shop });
+    });
+    return () => {
+      stale = true;
+    };
+  }, [uid]);
+  const shop = uid && fetched?.uid === uid ? fetched.shop : null;
 
   if (loading) return null;
 
@@ -108,8 +140,9 @@ export function AuthNav() {
   }
 
   // The account affordance: an avatar chip, not a bare name sitting inline
-  // with the nav links (which reads like a stray tab). The initial comes from
-  // the display name or email so it's always something sensible.
+  // with the nav links (which reads like a stray tab). The avatar is Felix in
+  // the user's gear; the initial — display name or email, so it's always
+  // something sensible — only covers the beat before the shop state arrives.
   const label = user.displayName || user.email || "Account";
   const initial = label.trim().charAt(0).toUpperCase() || "A";
   // An unverified address is the one account state worth interrupting for:
@@ -156,9 +189,20 @@ export function AuthNav() {
         }
         className="relative flex items-center gap-2 rounded-full border border-primary/15 bg-surface-lowest/70 py-1 pl-1 pr-1 sm:pr-3 transition-colors hover:border-accent/50 hover:bg-surface-lowest"
       >
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-accent to-orange text-[11px] font-bold text-white">
-          {initial}
-        </span>
+        {/* Felix once the shop state lands; the initial until then, so the
+            slot never sits empty and never flashes a default-dressed fox
+            that swaps outfits a beat later. */}
+        {shop ? (
+          <FelixScene
+            biome={shop.equippedBiome}
+            accessory={(shop.equippedAccessory as FelixAccessory | null) ?? undefined}
+            className="h-6 w-6 rounded-full"
+          />
+        ) : (
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-accent to-orange text-[11px] font-bold text-white">
+            {initial}
+          </span>
+        )}
         <span className="hidden sm:block max-w-[14ch] truncate text-primary/70">
           {label}
         </span>

@@ -9,8 +9,11 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import { FelixScene } from "@/components/Biome";
+import { type FelixAccessory } from "@/components/FoxLogo";
 import { useIsNative, useTheme } from "@/lib/native";
 import { LEGAL } from "@/lib/legal";
+import { fetchShopState, type ShopState } from "@/lib/shop";
 import { usePlanRecord, hasComp, type PlanRecord } from "@/lib/plan";
 import { STREAK_REWARD_DAYS } from "@/lib/streakClaim";
 import { fetchDataExport } from "@/lib/checkout";
@@ -42,8 +45,10 @@ import {
 } from "@/components/native/ui";
 
 /**
- * Account, at app scale: five inset grouped lists (Plan, Account, Practice,
- * About, Data) instead of the web's long scroll of form cards. The forms
+ * Account, at app scale: a Settings-style identity header (Felix in the
+ * user's equipped gear, the account email under him), then five inset
+ * grouped lists (Plan, Account, Practice, About, Data) instead of the web's
+ * long scroll of form cards. The forms
  * didn't go away — email, password and deletion each open in a sheet, running
  * the exact same lib/auth calls the web cards run. The web sections carry
  * native-hide; this renders nothing in a browser.
@@ -268,6 +273,53 @@ function ExternalRow({
       </span>
       <NvChevron />
     </a>
+  );
+}
+
+/* --- Identity header --------------------------------------------------------- */
+/* Who you are, before what you can change — the shape iOS Settings opens
+   with. The avatar is Felix in the user's equipped gear, same wiring as the
+   Today card but without the quests machinery: no stats reach this screen,
+   so there's no level-outfit fallback, and nothing equipped is just bare
+   Felix at home. One read on mount; equipping happens on /shop, and this
+   screen remounts on the way back. */
+function IdentityHeader({ email }: { email: string | null }) {
+  const [shop, setShop] = useState<ShopState | null>(null);
+
+  useEffect(() => {
+    let stale = false;
+    void fetchShopState().then((s) => {
+      if (!stale) setShop(s);
+    });
+    return () => {
+      stale = true;
+    };
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center pb-4 pt-2">
+      {/* Decorative for VoiceOver: the email line right below carries the
+          identity, so announcing an image here would only be noise. The
+          skeleton holds the slot until the shop state lands, rather than
+          flashing a default-dressed fox that swaps outfits a beat later. */}
+      <div aria-hidden="true">
+        {shop ? (
+          <FelixScene
+            biome={shop.equippedBiome}
+            accessory={
+              (shop.equippedAccessory as FelixAccessory | null) ?? undefined
+            }
+            className="h-[72px] w-[72px] rounded-full"
+          />
+        ) : (
+          <span
+            className="nv-skeleton block h-[72px] w-[72px]"
+            style={{ borderRadius: "9999px" }}
+          />
+        )}
+      </div>
+      <p className="nv-footnote mt-2 break-all text-center">{email}</p>
+    </div>
   );
 }
 
@@ -872,6 +924,7 @@ function AccountNative({
 
   return (
     <div className="pb-2">
+      <IdentityHeader email={email} />
       <PlanSection />
 
       <NvSectionHeader>Account</NvSectionHeader>
