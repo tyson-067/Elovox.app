@@ -1,0 +1,659 @@
+/* ===========================================================================
+   THE NATIVE DESIGN SYSTEM — tokens
+   ===========================================================================
+   The complete visual system for the iOS shell, and ONLY the shell: every
+   rule in this file is scoped to html[data-native], and the website never
+   sees any of it.
+
+   The contract (docs/NATIVE_REDESIGN.md has the long form):
+
+   - Every color, size, radius and duration a native screen uses comes from
+     a --nv-* token or an .nv-* class in this file. A native component with
+     a hex value or a bare px number in it is a bug.
+   - ONE accent. Felix's orange means "act / live / yours", and nothing
+     else is allowed to be saturated. Text is neutral ink — color is for
+     state and action, never for headings.
+   - Two designed modes. Light is primary (near-white, hairlines, calm
+     cards); dark is the same room with the lights off (deep navy layers,
+     chalk ink) — a design, not an inversion.
+   - System type. The shell speaks SF via the system stack, one family,
+     tabular digits for every numeral that can change.
+   - Liquid glass. The bars, dock and sheets are translucent material over
+     content — blur + saturation + a specular top hairline — never opaque
+     panels.
+   --------------------------------------------------------------------------- */
+
+html[data-native] {
+  /* --- Accent: the one saturated family (Felix's fur, tuned) ------------- */
+  --nv-accent-50: #fff4ee;
+  --nv-accent-100: #ffe3d4;
+  --nv-accent-500: #ff6b35; /* graphics, live states, fills — never under white text */
+  --nv-accent-600: #ea5a24; /* pressed state of 500 fills */
+  --nv-accent-700: #c2410c; /* the AA-verified surface for white text (5.2:1) */
+
+  /* --- Semantic, used sparingly ----------------------------------------- */
+  --nv-success: #1e8a5a;
+  --nv-warning: #b7791f;
+  --nv-destructive: #c62828;
+  /* Premium is a neutral affordance, not a brand color: the lock glyph and
+     a muted amber only. The web's violet PREMIUM chips do not exist here. */
+  --nv-premium: #9a7b3f;
+
+  /* --- Light mode (primary) --------------------------------------------- */
+  --nv-bg: #fafafa; /* screen ground */
+  --nv-bg-grouped: #f2f2f5; /* inset-grouped list wells */
+  --nv-card: #ffffff;
+  --nv-hairline: #e6e6eb;
+  --nv-ink: #12101f;
+  --nv-ink-2: rgba(18, 16, 31, 0.6);
+  --nv-ink-3: rgba(18, 16, 31, 0.4);
+  --nv-tint-soft: #f1f0f4; /* quiet fills: secondary buttons, icon squares */
+  --nv-glass: rgba(250, 250, 250, 0.72); /* bar/dock material */
+  --nv-glass-edge: rgba(255, 255, 255, 0.6); /* specular top hairline */
+  --nv-shadow: 0 2px 4px rgba(18, 16, 31, 0.05); /* y<=4, opacity<=0.06 */
+  --nv-scrim: rgba(18, 16, 31, 0.4);
+
+  /* --- Type: the system, one family -------------------------------------- */
+  --nv-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+    Roboto, "Helvetica Neue", sans-serif;
+  /* Scale (size/weight/leading). largeTitle lives on the bar; title opens a
+     screen; headline heads a card; body is 17 the way iOS body is 17. */
+  --nv-large-title-size: 34px;
+  --nv-title-size: 22px;
+  --nv-headline-size: 17px;
+  --nv-body-size: 17px;
+  --nv-subhead-size: 15px;
+  --nv-footnote-size: 13px;
+  --nv-caption-size: 11px;
+
+  /* --- Space & shape ------------------------------------------------------ */
+  --nv-gutter: 16px; /* screen edge */
+  --nv-r-card: 14px;
+  --nv-r-row: 12px;
+  --nv-r-btn: 12px;
+  --nv-r-pill: 999px;
+
+  /* --- Motion: iOS springs only ------------------------------------------ */
+  --nv-ease: cubic-bezier(0.32, 0.72, 0, 1); /* the sheet curve */
+  --nv-spring: linear(
+    0, 0.016 1%, 0.28 5.4%, 0.667 12.4%, 0.905 20.5%,
+    1.028 29.8%, 1.046 39.4%, 1.003 56%, 0.999 70.4%, 1
+  ); /* gentle overshoot for pops; falls back to --nv-ease where unsupported */
+  --nv-t-micro: 160ms;
+  --nv-t-ui: 260ms;
+}
+
+/* Dark: the same room with the lights off. Designed layers, not inversion:
+   ground, elevated, raised — each one step lighter, hairlines from chalk. */
+html[data-native][data-theme="dark"] {
+  --nv-bg: #0d0a20;
+  --nv-bg-grouped: #0d0a20; /* wells sit on elevated cards instead */
+  --nv-card: #16132c;
+  --nv-hairline: rgba(255, 255, 255, 0.08);
+  --nv-ink: #f5f4f8;
+  --nv-ink-2: rgba(245, 244, 248, 0.62);
+  --nv-ink-3: rgba(245, 244, 248, 0.4);
+  --nv-tint-soft: #1e1a38;
+  --nv-glass: rgba(13, 10, 32, 0.66);
+  --nv-glass-edge: rgba(255, 255, 255, 0.09);
+  --nv-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+  --nv-scrim: rgba(0, 0, 0, 0.55);
+  --nv-accent-50: #2a1626;
+  --nv-accent-100: #3c1e1a;
+}
+
+/* ---------------------------------------------------------------------------
+   REMAP THE OLD SEMANTIC TOKENS.
+   The shell shares components with the website, and those components speak
+   the web's token names (--color-surface, --color-primary…). Pointing the
+   old names at the new system means every shared component falls into the
+   native palette without being touched — and the web keeps its own values.
+   Blue-as-heading dies here: primary ink is ink.
+   --------------------------------------------------------------------------- */
+html[data-native] {
+  --color-surface: var(--nv-bg);
+  --color-surface-lowest: var(--nv-card);
+  --color-surface-container: var(--nv-tint-soft);
+  --color-surface-warm: var(--nv-card);
+  --color-on-surface: var(--nv-ink);
+  --color-on-surface-variant: var(--nv-ink-2);
+  --color-outline-variant: var(--nv-hairline);
+  --color-primary: var(--nv-ink); /* headings/chrome: neutral, never blue */
+  --color-accent: var(--nv-accent-500);
+  --color-accent-strong: var(--nv-accent-700);
+  --color-violet: var(--nv-premium); /* premium de-purpled everywhere at once */
+  --color-amber: var(--nv-warning);
+  --color-error: var(--nv-destructive);
+  --radius-card: var(--nv-r-card);
+  --font-headline: var(--nv-font);
+  --font-body: var(--nv-font);
+  --font-slogan: var(--nv-font);
+}
+
+/* The ground is flat. The website's fixed gradient wash (body::before) is
+   the single loudest "website in a frame" tell and dies here. */
+html[data-native] body {
+  background: var(--nv-bg);
+  font-family: var(--nv-font);
+  color: var(--nv-ink);
+}
+html[data-native] body::before {
+  display: none;
+}
+
+/* Cards flatten onto the new system: fill + hairline + soft shadow, no
+   tinted borders, no warm gradients. Continuous corners where the platform
+   has them (iOS 26 Safari does). */
+html[data-native] .card,
+html[data-native] .card-warm {
+  background: var(--nv-card);
+  border: 1px solid var(--nv-hairline);
+  border-radius: var(--nv-r-card);
+  box-shadow: var(--nv-shadow);
+}
+@supports (corner-shape: squircle) {
+  html[data-native] .card,
+  html[data-native] .card-warm,
+  html[data-native] .nv-btn,
+  html[data-native] .nv-row {
+    corner-shape: squircle;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   TYPE CLASSES — the scale, by role
+   --------------------------------------------------------------------------- */
+html[data-native] .nv-title {
+  font-size: var(--nv-title-size);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  color: var(--nv-ink);
+}
+html[data-native] .nv-headline {
+  font-size: var(--nv-headline-size);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: var(--nv-ink);
+}
+html[data-native] .nv-body {
+  font-size: var(--nv-body-size);
+  line-height: 1.45;
+  color: var(--nv-ink);
+}
+html[data-native] .nv-subhead {
+  font-size: var(--nv-subhead-size);
+  line-height: 1.45;
+  color: var(--nv-ink-2);
+}
+html[data-native] .nv-footnote {
+  font-size: var(--nv-footnote-size);
+  line-height: 1.4;
+  color: var(--nv-ink-2);
+}
+html[data-native] .nv-caption {
+  font-size: var(--nv-caption-size);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nv-ink-3);
+}
+/* Every numeral that can change is tabular, so nothing shifts as it counts. */
+html[data-native] .nv-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ---------------------------------------------------------------------------
+   PRIMITIVE CLASSES — what components/native/ui.tsx renders
+   --------------------------------------------------------------------------- */
+
+/* Screen: gutters + room for the bar above and the dock below. */
+html[data-native] .nv-screen {
+  padding: 0 var(--nv-gutter);
+}
+
+/* Inset grouped list. Rows divide with hairlines that start after the
+   leading icon, the way Settings does. */
+html[data-native] .nv-group {
+  background: var(--nv-card);
+  border: 1px solid var(--nv-hairline);
+  border-radius: var(--nv-r-card);
+  box-shadow: var(--nv-shadow);
+  overflow: hidden;
+}
+html[data-native] .nv-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px var(--nv-gutter);
+  font-size: var(--nv-body-size);
+  color: var(--nv-ink);
+  text-align: left;
+}
+html[data-native] .nv-row + .nv-row,
+html[data-native] .nv-row-divide {
+  position: relative;
+}
+html[data-native] .nv-row + .nv-row::before,
+html[data-native] .nv-row-divide::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: calc(var(--nv-gutter) + 29px + 12px); /* after the icon square */
+  right: 0;
+  height: 1px;
+  background: var(--nv-hairline);
+}
+html[data-native] .nv-row:active {
+  background: var(--nv-tint-soft);
+}
+html[data-native] .nv-row-destructive {
+  color: var(--nv-destructive);
+}
+/* Leading icon in a small tinted square; mono glyph, never full-color. */
+html[data-native] .nv-icon-square {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 29px;
+  height: 29px;
+  flex: none;
+  border-radius: 7px;
+  background: var(--nv-tint-soft);
+  color: var(--nv-ink-2);
+}
+html[data-native] .nv-icon-square-accent {
+  background: var(--nv-accent-50);
+  color: var(--nv-accent-700);
+}
+html[data-native] .nv-row-value {
+  margin-left: auto;
+  color: var(--nv-ink-2);
+  font-size: var(--nv-subhead-size);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+html[data-native] .nv-chevron {
+  color: var(--nv-ink-3);
+  flex: none;
+}
+
+/* Buttons. Primary carries the accent (700 under white); secondary is a
+   quiet fill; plain is a text button. All 50pt, all full-width by default. */
+html[data-native] .nv-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 50px;
+  padding: 13px 20px;
+  border-radius: var(--nv-r-btn);
+  font-family: var(--nv-font);
+  font-size: var(--nv-headline-size);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition: transform var(--nv-t-micro) var(--nv-ease),
+    background-color var(--nv-t-micro) var(--nv-ease);
+}
+html[data-native] .nv-btn:active {
+  transform: scale(0.97);
+}
+html[data-native] .nv-btn-primary {
+  background: var(--nv-accent-700);
+  color: #fff;
+}
+html[data-native] .nv-btn-primary:active {
+  background: var(--nv-accent-600);
+}
+html[data-native] .nv-btn-secondary {
+  background: var(--nv-tint-soft);
+  color: var(--nv-ink);
+}
+html[data-native] .nv-btn-plain {
+  background: none;
+  color: var(--nv-accent-700);
+  min-height: 44px;
+}
+html[data-native][data-theme="dark"] .nv-btn-plain {
+  color: var(--nv-accent-500);
+}
+
+/* Chips (goal picker, filters): pill outline; selected fills with accent. */
+html[data-native] .nv-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: var(--nv-r-pill);
+  border: 1px solid var(--nv-hairline);
+  background: var(--nv-card);
+  font-size: var(--nv-subhead-size);
+  font-weight: 600;
+  color: var(--nv-ink);
+  transition: transform var(--nv-t-micro) var(--nv-ease);
+}
+html[data-native] .nv-chip:active {
+  transform: scale(0.96);
+}
+html[data-native] .nv-chip[data-selected] {
+  background: var(--nv-accent-700);
+  border-color: var(--nv-accent-700);
+  color: #fff;
+}
+
+/* Stat: a Whoop-style numeral with its quiet label. */
+html[data-native] .nv-stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--nv-ink);
+  font-variant-numeric: tabular-nums;
+}
+html[data-native] .nv-stat-label {
+  font-size: var(--nv-caption-size);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nv-ink-3);
+}
+
+/* Liquid glass: the material of every floating surface. The specular edge
+   is what sells it — one bright hairline where light would catch. */
+html[data-native] .nv-glass {
+  background: var(--nv-glass);
+  -webkit-backdrop-filter: blur(18px) saturate(1.8);
+  backdrop-filter: blur(18px) saturate(1.8);
+  box-shadow: inset 0 1px 0 var(--nv-glass-edge);
+}
+
+/* Sheet: detent-style card rising from the bottom, grabber on top. */
+html[data-native] .nv-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--nv-scrim);
+  animation: nv-fade var(--nv-t-ui) var(--nv-ease);
+}
+html[data-native] .nv-sheet {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 61;
+  max-height: 88dvh;
+  overflow-y: auto;
+  border-radius: 20px 20px 0 0;
+  background: var(--nv-card);
+  box-shadow: 0 -1px 0 var(--nv-hairline);
+  padding: 8px var(--nv-gutter) calc(16px + env(safe-area-inset-bottom));
+  animation: nv-rise var(--nv-t-ui) var(--nv-ease);
+}
+html[data-native] .nv-grabber {
+  width: 36px;
+  height: 5px;
+  border-radius: 3px;
+  margin: 0 auto 10px;
+  background: var(--nv-ink-3);
+  opacity: 0.5;
+}
+@keyframes nv-fade {
+  from { opacity: 0; }
+}
+@keyframes nv-rise {
+  from { transform: translateY(24px); opacity: 0.4; }
+}
+
+/* Empty state: a glyph, one line, one action — never a bare paragraph. */
+html[data-native] .nv-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 24px;
+  text-align: center;
+}
+html[data-native] .nv-empty svg {
+  color: var(--nv-ink-3);
+}
+
+/* Skeletons, never spinners, for anything that loads. */
+html[data-native] .nv-skeleton {
+  border-radius: 8px;
+  background: var(--nv-tint-soft);
+  animation: nv-shimmer 1.1s ease-in-out infinite alternate;
+}
+@keyframes nv-shimmer {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-native] .nv-skeleton,
+  html[data-native] .nv-sheet,
+  html[data-native] .nv-sheet-backdrop {
+    animation: none;
+  }
+  html[data-native] .nv-btn,
+  html[data-native] .nv-chip {
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   CHROME — the bar and the dock, restyled onto the system
+   --------------------------------------------------------------------------- */
+
+/* Large title at the true iOS register, in ink. The bar material is liquid
+   glass the moment content passes under it. */
+html[data-native] .native-title-lg {
+  font-family: var(--nv-font);
+  font-weight: 700;
+  font-size: var(--nv-large-title-size);
+  letter-spacing: -0.022em;
+  color: var(--nv-ink);
+}
+html[data-native] .native-title-sm {
+  font-family: var(--nv-font);
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--nv-ink);
+}
+html[data-native] .native-bar-btn {
+  color: var(--nv-ink);
+}
+html[data-native] .native-bar-scrolled {
+  background: var(--nv-glass);
+  -webkit-backdrop-filter: blur(18px) saturate(1.8);
+  backdrop-filter: blur(18px) saturate(1.8);
+  border-bottom-color: var(--nv-hairline);
+  box-shadow: inset 0 1px 0 var(--nv-glass-edge);
+}
+html[data-native][data-theme="dark"] .native-bar-scrolled {
+  background: var(--nv-glass);
+  border-bottom-color: var(--nv-hairline);
+}
+
+/* The dock is the same material, hairline on top. */
+html[data-native] .native-dock {
+  background: var(--nv-glass);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  backdrop-filter: blur(20px) saturate(1.8);
+  border-top-color: var(--nv-hairline);
+  box-shadow: inset 0 1px 0 var(--nv-glass-edge);
+}
+html[data-native][data-theme="dark"] .native-dock {
+  background: var(--nv-glass);
+  border-top-color: var(--nv-hairline);
+}
+
+/* Active tab: the accent tint IS the marker, the way iOS does it. The extra
+   dot the old design added on top is one treatment too many. */
+html[data-native] .native-tab {
+  color: var(--nv-ink-3);
+}
+html[data-native] .native-tab[aria-current="page"] {
+  color: var(--nv-accent-700);
+}
+html[data-native][data-theme="dark"] .native-tab[aria-current="page"] {
+  color: var(--nv-accent-500);
+}
+html[data-native] .native-tab[aria-current="page"]::before {
+  display: none;
+}
+
+/* The record control, seated. A clean circle on the AA-safe accent, resting
+   IN the bar: no glow bleeding over content, no idle animation. The live
+   ring and pulse belong to the recording screen, not the chrome. */
+html[data-native] .native-record-blob {
+  bottom: 6px;
+  height: 52px;
+  width: 52px;
+  border-radius: 999px;
+  background: var(--nv-accent-700);
+  box-shadow: var(--nv-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+html[data-native] .native-record-blob::after {
+  display: none;
+}
+
+/* ---------------------------------------------------------------------------
+   SCREEN-SPECIFIC STRUCTURES the primitives compose
+   --------------------------------------------------------------------------- */
+
+/* Segmented control (Appearance: Daylight | Booth). */
+html[data-native] .nv-seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--nv-tint-soft);
+}
+html[data-native] .nv-seg-item {
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: var(--nv-footnote-size);
+  font-weight: 600;
+  color: var(--nv-ink-2);
+  transition: background-color var(--nv-t-micro) var(--nv-ease),
+    color var(--nv-t-micro) var(--nv-ease);
+}
+html[data-native] .nv-seg-item[aria-pressed="true"],
+html[data-native] .nv-seg-item[data-selected] {
+  background: var(--nv-card);
+  color: var(--nv-ink);
+  box-shadow: var(--nv-shadow);
+}
+
+/* Metric meter: label row + a hairline track with an accent fill. Report's
+   six metrics and Progress's bars share it, so they can never disagree. */
+html[data-native] .nv-meter-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--nv-tint-soft);
+  overflow: hidden;
+}
+html[data-native] .nv-meter-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--nv-accent-500);
+  transition: width 600ms var(--nv-ease);
+}
+
+/* The score dial: SVG circle whose arc draws in. The component sets the
+   dasharray/dashoffset; this owns color and motion so every dial matches. */
+html[data-native] .nv-dial-track {
+  stroke: var(--nv-tint-soft);
+}
+html[data-native] .nv-dial-arc {
+  stroke: var(--nv-accent-500);
+  transition: stroke-dashoffset 800ms var(--nv-ease);
+}
+
+/* The recording takeover: one screen, one job, dark regardless of theme.
+   (Design decision, not a theme bug: a recording booth is dark.) */
+html[data-native] .nv-takeover {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: #0d0a20;
+  color: #f5f4f8;
+  padding: calc(env(safe-area-inset-top) + 12px) var(--nv-gutter)
+    calc(env(safe-area-inset-bottom) + 20px);
+}
+html[data-native] .nv-timer {
+  font-size: 56px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+/* Two-column chip grid (the goal picker). */
+html[data-native] .nv-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Attempt dots: filled = spent, hollow = remaining, the Daily Minute's
+   three-a-day at a glance. */
+html[data-native] .nv-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  border: 1.5px solid var(--nv-ink-3);
+}
+html[data-native] .nv-dot[data-filled] {
+  background: var(--nv-accent-500);
+  border-color: var(--nv-accent-500);
+}
+
+/* Generic press affordance for tappable things that aren't buttons or rows
+   (Felix on Today). Replaces the never-defined native-press. */
+html[data-native] .nv-press {
+  transition: transform var(--nv-t-micro) var(--nv-ease);
+}
+html[data-native] .nv-press:active {
+  transform: scale(0.96);
+}
+
+/* The old booth dark-theme block (globals.css, html[data-native][data-theme
+   ="dark"]) outranks the base remap above by one attribute selector, so its
+   chalk-blue primary and violet premium were leaking into the new dark mode
+   (lavender Tape bars, a violet dock dot). Re-point the legacy names at the
+   system at the SAME specificity — later sheet wins the tie. */
+html[data-native][data-theme="dark"] {
+  --color-surface: var(--nv-bg);
+  --color-surface-lowest: var(--nv-card);
+  --color-surface-container: var(--nv-tint-soft);
+  --color-surface-warm: var(--nv-card);
+  --color-on-surface: var(--nv-ink);
+  --color-on-surface-variant: var(--nv-ink-2);
+  --color-outline-variant: var(--nv-hairline);
+  --color-primary: var(--nv-ink);
+  --color-on-primary: var(--nv-bg);
+  --color-accent: var(--nv-accent-500);
+  --color-accent-strong: var(--nv-accent-700);
+  --color-violet: var(--nv-premium);
+  --color-amber: var(--nv-warning);
+  --color-error: var(--nv-destructive);
+}
+/* The old dark body repaints its own lamp gradient; the system ground is
+   flat there too. */
+html[data-native][data-theme="dark"] body {
+  background: var(--nv-bg);
+}
+html[data-native][data-theme="dark"] body::before {
+  display: none;
+}

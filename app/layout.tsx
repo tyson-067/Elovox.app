@@ -11,6 +11,10 @@ import { NativeShell } from "@/components/NativeShell";
 import { NativeRuntime } from "@/components/NativeRuntime";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+// After globals on purpose: the native theme re-points the web's semantic
+// tokens under html[data-native], and later-sheet order is what lets it win
+// ties without escalating specificity. The website never matches its rules.
+import "./native-theme.css";
 
 // Brand type direction: geometric/deco sans (Amenti, Konnect, Fonseca).
 // Those are paid faces without web-embed licenses, so we ship their
