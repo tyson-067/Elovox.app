@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { RequireAuth } from "@/components/RequireAuth";
 import { NativeSections } from "@/components/NativeSections";
+import { NativeToday } from "@/components/NativeToday";
 import { Reveal } from "@/components/Reveal";
 import { WordReveal } from "@/components/WordReveal";
 import { GlowCard } from "@/components/GlowCard";
@@ -566,11 +567,19 @@ function TodayScreen() {
 
   return (
     <div className="py-10 md:py-14">
-      <Reveal>
+      {/* native-hide: inside the app the navigation bar's large title already
+          says "Today", and a second display-size heading under it is the two
+          headings fighting that NativeShell's docs warn about. */}
+      <Reveal className="native-hide">
         <h1 className="text-title font-headline font-semibold text-primary">
           <WordReveal text="What are you practicing today?" delay={80} step={60} />
         </h1>
       </Reveal>
+
+      {/* The app-scale Today. Everything it shows is derived from the same
+          state the web hero below reads; the web pieces it replaces carry
+          native-hide. Renders nothing in a browser. */}
+      <NativeToday stats={stats} daily={daily} challenge={challenge} shop={shop} />
 
       {reward?.granted && (
         <Reveal className="mt-8">
@@ -601,12 +610,14 @@ function TodayScreen() {
         </Reveal>
       )}
 
-      <Reveal className="mt-8">
+      <Reveal className="native-hide mt-8">
         <FelixHero stats={stats} challenge={challenge} shop={shop} />
       </Reveal>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Reveal delay={80} className="lg:col-span-2">
+        {/* NativeToday carries the Daily Minute in the app; the Den keeps
+            rendering there, restyled by the native CSS layer. */}
+        <Reveal delay={80} className="native-hide lg:col-span-2">
           <DailyCard challenge={daily} state={challenge} />
         </Reveal>
         <Reveal delay={160}>
@@ -651,7 +662,11 @@ function TodayScreen() {
       <NativeSections />
 
       {plan === "free" && (
-        <Reveal>
+        // native-hide on the whole card, not just its CTA: with the button
+        // stripped this was a list of Premium features with no way to act on
+        // it — a dead end in the app, and a surface App Review reads as
+        // selling without a purchase path. The app simply doesn't upsell.
+        <Reveal className="native-hide">
           <div className="card navy-gradient border-none! mt-12 mb-6 p-6 text-white">
             <h3 className="font-headline text-2xl font-semibold">
               Practice as much as you want

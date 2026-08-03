@@ -149,10 +149,25 @@ export default function RootLayout({
                 ? ""
                 : "try{var q=location.search.indexOf('native=1')>=0;" +
                   "if(q)sessionStorage.setItem('elovox.devNative','1');" +
+                  // `?demo=1`: pretend Firebase is absent so the localStorage
+                  // fallback renders the signed-in surface without an account.
+                  // Read by isFirebaseConfigured (lib/firebase.ts). Dev only,
+                  // same lifetime and mechanism as the native flag above.
+                  "if(location.search.indexOf('demo=1')>=0)" +
+                  "sessionStorage.setItem('elovox.devDemo','1');" +
                   "if(q||sessionStorage.getItem('elovox.devNative')){" +
-                  "var e2=document.documentElement;e2.setAttribute('data-native','1');" +
+                  "var st=function(){var e2=document.documentElement;" +
+                  "e2.setAttribute('data-native','1');" +
                   "if(!e2.getAttribute('data-theme'))e2.setAttribute('data-theme'," +
-                  "localStorage.getItem('elovox.theme')||'dark')}}catch(e){}"),
+                  "localStorage.getItem('elovox.theme')||'dark')};st();" +
+                  // Re-assert after load: demo mode makes the server render
+                  // "configured" and the client "unconfigured", so React
+                  // discards the server DOM and client-renders, which rebuilds
+                  // <html>'s attributes and wipes the stamp. Dev-only, like
+                  // everything in this block; useIsNative observes the
+                  // attribute, so consumers recover when it returns.
+                  "window.addEventListener('load',function(){setTimeout(st,0);setTimeout(st,300)})" +
+                  "}}catch(e){}"),
           }}
         />
         <a href="#main" className="skip-link">

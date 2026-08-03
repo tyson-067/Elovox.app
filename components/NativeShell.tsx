@@ -234,6 +234,17 @@ function NativeTitleBar({ pathname }: { pathname: string }) {
         )}
       </div>
       {!bare && <h1 className="native-title-lg">{title}</h1>}
+      {/* Today is anchored in the actual day, the way Fitness and News open.
+          Only the home screen: on every other screen the date is noise. */}
+      {!bare && pathname === "/dashboard" && (
+        <p className="native-bar-sub" suppressHydrationWarning>
+          {new Date().toLocaleDateString(undefined, {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+          })}
+        </p>
+      )}
     </div>
   );
 }

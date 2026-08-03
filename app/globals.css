@@ -1575,3 +1575,215 @@ html[data-native] .native-dock {
     transition: none;
   }
 }
+
+/* ===========================================================================
+   THE NATIVE LAYOUT LAYER
+   ===========================================================================
+   Everything below is scoped to html[data-native] and exists to make the app
+   read as an iOS app rather than a website in a frame. The brand is kept —
+   same palette, same faces — and the LAYOUT changes: web rhythm (scroll
+   reveals, hover lifts, hero type, roomy cards) becomes app rhythm (content
+   already there, press states, 17px body, tight grouped surfaces).
+
+   The website is untouched by all of it, deliberately: these rules exist
+   precisely because what works in a browser tab reads as a website inside an
+   app shell.
+   --------------------------------------------------------------------------- */
+
+/* --- Motion: content is simply THERE -------------------------------------
+   Scroll-reveal is a website gesture. In an app, arriving on a screen whose
+   cards then fade in one by one reads as loading, not as polish — iOS
+   screens are complete the frame they appear (the screen-enter slide above
+   is the only entrance, and it moves the whole surface as one). These kill
+   the reveal system under the shell; the web keeps all of it. */
+html[data-native] .reveal,
+html[data-native] .reveal-swipe,
+html[data-native] .reveal-zoom,
+html[data-native] .reveal-swipe[data-dir="up"] {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  transition: none;
+}
+html[data-native] .stagger-in > * {
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+html[data-native] .wr .wr-word > span {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+/* --- Type: the iOS scale ---------------------------------------------------
+   Web display sizes shout on a phone. 17px body is the iOS baseline; page
+   titles step down to 26 because the navigation bar's large title (33px)
+   already owns the top of the hierarchy — a page h1 bigger than the screen
+   title is how two headings end up fighting. */
+html[data-native] body {
+  font-size: 17px;
+}
+html[data-native] .text-title {
+  font-size: 26px;
+  line-height: 1.22;
+  letter-spacing: -0.015em;
+}
+
+/* --- Surfaces --------------------------------------------------------------
+   iOS cards are flatter and rounder than web cards: continuous ~16px
+   corners, fill doing the work instead of borders. The radius token cascades
+   into every .card/.card-warm at once. */
+html[data-native] {
+  --radius-card: 1rem;
+}
+
+/* Web padding steps down one notch. p-6 (24px) is a desktop card's padding;
+   inside a 375pt viewport it reads as emptiness. Scoped to #main so the
+   chrome (bar, dock) keeps its own geometry. */
+html[data-native] #main .p-6 {
+  padding: 18px;
+}
+html[data-native] #main .p-5 {
+  padding: 16px;
+}
+
+/* Section headers inside cards: iOS uses one quiet weight for these, not the
+   web's display sizes. (The uppercase 13px section LABELS above cards are
+   already right and stay as they are.) */
+html[data-native] #main .card h2,
+html[data-native] #main .card-warm h2 {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* --- Buttons: 50pt, full-width, filled -------------------------------------
+   The single biggest "this is a website" tell in the audit: orange buttons
+   sized to their label, sitting mid-column. iOS primary actions run the
+   width of the content and meet the 50pt touch target.
+
+   .pill (the secondary in every pair) gets the same geometry with a quiet
+   fill, so stacked pairs read as iOS button groups. */
+html[data-native] #main .btn,
+html[data-native] #main .pill {
+  display: flex;
+  width: 100%;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  padding: 13px 20px;
+  border-radius: 14px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-align: center;
+}
+html[data-native] #main .pill {
+  background: var(--color-surface-container);
+  border: none;
+  color: var(--color-primary);
+}
+/* Small inline .btn variants (composer "Ask me this", retry-in-stage) keep
+   full width too — a half-width 50pt button looks unfinished, and none of
+   these ever renders beside another control on a phone. */
+
+/* Buttons that sit in a wrapping row on the web (btn + pill pairs) stack. */
+html[data-native] #main .flex-wrap:has(> .btn),
+html[data-native] #main .flex-wrap:has(> .pill) {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* --- Inputs: 50pt cells ----------------------------------------------------
+   Grouped-cell geometry: tall enough to hit, 17px so iOS never zooms the
+   viewport on focus, quiet border, filled from the surface scale. */
+html[data-native] #main input[type="text"],
+html[data-native] #main input[type="email"],
+html[data-native] #main input[type="password"],
+html[data-native] #main input[type="date"],
+html[data-native] #main input[type="time"],
+html[data-native] #main select,
+html[data-native] #main textarea {
+  min-height: 50px;
+  font-size: 17px;
+  border-radius: 12px;
+}
+/* The web's focus glow is a hover-culture affordance; iOS marks focus with
+   the caret and the keyboard. A plain accent border is enough. */
+html[data-native] #main .input-glow:focus {
+  box-shadow: none;
+  border-color: var(--color-accent);
+}
+
+/* --- The record screen -----------------------------------------------------
+   The stage goes edge-to-edge dark and the countdown reads like a timer, not
+   a data readout. The record blob is already center-screen; these make the
+   numbers around it native-sized. */
+html[data-native] #main .record-blob {
+  height: 88px;
+  width: 88px;
+}
+html[data-native] #main .font-data.text-2xl {
+  font-size: 34px;
+  line-height: 1.1;
+}
+
+/* --- Chrome refinements ----------------------------------------------------
+   Large title at the iOS 34pt register, and a date line under it on Today,
+   the way Fitness and News anchor their home screens in the day. */
+.native-title-lg {
+  font-size: 33px;
+  letter-spacing: -0.025em;
+}
+.native-bar-sub {
+  padding: 0 16px 10px;
+  margin-top: -6px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--color-on-surface-variant);
+  transition: opacity 180ms ease;
+}
+.native-bar-scrolled .native-bar-sub {
+  opacity: 0;
+  height: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+}
+
+/* Tab labels at the iOS 10pt register with the 49pt-content dock they sit
+   in; the active tint is already handled above. */
+.native-tab span {
+  margin-top: 1px;
+}
+
+/* The scrolled bar in dark mode. The default tint is --color-surface, which
+   in the dark theme is also the page ground — a bar filled with the ground
+   it floats over separates nothing, and the content scrolling beneath reads
+   as colliding with the title. The panel tone is the dark theme's "surface
+   above the ground", which is exactly what a navigation bar is; opacity a
+   notch higher because the blur that softens bleed-through text is the
+   first thing older hardware turns off. */
+html[data-native][data-theme="dark"] .native-bar-scrolled {
+  background: color-mix(in oklab, var(--color-surface-lowest) 94%, transparent);
+  border-bottom-color: rgba(203, 216, 255, 0.09);
+}
+
+/* Same reasoning for the dock: its tint is --color-surface, which in dark
+   mode is the ground itself, so scrolled content stayed legible through it.
+   The panel tone separates it; the hairline gets the dark theme's chalk. */
+html[data-native][data-theme="dark"] .native-dock {
+  background: color-mix(in oklab, var(--color-surface-lowest) 96%, transparent);
+  border-top-color: rgba(203, 216, 255, 0.09);
+}
+
+/* The practice brief's topic line. 26px display type above three bullets and
+   a record button is the web's proportions; 22px keeps it the biggest thing
+   on the screen without it being a poster. (Selector matches the Tailwind
+   arbitrary-value class the page uses.) */
+html[data-native] #main .text-\[26px\] {
+  font-size: 22px;
+  line-height: 1.3;
+}
