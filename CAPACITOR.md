@@ -278,6 +278,39 @@ iOS-side wiring, all in Xcode:
 4. Firebase console → Authentication → Settings → Authorized domains: confirm
    `elovox.app` is listed.
 
+### The `[ FirebaseAuthentication ] <RuntimeError: 0x…>` line at every launch
+
+It is benign. Investigated 2026-08-03; do not spend an evening on it twice.
+
+What happens:
+
+1. The plugin's `load()` builds `FirebaseAuthentication`, whose `init`
+   registers `Auth.auth().addIDTokenDidChangeListener`.
+2. Firebase fires that listener immediately on registration, with whatever the
+   current **native** auth state is.
+3. We run `skipNativeAuth: true`, so there is never a native Firebase session —
+   the JS SDK owns it, deliberately (see above). Native `currentUser` is
+   permanently `nil`.
+4. The listener calls `getIdToken`, which guards on `currentUser` and hands
+   back `RuntimeError("No user is signed in.")`.
+5. The plugin logs it with `CAPLog.print("[", tag, "] ", error)`.
+
+It looks alarming only because of step 5. `RuntimeError` is an `NSObject` that
+keeps its text in a *stored property* called `localizedDescription` and never
+overrides `description`, so printing the object yields the class name and a
+pointer and the actual message — "No user is signed in." — is never shown.
+
+Nothing consumes the failing callback: the app calls exactly two plugin
+methods, `signInWithGoogle` and `signOut`, and subscribes to none of its
+events (auth state comes from the JS SDK, via `AuthProvider`). So the line
+fires once per cold launch, forever, signed in or out, and changes nothing.
+
+Verified alongside it, since all three would show up as the same symptom:
+`GoogleService-Info.plist` is in Copy Bundle Resources and ships in the built
+`.app`; its `BUNDLE_ID` matches `app.elovox.ios`; and its `REVERSED_CLIENT_ID`
+matches the URL scheme in `Info.plist`. The native branches in `lib/auth.ts`
+are both real, `signInWithGoogle` **and** `reauthenticate`.
+
 **Also check `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`.** Roadmap item 7.4 says the
 email action URL still points at `sonoria-212c1.firebaseapp.com` and is stuck
 on a Firebase ticket. That does not block native sign-in, but verification and
