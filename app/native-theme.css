@@ -657,3 +657,87 @@ html[data-native][data-theme="dark"] body {
 html[data-native][data-theme="dark"] body::before {
   display: none;
 }
+
+/* Sign in with Apple: the generic native .pill restyle (html[data-native]
+   #main .pill) outranks the base .apple-signin-btn rule, washing the HIG
+   black button into a gray fill. Restate it above that specificity. */
+html[data-native] #main .apple-signin-btn {
+  background: #000;
+  color: #fff;
+  border: none;
+}
+html[data-native][data-theme="dark"] #main .apple-signin-btn {
+  background: #fff;
+  color: #000;
+}
+
+/* ---------------------------------------------------------------------------
+   POST-BUILD SYSTEM FIXES — gaps the screen builds surfaced
+   --------------------------------------------------------------------------- */
+
+/* The takeover is always-dark, so re-point the ink and tint tokens INSIDE it:
+   nv-footnote reads chalk, the dial track dims to the dark tint — no screen
+   needs color overrides to sit on the booth. */
+html[data-native] .nv-takeover {
+  --nv-ink: #f5f4f8;
+  --nv-ink-2: rgba(245, 244, 248, 0.62);
+  --nv-ink-3: rgba(245, 244, 248, 0.4);
+  --nv-tint-soft: #1e1a38;
+  --nv-card: #16132c;
+  --nv-hairline: rgba(255, 255, 255, 0.08);
+}
+
+/* The Whoop-style hero numeral (Progress's score). Same geometry the timer
+   uses, named for what it is. */
+html[data-native] .nv-display {
+  font-size: 56px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+/* Rows without a leading icon divide from the text edge, not 57px in. */
+html[data-native] .nv-row[data-noicon] + .nv-row::before {
+  left: var(--nv-gutter);
+}
+
+/* Full-bleed hairline inside a card/group (transcript notes, drills). */
+html[data-native] .nv-divider {
+  border: 0;
+  border-top: 1px solid var(--nv-hairline);
+  margin: 12px 0;
+}
+
+/* Native form field: 50pt tint-soft cell. */
+html[data-native] .nv-input {
+  width: 100%;
+  min-height: 50px;
+  padding: 13px 14px;
+  border-radius: var(--nv-r-btn);
+  border: 1px solid transparent;
+  background: var(--nv-tint-soft);
+  color: var(--nv-ink);
+  font-size: var(--nv-body-size);
+}
+html[data-native] .nv-input:focus {
+  outline: none;
+  border-color: var(--nv-accent-500);
+}
+html[data-native] .nv-input::placeholder {
+  color: var(--nv-ink-3);
+}
+
+/* The switch knob is white in both modes, like the platform's. */
+html[data-native] {
+  --nv-knob: #ffffff;
+}
+
+/* Data-drawing motion honors Reduce Motion at the token level too. */
+@media (prefers-reduced-motion: reduce) {
+  html[data-native] .nv-dial-arc,
+  html[data-native] .nv-meter-fill,
+  html[data-native] .nv-press {
+    transition: none;
+  }
+}

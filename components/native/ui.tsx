@@ -92,21 +92,35 @@ export function NvRow({
     </>
   );
   const cls = `nv-row${destructive ? " nv-row-destructive" : ""}`;
+  // Icon-less rows divide from the text edge (the divider inset is keyed on
+  // this attribute in native-theme.css).
+  const noicon = icon ? undefined : "";
   if (href && !disabled) {
     return (
-      <Link href={href} className={cls} aria-label={ariaLabel}>
+      <Link href={href} className={cls} data-noicon={noicon} aria-label={ariaLabel}>
         {body}
       </Link>
     );
   }
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} disabled={disabled} className={cls} aria-label={ariaLabel}>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={cls}
+        data-noicon={noicon}
+        aria-label={ariaLabel}
+      >
         {body}
       </button>
     );
   }
-  return <div className={cls}>{body}</div>;
+  return (
+    <div className={cls} data-noicon={noicon}>
+      {body}
+    </div>
+  );
 }
 
 /* --- Buttons ---------------------------------------------------------------- */
