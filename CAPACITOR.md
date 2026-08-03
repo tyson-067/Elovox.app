@@ -516,9 +516,28 @@ flat colour and smooth curves. But 158px is still the real resolution, and
 submit** — 1024x1024, no alpha, square corners. Anything vector-derived will
 be sharper than what is there now.
 
-Not done, worth considering: iOS 18+ takes `dark` and `tinted` icon variants
-in the same asset. Without a dark variant this icon stays a bright white
-square on a dark home screen.
+There is a **dark variant** too — `AppIcon-Dark-1024.png`, tagged
+`luminosity/dark` in Contents.json — so the icon stops being a bright white
+square on a dark home screen. iOS 18+ uses it when Home Screen → Customize is
+set to Dark, or to Auto while the system is dark. (Note for testing: system
+dark mode alone does **not** switch it. That setting is separate, and until it
+is changed even Apple's own icons stay light, which looks exactly like a
+broken dark variant.)
+
+It came from a screen capture as well, so it needed the same corrections plus
+one more: the navy card measured 171x181, and since an app icon is square that
+~5% was capture stretch — left in, it made the dark fox visibly
+longer-snouted than the light one beside it. The white page showing through
+the rounded corners was replaced by compositing over a flat navy field through
+an *eroded* rounded-rect mask. Eroded because the card's outermost ring of
+pixels is part white, and at that scale the ring is ~1% of the icon's width,
+which blows up into a pale keyline around the whole icon. Its fox also sat
+high in the frame, so it is centred on the artwork bbox — the same rule the
+light variant gets.
+
+Still not done: the `tinted` variant. Without one iOS derives it from the
+light icon, which is a reasonable result — worth an eye before submitting, not
+worth blocking on.
 
 ### The daily reminder
 
