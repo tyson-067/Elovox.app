@@ -7,9 +7,22 @@ import { startAppCheck } from "./appCheck";
 // are absent (local dev before setup), the app falls back to localStorage
 // and the auth pages explain that accounts aren't available.
 
+// The domain users SEE during sign-in (the Google popup's address bar) and
+// the domain email action links point at. The env value spent months stuck
+// on the legacy sonoria-212c1.firebaseapp.com — a project codename users
+// were never meant to meet — so the legacy value (or an unset one) upgrades
+// to elovox.app, whose /__/auth/* is proxied to the Firebase handler in
+// next.config.ts. A DIFFERENT explicit env value (a future auth.elovox.app
+// with real Firebase Hosting) still wins, so the escape hatch stays open.
+const envAuthDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
+const authDomain =
+  !envAuthDomain || envAuthDomain === "sonoria-212c1.firebaseapp.com"
+    ? "elovox.app"
+    : envAuthDomain;
+
 const config = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  authDomain,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,

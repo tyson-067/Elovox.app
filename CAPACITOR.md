@@ -311,11 +311,14 @@ Verified alongside it, since all three would show up as the same symptom:
 matches the URL scheme in `Info.plist`. The native branches in `lib/auth.ts`
 are both real, `signInWithGoogle` **and** `reauthenticate`.
 
-**Also check `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`.** Roadmap item 7.4 says the
-email action URL still points at `sonoria-212c1.firebaseapp.com` and is stuck
-on a Firebase ticket. That does not block native sign-in, but verification and
-reset emails opened on the phone will land on the legacy domain — worth seeing
-once on-device so you know what a new user actually experiences.
+**`NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` — resolved 2026-08-03 without the
+ticket.** lib/firebase.ts now upgrades the legacy `sonoria-212c1.firebaseapp
+.com` value to `elovox.app`, whose `/__/auth/*` and `/__/firebase/*` are
+proxied to the Firebase handler by rewrites in next.config.ts. Sign-in popups
+show elovox.app. The one remaining console step: Authentication → Templates →
+edit → customize action URL → `https://elovox.app/__/auth/action`, so email
+links say elovox.app too. If the auth.elovox.app Firebase-Hosting ticket ever
+resolves, setting the env var to that domain still wins over the upgrade.
 
 ---
 

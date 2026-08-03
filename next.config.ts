@@ -168,6 +168,30 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+
+  // The auth handler, served from OUR domain. Firebase's popup/redirect
+  // helpers and every email action link live under authDomain/__/auth/*, and
+  // authDomain was stuck on sonoria-212c1.firebaseapp.com — so the Google
+  // popup's address bar and every verification email said "sonoria" to a
+  // user who signed up for Elovox. Proxying the handler paths through
+  // elovox.app lets lib/firebase.ts declare authDomain: "elovox.app"
+  // (already on Firebase's authorized-domains list) with no Firebase
+  // Hosting setup and no waiting on the stuck auth.elovox.app ticket.
+  // /__/firebase/* rides along because the handler fetches its init config
+  // from there. Same-origin also tightens the popup: frame-src 'self' now
+  // covers what used to need *.firebaseapp.com.
+  async rewrites() {
+    return [
+      {
+        source: "/__/auth/:path*",
+        destination: "https://sonoria-212c1.firebaseapp.com/__/auth/:path*",
+      },
+      {
+        source: "/__/firebase/:path*",
+        destination: "https://sonoria-212c1.firebaseapp.com/__/firebase/:path*",
+      },
+    ];
+  },
 };
 
 export default nextConfig;
