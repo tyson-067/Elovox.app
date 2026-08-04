@@ -369,8 +369,10 @@ html[data-native] .nv-stat-label {
    is what sells it — one bright hairline where light would catch. */
 html[data-native] .nv-glass {
   background: var(--nv-glass);
-  -webkit-backdrop-filter: blur(18px) saturate(1.8);
-  backdrop-filter: blur(18px) saturate(1.8);
+  /* 14px is the system-wide blur ceiling: cost grows superlinearly with
+     radius, and every glass surface re-samples its backdrop during scroll. */
+  -webkit-backdrop-filter: blur(14px) saturate(1.8);
+  backdrop-filter: blur(14px) saturate(1.8);
   box-shadow: inset 0 1px 0 var(--nv-glass-edge);
 }
 
@@ -467,33 +469,53 @@ html[data-native] .native-title-sm {
 html[data-native] .native-bar-btn {
   color: var(--nv-ink);
 }
-html[data-native] .native-bar-scrolled {
+/* The glass rides the bar's always-alive ::before layer (globals.css) — the
+   system only re-skins it. Radius stays 12: the perf ceiling is the design. */
+html[data-native] .native-bar::before {
   background: var(--nv-glass);
-  -webkit-backdrop-filter: blur(18px) saturate(1.8);
-  backdrop-filter: blur(18px) saturate(1.8);
-  border-bottom-color: var(--nv-hairline);
+  -webkit-backdrop-filter: blur(12px) saturate(1.8);
+  backdrop-filter: blur(12px) saturate(1.8);
   box-shadow: inset 0 1px 0 var(--nv-glass-edge);
 }
-html[data-native][data-theme="dark"] .native-bar-scrolled {
-  background: var(--nv-glass);
+html[data-native] .native-bar-scrolled {
   border-bottom-color: var(--nv-hairline);
 }
 
-/* The dock is the same material, hairline on top. */
+/* THE FLOATING GLASS DOCK — the shell's liquid-glass signature. The bar
+   detaches from the screen edges into a capsule of glass hovering over the
+   content, the way the platform's own floating tab bar does: controls are a
+   LAYER above content, not a wall at the bottom of it. Same 14px blur
+   ceiling as everything else; its own composited layer from first paint. */
 html[data-native] .native-dock {
+  left: 12px;
+  right: 12px;
+  bottom: calc(env(safe-area-inset-bottom) + 10px);
+  padding-bottom: 0;
+  border-radius: 32px;
+  border: 1px solid var(--nv-glass-edge);
+  overflow: hidden;
   background: var(--nv-glass);
-  -webkit-backdrop-filter: blur(20px) saturate(1.8);
-  backdrop-filter: blur(20px) saturate(1.8);
-  border-top-color: var(--nv-hairline);
-  box-shadow: inset 0 1px 0 var(--nv-glass-edge);
+  -webkit-backdrop-filter: blur(14px) saturate(1.8);
+  backdrop-filter: blur(14px) saturate(1.8);
+  box-shadow:
+    inset 0 1px 0 var(--nv-glass-edge),
+    0 10px 30px rgba(18, 16, 31, 0.16);
+  transform: translateZ(0);
 }
 html[data-native][data-theme="dark"] .native-dock {
-  background: var(--nv-glass);
-  border-top-color: var(--nv-hairline);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 var(--nv-glass-edge),
+    0 10px 30px rgba(0, 0, 0, 0.45);
+}
+html[data-native] .native-dock-row {
+  height: 62px;
 }
 
-/* Active tab: the accent tint IS the marker, the way iOS does it. The extra
-   dot the old design added on top is one treatment too many. */
+/* Active tab: accent ink ON a soft glass platter — the floating dock's
+   version of the platform's selected-tab capsule. The platter replaces the
+   old 3px dot (globals) entirely; it's static per state, so it costs one
+   paint on tab change and nothing during scroll. */
 html[data-native] .native-tab {
   color: var(--nv-ink-3);
 }
@@ -503,8 +525,25 @@ html[data-native] .native-tab[aria-current="page"] {
 html[data-native][data-theme="dark"] .native-tab[aria-current="page"] {
   color: var(--nv-accent-500);
 }
-html[data-native] .native-tab[aria-current="page"]::before {
+html[data-native] .native-tab::before {
   display: none;
+}
+html[data-native] .native-tab[aria-current="page"]::before {
+  content: "";
+  display: block;
+  position: absolute;
+  inset: 7px 6px;
+  z-index: -1;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--nv-accent-500) 12%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  top: 7px;
+  height: auto;
+  width: auto;
+}
+html[data-native][data-theme="dark"] .native-tab[aria-current="page"]::before {
+  background: color-mix(in srgb, var(--nv-accent-500) 16%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 /* The record control, seated. A clean circle on the AA-safe accent, resting
@@ -895,7 +934,9 @@ html[data-native] .nv-input {
 html[data-native] .native-record-blob {
   height: 56px;
   width: 56px;
-  bottom: 8px;
+  /* Seated fully INSIDE the floating capsule ((62-56)/2 = 3), so the glass
+     clips nothing but the last whisper of the halo's gradient. */
+  bottom: 3px;
 }
 
 /* --- Arrival: the cascade -------------------------------------------------
@@ -1051,4 +1092,772 @@ html[data-native] .nv-sheet {
 }
 html[data-native] .nv-grid-2 {
   gap: 12px;
+}
+
+/* ---------------------------------------------------------------------------
+   THE LIQUID GLASS PASS
+   ---------------------------------------------------------------------------
+   The identity round. The user's verdict on the system so far: correct, and
+   plain. The diagnosis: the flat ground. Glass was already on the chrome,
+   but glass over #FAFAFA is a window onto a wall — translucency only reads
+   as material when there is DEPTH behind it. So this pass adds one designed
+   layer under everything (the aurora), lets every surface admit a little of
+   it (frost), and finishes the floating layer the platform's own design
+   language floats: capsule dock, glass sheets, lensed controls.
+
+   The three physics rules, from the research this pass is built on:
+   - Glass (real backdrop blur) is ONLY for the floating layer — bar, dock,
+     sheets. Content cards NEVER blur; they get frost (translucent fill +
+     specular edge), which costs one paint and no per-frame sampling.
+   - 14px is the blur ceiling. Cost grows superlinearly past ~16.
+   - Every glass layer exists from first paint; nothing composites mid-scroll.
+   --------------------------------------------------------------------------- */
+
+/* --- Tokens ---------------------------------------------------------------- */
+html[data-native] {
+  /* The specular edge every frosted surface catches. */
+  --nv-frost-edge: rgba(255, 255, 255, 0.55);
+  /* Frost: the card material. Translucent enough to admit the aurora,
+     opaque enough that ink contrast is untouched. */
+  --nv-frost: rgba(255, 255, 255, 0.84);
+  /* Sheet glass is heavier than bar glass — it covers content, so it owes
+     more legibility. */
+  --nv-sheet-glass: rgba(250, 250, 250, 0.82);
+}
+html[data-native][data-theme="dark"] {
+  --nv-frost-edge: rgba(255, 255, 255, 0.07);
+  --nv-frost: rgba(22, 19, 44, 0.8);
+  --nv-sheet-glass: rgba(22, 19, 44, 0.78);
+}
+
+/* --- The aurora: one fixed layer of depth under everything -----------------
+   Brand light lives BEHIND the interface now: ember (the fox) high and
+   warm, violet (the logo's purple) answering from the other corner, lapis
+   settling at the base. Painted once into its own composited layer —
+   position:fixed, no animation, no scroll listener — so it costs nothing
+   per frame: content scrolls over it, it never repaints.
+   In light it is barely a breath (the screen still reads near-white); in
+   dark it is the den at night, and the glass finally has something to be
+   glass about. */
+html[data-native] body::before {
+  content: "";
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  transform: translateZ(0);
+  background:
+    radial-gradient(120% 90% at 14% -12%, rgba(255, 107, 53, 0.09), transparent 58%),
+    radial-gradient(110% 85% at 108% 12%, rgba(118, 99, 196, 0.075), transparent 55%),
+    radial-gradient(150% 110% at 50% 118%, rgba(0, 78, 137, 0.05), transparent 62%),
+    var(--nv-bg);
+}
+html[data-native][data-theme="dark"] body::before {
+  background:
+    radial-gradient(120% 90% at 14% -12%, rgba(255, 107, 53, 0.16), transparent 55%),
+    radial-gradient(130% 95% at 110% 6%, rgba(118, 99, 196, 0.21), transparent 58%),
+    radial-gradient(120% 100% at 50% 120%, rgba(30, 26, 56, 0.9), transparent 72%),
+    var(--nv-bg);
+}
+/* The body ground goes transparent so the aurora shows through; the token
+   keeps its value for everything else that reads it. */
+html[data-native] body,
+html[data-native][data-theme="dark"] body {
+  background: transparent;
+}
+
+/* --- Frost: every card admits the light ------------------------------------
+   NOT backdrop-filter — a translucent fill plus the specular edge. The
+   aurora glows through at 16-22%, which is what turns "white rectangles on
+   white" into panes with a room behind them. One paint per card, ever. */
+html[data-native] .card,
+html[data-native] .card-warm,
+html[data-native] .nv-group {
+  background: var(--nv-frost);
+  box-shadow: var(--nv-shadow), inset 0 1px 0 var(--nv-frost-edge);
+}
+
+/* --- Sheets are glass ------------------------------------------------------
+   A sheet IS the floating layer, so it earns real blur: content dims and
+   softens behind the detent instead of vanishing behind a wall. */
+html[data-native] .nv-sheet {
+  background: var(--nv-sheet-glass);
+  -webkit-backdrop-filter: blur(14px) saturate(1.7);
+  backdrop-filter: blur(14px) saturate(1.7);
+  border-radius: 24px 24px 0 0;
+  box-shadow:
+    0 -1px 0 var(--nv-glass-edge),
+    0 -12px 40px rgba(18, 16, 31, 0.12);
+}
+html[data-native][data-theme="dark"] .nv-sheet {
+  box-shadow:
+    0 -1px 0 var(--nv-glass-edge),
+    0 -12px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* --- Lensed controls -------------------------------------------------------
+   The press surfaces pick up glass optics without glass cost: a specular
+   gradient over the fill (one paint), and the spring already in the delight
+   layer supplies the push-back. */
+html[data-native] .nv-btn-primary {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 45%),
+    var(--nv-accent-700);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 6px 18px rgba(194, 65, 12, 0.28);
+}
+html[data-native] .nv-btn-primary:active {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 45%),
+    var(--nv-accent-600);
+}
+html[data-native] .nv-btn-secondary {
+  background: color-mix(in srgb, var(--nv-tint-soft) 72%, transparent);
+  box-shadow: inset 0 1px 0 var(--nv-frost-edge);
+}
+html[data-native] .nv-chip {
+  background: var(--nv-frost);
+  box-shadow: inset 0 1px 0 var(--nv-frost-edge);
+}
+html[data-native] .nv-chip[data-selected] {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 50%),
+    var(--nv-accent-700);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* The recording booth keeps its darkness but gains the ember: the one warm
+   light in the room is the thing you're there to do. Static, like the aurora. */
+html[data-native] .nv-takeover {
+  background:
+    radial-gradient(120% 80% at 50% -20%, rgba(255, 107, 53, 0.1), transparent 55%),
+    radial-gradient(100% 70% at 90% 110%, rgba(118, 99, 196, 0.12), transparent 60%),
+    #0d0a20;
+}
+
+/* (A dock-arrival animation was tried here and cut: the dock unmounts on
+   /practice and /login, so "once on mount" replayed the rise on the app's
+   most-travelled navigation — and globals.css is right that the chrome is
+   the fixed reference and must never join the content's movement.) */
+
+/* --- Long lists render lazily ----------------------------------------------
+   Library and Account are dozens of rows in grouped lists; off-screen groups
+   skip layout and paint entirely until scrolled toward. contain-intrinsic-
+   size auto keeps the scrollbar honest with the last rendered height. */
+html[data-native] .nv-group {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 400px;
+}
+
+/* --- Clearance for the floating capsule ------------------------------------
+   The floating dock occludes ~74px + the safe inset (10 float + 62 row + 2
+   border); globals.css already reserves 76px + inset on body when a dock is
+   present, keeps auth screens clear of phantom padding, and hands the space
+   to the keyboard when one is up. Nudge ONLY the with-dock constant so a
+   scrolled-to-bottom card clears the capsule with a real breath — the
+   dock-less and keyboard carve-outs in globals keep winning on specificity. */
+html[data-native] body {
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+}
+/* The gutter follows the token — the air pass widened --nv-gutter to 20 but
+   this rule still pinned the old 16. */
+html[data-native] #main {
+  padding-left: var(--nv-gutter);
+  padding-right: var(--nv-gutter);
+}
+
+/* --- Dark mode reclaims its glass ------------------------------------------
+   globals.css's older dark-booth rules paint near-opaque panels over exactly
+   the surfaces this pass made translucent: a 94% fill on the scrolled bar
+   ELEMENT (which sits on top of the z:-1 ::before glass and snaps in with no
+   transition), a 96% fill on the dock, and opaque card fills. Re-point them
+   at the system here — same specificity, later sheet wins — or dark mode,
+   the theme the aurora matters most in, ships with the glass painted over. */
+html[data-native][data-theme="dark"] .native-bar-scrolled {
+  background: transparent; /* the glass lives on ::before */
+  border-bottom-color: var(--nv-hairline);
+}
+html[data-native][data-theme="dark"] .native-dock {
+  background: var(--nv-glass);
+  /* The capsule keeps its FULL border: restate the dark edge so globals'
+     old top-only chalk line (earlier sheet, same specificity) can't split
+     the top edge from the other three sides. */
+  border-color: rgba(255, 255, 255, 0.08);
+}
+html[data-native][data-theme="dark"] .card,
+html[data-native][data-theme="dark"] .card-warm,
+html[data-native][data-theme="dark"] .nv-group {
+  background: var(--nv-frost);
+  border-color: var(--nv-hairline);
+  box-shadow: var(--nv-shadow), inset 0 1px 0 var(--nv-frost-edge);
+}
+
+/* --- The collapse, made airtight -------------------------------------------
+   The air pass's padding rules (html[data-native] .native-title-lg) outrank
+   the collapse rules globals.css wrote earlier (.native-bar-scrolled
+   .native-title-lg) — so a collapsed large title kept its 20px padding box,
+   and overflow:hidden clips to the PADDING box, leaving a clipped stripe of
+   title floating over content. The date sub-line was never collapsed at
+   all. Both fold away here, at a specificity nothing above can lose to. */
+html[data-native] .native-bar-sub {
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+html[data-native] .native-bar-scrolled .native-title-lg,
+html[data-native] .native-bar-scrolled .native-bar-sub {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.9);
+  height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* --- Accessibility is part of the material ---------------------------------
+   Reduced transparency: every translucent surface goes solid — same layout,
+   same hierarchy, no glass. Reduced motion already silences the springs; the
+   dock's one-shot arrival joins that list. */
+@media (prefers-reduced-transparency: reduce) {
+  html[data-native] body::before,
+  html[data-native][data-theme="dark"] body::before {
+    background: var(--nv-bg);
+  }
+  html[data-native] .card,
+  html[data-native] .card-warm,
+  html[data-native] .nv-group,
+  html[data-native] .nv-chip {
+    background: var(--nv-card);
+  }
+  html[data-native] .nv-sheet {
+    background: var(--nv-card);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  html[data-native] .native-dock,
+  html[data-native] .native-bar::before {
+    background: var(--nv-bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+/* No backdrop-filter support (older WebViews): the tints above are opaque
+   enough to carry legibility on their own; sheets fall back to solid. */
+@supports not (backdrop-filter: blur(1px)) {
+  html[data-native] .nv-sheet {
+    background: var(--nv-card);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-native] .native-dock {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   THE FELIX FESTIVAL LAYER
+   ---------------------------------------------------------------------------
+   The gamification pass: Felix stops being a decal and starts being the
+   game. The user's brief for this round explicitly retires the one-accent
+   rule FOR THE REWARD LAYER ONLY — streaks, XP, coins, badges, reactions
+   and celebrations get a designed festival palette; the base system (ink
+   headings, hairlines, calm cards) is unchanged, so the color reads as
+   reward, not as noise.
+
+   Physics rules still hold, unchanged: transform/opacity only, no backdrop
+   blur anywhere in this layer, every continuous animation is small and slow,
+   and Reduce Motion switches all of it off at the end of this section.
+   --------------------------------------------------------------------------- */
+
+/* --- Two more springs ------------------------------------------------------
+   The research behind this pass converges on a speed hierarchy: everyday
+   motion answers in under 300ms with a whisper of overshoot; reward motion
+   is allowed a real bounce. Two curves, used by role — soft (~3% overshoot,
+   pair with ~380-450ms) for bubbles and everyday entrances, bouncy (~12%,
+   two visible oscillations, pair with ~520-620ms) for badges, coins and
+   celebration pops. Exits, as ever, are faster than entrances. */
+html[data-native] {
+  --nv-spring-soft: linear(
+    0, 0.11 2.1%, 0.386 5.5%, 0.653 9.5%, 0.855 13.9%, 0.985 18.6%,
+    1.05 23.7%, 1.069 29.4%, 1.056 36.6%, 1.021 49.6%, 1.004 62.5%,
+    0.999 75%, 1
+  );
+  --nv-spring-bouncy: linear(
+    0, 0.078 1.7%, 0.291 4.5%, 0.606 8.1%, 0.906 11.8%, 1.098 15%,
+    1.166 17.3%, 1.185 19.4%, 1.156 22.2%, 1.032 28.5%, 0.964 33.2%,
+    0.951 36.7%, 0.98 42.3%, 1.014 49.8%, 1.017 56.1%, 1.001 69.7%,
+    0.996 81.5%, 1
+  );
+}
+
+/* --- The festival palette --------------------------------------------------
+   Six pops beside the ember. Each has three cuts: the pop itself (graphics,
+   fills), a soft field (chip/badge grounds — opaque, mixed toward the card
+   so glass rules never apply), and an ink (text on the soft field, AA on
+   light; in dark the pop itself is the ink). */
+html[data-native] {
+  --nv-pop-sun: #ffb703;
+  --nv-pop-sun-soft: #fff2d1;
+  --nv-pop-sun-ink: #8a5800;
+  --nv-pop-mint: #24b8a6;
+  --nv-pop-mint-soft: #d9f4ef;
+  --nv-pop-mint-ink: #0b7568;
+  --nv-pop-sky: #38a1f5;
+  --nv-pop-sky-soft: #dcedfd;
+  --nv-pop-sky-ink: #1263b5;
+  --nv-pop-lilac: #8e6ff0;
+  --nv-pop-lilac-soft: #eae4fd;
+  --nv-pop-lilac-ink: #6134d6;
+  --nv-pop-rose: #f0509a;
+  --nv-pop-rose-soft: #fde1ee;
+  --nv-pop-rose-ink: #c2186e;
+  --nv-pop-lime: #8ac926;
+  --nv-pop-lime-soft: #eaf6d4;
+  --nv-pop-lime-ink: #4f7a12;
+}
+html[data-native][data-theme="dark"] {
+  --nv-pop-sun: #ffc933;
+  --nv-pop-sun-soft: color-mix(in srgb, #ffc933 16%, var(--nv-card));
+  --nv-pop-sun-ink: #ffd35c;
+  --nv-pop-mint: #34d6c3;
+  --nv-pop-mint-soft: color-mix(in srgb, #34d6c3 15%, var(--nv-card));
+  --nv-pop-mint-ink: #56e0cf;
+  --nv-pop-sky: #5cb5ff;
+  --nv-pop-sky-soft: color-mix(in srgb, #5cb5ff 16%, var(--nv-card));
+  --nv-pop-sky-ink: #7cc4ff;
+  --nv-pop-lilac: #a78bfa;
+  --nv-pop-lilac-soft: color-mix(in srgb, #a78bfa 17%, var(--nv-card));
+  --nv-pop-lilac-ink: #bda4fb;
+  --nv-pop-rose: #f472b6;
+  --nv-pop-rose-soft: color-mix(in srgb, #f472b6 16%, var(--nv-card));
+  --nv-pop-rose-ink: #f78cc2;
+  --nv-pop-lime: #a3d94e;
+  --nv-pop-lime-soft: color-mix(in srgb, #a3d94e 15%, var(--nv-card));
+  --nv-pop-lime-ink: #b4e368;
+}
+
+/* One attribute, three variables: a component says data-pop="mint" and
+   everything inside it — badge ground, meter fill, number ink — agrees. */
+html[data-native] [data-pop="ember"] {
+  --pop: var(--nv-accent-500);
+  --pop-soft: var(--nv-accent-50);
+  --pop-ink: var(--nv-accent-700);
+}
+html[data-native][data-theme="dark"] [data-pop="ember"] {
+  --pop-ink: var(--nv-accent-500);
+}
+html[data-native] [data-pop="sun"] { --pop: var(--nv-pop-sun); --pop-soft: var(--nv-pop-sun-soft); --pop-ink: var(--nv-pop-sun-ink); }
+html[data-native] [data-pop="mint"] { --pop: var(--nv-pop-mint); --pop-soft: var(--nv-pop-mint-soft); --pop-ink: var(--nv-pop-mint-ink); }
+html[data-native] [data-pop="sky"] { --pop: var(--nv-pop-sky); --pop-soft: var(--nv-pop-sky-soft); --pop-ink: var(--nv-pop-sky-ink); }
+html[data-native] [data-pop="lilac"] { --pop: var(--nv-pop-lilac); --pop-soft: var(--nv-pop-lilac-soft); --pop-ink: var(--nv-pop-lilac-ink); }
+html[data-native] [data-pop="rose"] { --pop: var(--nv-pop-rose); --pop-soft: var(--nv-pop-rose-soft); --pop-ink: var(--nv-pop-rose-ink); }
+html[data-native] [data-pop="lime"] { --pop: var(--nv-pop-lime); --pop-soft: var(--nv-pop-lime-soft); --pop-ink: var(--nv-pop-lime-ink); }
+
+/* --- Badges & the HUD ------------------------------------------------------
+   The game's chips: streak, coins, XP, "new best". Soft ground, pop ink,
+   display face. They pop in with the cascade, staggered left to right. */
+html[data-native] .nv-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 5px 12px;
+  border-radius: var(--nv-r-pill);
+  background: var(--pop-soft, var(--nv-tint-soft));
+  color: var(--pop-ink, var(--nv-ink-2));
+  font-family: var(--nv-font-display);
+  font-size: var(--nv-footnote-size);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+html[data-native] .nv-hud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* Rewards may enter from half size — that bounce IS the payoff. Everyday
+   surfaces never do (they enter from 0.92, below). */
+@keyframes nv-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+html[data-native] .native-screen-enter .nv-badge {
+  animation: nv-pop-in 540ms var(--nv-spring-bouncy) 320ms backwards;
+}
+/* Reward stagger: 70ms apart, so the row reads as one-two-three, not as one
+   block landing. */
+html[data-native] .native-screen-enter .nv-hud > .nv-badge:nth-child(2) { animation-delay: 390ms; }
+html[data-native] .native-screen-enter .nv-hud > .nv-badge:nth-child(3) { animation-delay: 460ms; }
+
+/* --- Felix speaks ----------------------------------------------------------
+   His line lives in a real speech bubble now, tail pointing at the fox.
+   The tail inherits the fill, so one background rule keeps them matched. */
+html[data-native] .nv-bubble {
+  position: relative;
+  background: var(--nv-tint-soft);
+  border-radius: 16px;
+  padding: 10px 14px;
+  font-size: var(--nv-subhead-size);
+  line-height: 1.4;
+  color: var(--nv-ink);
+}
+html[data-native] .nv-bubble::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: 18px;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+/* Everyday entrance: from 0.92, never from zero — the difference between
+   elegant and cartoon. */
+@keyframes nv-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.92);
+  }
+}
+html[data-native] .native-screen-enter .nv-bubble {
+  transform-origin: left center;
+  animation: nv-bubble-in 400ms var(--nv-spring-soft) 260ms backwards;
+}
+
+/* --- The streak flame ------------------------------------------------------
+   The flame licks — a small continuous flicker with its feet planted — and
+   its color climbs with the streak: ember, then gold, then hot pink, then
+   violet, then the legendary blue. The number beside it is just ink; the
+   flame is the celebration. */
+html[data-native] .nv-flame {
+  transform-origin: 50% 92%;
+  animation: nv-flame-lick 2.4s ease-in-out infinite;
+  --flame-a: var(--nv-accent-500);
+  --flame-b: var(--nv-pop-sun);
+}
+html[data-native] [data-tier="2"] .nv-flame { --flame-a: var(--nv-pop-sun); --flame-b: #ffe08a; }
+html[data-native] [data-tier="3"] .nv-flame { --flame-a: var(--nv-pop-rose); --flame-b: var(--nv-pop-sun); }
+html[data-native] [data-tier="4"] .nv-flame { --flame-a: var(--nv-pop-lilac); --flame-b: var(--nv-pop-rose); }
+html[data-native] [data-tier="5"] .nv-flame { --flame-a: var(--nv-pop-sky); --flame-b: #b5f1ff; }
+@keyframes nv-flame-lick {
+  0%, 100% { transform: scale(1) rotate(-2deg); }
+  25% { transform: scale(1.06, 0.96) rotate(1.5deg); }
+  55% { transform: scale(0.97, 1.06) rotate(-1deg); }
+  80% { transform: scale(1.03, 0.98) rotate(2deg); }
+}
+
+/* --- The XP ring around Felix ----------------------------------------------
+   Level progress drawn around the avatar, Apple-ring style; the level chip
+   sits on the ring's edge. The arc sweeps in on arrival (the component
+   flips the dashoffset one frame after mount, same pattern as the report
+   dial). */
+html[data-native] .nv-ring-track {
+  stroke: var(--nv-tint-soft);
+}
+html[data-native] .nv-ring-arc {
+  /* The soft spring overshoots the fill by ~3% and settles back — progress
+     that feels generous. dashoffset isn't transform, but a 64px ring's
+     paint area is trivial and it draws once per arrival. */
+  transition: stroke-dashoffset 950ms var(--nv-spring-soft) 250ms;
+}
+html[data-native] .nv-lv-chip {
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: var(--nv-r-pill);
+  border: 2px solid var(--nv-card);
+  background: var(--nv-pop-sun);
+  color: #5b3a00;
+  font-family: var(--nv-font-display);
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- The coin --------------------------------------------------------------
+   Felix's currency, wearing the voice bars. It lands with one flip on
+   arrival and then sits still — a coin that never stops spinning is a
+   casino, not a den. */
+html[data-native] .native-screen-enter .nv-coin {
+  animation: nv-coin-flip 760ms var(--nv-spring) 420ms backwards;
+}
+@keyframes nv-coin-flip {
+  from {
+    opacity: 0;
+    transform: perspective(240px) rotateY(540deg) scale(0.5);
+  }
+}
+
+/* --- Confetti --------------------------------------------------------------
+   The celebration burst: two dozen pieces in the full palette, one fall,
+   gone in about two seconds and the component unmounts after. Fixed layer
+   over everything below the sheets; pointer-events never. */
+html[data-native] .nv-confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  pointer-events: none;
+  overflow: hidden;
+}
+/* Ballistic, not raining: pieces LAUNCH upward and outward from the hero
+   (per-piece --lx/--ly apex), hang for a beat, then fall past the bottom —
+   the per-segment timing functions inside the keyframes are what make the
+   arc read as thrown. Fast attack, long settle, exactly the celebration
+   shape. */
+html[data-native] .nv-confetti i {
+  position: absolute;
+  top: var(--y0, 160px);
+  left: calc(50% + var(--x0, 0px));
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--c);
+  opacity: 0;
+  animation: nv-confetti-throw var(--dur, 1.7s) linear var(--delay, 0s) forwards;
+}
+html[data-native] .nv-confetti i[data-shape="dot"] {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+}
+html[data-native] .nv-confetti i[data-shape="strip"] {
+  width: 5px;
+  height: 13px;
+}
+@keyframes nv-confetti-throw {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.6);
+    animation-timing-function: cubic-bezier(0.16, 0.9, 0.4, 1); /* the launch: fast out */
+  }
+  6% { opacity: 1; }
+  32% {
+    transform: translate3d(var(--lx, 0px), var(--ly, -140px), 0)
+      rotate(var(--rot-mid, 140deg)) scale(1);
+    animation-timing-function: cubic-bezier(0.45, 0.05, 0.85, 0.5); /* gravity takes it */
+  }
+  82% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--dx, 0px), 92vh, 0) rotate(var(--rot, 420deg)) scale(0.95);
+  }
+}
+
+/* --- Felix peeks over a card ----------------------------------------------
+   Ears and eyes over the top edge, muzzle clipped by it — he's behind the
+   card, looking at what you're about to do. Rises once with the cascade.
+   The wrapper needs position:relative on the card it haunts. */
+html[data-native] .nv-peek {
+  position: absolute;
+  bottom: calc(100% - 1px);
+  right: 22px;
+  width: 48px;
+  height: 27px;
+  overflow: hidden;
+  pointer-events: none;
+}
+html[data-native] .nv-peek svg {
+  display: block;
+  width: 48px;
+  height: 48px;
+}
+html[data-native] .native-screen-enter .nv-peek svg {
+  animation: nv-peek-rise 620ms var(--nv-spring) 380ms backwards;
+}
+@keyframes nv-peek-rise {
+  from { transform: translateY(30px); }
+}
+
+/* --- Sparkles --------------------------------------------------------------
+   Three tiny four-point stars twinkling around the Account avatar. Slow,
+   small, opacity-and-scale only. */
+html[data-native] .nv-spark {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  background: var(--nv-pop-sun);
+  animation: nv-twinkle 3.1s ease-in-out infinite var(--d, 0s);
+}
+@keyframes nv-twinkle {
+  0%, 100% { opacity: 0.25; transform: scale(0.7); }
+  50% { opacity: 1; transform: scale(1) rotate(20deg); }
+}
+
+/* --- Score bands -----------------------------------------------------------
+   Scores stop being monochrome: the dial arc, the display numeral and the
+   delta pick up the band the score landed in. Rough → rose, finding it →
+   gold, solid → ember, flying → mint. */
+html[data-native] [data-band="rough"] { --band: var(--nv-pop-rose); --band-ink: var(--nv-pop-rose-ink); }
+html[data-native] [data-band="low"] { --band: var(--nv-pop-sun); --band-ink: var(--nv-pop-sun-ink); }
+html[data-native] [data-band="mid"] { --band: var(--nv-accent-500); --band-ink: var(--nv-accent-700); }
+html[data-native][data-theme="dark"] [data-band="mid"] { --band-ink: var(--nv-accent-500); }
+html[data-native] [data-band="high"] { --band: var(--nv-pop-mint); --band-ink: var(--nv-pop-mint-ink); }
+html[data-native] [data-band] .nv-dial-arc {
+  stroke: var(--band);
+}
+html[data-native] [data-band] .nv-display {
+  color: var(--band-ink);
+}
+
+/* --- Meters join the palette -----------------------------------------------
+   Each skill owns a color (the component cycles data-pop per row), so six
+   identical orange bars become a spectrum you can tell apart at a glance. */
+html[data-native] .nv-metric[data-pop] .nv-meter-fill {
+  background: var(--pop);
+}
+html[data-native] .nv-metric[data-pop] .nv-metric-num {
+  color: var(--pop-ink);
+}
+
+/* --- The attempt dots warm up ----------------------------------------------
+   Three attempts, three colors, slightly larger — a loading bar became a
+   tiny scoreboard. */
+html[data-native] .nv-dot {
+  width: 10px;
+  height: 10px;
+}
+html[data-native] .nv-dot[data-filled]:nth-child(1) {
+  background: var(--nv-accent-500);
+  border-color: var(--nv-accent-500);
+}
+html[data-native] .nv-dot[data-filled]:nth-child(2) {
+  background: var(--nv-pop-sun);
+  border-color: var(--nv-pop-sun);
+}
+html[data-native] .nv-dot[data-filled]:nth-child(3) {
+  background: var(--nv-pop-mint);
+  border-color: var(--nv-pop-mint);
+}
+
+/* --- Every icon square gets a color ----------------------------------------
+   Grouped-list icon squares cycle the palette by row, Settings-app style —
+   the single cheapest "whole app got colorful" move there is. Deliberate
+   accents and destructive rows keep their own meaning. */
+html[data-native] .nv-group .nv-row:nth-child(6n + 1):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent) { background: var(--nv-accent-50); color: var(--nv-accent-700); }
+html[data-native] .nv-group .nv-row:nth-child(6n + 2):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent) { background: var(--nv-pop-sky-soft); color: var(--nv-pop-sky-ink); }
+html[data-native] .nv-group .nv-row:nth-child(6n + 3):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent) { background: var(--nv-pop-mint-soft); color: var(--nv-pop-mint-ink); }
+html[data-native] .nv-group .nv-row:nth-child(6n + 4):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent) { background: var(--nv-pop-sun-soft); color: var(--nv-pop-sun-ink); }
+html[data-native] .nv-group .nv-row:nth-child(6n + 5):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent) { background: var(--nv-pop-lilac-soft); color: var(--nv-pop-lilac-ink); }
+html[data-native] .nv-group .nv-row:nth-child(6n + 6):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent) { background: var(--nv-pop-rose-soft); color: var(--nv-pop-rose-ink); }
+
+/* --- Each tab owns a color -------------------------------------------------
+   The dock's active platter and ink take the tab's own hue: Today ember,
+   Progress sky, Library mint, Account lilac. Static per state — one paint
+   on tab change, nothing during scroll. */
+html[data-native] .native-dock-row > .native-tab:nth-child(1) { --tab-pop: var(--nv-accent-500); --tab-ink: var(--nv-accent-700); }
+html[data-native] .native-dock-row > .native-tab:nth-child(2) { --tab-pop: var(--nv-pop-sky); --tab-ink: var(--nv-pop-sky-ink); }
+html[data-native] .native-dock-row > .native-tab:nth-child(4) { --tab-pop: var(--nv-pop-mint); --tab-ink: var(--nv-pop-mint-ink); }
+html[data-native] .native-dock-row > .native-tab:nth-child(5) { --tab-pop: var(--nv-pop-lilac); --tab-ink: var(--nv-pop-lilac-ink); }
+html[data-native] .native-tab[aria-current="page"] {
+  color: var(--tab-ink, var(--nv-accent-700));
+}
+html[data-native][data-theme="dark"] .native-tab[aria-current="page"] {
+  color: var(--tab-pop, var(--nv-accent-500));
+}
+html[data-native] .native-tab[aria-current="page"]::before {
+  background: color-mix(in srgb, var(--tab-pop, var(--nv-accent-500)) 12%, transparent);
+}
+html[data-native][data-theme="dark"] .native-tab[aria-current="page"]::before {
+  background: color-mix(in srgb, var(--tab-pop, var(--nv-accent-500)) 16%, transparent);
+}
+
+/* --- Felix comes alive -----------------------------------------------------
+   The character craft pass, from the animation research:
+
+   SQUASH & STRETCH — the app-side cheer replaces the website's float-bounce
+   with real weight: stretch on the way up, a fast squash on landing (~80ms
+   at the bottom), spring back to rest. Volume is conserved (x and y scale
+   inversely) and the deviation stays inside 15%, which is the line between
+   "alive" and "liquid".
+
+   FOLLOW-THROUGH — the tail and ears are their own layers (classes added in
+   FoxLogo, inert on the web) running on co-prime periods (5.2s / 9.7s
+   against the 5s sway and 7.3s blink), so the composite never visibly
+   loops. Gated behind .felix-idle/.felix-cheer: only a fox that was ASKED
+   to be alive pays for it — shop preview tiles stay still. */
+@keyframes nv-felix-cheer {
+  0%, 58%, 100% { transform: translateY(0) scale(1) rotate(0deg); }
+  10% { transform: translateY(2px) scale(1.05, 0.95); } /* anticipation dip */
+  24% { transform: translateY(-15px) scale(0.95, 1.07) rotate(-3deg); } /* stretch up */
+  36% { transform: translateY(0) scale(1.1, 0.9) rotate(1deg); } /* the landing squash */
+  46% { transform: translateY(-4px) scale(0.99, 1.02); } /* follow-through hop */
+}
+html[data-native] .felix-cheer {
+  transform-origin: 50% 100%;
+  animation: nv-felix-cheer 2.8s var(--nv-ease) infinite;
+}
+@keyframes nv-tail-sway {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(5deg); }
+}
+/* Sleepy is excluded from both: his stillness is the pose, and a CSS
+   animation would override the inline ear-fold transform. */
+html[data-native] .felix-idle:not([data-mood="sleepy"]) .felix-tail,
+html[data-native] .felix-cheer .felix-tail {
+  transform-origin: 140px 170px;
+  animation: nv-tail-sway 5.2s ease-in-out infinite;
+}
+@keyframes nv-ear-twitch {
+  0%, 90%, 97%, 100% { transform: rotate(0deg); }
+  92% { transform: rotate(-4deg); }
+  94.5% { transform: rotate(2.5deg); }
+}
+html[data-native] .felix-idle:not([data-mood="sleepy"]) .felix-ears {
+  transform-origin: 100px 72px;
+  animation: nv-ear-twitch 9.7s ease-in-out infinite;
+}
+
+/* --- Buttons get a physical edge -------------------------------------------
+   The chunky-CTA trick: a solid darker bottom edge, and the press travels
+   INTO it — translateY eats the edge, so the button visibly depresses like
+   a key. Transform + shadow swap only. */
+html[data-native] .nv-btn-primary {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 3px 0 #9a3412,
+    0 6px 18px rgba(194, 65, 12, 0.28);
+}
+html[data-native] .nv-btn-primary:active {
+  transform: translateY(2px) scale(0.99);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 1px 0 #9a3412,
+    0 3px 10px rgba(194, 65, 12, 0.22);
+}
+
+/* --- Reduce Motion turns the festival off ---------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  html[data-native] .native-screen-enter .nv-badge,
+  html[data-native] .native-screen-enter .nv-bubble,
+  html[data-native] .native-screen-enter .nv-coin,
+  html[data-native] .native-screen-enter .nv-peek svg,
+  html[data-native] .nv-flame,
+  html[data-native] .nv-spark,
+  html[data-native] .felix-cheer,
+  html[data-native] .felix-idle:not([data-mood="sleepy"]) .felix-tail,
+  html[data-native] .felix-cheer .felix-tail,
+  html[data-native] .felix-idle:not([data-mood="sleepy"]) .felix-ears,
+  html[data-native] .nv-confetti i {
+    animation: none;
+  }
+  /* A confetti piece with no animation holds opacity 0 — the burst simply
+     never shows, which is the correct reduced-motion celebration. */
+  html[data-native] .nv-ring-arc {
+    transition: none;
+  }
 }

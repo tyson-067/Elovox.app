@@ -1365,18 +1365,30 @@ html[data-native] #main {
   padding-top: env(safe-area-inset-top);
   background: transparent;
   border-bottom: 1px solid transparent;
-  transition:
-    background-color 200ms ease,
-    border-color 200ms ease,
-    backdrop-filter 200ms ease;
+  transition: border-color 200ms ease;
+}
+/* The bar's glass lives on a pseudo-layer that exists from FIRST PAINT and
+   only ever animates opacity (compositor-only). It used to be created by the
+   scrolled-class toggle — a brand-new blur layer, mid-gesture, plus a
+   `transition: backdrop-filter` that re-rendered the blur at a growing
+   radius every frame. That pairing was the visible hitch at the start of
+   every scroll. 12px, not 16: blur cost grows superlinearly with radius and
+   the difference is invisible behind 90% tint. */
+.native-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 200ms ease;
+  background: color-mix(in oklab, var(--color-surface) 90%, transparent);
+  backdrop-filter: saturate(1.6) blur(12px);
+  -webkit-backdrop-filter: saturate(1.6) blur(12px);
+}
+.native-bar-scrolled::before {
+  opacity: 1;
 }
 .native-bar-scrolled {
-  /* 90% for the same reason as the dock: the blur is the nice part, the
-     tint is the part that has to work on its own. At 80% the line of body
-     copy passing behind the bar was still readable, which reads as a bug. */
-  background: color-mix(in oklab, var(--color-surface) 90%, transparent);
-  backdrop-filter: saturate(1.6) blur(16px);
-  -webkit-backdrop-filter: saturate(1.6) blur(16px);
   border-bottom-color: color-mix(in oklab, var(--color-primary) 12%, transparent);
 }
 .native-bar-row {
@@ -1458,9 +1470,13 @@ html[data-native] #main {
      is unavailable the tint is the only thing separating the dock from the
      page, and at 80% the text underneath stayed legible through it. */
   background: color-mix(in oklab, var(--color-surface) 95%, transparent);
-  backdrop-filter: saturate(1.7) blur(24px);
-  -webkit-backdrop-filter: saturate(1.7) blur(20px);
+  /* 14px, down from 20-24: past ~16px the blur's cost grows much faster than
+     its look, and the dock re-samples its backdrop every frame of a scroll. */
+  backdrop-filter: saturate(1.7) blur(14px);
+  -webkit-backdrop-filter: saturate(1.7) blur(14px);
   border-top: 1px solid color-mix(in oklab, var(--color-primary) 10%, transparent);
+  /* Its own composited layer from the start, never promoted mid-scroll. */
+  transform: translateZ(0);
 }
 .native-dock-row {
   height: 56px;
