@@ -167,11 +167,20 @@ email or phone call — but disclosure at signup is not a reminder seven days
 later, when the person has forgotten and the card is charged anyway. That gap
 is what makes people feel tricked by companies that did technically tell them.
 
-Sent 1–3 days before the charge, naming the exact amount and date, with the
-cancel link in it. Category `billing`, so no preference can switch it off: a
+Sent 1–3 days before the charge, naming the exact amount and date, with a route
+to manage or cancel. Category `billing`, so no preference can switch it off: a
 safeguard you can accidentally disable is not a safeguard. It runs FIRST in the
 cron, ahead of every optional message, because it is the only one about money
 about to leave somebody's account.
+
+**Tone is adjustable; substance is not.** The copy is deliberately neutral — a
+heads-up, not an exit sign — and that framing is a legitimate business call.
+What cannot be softened away is the date, the amount, and a route to cancel:
+Visa and Mastercard both require a pre-charge notification carrying exactly
+those for a free-trial conversion, and an unexpected charge is the most common
+cause of a chargeback, which costs the disputed amount plus a fee and at volume
+gets a Stripe account reviewed. Removing this email would not protect the
+revenue, it would convert some of it into disputes.
 
 The window is three days rather than one because the cron fires daily — a
 24-hour window would miss anyone whose trial ends between two runs, which is

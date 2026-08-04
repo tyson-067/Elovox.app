@@ -51,6 +51,15 @@ const GALLERY: Record<string, () => AppMessage> = {
   "subscription-canceled": () =>
     messages.subscriptionCanceled(SAMPLE, UID, "September 4, 2026"),
   refund: () => messages.refundIssued(SAMPLE, UID, "$8.32"),
+  "trial-ending": () =>
+    messages.trialEnding(
+      SAMPLE,
+      UID,
+      "August 7, 2026",
+      "$79.99",
+      "year",
+      "https://elovox.app/account"
+    ),
   "weekly-progress": () =>
     messages.weeklyProgress(SAMPLE, UID, "2026-07-28", {
       sessions: 5,

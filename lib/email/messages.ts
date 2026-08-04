@@ -196,9 +196,23 @@ export function subscriptionStarted(
  * preference can switch it off — a reminder you can accidentally disable is
  * not a safeguard.
  *
- * It should read like a favour, not like a retention email. No "don't lose
- * your progress", no discount, no guilt. Somebody who wants out should find
- * this email makes it easy.
+ * TONE IS ADJUSTABLE, SUBSTANCE IS NOT. The wording here is deliberately
+ * neutral — it states the date, the amount, and where to manage the plan, and
+ * it does not editorialize in either direction. An earlier draft leaned toward
+ * "cancel before then and you won't be charged at all", which is friendlier
+ * than it needs to be; this reads as a heads-up rather than an exit sign. That
+ * is a legitimate call and it costs nothing, because all three required facts
+ * are still here.
+ *
+ * What must NOT be softened away: the date, the amount, and a route to cancel.
+ * Visa and Mastercard both require a pre-charge notification carrying exactly
+ * those for a free-trial conversion, and an unexpected charge is the single
+ * most common cause of a chargeback — which costs the disputed amount plus a
+ * fee and, at volume, gets a Stripe account reviewed. Removing this email
+ * would not protect the revenue; it would convert some of it into disputes.
+ *
+ * No retention play either — no discount, no "don't lose your progress". This
+ * is a notice, not a save attempt.
  */
 export function trialEnding(
   email: string,
@@ -215,24 +229,20 @@ export function trialEnding(
     // Keyed on the trial's own end date, so someone who trials again later
     // gets a fresh reminder while a redelivery today collapses.
     key: `trial-ending:${uid}:${endsOn}`,
-    subject: `Your free trial ends ${endsOn}`,
+    subject: `Your Premium starts ${endsOn}`,
     doc: {
-      preheader: `After that it's ${amount} per ${unit}. Cancel any time before then.`,
-      heading: "Your free trial ends soon",
+      preheader: `Your free trial ends ${endsOn}. From then it's ${amount} a ${unit}.`,
+      heading: "Your Premium starts soon",
       blocks: [
         {
           kind: "lead",
-          text: `On ${endsOn} your trial ends and we'll charge ${amount}, then ${amount} every ${unit} after that.`,
+          text: `Your free trial ends on ${endsOn}. From then, Premium is ${amount} a ${unit}.`,
         },
         {
           kind: "p",
-          text: "If that's what you want, there's nothing to do. If it isn't, cancel before then and you won't be charged at all — it takes a minute, from your account, with no email to write and nobody to talk to.",
+          text: "Nothing to do if you'd like to keep it. You can manage or cancel your plan any time from your account.",
         },
-        { kind: "cta", label: "Manage or cancel", href: manageUrl },
-        {
-          kind: "note",
-          text: "We send this because being charged for something you'd forgotten about is a horrible way to find out about it.",
-        },
+        { kind: "cta", label: "Manage your plan", href: manageUrl },
       ],
     },
   };
