@@ -162,13 +162,15 @@ export function NativeToday({
       <section className="card p-4" aria-label="Level and streak">
         <div className="flex items-center gap-3.5">
           <Link href="/shop" aria-label="Felix's shop" className="nv-press shrink-0 rounded-2xl">
-            <FelixScene
-              biome={shop?.equippedBiome}
-              mood={mood}
-              animate
-              accessory={wearing}
-              className="h-[56px] w-[56px] rounded-2xl"
-            />
+            <span data-parallax="0.04" className="block">
+              <FelixScene
+                biome={shop?.equippedBiome}
+                mood={mood}
+                animate
+                accessory={wearing}
+                className="h-[56px] w-[56px] rounded-2xl"
+              />
+            </span>
           </Link>
           <div className="min-w-0 flex-1">
             <p className="nv-subhead leading-snug">{line}</p>
@@ -217,8 +219,8 @@ export function NativeToday({
               className="card p-4"
               aria-label={`Last ${TAPE_DAYS} days: ${practiced} practiced, ${streak}-day streak`}
             >
-              <div className="voxline" aria-hidden="true">
-                {days.map((d) => {
+              <div className="voxline" aria-hidden="true" data-parallax="0.05">
+                {days.map((d, i) => {
                   const live = d.isToday && !done;
                   const amp = d.best !== null ? d.best / 100 : live ? 0.85 : 0;
                   return (
@@ -227,7 +229,9 @@ export function NativeToday({
                       className="voxline-bar"
                       data-empty={d.best === null && !live ? "" : undefined}
                       data-live={live ? "" : undefined}
-                      style={{ "--amp": amp } as React.CSSProperties}
+                      // --i drives the arrival stagger: bars rise left to
+                      // right like a take scrubbing onto the reel.
+                      style={{ "--amp": amp, "--i": i } as React.CSSProperties}
                     />
                   );
                 })}

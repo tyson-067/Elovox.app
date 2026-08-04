@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useIsNative } from "@/lib/native";
+import { CountUp } from "@/components/CountUp";
 import { Reveal } from "@/components/Reveal";
 import { NvGroup, NvSectionHeader, NvStat } from "@/components/native/ui";
 import type { Plan } from "@/lib/plan";
@@ -135,7 +136,7 @@ export function NativeReport({
     <div>
       {/* The dial: the score is the page, so it's the h1. */}
       <section className="flex flex-col items-center pt-2">
-        <div className="relative h-[148px] w-[148px]">
+        <div className="relative h-[148px] w-[148px]" data-parallax="0.05">
           <svg width="148" height="148" viewBox="0 0 148 148" aria-hidden="true">
             <circle
               className="nv-dial-track"
@@ -164,7 +165,10 @@ export function NativeReport({
                 Report: scored {analysis.overall} out of 100
               </span>
               <span aria-hidden="true" className="nv-display nv-num text-[44px]">
-                {analysis.overall}
+                {/* Rolls up in step with the arc draw — the two finish
+                    together, which is what makes the dial feel like it is
+                    LANDING on the score. */}
+                <CountUp value={analysis.overall} duration={800} />
               </span>
               <span aria-hidden="true" className="nv-caption mt-1">
                 of 100

@@ -404,5 +404,58 @@ export function NativeRuntime() {
     screens.forEach((el) => el.classList.add("native-screen-enter"));
   }, [native, pathname]);
 
+  /* --- Parallax ------------------------------------------------------------
+     Anything marked data-parallax drifts against the scroll at its own
+     factor (e.g. "0.08" = 8% of scroll distance, upward), which is what
+     gives a flat screen its faint sense of depth. One passive scroll
+     listener, one rAF, direct transform writes — React never hears about
+     any of it, and Reduce Motion means it never arms at all. Re-queried per
+     pathname: the marks belong to screens, and screens come and go. */
+  useEffect(() => {
+    if (!native) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    // The marks mount AFTER this effect runs — most screens client-fetch
+    // before they render their cards — so the list is collected lazily and
+    // re-collected whenever it has gone stale (empty, or its first element
+    // unmounted by a navigation). Steady-state cost per frame: one
+    // isConnected check.
+    let marks: { el: HTMLElement; f: number }[] = [];
+    const collect = () => {
+      marks = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-parallax]")
+      )
+        .map((el) => ({ el, f: parseFloat(el.dataset.parallax || "0") }))
+        .filter((m) => m.f !== 0);
+    };
+
+    let raf = 0;
+    let last = -1;
+    const frame = () => {
+      raf = 0;
+      if (!marks.length || !marks[0].el.isConnected) {
+        collect();
+        if (!marks.length) return;
+        last = -1; // force a write for the fresh set
+      }
+      const y = window.scrollY;
+      if (y === last) return;
+      last = y;
+      for (const m of marks) {
+        m.el.style.transform = `translate3d(0, ${(-y * m.f).toFixed(1)}px, 0)`;
+      }
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(frame);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    frame();
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+      for (const m of marks) m.el.style.transform = "";
+    };
+  }, [native, pathname]);
+
   return null;
 }

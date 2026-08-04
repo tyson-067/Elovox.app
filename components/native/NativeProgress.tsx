@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { CountUp } from "@/components/CountUp";
 import { useIsNative } from "@/lib/native";
 import {
   NvButton,
@@ -204,7 +205,7 @@ export function NativeProgress({
       >
         <p className="nv-caption">Overall</p>
         <div className="mt-1 flex items-baseline gap-2.5">
-          <span className="nv-display nv-num">{latest}</span>
+          <CountUp value={latest} duration={900} className="nv-display nv-num" />
           {delta !== null && (
             <span
               className="nv-headline nv-num flex items-baseline gap-1"
@@ -221,7 +222,7 @@ export function NativeProgress({
             </span>
           )}
         </div>
-        <div className="mt-3">
+        <div className="mt-3" data-parallax="0.06">
           <Sparkline scores={scores} />
         </div>
       </section>

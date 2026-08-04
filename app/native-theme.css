@@ -862,3 +862,142 @@ html[data-native] .nv-headline {
 /* Body-size emphasis (the "font-semibold" sprinkled through rows and
    footnotes) lands on Jost 600, which reads a notch heavier than SF 600 —
    exactly the extra contrast the boards carry. Nothing to override. */
+
+/* ---------------------------------------------------------------------------
+   THE DELIGHT LAYER
+   ---------------------------------------------------------------------------
+   The redesign's first rule was "content is simply there" — correct for a
+   utility, and the user overruled it for this app: they want screens that
+   feel alive enough to be worth visiting. So the shell gains one designed
+   layer of motion, built on the same three constraints as everything else:
+   transform/opacity only, springs only, and Reduce Motion turns all of it
+   off. Nothing here runs continuously except two slow breaths (the record
+   control and the Tape's live bar); everything else fires once, on arrival
+   or on touch, then rests.
+   --------------------------------------------------------------------------- */
+
+/* --- Ergonomics: everything tappable grows a size ------------------------- */
+html[data-native] .nv-btn {
+  min-height: 54px;
+  padding: 15px 22px;
+  border-radius: 14px;
+}
+html[data-native] .nv-chip {
+  min-height: 48px;
+  padding: 12px 16px;
+}
+html[data-native] .nv-row {
+  min-height: 56px;
+}
+html[data-native] .nv-input {
+  min-height: 54px;
+}
+html[data-native] .native-record-blob {
+  height: 56px;
+  width: 56px;
+  bottom: 8px;
+}
+
+/* --- Arrival: the cascade -------------------------------------------------
+   Cards spring in one after another with ORGANIC spacing — the gaps are
+   deliberately irregular (0/45/85/150/190/260ms) and odd cards lean a
+   fraction of a degree the other way, so the sequence reads as things
+   landing, not a metronome. Rides the same .native-screen-enter class the
+   runtime re-arms per navigation, so it plays on every push and never on
+   scroll. */
+@keyframes nv-land {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98) rotate(var(--nv-lean, 0.25deg));
+  }
+}
+html[data-native] .native-screen-enter .card,
+html[data-native] .native-screen-enter .nv-group {
+  animation: nv-land 520ms var(--nv-spring) backwards;
+}
+html[data-native] .native-screen-enter .card:nth-child(odd),
+html[data-native] .native-screen-enter .nv-group:nth-child(odd) {
+  --nv-lean: -0.3deg;
+}
+html[data-native] .native-screen-enter .card:nth-child(2),
+html[data-native] .native-screen-enter .nv-group:nth-child(2) { animation-delay: 45ms; }
+html[data-native] .native-screen-enter .card:nth-child(3),
+html[data-native] .native-screen-enter .nv-group:nth-child(3) { animation-delay: 85ms; }
+html[data-native] .native-screen-enter .card:nth-child(4),
+html[data-native] .native-screen-enter .nv-group:nth-child(4) { animation-delay: 150ms; }
+html[data-native] .native-screen-enter .card:nth-child(5),
+html[data-native] .native-screen-enter .nv-group:nth-child(5) { animation-delay: 190ms; }
+html[data-native] .native-screen-enter .card:nth-child(n + 6),
+html[data-native] .native-screen-enter .nv-group:nth-child(n + 6) { animation-delay: 260ms; }
+
+/* --- The Tape plays itself on arrival ------------------------------------
+   Bars rise from the midline left to right (NativeToday stamps --i per
+   bar), like a take scrubbing onto the reel. */
+@keyframes nv-bar-rise {
+  from { transform: scaleY(0.1); opacity: 0; }
+}
+html[data-native] .native-screen-enter .voxline-bar {
+  animation: nv-bar-rise 460ms var(--nv-spring) backwards;
+  animation-delay: calc(120ms + var(--i, 0) * 26ms);
+}
+/* The live bar keeps its own breath; the rise hands off to it. */
+html[data-native] .native-screen-enter .voxline-bar[data-live] {
+  animation: nv-bar-rise 460ms var(--nv-spring) backwards,
+    felix-bar 900ms ease-in-out infinite alternate 580ms;
+  animation-delay: calc(120ms + var(--i, 0) * 26ms), 580ms;
+}
+
+/* --- Data draws itself ----------------------------------------------------
+   Meter fills sweep in from the left with the cascade's spring. scaleX so
+   the inline width stays untouched — layout never animates. */
+@keyframes nv-fill-in {
+  from { transform: scaleX(0); }
+}
+html[data-native] .native-screen-enter .nv-meter-fill {
+  transform-origin: left center;
+  animation: nv-fill-in 640ms var(--nv-spring) 240ms backwards;
+}
+
+/* --- Touch: everything answers the finger ---------------------------------
+   The press-in is quick; the RELEASE is the spring — that little overshoot
+   on the way back is what makes a control feel like it pushed back. */
+html[data-native] .nv-btn,
+html[data-native] .nv-chip,
+html[data-native] .nv-press,
+html[data-native] #main .card {
+  transition: transform 320ms var(--nv-spring);
+}
+html[data-native] .nv-btn:active,
+html[data-native] .nv-chip:active,
+html[data-native] .nv-press:active {
+  transform: scale(0.96);
+  transition-duration: var(--nv-t-micro);
+}
+
+/* --- The one thing that never quite sleeps --------------------------------
+   The record control breathes — 1.5% over three seconds, the app's pulse.
+   Orange means live, and this is the only always-on trace of it. */
+@keyframes nv-breathe {
+  50% { transform: scale(1.03); }
+}
+html[data-native] .native-record-blob {
+  animation: nv-breathe 3.2s ease-in-out infinite;
+}
+
+/* --- Reduce Motion turns the whole layer off ------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  html[data-native] .native-screen-enter .card,
+  html[data-native] .native-screen-enter .nv-group,
+  html[data-native] .native-screen-enter .voxline-bar,
+  html[data-native] .native-screen-enter .voxline-bar[data-live],
+  html[data-native] .native-screen-enter .nv-meter-fill,
+  html[data-native] .native-record-blob {
+    animation: none;
+  }
+  html[data-native] .nv-btn,
+  html[data-native] .nv-chip,
+  html[data-native] .nv-press,
+  html[data-native] #main .card {
+    transition: none;
+  }
+}
