@@ -339,19 +339,18 @@ export async function runWinBack(
 
   const result = await sendBulk(db, "lifecycle", messages);
 
-  // sendBulk reports totals, not which individuals went out, so the
-  // reconciliation is coarse: if everything sent, confirm every claim; if
-  // anything was dropped, hand back the tail. Erring toward releasing means
-  // someone might get a second chance at their one win-back later, which is
-  // much better than a whole run of people permanently losing theirs to one
-  // bad afternoon.
-  if (result.sent >= claimed.length) {
-    for (const uid of claimed) await confirmOnce(db, "winback", uid);
-  } else {
-    for (let i = 0; i < claimed.length; i++) {
-      if (i < result.sent) await confirmOnce(db, "winback", claimed[i]);
-      else await releaseOnce(db, "winback", claimed[i]);
-    }
+  // Confirm the claims that were actually sent; hand the rest back so a bad
+  // afternoon doesn't cost those people their one win-back permanently.
+  //
+  // Keyed on `result.sentTo` rather than on the count. The queue is reordered
+  // by suppression filtering and trimmed by the budget, so "the first N of
+  // what I queued" names the wrong people — it would burn the claim of someone
+  // who got nothing while re-sending to someone who did.
+  const sentSet = new Set(result.sentTo);
+  for (const uid of claimed) {
+    const address = people.get(uid)?.email.trim().toLowerCase();
+    if (address && sentSet.has(address)) await confirmOnce(db, "winback", uid);
+    else await releaseOnce(db, "winback", uid);
   }
 
   return { candidates: messages.length, ...result };

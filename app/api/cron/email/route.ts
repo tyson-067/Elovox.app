@@ -6,11 +6,11 @@ import {
   runStreakNudge,
   runWeeklyDigest,
   runWinBack,
-  type CampaignResult,
 } from "@/lib/email/campaigns";
+import { runTipsDrip } from "@/lib/email/tips";
 
 /**
- * The scheduled email runs. ONE cron entry, three jobs.
+ * The scheduled email runs. ONE cron entry, four jobs.
  *
  * Why one route rather than three: Vercel's Hobby plan allows two cron jobs
  * per project and one invocation a day each, and `/api/cron/purge-ops` is
@@ -22,6 +22,8 @@ import {
  * ORDER MATTERS, and it is the priority order for the day's allowance. The
  * weekly digest goes first on the day it runs because it is the message
  * people actually opted into; the streak nudge and win-back take what's left.
+ * The tips drip is last of the lifecycle work and draws on a separate
+ * `marketing` allowance anyway, so it cannot starve any of them.
  * lib/email/budget.ts enforces the ceiling; this just decides who asks first.
  *
  * Same auth story as the purge cron next door: CRON_SECRET when set, the
@@ -41,7 +43,7 @@ export const maxDuration = 60;
 
 const rateLimited = makeRateLimiter(6, 60 * 60 * 1000);
 
-type Job = "weekly" | "streak" | "winback";
+type Job = "weekly" | "streak" | "winback" | "tips";
 
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -91,7 +93,10 @@ export async function GET(req: NextRequest) {
   const only = req.nextUrl.searchParams.get("only") as Job | null;
   const wants = (job: Job) => (only ? only === job : true);
 
-  const results: Partial<Record<Job, CampaignResult>> = {};
+  // `tips` reports a `finished` count the others have no equivalent for, so
+  // the map is loosened rather than forcing a shared shape that would mean
+  // nothing for three of the four.
+  const results: Record<string, unknown> = {};
 
   try {
     if (wants("weekly") && (isMonday || only === "weekly")) {
@@ -103,6 +108,13 @@ export async function GET(req: NextRequest) {
     if (wants("winback")) {
       results.winback = await runWinBack(app, db, now);
     }
+    // The tips drip runs EVERY day, not weekly, because the schedule is
+    // per-subscriber: everyone is due a tip a week after their own last one,
+    // whenever they happened to join. A weekly cron would bunch the whole list
+    // onto one morning and round everybody's cadence to the same day.
+    if (wants("tips")) {
+      results.tips = await runTipsDrip(db, now);
+    }
   } catch (err) {
     // Partial results are still reported: knowing the digest went out and the
     // win-back died is much more useful than a bare 500.
@@ -111,7 +123,10 @@ export async function GET(req: NextRequest) {
   }
 
   const line = Object.entries(results)
-    .map(([job, r]) => `${job}=${r.sent}/${r.candidates}`)
+    .map(([job, r]) => {
+      const v = r as { sent?: number; candidates?: number };
+      return `${job}=${v.sent ?? 0}/${v.candidates ?? 0}`;
+    })
     .join(" ");
   console.info(`[cron] email run: ${line || "nothing due"}`);
 

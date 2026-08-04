@@ -155,6 +155,16 @@ export interface BulkResult {
   /** Trimmed because the day's allowance for this category ran out. */
   overBudget: number;
   failed: number;
+  /**
+   * Exactly who was sent to, lower-cased.
+   *
+   * Counts alone are not enough for any caller that has to record "this person
+   * has now had this message". The queue gets reordered — suppressed addresses
+   * are filtered out, then the tail is trimmed to fit the budget — so
+   * "the first `sent` of the input" is simply wrong, and a drip that advances
+   * on it skips a tip for everybody downstream of a suppressed subscriber.
+   */
+  sentTo: string[];
 }
 
 /**
@@ -175,7 +185,13 @@ export async function sendBulk(
   category: MailCategory,
   messages: AppMessage[]
 ): Promise<BulkResult> {
-  const empty: BulkResult = { sent: 0, suppressed: 0, overBudget: 0, failed: 0 };
+  const empty: BulkResult = {
+    sent: 0,
+    suppressed: 0,
+    overBudget: 0,
+    failed: 0,
+    sentTo: [],
+  };
   if (!isMailConfigured() || messages.length === 0) return empty;
 
   const policy = CATEGORY[category];
@@ -202,6 +218,7 @@ export async function sendBulk(
 
   let sent = 0;
   let failed = 0;
+  const sentTo: string[] = [];
   const chunks = chunkForBatch(queue);
 
   for (let c = 0; c < chunks.length; c++) {
@@ -238,13 +255,14 @@ export async function sendBulk(
       continue;
     }
     sent += chunk.length;
+    for (const m of chunk) sentTo.push(m.to.trim().toLowerCase());
     await logSent(
       db,
       chunk.map((m, i) => ({ message: m, id: res.ids[i] ?? null }))
     );
   }
 
-  return { sent, suppressed, overBudget, failed };
+  return { sent, suppressed, overBudget, failed, sentTo };
 }
 
 /* --- The delivery log ------------------------------------------------------ */

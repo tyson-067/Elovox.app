@@ -154,6 +154,8 @@ once — which is the only way to notice that somebody could get four in a day.
 | Weekly progress | lifecycle | cron, Mondays |
 | Streak nudge | lifecycle | cron, daily, streak ≥ 7 and nothing recorded |
 | Win-back | lifecycle | cron, once ever, 3–5 weeks after last activity |
+| Speaking tips 1–12 | marketing | cron, daily — one a week per subscriber |
+| Announcement | lifecycle | **manual**, /admin → Email |
 
 Billing emails fire on **transitions**, compared against the plan doc as it was
 before the event. Stripe redelivers freely and sends
@@ -168,6 +170,67 @@ would do is the failure mode users already flagged about the site. American
 spelling: **practice**, **practiced**, never "practise".
 
 ---
+
+## The two lists, which never merge
+
+There are two audiences and they agreed to different things. Mixing them is
+the easiest serious mistake available in this codebase, so it is worth being
+blunt about the line.
+
+**The tips list** (`leads`) — people who left an address on the tips form,
+most of whom have no account. /privacy tells them the address is used *"only
+to send those tips"*. They get the twelve-email drip in `lib/email/tips.ts`
+and **nothing else, ever**. Not launches, not discounts, not product news.
+That sentence in the policy is a written commitment, and "we also told them
+about a feature once" is a breach of it.
+
+**Account holders** — people with an Elovox account. They get the account and
+billing mail they can't switch off, the lifecycle mail they can, and
+announcements via /admin → Email. They are never added to the tips list.
+
+`lib/email/announce.ts` and `lib/email/audience.ts` both repeat this at the
+top, because those are the two files where it would be easiest to forget.
+
+## The tips drip
+
+Twelve tips, one a week, timed from each subscriber's own signup rather than a
+shared schedule — so the cron sends a handful most days instead of the whole
+list on one morning, which also keeps it well inside a hundred-a-day plan.
+
+Position lives on the subscriber's own row (`leads/{email}.tipIndex`), and the
+clock is `lastTipAt` falling back to `since`. Each run reconciles against "who
+is due right now", so a missed day is picked up by the next run and a double
+run sends nothing extra.
+
+Progress advances **only for addresses Resend actually accepted**
+(`result.sentTo`), never positionally — the queue gets reordered by suppression
+filtering and trimmed by the budget, so counting positions would silently skip
+a tip for everyone behind a suppressed subscriber.
+
+**Adding tips**: append to `TIPS` in `lib/email/tips.ts`. Anyone partway through
+carries straight on into the new ones the week they reach them. When the array
+runs out the drip stops, which is a fine ending — the last tip says so.
+
+**Never reuse an `id`**: it is half of the idempotency key.
+
+## Announcements
+
+/admin → Email → *Announce something*. A staircase on purpose:
+
+    write → preview → send to yourself → send to everyone
+
+The final button stays disabled until a preview has rendered, and the
+confirmation it submits is a hash of the content. Edit a word after previewing
+and the hash no longer matches, the server answers 409, and you are sent back
+to look again. The failure being prevented is mailing the entire userbase a
+draft.
+
+The estimate above the form is the other half: on a 100-a-day plan, "can I
+send to everyone right now?" is frequently no, and it says so before you
+compose rather than after. If the list doesn't fit, it sends what fits and
+reports the rest as **not sent** — nothing is queued for tomorrow, because a
+half-sent announcement that quietly finishes later is worse than one you know
+is half-sent.
 
 ## Consent and unsubscribe
 
@@ -254,9 +317,13 @@ Two entries total, which is Vercel Hobby's ceiling:
 | `/api/cron/purge-ops` | `0 4 * * *` | expires ops events, login rows, email log |
 | `/api/cron/email` | `0 9 * * *` | weekly digest (Mondays), streak nudge, win-back |
 
-`/api/cron/email` is one route with three jobs precisely because a third and
-fourth cron entry would not schedule. Add `?only=weekly` (with the cron
-credential) to exercise one job by hand without sending the other two.
+`/api/cron/email` is one route with **four** jobs — weekly digest, streak
+nudge, win-back, tips drip — precisely because more cron entries would not
+schedule. Add `?only=tips` (or `weekly` / `streak` / `winback`), with the cron
+credential, to exercise one by hand without firing the others.
+
+The tips drip runs daily rather than weekly: the cadence is per-subscriber, so
+a weekly cron would round everybody onto the same morning.
 
 ---
 
@@ -266,11 +333,16 @@ credential) to exercise one job by hand without sending the other two.
   For transactional mail that is a privacy cost with no decision attached to it,
   and rewritten links are their own spam signal. The webhook accepts the events
   if tracking is ever switched on; nothing has to change in the code.
-- **Broadcasts on a schedule.** `lib/email/audience.ts` can create and send one,
-  but nothing calls it automatically. A broadcast spends the monthly quota one
-  message per contact, on Resend's side where this app cannot see it, which is
-  why `estimateAndReserve` exists — and why sending one should stay a decision
-  somebody makes on purpose.
+- **Announcements on a schedule.** An announcement needs something to announce.
+  A cron that sends product news every fortnight will send it every fortnight
+  whether or not anything shipped, and the empty fortnights are exactly how a
+  list learns to ignore you. The machinery is automatic; pressing send is not.
+- **Resend Broadcasts.** `lib/email/audience.ts` can create and send one, but
+  nothing calls it — the tips drip covers that list better, because it is
+  per-subscriber rather than one blast to everyone at once. Kept for the case
+  where a genuine one-off to the whole tips list is wanted. Note a broadcast
+  spends quota on Resend's side where this app cannot see it, which is why
+  `estimateAndReserve` exists.
 - **A queue.** Resend's `scheduled_at` holds a message and sends it later, which
   is the same thing without the infrastructure.
 

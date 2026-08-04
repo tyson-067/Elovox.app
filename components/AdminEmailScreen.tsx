@@ -12,6 +12,7 @@ import {
   TwoStepButton,
 } from "@/components/AdminBits";
 import { AdminSparkline } from "@/components/AdminSparkline";
+import { AdminAnnounce } from "@/components/AdminAnnounce";
 
 // The Email tab: what's left of the free plan, whether the domain is still
 // verified, who has been suppressed and why, and a test send that goes down
@@ -62,6 +63,14 @@ interface EmailData {
     status: string;
     at: number | null;
   }[];
+  announce: {
+    recipients: number;
+    unverified: number;
+    affordable: number;
+    fitsToday: boolean;
+    dailyRemaining: number;
+  } | null;
+  tips: { subscribers: number; finished: number; due: number; total: number };
 }
 
 const REASON_LABEL: Record<string, string> = {
@@ -181,12 +190,8 @@ export function AdminEmailScreen({ onDenied }: { onDenied: () => void }) {
           />
           <Stat
             label="Tips list"
-            value={data.audience ? data.audience.subscribed : "—"}
-            hint={
-              data.audience
-                ? `${data.audience.total} contacts`
-                : "No audience configured"
-            }
+            value={data.tips.subscribers}
+            hint={`${data.tips.due} due a tip on the next run`}
           />
           <Stat
             label="Suppressed"
@@ -220,6 +225,31 @@ export function AdminEmailScreen({ onDenied }: { onDenied: () => void }) {
           />
         </div>
       </Section>
+
+      <Section title="Tips drip">
+        <div className="card p-4">
+          <p className="text-sm">
+            {data.tips.subscribers === 0
+              ? "Nobody on the list yet."
+              : `${data.tips.subscribers} subscribers. ${data.tips.finished} have finished all ${data.tips.total} tips.`}
+          </p>
+          <p className="mt-2 text-sm text-on-surface-variant">
+            One tip a week each, timed from when they joined rather than a
+            shared schedule — so this sends a handful most days instead of the
+            whole list at once. Nothing to press. Add tips by appending to{" "}
+            <code className="font-data">lib/email/tips.ts</code>; anyone partway
+            through carries straight on into them.
+          </p>
+          {data.tips.subscribers > 0 && data.tips.due === 0 && (
+            <p className="mt-2 text-sm text-on-surface-variant">
+              Nobody is due one right now. That is the normal state most of the
+              time — everyone is mid-week.
+            </p>
+          )}
+        </div>
+      </Section>
+
+      <AdminAnnounce estimate={data.announce} onSent={() => void load()} />
 
       <Section title="Setup">
         <AdminTable headers={["Thing", "State"]} minWidth={420}>

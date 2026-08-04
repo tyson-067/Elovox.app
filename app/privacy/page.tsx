@@ -103,12 +103,26 @@ export default function PrivacyPage() {
         <p>
           <strong>The tips list.</strong> If you leave your email on our
           speaking-tips form, we store that address and use it only to send
-          those tips. It is never sold or shared, and you can come off the
-          list any time by emailing{" "}
+          those tips — one a week, and nothing else. It is never sold or
+          shared. Every one of those emails has an unsubscribe link that works
+          without signing in, or you can email{" "}
           <a className="text-accent-strong hover:underline" href={mailto}>
             {LEGAL.contactEmail}
           </a>
           .
+        </p>
+        <p>
+          <strong>Emails to your account.</strong> If you have an account, we
+          send you things you can&apos;t switch off and things you can. The
+          ones you can&apos;t are about your account itself: a warning when
+          someone is trying to sign in as you, and anything to do with a
+          payment. We think you&apos;d want those, and turning them off would
+          leave you in the dark about your own money and security.
+          Everything else — a weekly summary of your practice, a nudge about a
+          streak, the occasional note when we ship something — is optional and
+          switchable under Email in your account settings, or from the
+          unsubscribe link in any of them. We do not add account holders to the
+          tips list, or the tips list to anything else.
         </p>
         <p>
           <strong>Your recordings.</strong> When you practice, your browser
