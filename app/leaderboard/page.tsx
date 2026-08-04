@@ -69,9 +69,17 @@ function Podium({ rows }: { rows: BoardRow[] }) {
             <span className="font-data text-[13px] text-on-surface-variant">
               {row.xp.toLocaleString()} XP
             </span>
+            {/* Both bars are OPAQUE fills, and that is load-bearing rather
+                than cosmetic: a site backdrop paints the page ground, and a
+                translucent tint (this was bg-accent/25) lets the sky through
+                and has to take the ground's ink — which put a white numeral
+                on pale peach at 3.6:1 over the night scenes. Shrimp Toast is
+                the warm end of the palette, so "this is you" still reads at a
+                glance, and the bar is a surface the numeral can sit on
+                whatever is behind the page. See docs/BACKDROP_LEGIBILITY.md. */}
             <div
               className={`mt-2 w-full rounded-t-lg ${heights[place - 1]} ${
-                row.isSelf ? "bg-accent/25" : "bg-surface-container"
+                row.isSelf ? "bg-shrimp" : "bg-surface-container"
               } grid place-items-end justify-center pb-2`}
             >
               <span className="font-data text-lg text-primary">{place}</span>

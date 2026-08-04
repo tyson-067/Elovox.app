@@ -248,7 +248,10 @@ export default function RootLayout({
                   phone. Helps the signed-in header too, which carries its own
                   set (Practice, the account chip, Sign out, and Pricing while
                   the plan is free). */}
-              <nav className="flex items-center gap-3 sm:gap-5 text-[13px] font-semibold tracking-wide text-primary/70">
+              {/* /80 rather than /70: at 70% these 13px links measured 4.07:1
+                  on the white page, just under AA. 80% is 5.21:1 and still
+                  reads as chrome rather than content. */}
+              <nav className="flex items-center gap-3 sm:gap-5 text-[13px] font-semibold tracking-wide text-primary/80">
                 <AuthNav />
               </nav>
             </div>

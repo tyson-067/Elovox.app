@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
-import { BackdropScene } from "@/components/Backdrop";
+import { BackdropScene, backdropTone } from "@/components/Backdrop";
 import { isBackdropId } from "@/lib/coins";
 import { fetchShopState } from "@/lib/shop";
 import { useIsNative } from "@/lib/native";
@@ -16,11 +16,12 @@ import { useIsNative } from "@/lib/native";
 // purpose: the hook settles a frame after hydration, and the class covers
 // that frame.
 //
-// Layering: fixed, full-viewport, z-[-1]. The site's default gradient is
-// body::before at the same z-index (see globals.css); this element comes
-// later in the DOM, so when it renders it paints over the gradient, and when
-// nothing is equipped it renders nothing at all and the gradient stays —
-// plain is the absence of an item, not an item.
+// Layering: fixed, full-viewport, z-[-1]. Nothing else paints behind the
+// page — body's white background propagates to the canvas, and a negative
+// z-index child paints over the canvas and under every surface, so this
+// lands in exactly the right place. When nothing is equipped it renders
+// nothing at all and the site is white paper: plain is the absence of an
+// item, not an item.
 export function SiteBackdrop() {
   const { user } = useAuth();
   const isNative = useIsNative();
@@ -66,14 +67,38 @@ export function SiteBackdrop() {
   // isBackdropId also quietly retires anything stale: an equipped id left in
   // Firestore by a removed catalog entry falls back to the plain site rather
   // than crashing BackdropScene. Same stance as Biome's unknown-id fallback.
-  if (isNative || !uid || !isBackdropId(equipped)) return null;
+  const showing = !isNative && uid && isBackdropId(equipped) ? equipped : null;
+  const tone = showing ? backdropTone(showing) : null;
+
+  // Tell the document which ink the page has to write in. The site's text
+  // colors are all tuned for the pale default ground, and half these scenes
+  // are night — near-black body copy on Starry night is 1.02:1, which is not
+  // low contrast, it is invisible. globals.css reads this attribute and
+  // re-points the ink; surfaces with their own background (cards, the
+  // header, the footer) put it straight back, because a white card still
+  // wants dark text no matter what the sky is doing behind it.
+  //
+  // An attribute on <html> rather than a class on a wrapper: the chrome that
+  // needs it — header, footer, banner — are siblings of <main>, not children
+  // of anything this component renders.
+  useEffect(() => {
+    const el = document.documentElement;
+    if (!tone) {
+      el.removeAttribute("data-backdrop-tone");
+      return;
+    }
+    el.setAttribute("data-backdrop-tone", tone);
+    return () => el.removeAttribute("data-backdrop-tone");
+  }, [tone]);
+
+  if (!showing) return null;
 
   return (
     <div
       aria-hidden="true"
       className="native-hide pointer-events-none fixed inset-0 z-[-1]"
     >
-      <BackdropScene id={equipped} className="h-full w-full" />
+      <BackdropScene id={showing} className="h-full w-full" />
     </div>
   );
 }

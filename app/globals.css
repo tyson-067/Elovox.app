@@ -32,14 +32,16 @@
   --color-slate: #8fa0d8; /* Vista Bleu */
   --color-amber: #ff8400; /* Orange, for "watch this" states */
 
-  /* The page is no longer white. It's a very pale Vista Bleu wash, with
-     cards left near-white so they still lift off it. Pure #fff surfaces
-     across a whole app read as unfinished, and this is a warm brand. */
-  --color-surface: #f4f7fc;
+  /* The page ground is plain white, and black is the ink on it. That is the
+     DEFAULT, and it is meant to look deliberate rather than unfinished: the
+     ground is the one thing coins can buy (see the shop's backdrops), so
+     until someone buys a sky, the site is white paper. Cards are white too
+     and lift on their hairline border rather than on a step in value. */
+  --color-surface: #ffffff;
   --color-surface-lowest: #ffffff;
   --color-surface-container: #e4ebf6;
   --color-surface-warm: #fdf6ee; /* Amande, thinned: warm card grounds */
-  --color-on-surface: #0b0829; /* Bleu Oxford */
+  --color-on-surface: #000000;
   --color-on-surface-variant: #4a5068;
   --color-outline-variant: #c9cddc;
   --color-error: #ba1a1a;
@@ -63,18 +65,16 @@ html {
   overflow-x: clip;
 }
 
-/* The page ground: a cool Vista wash at the top settling into a warm
-   Amande at the bottom, so a long scroll passes through the brand rather
-   than sitting on one flat tint. It is tied to the VIEWPORT, not the
-   document — over a 4000px page the same gradient flattens into two
-   invisible bands.
+/* The page ground: white, flat, and nothing else. There was a fixed Vista→
+   Amande gradient wash here; it is gone on purpose. The ground is the thing
+   the shop sells, so the default has to be the plainest state there is —
+   anything tinted reads as a backdrop nobody chose, and it competed with the
+   ones people actually paid for.
 
-   A `position: fixed` layer rather than `background-attachment: fixed`.
-   Same look, two real advantages: fixed attachment repaints a
-   viewport-sized background on every scroll frame (next to the sticky
-   header's backdrop-blur, which is already expensive), and iOS Safari
-   ignores it on the root element outright — so the effect this is here for
-   never landed on the platform where the app also ships as a native shell. */
+   Nothing paints behind body any more, which is what lets the purchased
+   backdrop work: body's background propagates to the canvas, so
+   components/SiteBackdrop.tsx (fixed, z-index -1) paints over it and under
+   every surface. White is simply what shows when no scene is equipped. */
 body {
   background: var(--color-surface);
   color: var(--color-on-surface);
@@ -82,19 +82,147 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow-x: clip;
 }
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
+
+/* ---------------------------------------------------------------------------
+   GROUND INK — keeping text readable over a purchased backdrop
+   ---------------------------------------------------------------------------
+   A backdrop (components/SiteBackdrop.tsx) repaints the whole page ground,
+   and every color above assumes that ground is white paper. Half the scenes
+   in the shop are night. Body copy on Starry night measured 1.02:1 —
+   not "low contrast", literally not there — and the pale scenes are no
+   better in their own way: Woodsy's pines take blue headings to 1.38:1.
+
+   So SiteBackdrop stamps data-backdrop-tone on <html> and the ink follows.
+   Two rules decide everything here:
+
+   1. TEXT ONLY. These override the text utilities, never the tokens behind
+      them. --color-accent-strong is the fill under 52 buttons as well as the
+      color of a link; re-pointing the token would have turned every primary
+      button on the site brown. So `.text-*` is targeted directly and every
+      background, border and fill is left exactly as it was.
+
+   2. SURFACES PUT IT BACK. The ink is carried in inherited variables, so any
+      element with a background of its own — a card, the header, the footer —
+      restores the normal palette by re-declaring them, and everything inside
+      it inherits the restoration. No specificity fight, and nesting works on
+      its own. A white card wants dark text whatever the sky is doing.
+
+   The colors are the strongest-hue values that still clear WCAG AA (4.5:1)
+   against the worst region of the worst scene of that tone, given the veil
+   BACKDROP_SCRIM lays over each drawing. Accent and violet come out close to
+   neutral because that is the honest answer: a mid-tone photographic ground
+   cannot carry saturated text at AA. Color survives on cards and buttons,
+   where the background is ours to choose. --------------------------------- */
+html[data-backdrop-tone="light"] {
+  --ground-ink: #000000; /* the same black the plain white page writes in */
+  --ground-soft: #2b3147; /* secondary: softer, still 6.7:1 on the worst pale scene */
+  --ground-heading: #000000; /* lapis blue dies here — 1.38:1 on Woodsy's pines */
+  --ground-accent: #522211;
+  --ground-violet: #342c56;
+  --ground-amber: #4c2800;
+}
+html[data-backdrop-tone="dark"] {
+  --ground-ink: #ffffff;
+  --ground-soft: #e2e6f2;
+  --ground-heading: #ffffff;
+  --ground-accent: #ffded3;
+  --ground-violet: #e6e3f4;
+  --ground-amber: #ffdfbd;
+}
+
+/* Unlayered on purpose: Tailwind's utilities sit in a cascade layer, and
+   anything outside a layer beats them regardless of specificity. That is the
+   only way `.text-primary` gets overridden without !important on every line.
+   The substring match catches the opacity variants (`text-primary/70`) too,
+   which the compiled color-mix would otherwise leave on the old hue.
+   Order is load-bearing where one name contains another: the -variant rule
+   follows the rule it narrows. */
+html[data-backdrop-tone] [class*="text-on-surface"] {
+  color: var(--ground-ink);
+}
+html[data-backdrop-tone] [class*="text-on-surface-variant"] {
+  color: var(--ground-soft);
+}
+html[data-backdrop-tone] [class*="text-oxford"] {
+  color: var(--ground-ink);
+}
+html[data-backdrop-tone] [class*="text-primary"] {
+  color: var(--ground-heading);
+}
+/* The faded variants stay a step down rather than flattening into the
+   heading ink, so the hierarchy the design draws with survives the flip. */
+html[data-backdrop-tone] [class*="text-primary/"],
+html[data-backdrop-tone] [class*="text-slate"] {
+  color: var(--ground-soft);
+}
+html[data-backdrop-tone] [class*="text-accent"] {
+  color: var(--ground-accent);
+}
+html[data-backdrop-tone] [class*="text-violet"] {
+  color: var(--ground-violet);
+}
+html[data-backdrop-tone] [class*="text-amber"] {
+  color: var(--ground-amber);
+}
+
+/* The hero's gradient word is painted by background-clip, not by `color`,
+   so none of the rules above reach it — and its first stop is lapis, which
+   is the one hue that disappears on both a night sky and a treeline. Rebuilt
+   from the ground palette: same left-to-right warm travel, every stop
+   already AA-verified for this tone. Inside a card the restored variables
+   put the brand gradient straight back. */
+html[data-backdrop-tone] .text-gradient,
+html[data-backdrop-tone] .text-gradient .wr-word > span {
   background-image: linear-gradient(
-    170deg,
-    #eef3fb 0%,
-    var(--color-surface) 38%,
-    #fdf6ee 78%,
-    var(--color-amande) 100%
+    100deg,
+    var(--ground-violet),
+    var(--ground-ink) 40%,
+    var(--ground-accent) 75%,
+    var(--ground-amber)
   );
+}
+
+@layer components {
+  /* Text with no color class of its own inherits from here. In the
+     components layer so that an explicit `text-white` — which is how every
+     navy-gradient hero on the site colors itself — still wins. */
+  html[data-backdrop-tone] main {
+    color: var(--ground-ink);
+  }
+
+  /* Anything that brings its own background is not the ground, so the
+     palette goes back to normal inside it. Card, warm card, the site header
+     and footer, the utility families that paint an opaque pale panel
+     (bg-surface*, bg-white*), and the warm neutrals — matched by substring
+     so the /opacity variants come along.
+
+     The warm neutrals are in the list even though they are translucent,
+     because they are PALE: shrimp at 50% over the darkest ground we allow
+     still lands at 5.5:1 for dark ink and 3.2:1 for chalk, so the panel
+     wins the argument, not the sky behind it. That is not true of the
+     saturated tints (bg-accent/12, bg-violet/10, bg-primary/20), which
+     barely shift the ground they sit on — those are deliberately absent and
+     keep the ground's ink. */
+  html[data-backdrop-tone]
+    :is(
+      .card,
+      .card-warm,
+      header,
+      footer,
+      [class*="bg-surface"],
+      [class*="bg-white"],
+      [class*="bg-shrimp"],
+      [class*="bg-amande"],
+      [class*="bg-shimmer"]
+    ) {
+    --ground-ink: var(--color-on-surface);
+    --ground-soft: var(--color-on-surface-variant);
+    --ground-heading: var(--color-primary);
+    --ground-accent: var(--color-accent-strong);
+    --ground-violet: var(--color-violet);
+    --ground-amber: var(--color-amber);
+    color: var(--ground-ink);
+  }
 }
 
 /* Structural card: 1px navy border at low opacity, no shadow.

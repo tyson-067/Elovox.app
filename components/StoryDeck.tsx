@@ -171,7 +171,7 @@ export function StoryDeck({ beats }: { beats: StoryBeat[] }) {
         </div>
         <p
           aria-hidden="true"
-          className={`mt-3 text-center text-[12px] font-semibold uppercase tracking-[0.08em] text-on-surface-variant/60 transition-opacity duration-300 ${
+          className={`mt-3 text-center text-[12px] font-semibold uppercase tracking-[0.08em] text-on-surface-variant/80 transition-opacity duration-300 ${
             idx === beats.length - 1 ? "opacity-0" : "opacity-100"
           }`}
         >

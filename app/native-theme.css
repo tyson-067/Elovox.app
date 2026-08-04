@@ -130,8 +130,11 @@ html[data-native] {
   --font-slogan: var(--nv-font);
 }
 
-/* The ground is flat. The website's fixed gradient wash (body::before) is
-   the single loudest "website in a frame" tell and dies here. */
+/* The ground is flat. This killed the website's fixed Vista→Amande gradient
+   wash, the single loudest "website in a frame" tell; the web has since gone
+   to plain white paper and dropped that layer itself, so this is belt and
+   braces. The aurora further down re-declares body::before with its own
+   `content`, which is what actually paints the native ground. */
 html[data-native] body {
   background: var(--nv-bg);
   font-family: var(--nv-font);

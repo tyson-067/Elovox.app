@@ -446,6 +446,61 @@ function isBackdropSceneId(id: string): id is BackdropSceneId {
   return (BACKDROP_SCENE_IDS as readonly string[]).includes(id);
 }
 
+export type BackdropTone = "light" | "dark";
+
+/**
+ * How each scene reads under text, and how much wash it needs to stay
+ * readable. Both are properties of the DRAWING, so they live here beside it
+ * rather than in the shop catalog — repaint a scene and these move with it.
+ *
+ * `tone` picks which ink the page writes in: chalk over the night scenes,
+ * near-black over the pale ones. `scrim` is a veil of that tone's own base
+ * color laid over the art, and it is here because no scene is a single
+ * value — Woodsy is pale sky AND near-black pines, and a paragraph scrolls
+ * across both. One ink cannot clear 4.5:1 on both ends of that range, so the
+ * veil closes the range until the scene's worst region clears it.
+ *
+ * Each number is the MINIMUM that clears AA for that scene, measured off the
+ * rendered pixels rather than judged by eye (the audit is in
+ * docs/BACKDROP_LEGIBILITY.md). No scene pays for another's worst case:
+ * Broad daylight is already safe everywhere and is veiled by nothing at all.
+ */
+export const BACKDROP_TONE: Record<BackdropSceneId, BackdropTone> = {
+  "starry-night": "dark",
+  urbany: "dark",
+  sunsety: "dark",
+  woodsy: "light",
+  beachy: "light",
+  mountainy: "light",
+  grassy: "light",
+  suburbany: "light",
+  villagy: "light",
+  daylighty: "light",
+};
+
+export const BACKDROP_SCRIM: Record<BackdropSceneId, number> = {
+  "starry-night": 0.53, // the moon, and only the moon, sets this
+  urbany: 0.43, // the lit windows, not the towers — the towers are already ink
+  sunsety: 0.56, // the sun sitting on the horizon; the worst offender we sell
+  woodsy: 0.52, // near-black pines under a paper-pale sky: the widest range
+  beachy: 0.2,
+  mountainy: 0.45,
+  grassy: 0.22,
+  suburbany: 0.48, // the lapis roof is the darkest thing in any pale scene
+  villagy: 0.34,
+  daylighty: 0, // pale edge to edge; the art is left exactly as drawn
+};
+
+/** The veil color for a tone: the page's own extremes, not a gray. */
+export const BACKDROP_SCRIM_COLOR: Record<BackdropTone, string> = {
+  light: "#ffffff",
+  dark: "#0b0829", // Bleu Oxford, the palette's darkest
+};
+
+export function backdropTone(id: string): BackdropTone | null {
+  return isBackdropSceneId(id) ? BACKDROP_TONE[id] : null;
+}
+
 /**
  * A full-page scene for the website to sit on. Unknown ids render nothing:
  * unlike a biome (where blank means broken), a page without a backdrop is
@@ -454,16 +509,26 @@ function isBackdropSceneId(id: string): id is BackdropSceneId {
  *
  * Absolutely position it behind the content and let `slice` do the
  * cropping — the drawing is 1200x800, but every viewport gets a full bleed.
+ *
+ * The legibility veil is drawn as the last rect INSIDE the svg rather than
+ * as an overlay div, so it crops with the art and no caller has to learn a
+ * new layout. It is on by default everywhere, the shop preview included:
+ * the thumbnail is the promise, and someone spending 220 coins should be
+ * looking at the thing they will actually get.
  */
 export function BackdropScene({
   id,
   className,
+  scrim = true,
 }: {
   id: string;
   className?: string;
+  /** Off only where the raw art is the subject, never behind text. */
+  scrim?: boolean;
 }) {
   if (!isBackdropSceneId(id)) return null;
   const Scene = SCENES[id];
+  const veil = scrim ? BACKDROP_SCRIM[id] : 0;
   return (
     <svg
       viewBox="0 0 1200 800"
@@ -472,6 +537,14 @@ export function BackdropScene({
       aria-hidden="true"
     >
       <Scene />
+      {veil > 0 && (
+        <rect
+          width="1200"
+          height="800"
+          fill={BACKDROP_SCRIM_COLOR[BACKDROP_TONE[id]]}
+          opacity={veil}
+        />
+      )}
     </svg>
   );
 }
