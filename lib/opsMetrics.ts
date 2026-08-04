@@ -172,8 +172,8 @@ export async function recordAdminDenied(
 export async function purgeExpiredOpsEvents(
   db: Firestore | null,
   limit = 200
-): Promise<void> {
-  if (!db) return;
+): Promise<number> {
+  if (!db) return 0;
   try {
     // TWO queries, because Firestore range comparisons are type-scoped: a
     // `< Timestamp` bound matches only Timestamp-valued fields and skips
@@ -194,12 +194,14 @@ export async function purgeExpiredOpsEvents(
         .get(),
     ]);
     const docs = [...fresh.docs, ...legacy.docs];
-    if (docs.length === 0) return;
+    if (docs.length === 0) return 0;
     const batch = db.batch();
     for (const doc of docs) batch.delete(doc.ref);
     await batch.commit();
+    return docs.length;
   } catch (err) {
     console.error("[ops] purge failed", err);
+    return 0;
   }
 }
 
