@@ -6,6 +6,7 @@ import {
   makeRateLimiter,
   logRejectedInput,
 } from "@/lib/verify";
+import { getOpsFlags } from "@/lib/opsMetrics";
 import { PLANS, stripePriceIdFor, type BillingCycle } from "@/lib/pricing";
 
 // Starts a Stripe Checkout session for a signed-in user. Subscription mode
@@ -57,6 +58,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: "Too many attempts. Please wait a moment." },
       { status: 429 }
+    );
+  }
+
+  // Operator kill switch for NEW purchases (ops/flags.pauseCheckout, set from
+  // /admin → Ops): a pricing mistake or a Stripe incident shouldn't keep
+  // selling while it's being fixed. Existing subscribers are untouched.
+  // Fail-open + cached, same posture as the analyze brake: a Firestore blip
+  // can never stop revenue by itself.
+  const opsFlags = await getOpsFlags(db);
+  if (opsFlags.pauseCheckout) {
+    return NextResponse.json(
+      { error: "Purchases are briefly paused for maintenance. Try again soon." },
+      { status: 503 }
     );
   }
 

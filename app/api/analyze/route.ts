@@ -12,6 +12,8 @@ import {
 } from "@/lib/verify";
 import { sanitizeText } from "@/lib/validation";
 import { getAdminDb } from "@/lib/firebaseAdmin";
+import { getOpsFlags, recordAnalyzeOutcome } from "@/lib/opsMetrics";
+import { isRestricted } from "@/lib/moderation";
 import { awardXp } from "@/lib/leaderboardServer";
 import {
   MAX_DAILY_ATTEMPTS,
@@ -787,6 +789,42 @@ export async function POST(req: NextRequest) {
   const appCheckReject = await enforceAppCheck(req, "analyze");
   if (appCheckReject) return appCheckReject;
 
+  // Operator kill switch (ops/flags.pauseAnalyze, set from /admin → Ops).
+  // Checked before the body is buffered so a paused pipeline costs nothing.
+  // getOpsFlags FAILS OPEN and caches per instance for 60s: a Firestore blip
+  // can never pause the product, and the hot path pays one read a minute.
+  const pausedFlags = await getOpsFlags(getAdminDb());
+  if (pausedFlags.pauseAnalyze) {
+    await recordAnalyzeOutcome(getAdminDb(), { outcome: "paused" });
+    return NextResponse.json(
+      {
+        error: "analysis-paused",
+        message:
+          "Felix is taking a short maintenance break. Your recording is safe — try again in a few minutes.",
+      },
+      { status: 503 }
+    );
+  }
+
+  // Moderation gate (lib/moderation.ts): a suspended or banned account does
+  // not get the paid pipeline. Checked before the body is buffered so a
+  // restricted caller costs nothing; fail-OPEN like the flags, so a Firestore
+  // blip can never lock out honest users. Manual strikes only — an operator
+  // put this state here, on the record, and support can undo it.
+  const restriction = await isRestricted(getAdminDb(), uid);
+  if (restriction.blocked) {
+    return NextResponse.json(
+      {
+        error: "account-restricted",
+        message:
+          restriction.state === "suspended"
+            ? `Your account is suspended until ${new Date(restriction.until).toLocaleDateString()} for a Terms violation. Think that's wrong? Contact support.`
+            : "This account has been closed for Terms violations. Contact support if you think this is a mistake.",
+      },
+      { status: 403 }
+    );
+  }
+
   // A body that isn't multipart form data makes `formData()` THROW, which
   // uncaught becomes a bare 500 with an empty body. Not exploitable (auth,
   // verification and rate limiting have all run by now, so nothing expensive
@@ -1042,6 +1080,7 @@ export async function POST(req: NextRequest) {
       if (reservation && db) await refundDailyAttempt(db, uid, reservation.date);
       if (premiumMeterDate && db)
         await refundMeteredUse(db, uid, premiumMeterDate, "premiumAnalyses");
+      await recordAnalyzeOutcome(db, { outcome: "no-speech", premium });
       // Never dress this up as a scored report.
       return NextResponse.json(
         {
@@ -1152,6 +1191,23 @@ export async function POST(req: NextRequest) {
 
           // Phase 2: the finished report.
           send({ type: "report", analysis });
+
+          // Best-effort daily counters for the /admin Ops tab — the same
+          // numbers as the log line above, but queryable. AFTER the report is
+          // enqueued, deliberately: a stalled Firestore write must never sit
+          // between a finished report and the user (nor burn the deadline
+          // tail the refund writes need), and recording "ok" only once the
+          // enqueue succeeded means a disconnect can't count one request as
+          // both ok and model-failed. The stream is still open here, so the
+          // write isn't orphaned; recordAnalyzeOutcome never throws.
+          await recordAnalyzeOutcome(db, {
+            outcome: "ok",
+            totalMs: Date.now() - t0,
+            transcribeMs: marks.transcribe,
+            modelMs: marks.model,
+            premium,
+            camera: wantsStage,
+          });
         } catch (err) {
           // The model chain failed after transcription had already succeeded.
           // Same promise the old outer catch made: refund the attempt so a busy
@@ -1170,6 +1226,9 @@ export async function POST(req: NextRequest) {
             message:
               "Felix couldn't finish analyzing that one. The coaching service is busy, and your recording is safe, so give it another go in a moment.",
           });
+          // Counter last: the user-facing error event and the refunds above
+          // must never wait on telemetry.
+          await recordAnalyzeOutcome(db, { outcome: "model-failed", premium });
         } finally {
           controller.close();
         }
@@ -1195,6 +1254,10 @@ export async function POST(req: NextRequest) {
     if (reservation && db) await refundDailyAttempt(db, uid, reservation.date);
     if (premiumMeterDate && db)
       await refundMeteredUse(db, uid, premiumMeterDate, "premiumAnalyses");
+    await recordAnalyzeOutcome(db, {
+      outcome:
+        err instanceof AudioInputError ? "unreadable-audio" : "transcribe-failed",
+    });
     console.error("analyze pipeline failed:", err);
 
     // The file was the problem, so a retry sends the identical bytes and

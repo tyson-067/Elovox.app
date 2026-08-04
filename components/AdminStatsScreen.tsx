@@ -1,15 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { isFirebaseConfigured, getUser } from "@/lib/firebase";
+import { adminGet, type AdminState } from "@/lib/adminClient";
+import { Section, Stat, StatGrid } from "@/components/AdminBits";
+import { AdminSparkline } from "@/components/AdminSparkline";
 
-// Operator dashboard. Everything here comes from Elovox's own Firestore and
-// Firebase Auth records, the questions traffic analytics can't answer (who
-// signed up, who converted, who actually practices).
+// The Overview tab of /admin. Everything here comes from Elovox's own
+// Firestore and Firebase Auth records, the questions traffic analytics can't
+// answer (who signed up, who converted, who actually practices), plus a
+// list-price revenue estimate — Stripe stays the book of record for actual
+// money, and the tile says so.
 //
 // The real access control is server-side in /api/admin/stats, which 404s for
-// anyone outside ADMIN_EMAILS. This screen just renders whatever it gets, so
-// a non-admin who guesses the URL sees the same "nothing here" as a typo.
+// anyone outside ADMIN_EMAILS. This screen just renders whatever it gets and
+// reports a denial up to the console shell.
+
+interface SeriesPoint {
+  date: string;
+  count: number;
+}
 
 interface Stats {
   generatedAt: number;
@@ -22,6 +31,7 @@ interface Stats {
     newLast30: number;
     viaGoogle: number;
     viaPassword: number;
+    disabled: number;
   };
   subscriptions: {
     premium: number;
@@ -31,6 +41,31 @@ interface Stats {
     canceling: number;
     byCycle: Record<string, number>;
     conversionPct: number;
+  };
+  revenue: {
+    estMrr: number;
+    estArr: number;
+    activeByCycle: Record<string, number>;
+    note: string;
+  };
+  series: {
+    signupsByDay: SeriesPoint[];
+    sessionsByDay: SeriesPoint[];
+  };
+  retention: {
+    settledCohort: number;
+    settledRetained: number;
+    settledRetainedPct: number;
+    activation7: number;
+    activationPct: number;
+  };
+  engagement: {
+    rankedAccounts: number;
+    coinsCirculating: number;
+    purchasesTotal: number;
+    topItems: { item: string; count: number }[];
+    streakBuckets: { none: number; warming: number; solid: number; onFire: number };
+    longestStreakEver: number;
   };
   activity: {
     activeLast7: number;
@@ -43,162 +78,246 @@ interface Stats {
   };
 }
 
-function Stat({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string | number;
-  hint?: string;
-}) {
-  return (
-    <div className="card p-4">
-      <p className="text-[13px] font-semibold uppercase tracking-[0.04em] text-on-surface-variant">
-        {label}
-      </p>
-      <p className="font-data mt-1 text-3xl font-bold">{value}</p>
-      {hint && <p className="mt-1 text-sm text-on-surface-variant">{hint}</p>}
-    </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="mt-8">
-      <h2 className="text-[13px] font-semibold uppercase tracking-[0.04em] text-on-surface-variant">
-        {title}
-      </h2>
-      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">{children}</div>
-    </section>
-  );
-}
-
-export function AdminStatsScreen() {
+export function AdminStatsScreen({ onDenied }: { onDenied?: () => void }) {
   const [stats, setStats] = useState<Stats | null>(null);
-  const [state, setState] = useState<"loading" | "ok" | "denied" | "error">(
-    "loading"
-  );
+  const [state, setState] = useState<AdminState>("loading");
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const headers: Record<string, string> = {};
-        if (isFirebaseConfigured()) {
-          const user = await getUser();
-          if (user) headers.Authorization = `Bearer ${await user.getIdToken()}`;
-        }
-        const res = await fetch("/api/admin/stats", { headers });
-        if (cancelled) return;
-        if (res.status === 404) return setState("denied");
-        if (!res.ok) return setState("error");
-        setStats(await res.json());
-        setState("ok");
-      } catch {
-        if (!cancelled) setState("error");
+      const res = await adminGet<Stats>("/api/admin/stats");
+      if (cancelled) return;
+      if (res.denied) {
+        setState("denied");
+        onDenied?.();
+        return;
       }
+      if (!res.ok || !res.data) return setState("error");
+      setStats(res.data);
+      setState("ok");
     })();
     return () => {
       cancelled = true;
     };
+    // onDenied is stable for the life of the console shell.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (state === "loading") {
-    return (
-      <p className="mx-auto max-w-5xl px-5 py-16 text-on-surface-variant">
-        Loading…
-      </p>
-    );
+    return <p className="py-16 text-on-surface-variant">Loading…</p>;
   }
-
-  if (state === "denied") {
-    return (
-      <div className="mx-auto max-w-5xl px-5 py-16">
-        <h1 className="font-headline text-2xl font-semibold">Nothing here</h1>
-        <p className="mt-2 text-on-surface-variant">
-          This page doesn&apos;t exist, or your account can&apos;t see it.
-        </p>
-      </div>
-    );
-  }
-
+  if (state === "denied") return null;
   if (state === "error" || !stats) {
     return (
-      <div className="mx-auto max-w-5xl px-5 py-16">
-        <h1 className="font-headline text-2xl font-semibold">
+      <div className="py-16">
+        <h2 className="font-headline text-2xl font-semibold">
           Couldn&apos;t load stats
-        </h1>
+        </h2>
         <p className="mt-2 text-on-surface-variant">Try again in a moment.</p>
       </div>
     );
   }
 
-  const { accounts: a, subscriptions: s, activity: v } = stats;
+  const {
+    accounts: a,
+    subscriptions: s,
+    activity: v,
+    revenue: r,
+    retention: ret,
+    engagement: e,
+  } = stats;
+  const signups30 = stats.series.signupsByDay.reduce((n, p) => n + p.count, 0);
+  const sessions30 = stats.series.sessionsByDay.reduce((n, p) => n + p.count, 0);
+
+  // The funnel, from numbers already on screen: account → verified →
+  // practiced recently → paying. Percentages are of the TOTAL, so the bars
+  // only ever narrow.
+  const funnel = [
+    { label: "Accounts", n: a.total },
+    { label: "Verified", n: a.verified },
+    { label: "Practiced · 30d", n: v.activeLast30 },
+    { label: "Premium", n: s.premium },
+  ];
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-10">
-      <h1 className="font-headline text-3xl font-bold">Elovox stats</h1>
-      <p className="mt-1 text-sm text-on-surface-variant">
+    <div>
+      <p className="mt-2 text-sm text-on-surface-variant">
         From Elovox&apos;s own records. Traffic and referrers live in Vercel
         Analytics. Updated {new Date(stats.generatedAt).toLocaleString()}.
       </p>
 
       <Section title="Accounts">
-        <Stat label="Total" value={a.total} />
-        <Stat label="New · 7d" value={a.newLast7} hint={`${a.newLast30} in 30d`} />
-        <Stat
-          label="Verified"
-          value={`${a.verifiedPct}%`}
-          hint={`${a.unverified} unverified`}
-        />
-        <Stat
-          label="Sign-in"
-          value={`${a.viaGoogle}G / ${a.viaPassword}P`}
-          hint="Google / password"
-        />
+        <StatGrid>
+          <Stat label="Total" value={a.total} />
+          <Stat label="New · 7d" value={a.newLast7} hint={`${a.newLast30} in 30d`} />
+          <Stat
+            label="Verified"
+            value={`${a.verifiedPct}%`}
+            hint={`${a.unverified} unverified${a.disabled ? ` · ${a.disabled} disabled` : ""}`}
+          />
+          <Stat
+            label="Sign-in"
+            value={`${a.viaGoogle}G / ${a.viaPassword}P`}
+            hint="Google / password"
+          />
+        </StatGrid>
       </Section>
 
       <Section title="Subscriptions">
-        <Stat
-          label="Premium"
-          value={s.premium}
-          hint={
-            s.comped
-              ? `${s.conversionPct}% of accounts · ${s.comped} comped`
-              : `${s.conversionPct}% of accounts`
-          }
-        />
-        <Stat label="On trial" value={s.trialing} />
-        <Stat label="Paying" value={s.activePaid} hint={`${s.canceling} canceling`} />
-        <Stat
-          label="By cycle"
-          value={`${s.byCycle.weekly}/${s.byCycle.monthly}/${s.byCycle.annual}`}
-          hint="wk / mo / yr"
-        />
+        <StatGrid>
+          <Stat
+            label="Premium"
+            value={s.premium}
+            hint={
+              s.comped
+                ? `${s.conversionPct}% of accounts · ${s.comped} comped`
+                : `${s.conversionPct}% of accounts`
+            }
+          />
+          <Stat label="On trial" value={s.trialing} />
+          <Stat label="Paying" value={s.activePaid} hint={`${s.canceling} canceling`} />
+          <Stat
+            label="By cycle"
+            value={`${s.byCycle.weekly}/${s.byCycle.monthly}/${s.byCycle.annual}`}
+            hint="wk / mo / yr"
+          />
+        </StatGrid>
+      </Section>
+
+      <Section title="Revenue (estimated)">
+        <StatGrid>
+          <Stat label="Est. MRR" value={`$${r.estMrr.toFixed(2)}`} hint={r.note} />
+          <Stat label="Est. ARR" value={`$${r.estArr.toFixed(2)}`} />
+          <Stat
+            label="Paying by cycle"
+            value={`${r.activeByCycle.weekly}/${r.activeByCycle.monthly}/${r.activeByCycle.annual}`}
+            hint="wk / mo / yr, active only"
+          />
+          <Stat
+            label="Trial → paid"
+            value={s.activePaid}
+            hint={`${s.trialing} currently in trial`}
+          />
+        </StatGrid>
+      </Section>
+
+      <Section title="Last 30 days">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="card p-4">
+            <p className="text-[13px] font-semibold uppercase tracking-[0.04em] text-on-surface-variant">
+              Signups per day
+            </p>
+            <p className="font-data mt-1 text-3xl font-bold">{signups30}</p>
+            <AdminSparkline
+              points={stats.series.signupsByDay}
+              label="Signups per day"
+            />
+          </div>
+          <div className="card p-4">
+            <p className="text-[13px] font-semibold uppercase tracking-[0.04em] text-on-surface-variant">
+              Practice sessions per day
+            </p>
+            <p className="font-data mt-1 text-3xl font-bold">{sessions30}</p>
+            <AdminSparkline
+              points={stats.series.sessionsByDay}
+              label="Practice sessions per day"
+            />
+          </div>
+        </div>
       </Section>
 
       <Section title="Practice activity">
-        <Stat
-          label="Active · 7d"
-          value={v.activeLast7}
-          hint={`${v.activeLast30} in 30d`}
-        />
-        <Stat
-          label="Sessions · 7d"
-          value={v.sessionsLast7}
-          hint={`${v.sessionsLast30} in 30d`}
-        />
-        <Stat
-          label="Reps per active"
-          value={v.avgSessionsPerActive7}
-          hint="last 7 days"
-        />
-        <Stat
-          label="Avg score"
-          value={v.avgScore ?? "n/a"}
-          hint={`${v.withVideoLast30} with camera`}
-        />
+        <StatGrid>
+          <Stat
+            label="Active · 7d"
+            value={v.activeLast7}
+            hint={`${v.activeLast30} in 30d`}
+          />
+          <Stat
+            label="Sessions · 7d"
+            value={v.sessionsLast7}
+            hint={`${v.sessionsLast30} in 30d`}
+          />
+          <Stat
+            label="Reps per active"
+            value={v.avgSessionsPerActive7}
+            hint="last 7 days"
+          />
+          <Stat
+            label="Avg score"
+            value={v.avgScore ?? "n/a"}
+            hint={`${v.withVideoLast30} with camera`}
+          />
+        </StatGrid>
+      </Section>
+
+      <Section title="Funnel">
+        <div className="card p-4">
+          {funnel.map((step) => (
+            <div key={step.label} className="flex items-center gap-3 py-1">
+              <span className="w-32 shrink-0 text-[13px] text-on-surface-variant">
+                {step.label}
+              </span>
+              <span
+                className="h-4 rounded-full bg-[var(--color-accent)] opacity-80"
+                style={{
+                  width: `${a.total === 0 ? 0 : Math.max(1.5, (step.n / a.total) * 100)}%`,
+                }}
+                aria-hidden
+              />
+              <span className="font-data text-sm font-semibold">
+                {step.n}
+                {a.total > 0 && step.label !== "Accounts" && (
+                  <span className="ml-1 font-normal text-on-surface-variant">
+                    ({Math.round((step.n / a.total) * 100)}%)
+                  </span>
+                )}
+              </span>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Retention">
+        <StatGrid>
+          <Stat
+            label="Settled · kept"
+            value={ret.settledCohort === 0 ? "n/a" : `${ret.settledRetainedPct}%`}
+            hint={`${ret.settledRetained} of ${ret.settledCohort} joined 7-30d ago, practiced this week`}
+          />
+          <Stat
+            label="New · activated"
+            value={a.newLast7 === 0 ? "n/a" : `${ret.activationPct}%`}
+            hint={`${ret.activation7} of ${a.newLast7} this week's signups recorded`}
+          />
+          <Stat
+            label="Streaks alive"
+            value={e.streakBuckets.warming + e.streakBuckets.solid + e.streakBuckets.onFire}
+            hint={`${e.streakBuckets.solid + e.streakBuckets.onFire} at 7d+ · ${e.streakBuckets.onFire} at 21d+`}
+          />
+          <Stat
+            label="Longest streak"
+            value={e.longestStreakEver}
+            hint="days, all-time"
+          />
+        </StatGrid>
+      </Section>
+
+      <Section title="Economy">
+        <StatGrid>
+          <Stat label="Ranked accounts" value={e.rankedAccounts} hint="have a scored session" />
+          <Stat label="Coins circulating" value={e.coinsCirculating} />
+          <Stat label="Shop purchases" value={e.purchasesTotal} />
+          <Stat
+            label="Top item"
+            value={e.topItems[0]?.item ?? "—"}
+            hint={
+              e.topItems.length
+                ? e.topItems.map((t) => `${t.item} ×${t.count}`).join(" · ")
+                : "no purchases yet"
+            }
+          />
+        </StatGrid>
       </Section>
     </div>
   );

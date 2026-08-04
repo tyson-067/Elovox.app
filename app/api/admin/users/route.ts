@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
 import { isAdmin, makeRateLimiter, clientIp } from "@/lib/verify";
+import { recordAdminDenied } from "@/lib/opsMetrics";
 
 // The user list behind /admin: who has an account, who is Premium, and on
 // what terms. Exists so the team can see name/email/plan without anyone
@@ -25,15 +26,19 @@ interface Row {
   name: string | null;
   email: string | null;
   verified: boolean;
+  /** Suspended via Firebase Auth (the /admin disable action, or the console). */
+  disabled: boolean;
   createdAt: number | null;
+  lastSignInAt: number | null;
   premium: boolean;
-  /** What grants the entitlement: a Stripe subscription, or the 21-day
-   *  streak comp window. Null for free accounts. */
+  /** What grants the entitlement: a Stripe subscription, or a comp window
+   *  (streak reward or operator grant). Null for free accounts. */
   source: "paid" | "comp" | null;
   status: string | null; // webhook-written: trialing / active / past_due / canceled / none
   cycle: string | null; // weekly / monthly / annual
   canceling: boolean; // cancelAtPeriodEnd: still premium, ending at period end
   premiumUntil: number | null; // comp window end, only when source === "comp"
+  grantReason: string | null; // "streak-21" | "admin-comp", when source === "comp"
 }
 
 export async function GET(req: NextRequest) {
@@ -41,6 +46,7 @@ export async function GET(req: NextRequest) {
   // busy or unconfigured from one that doesn't exist. See the same note in
   // /api/admin/stats.
   if (!(await isAdmin(req))) {
+    await recordAdminDenied(getAdminDb(), "admin/users", clientIp(req));
     return new NextResponse("Not found", { status: 404 });
   }
   const app = getAdminApp();
@@ -82,8 +88,12 @@ export async function GET(req: NextRequest) {
         name: u.displayName ?? null,
         email: u.email ?? null,
         verified: u.emailVerified,
+        disabled: u.disabled,
         createdAt: u.metadata.creationTime
           ? Date.parse(u.metadata.creationTime)
+          : null,
+        lastSignInAt: u.metadata.lastSignInTime
+          ? Date.parse(u.metadata.lastSignInTime)
           : null,
         premium: paid || comp,
         source: paid ? "paid" : comp ? "comp" : null,
@@ -91,6 +101,8 @@ export async function GET(req: NextRequest) {
         cycle: typeof p?.cycle === "string" ? p.cycle : null,
         canceling: !!p?.cancelAtPeriodEnd,
         premiumUntil: comp ? premiumUntil : null,
+        grantReason:
+          comp && typeof p?.grantReason === "string" ? p.grantReason : null,
       });
     }
     pageToken = page.pageToken;

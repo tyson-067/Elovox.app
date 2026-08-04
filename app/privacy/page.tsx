@@ -168,6 +168,13 @@ export default function PrivacyPage() {
           <strong>your consent</strong> for the camera, which is off unless you
           switch it on and which you can withdraw at any time by turning it off.
         </p>
+        <p>
+          We also read our own numbers in aggregate to understand and improve
+          Elovox — how many people signed up this week, how many practiced
+          today, the average score across everyone. Those are counts and
+          averages about the whole userbase at once; nothing in them
+          identifies you.
+        </p>
       </Section>
 
       <Section heading="Who else processes your data">
@@ -275,6 +282,15 @@ export default function PrivacyPage() {
           promise the impossible, but we don&apos;t retain the most sensitive
           material (your recordings) at all, which is the strongest protection
           available.
+        </p>
+        <p>
+          Inside Elovox, a small number of operators can see account records —
+          your email, your plan, how many sessions you&apos;ve run — because
+          running the service and answering support mail requires it. What they
+          don&apos;t do is browse your recordings, transcripts, or reports:
+          those stay private to your account. The one time an operator touches
+          a copy of your content is to fulfill an export or deletion you asked
+          for yourself, and every such action is logged.
         </p>
       </Section>
 

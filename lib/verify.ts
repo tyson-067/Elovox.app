@@ -49,22 +49,39 @@ async function lookupUser(
   };
 }
 
-/**
- * Whether the caller is an operator, per the ADMIN_EMAILS allow-list. Matches
- * on the verified email from the ID token rather than a uid so the list stays
- * readable, and requires emailVerified so a hostile signup can't claim an
- * operator's address. Empty/unset list means nobody is an admin, the admin
- * surfaces simply 404 rather than falling open.
- */
-export async function isAdmin(req: NextRequest): Promise<boolean> {
-  const allowed = (process.env.ADMIN_EMAILS ?? "")
+/** The ADMIN_EMAILS allow-list, normalized. Empty means nobody is an admin. */
+export function adminEmailList(): string[] {
+  return (process.env.ADMIN_EMAILS ?? "")
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
-  if (allowed.length === 0) return false;
+}
+
+/**
+ * The operator behind a request, per the ADMIN_EMAILS allow-list, or null.
+ * Matches on the verified email from the ID token rather than a uid so the
+ * list stays readable, and requires emailVerified so a hostile signup can't
+ * claim an operator's address. Empty/unset list means nobody is an admin, the
+ * admin surfaces simply 404 rather than falling open.
+ *
+ * Returns the identity (not a bool) so mutating admin routes can write WHO
+ * did WHAT to the adminAudit log — an admin console without attribution is a
+ * console nobody can answer questions about later.
+ */
+export async function adminIdentity(
+  req: NextRequest
+): Promise<{ uid: string; email: string } | null> {
+  const allowed = adminEmailList();
+  if (allowed.length === 0) return null;
   const found = await lookupUser(req);
-  if (!found || !found.emailVerified || !found.email) return false;
-  return allowed.includes(found.email.toLowerCase());
+  if (!found || !found.emailVerified || !found.email) return null;
+  const email = found.email.toLowerCase();
+  return allowed.includes(email) ? { uid: found.uid, email } : null;
+}
+
+/** Whether the caller is an operator. See adminIdentity. */
+export async function isAdmin(req: NextRequest): Promise<boolean> {
+  return (await adminIdentity(req)) !== null;
 }
 
 export async function verifyUser(req: NextRequest): Promise<string | null> {

@@ -48,7 +48,10 @@ export interface PlanRecord {
    * cancellation call and no $0 invoice in the books.
    */
   premiumUntil?: number;
-  grantReason?: "streak-21";
+  /** What opened the window: the 21-day streak reward, or an operator comp
+   *  from /admin (users/[drawer] → Grant comp). Entitlement never reads this,
+   *  it's display/audit metadata only. */
+  grantReason?: "streak-21" | "admin-comp";
   streakRewardsGranted?: number;
 }
 

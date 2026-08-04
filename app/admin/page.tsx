@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { AdminStatsScreen } from "@/components/AdminStatsScreen";
-import { AdminUsersScreen } from "@/components/AdminUsersScreen";
+import { AdminConsole } from "@/components/AdminConsole";
 
 export const metadata: Metadata = {
   title: "Admin | Elovox",
@@ -8,10 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function AdminPage() {
-  return (
-    <>
-      <AdminStatsScreen />
-      <AdminUsersScreen />
-    </>
-  );
+  return <AdminConsole />;
 }

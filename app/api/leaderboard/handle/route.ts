@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { verifyUser, makeRateLimiter, logRejectedInput } from "@/lib/verify";
 import { checkHandle, setHandle } from "@/lib/leaderboardServer";
+import { isRestricted } from "@/lib/moderation";
 
 // Sets the name a user appears under on the leaderboard.
 //
@@ -29,6 +30,18 @@ export async function POST(req: NextRequest) {
   }
   if (rateLimited(uid)) {
     return NextResponse.json({ error: "Slow down a moment." }, { status: 429 });
+  }
+
+  // The handle is the one thing strangers see, so a suspended or banned
+  // account doesn't get to change it (an operator may have JUST cleared an
+  // offensive one — see /api/admin/leaderboard). Fail-open on read trouble,
+  // same as every moderation check.
+  const restriction = await isRestricted(db, uid);
+  if (restriction.blocked) {
+    return NextResponse.json(
+      { error: "Your account can't change its public name right now." },
+      { status: 403 }
+    );
   }
 
   let body: unknown;

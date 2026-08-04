@@ -31,7 +31,7 @@ export const LEGAL = {
   // Per-document, because they change independently and each page prints its
   // own: bumping one date must never make the other claim a change it didn't
   // have. Same stale-but-honest rule as the sitemap.
-  privacyUpdated: "July 31, 2026", // added the tips-list disclosure
+  privacyUpdated: "August 3, 2026", // aggregate-stats + operator-access disclosures
   termsUpdated: "July 23, 2026",
   // Published and then revised the same day: the recording countdown is now
   // announced to screen readers, so it moved off "where we fall short".

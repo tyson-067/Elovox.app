@@ -10,6 +10,7 @@ import { Footer } from "@/components/Footer";
 import { NativeShell } from "@/components/NativeShell";
 import { NativeRuntime } from "@/components/NativeRuntime";
 import { SiteBackdrop } from "@/components/SiteBackdrop";
+import { SiteBanner } from "@/components/SiteBanner";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 // After globals on purpose: the native theme re-points the web's semantic
@@ -205,6 +206,12 @@ export default function RootLayout({
               text links, and a horizontally-scrolling tab strip is browser
               chrome — inside the app, NativeShell puts a title bar and a dock
               in its place. */}
+          {/* Operator announcement bar (/admin → Ops). Renders nothing unless
+              a banner is set; web only — the native shell has its own chrome
+              and never shows it. */}
+          <div className="native-hide">
+            <SiteBanner />
+          </div>
           <header className="native-hide sticky top-0 z-40 border-b border-primary/8 bg-surface/80 backdrop-blur-md">
             <div className="w-full px-4 md:px-10 xl:px-16 2xl:px-24 h-14 flex items-center justify-between">
               <Link
