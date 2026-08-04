@@ -4,7 +4,7 @@ import { clientIp, makeRateLimiter, verifyVerifiedUser } from "@/lib/verify";
 import { isMailConfigured } from "@/lib/email/config";
 import { send } from "@/lib/email/send";
 import { welcome } from "@/lib/email/messages";
-import { claimOnce, releaseOnce } from "@/lib/email/once";
+import { claimOnce, confirmOnce, releaseOnce } from "@/lib/email/once";
 
 /**
  * The welcome email, sent once per account.
@@ -67,7 +67,14 @@ export async function POST(req: NextRequest) {
   }
 
   const result = await send(db, welcome(email, uid, firstName));
-  if (!result.sent) {
+  if (result.sent) {
+    // Mark the claim as actually fulfilled. This was missing, so every
+    // successful welcome sat in `emailOnce` reading `sent: false` — harmless
+    // for the guard itself (the claim's existence is what blocks a second
+    // send) but a straight lie to anyone later asking "did this account get
+    // its welcome?", which is the only reason the field exists.
+    await confirmOnce(db, "welcome", uid);
+  } else {
     // Hand the claim back so tomorrow's first visit can try again. Without
     // this, an account created during a provider outage never gets a welcome.
     await releaseOnce(db, "welcome", uid);

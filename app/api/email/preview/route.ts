@@ -61,6 +61,30 @@ const GALLERY: Record<string, () => AppMessage> = {
   "streak-at-risk": () => messages.streakAtRisk(SAMPLE, UID, 12, "2026-08-04"),
   "win-back": () => messages.winBack(SAMPLE, UID, 4),
   "operator-test": () => messages.operatorTest(SAMPLE),
+  "ops-alert": () =>
+    messages.operatorAlert(
+      SAMPLE,
+      [
+        {
+          level: "urgent",
+          title: "2 unresolved billing alerts",
+          detail:
+            "1 × unused-portion-refund, 1 × duplicate-subscription. Admin → Billing. These are refunds that didn't complete or duplicate subscriptions.",
+        },
+        {
+          level: "urgent",
+          title: "Analysis is paused",
+          detail: "Nobody can get feedback on a recording. Admin → Ops to resume.",
+        },
+        {
+          level: "watch",
+          title: "Email: 84 of 100 sent today",
+          detail: "Close to the daily cap. Optional mail will be trimmed first.",
+        },
+      ],
+      "2026-08-04"
+    ),
+  "ops-all-clear": () => messages.operatorAlert(SAMPLE, [], "2026-08-04"),
 };
 
 export async function GET(req: NextRequest) {

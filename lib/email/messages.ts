@@ -17,6 +17,7 @@
 
 import { LEGAL } from "../legal";
 import { siteUrl } from "./config";
+import type { Block } from "./render";
 import type { AppMessage } from "./send";
 
 const app = () => siteUrl();
@@ -452,6 +453,87 @@ export function winBack(email: string, uid: string, weeksAway: number): AppMessa
 }
 
 /* --- Operations ------------------------------------------------------------ */
+
+/**
+ * The daily operator check-in.
+ *
+ * Two shapes from one builder, because they are the same message: "here is
+ * what needs you" and "nothing needs you". The second only goes out weekly,
+ * and it exists so the first one's absence means something — see the note at
+ * the top of ./opsAlert.ts.
+ *
+ * Written to be actionable at a glance on a phone: the subject says how many
+ * and how bad, the body says what and where to go. No dashboards to open
+ * before you know whether it matters.
+ */
+export function operatorAlert(
+  email: string,
+  concerns: Array<{ level: "urgent" | "watch"; title: string; detail: string }>,
+  dayKey: string
+): AppMessage {
+  const urgent = concerns.filter((c) => c.level === "urgent");
+  const watch = concerns.filter((c) => c.level === "watch");
+  const allClear = concerns.length === 0;
+
+  const subject = allClear
+    ? `${LEGAL.serviceName}: all clear`
+    : urgent.length > 0
+      ? `${LEGAL.serviceName}: ${urgent.length} thing${urgent.length === 1 ? "" : "s"} need${urgent.length === 1 ? "s" : ""} you`
+      : `${LEGAL.serviceName}: ${watch.length} thing${watch.length === 1 ? "" : "s"} worth a look`;
+
+  const blocks: Block[] = [];
+
+  if (allClear) {
+    blocks.push(
+      {
+        kind: "lead",
+        text: "Nothing needs you. Checked billing, the kill switches, the email budget, bounces, the sending domain, and the tips drip.",
+      },
+      {
+        kind: "note",
+        text: "This one arrives weekly whether or not anything is wrong — so that silence on the other days means the check is running, not that it has died.",
+      }
+    );
+  } else {
+    if (urgent.length > 0) {
+      blocks.push({
+        kind: "lead",
+        text:
+          urgent.length === 1
+            ? "One thing needs attention today."
+            : `${urgent.length} things need attention today.`,
+      });
+      for (const c of urgent) {
+        blocks.push({ kind: "p", text: `${c.title} — ${c.detail}` });
+      }
+    }
+    if (watch.length > 0) {
+      if (urgent.length > 0) blocks.push({ kind: "rule" });
+      blocks.push({
+        kind: "p",
+        text: urgent.length > 0 ? "Also worth a look:" : "Worth a look, nothing urgent:",
+      });
+      blocks.push({ kind: "bullets", items: watch.map((c) => `${c.title} — ${c.detail}`) });
+    }
+    blocks.push({ kind: "cta", label: "Open the console", href: `${app()}/admin` });
+  }
+
+  return {
+    to: email,
+    category: "transactional",
+    type: allClear ? "ops-all-clear" : "ops-alert",
+    // One per operator per day. A re-run of the cron collapses at Resend.
+    key: `ops-alert:${dayKey}:${email}`,
+    subject,
+    doc: {
+      preheader: allClear
+        ? "Nothing needs you today."
+        : concerns[0]?.title ?? "Something needs a look.",
+      heading: allClear ? "All clear" : "Elovox needs you",
+      blocks,
+    },
+  };
+}
 
 /** The admin console's "send me a test" button. Exercises the real path —
  *  render, budget, tags, log — so a green result means the real thing works. */

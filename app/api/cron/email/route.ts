@@ -14,9 +14,10 @@ import {
   runWinBack,
 } from "@/lib/email/campaigns";
 import { runTipsDrip } from "@/lib/email/tips";
+import { runOperatorAlert } from "@/lib/email/opsAlert";
 
 /**
- * The scheduled email runs. ONE cron entry, five jobs.
+ * The scheduled email runs. ONE cron entry, six jobs.
  *
  * Why one route rather than three: Vercel's Hobby plan allows two cron jobs
  * per project and one invocation a day each, and `/api/cron/purge-ops` is
@@ -51,7 +52,7 @@ export const maxDuration = 60;
 
 const rateLimited = makeRateLimiter(6, 60 * 60 * 1000);
 
-type Job = "trial" | "weekly" | "streak" | "winback" | "tips";
+type Job = "trial" | "weekly" | "streak" | "winback" | "tips" | "ops";
 
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -101,7 +102,7 @@ export async function GET(req: NextRequest) {
   // Validated against the known set rather than cast. An unrecognised value
   // is currently harmless (it simply matches no job), but "harmless because
   // of how the comparison happens to work" is not a property to rely on.
-  const JOBS: Job[] = ["trial", "weekly", "streak", "winback", "tips"];
+  const JOBS: Job[] = ["trial", "weekly", "streak", "winback", "tips", "ops"];
   const rawOnly = req.nextUrl.searchParams.get("only");
   if (rawOnly && !JOBS.includes(rawOnly as Job)) {
     logRejectedInput("cron/email", "unknown-job");
@@ -137,6 +138,13 @@ export async function GET(req: NextRequest) {
     // onto one morning and round everybody's cadence to the same day.
     if (wants("tips")) {
       results.tips = await runTipsDrip(db, now);
+    }
+    // LAST, deliberately: it reports on the state the other five leave behind,
+    // so running it first would check yesterday's numbers. Silent unless
+    // something is actually wrong, plus a weekly all-clear so that silence is
+    // trustworthy — see lib/email/opsAlert.ts.
+    if (wants("ops")) {
+      results.ops = await runOperatorAlert(app, db, now);
     }
   } catch (err) {
     // Partial results are still reported: knowing the digest went out and the

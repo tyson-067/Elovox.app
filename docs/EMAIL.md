@@ -156,6 +156,7 @@ once — which is the only way to notice that somebody could get four in a day.
 | Streak nudge | lifecycle | cron, daily, streak ≥ 7 and nothing recorded |
 | Win-back | lifecycle | cron, once ever, 3–5 weeks after last activity |
 | Speaking tips 1–12 | marketing | cron, daily — one a week per subscriber |
+| Operator alert | transactional | cron, daily — **only when something is wrong**, plus a weekly all-clear |
 
 ### The trial warning
 
@@ -193,6 +194,47 @@ would do is the failure mode users already flagged about the site. American
 spelling: **practice**, **practiced**, never "practise".
 
 ---
+
+## The operator alert
+
+The one that tells *you* when something needs you. `lib/email/opsAlert.ts`.
+
+Everything else here is silent by design, and that is correct — but a system
+that only writes its problems into a database has not reported them, it has
+filed them. A failed refund, a kill switch left on, the daily send allowance
+running out: all recorded correctly today, all invisible until somebody happens
+to open the console on the right afternoon.
+
+Checks, once a day, in this order:
+
+| Check | Level |
+| --- | --- |
+| Unresolved `billingAlerts` (failed refunds, duplicate subs) | urgent |
+| `pauseAnalyze` / `pauseCheckout` still on | urgent |
+| A site banner still showing | watch |
+| Any spam complaint in 24h | urgent |
+| 5+ hard bounces in 24h | watch |
+| Daily send allowance ≥80% (urgent at 100%) | watch/urgent |
+| Month trending over 3,000 | watch |
+| Sending domain not `verified` | urgent |
+| `RESEND_API_KEY`/`MAIL_FROM` missing | urgent |
+| No webhook secret | watch |
+| Tips subscribers >2 weeks overdue | watch |
+
+**Silent unless something is wrong** — plus a weekly all-clear on Mondays. That
+all-clear is not padding: an alerting system with nothing to say is
+indistinguishable from one that has died, and the day it dies is by
+construction a day nobody notices. The weekly message is what makes the other
+six days' silence mean something.
+
+Each check is wrapped independently, so one failing query can't silence the
+other six — a monitor that goes quiet because its own lookup threw is worse
+than no monitor, because it looks like good news.
+
+Goes to `ADMIN_EMAILS`. It reads the ops flags *fresh*, bypassing the
+one-minute cache in `getOpsFlags` — that cache is right for the hot path it was
+built for and wrong here, where a stale read means a paused pipeline goes
+unreported for a day.
 
 ## The two lists, which never merge
 
@@ -321,14 +363,15 @@ Two entries total, which is Vercel Hobby's ceiling:
 | `/api/cron/purge-ops` | `0 4 * * *` | expires ops events, login rows, email log |
 | `/api/cron/email` | `0 9 * * *` | weekly digest (Mondays), streak nudge, win-back |
 
-`/api/cron/email` is one route with **five** jobs — trial-ending warning,
-weekly digest, streak nudge, win-back, tips drip — precisely because more cron
-entries would not schedule. Add `?only=trial` (or `weekly` / `streak` /
+`/api/cron/email` is one route with **six** jobs — trial-ending warning,
+weekly digest, streak nudge, win-back, tips drip, operator alert — precisely
+because more cron entries would not schedule. Add `?only=trial` (or `weekly` / `streak` /
 `winback` / `tips`), with the cron credential, to exercise one by hand without
 firing the others.
 
 The trial warning runs first and unconditionally. If a day's allowance is ever
-tight, that is the message that must still go out.
+tight, that is the message that must still go out. The operator alert runs
+last, so it reports on the state the other five leave behind.
 
 The tips drip runs daily rather than weekly: the cadence is per-subscriber, so
 a weekly cron would round everybody onto the same morning.
