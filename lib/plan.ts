@@ -180,6 +180,54 @@ function broadcast(plan: Plan): void {
   planListeners.forEach((l) => l(plan));
 }
 
+// --- Live entitlement ------------------------------------------------------
+// One shared Firestore listener on the signed-in user's plan doc, feeding the
+// same broadcast every consumer already subscribes to.
+//
+// Why a listener and not just reads: the one-shot model only ever updated on
+// a cold mount, and inside the native shell the webview lives for HOURS — so
+// an entitlement granted mid-session (an operator comp from /admin, a
+// checkout finishing in another tab, a streak reward) stayed invisible until
+// the OS happened to kill the app AND the 5-minute cache had expired. Users
+// were told "you have Premium" and their phone said Free. (Seen in
+// production, the night the comp button shipped.) With the listener, the
+// write lands on every open device within seconds, and the cache is stamped
+// so the next cold start opens correct too.
+let liveUnsub: (() => void) | null = null;
+let liveUid: string | null = null;
+
+async function ensureLivePlan(uid: string | null): Promise<void> {
+  if (!isFirebaseConfigured()) return;
+  if (liveUid === uid) return;
+  liveUnsub?.();
+  liveUnsub = null;
+  liveUid = uid;
+  if (!uid || uid === "local") return;
+  try {
+    const { doc, onSnapshot } = await import("firebase/firestore");
+    // An auth change may have raced the dynamic import; stand down quietly.
+    if (liveUid !== uid) return;
+    liveUnsub = onSnapshot(
+      doc(getDb(), "users", uid, "profile", "plan"),
+      (snap) => {
+        const plan = snap.exists()
+          ? entitlementFrom(snap.data() as PlanRecord)
+          : "free";
+        writeCache(uid, plan);
+        broadcast(plan);
+      },
+      (err) => {
+        // Offline, permission blip mid-signout: the last answer stands, the
+        // same posture as every other failure path in this file. Firestore
+        // re-establishes the listener on its own when it can.
+        console.warn("[plan] live entitlement listener error", err);
+      }
+    );
+  } catch {
+    // firebase/firestore failed to load; the one-shot reads still work.
+  }
+}
+
 async function readPlanFromFirestore(uid: string): Promise<Plan> {
   const { doc, getDoc } = await import("firebase/firestore");
   const snap = await getDoc(doc(getDb(), "users", uid, "profile", "plan"));
@@ -290,6 +338,13 @@ export function usePlan(): { plan: Plan | null; isPremium: boolean } {
         .catch(() => {
           if (!cancelled && !resolved.current) setPlan("free");
         });
+      // And keep it live from here on: the shared listener pushes any plan-doc
+      // change (comp, checkout, streak reward) through broadcast() to every
+      // mounted consumer. Module-level and deduped by uid, so remounts are
+      // no-ops and it deliberately survives unmount to keep the cache warm.
+      void currentUid().then((uid) => {
+        if (!cancelled) void ensureLivePlan(uid);
+      });
     };
 
     fetch();
