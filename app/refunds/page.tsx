@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalDoc, Section, Bullets } from "@/components/LegalDoc";
 import { LEGAL } from "@/lib/legal";
-import { PLANS, formatUSD, hasTrial } from "@/lib/pricing";
+import { PLANS, TRIAL_DAYS, formatUSD, hasTrial } from "@/lib/pricing";
 import { pageGraph } from "@/lib/schema";
 
 // Refund & cancellation policy. Broken out of /terms into its own page for one
@@ -109,14 +109,25 @@ export default function RefundsPage() {
           <p>
             Canceling stops the <strong>next</strong> charge. Your Premium stays
             on until the end of the period you&apos;ve already paid for, then
-            drops to the free plan. Deleting your account (also in settings)
-            cancels immediately.
+            drops to the free plan.
+          </p>
+          <p>
+            {/* Stated because the code has always done it and the page said
+                the opposite by omission: read alongside "generally
+                non-refundable, including for time you didn't use" below, a
+                reasonable person concluded deletion forfeited the rest of the
+                period — and might sit on a deletion for weeks to "use it up".
+                lib/accountDeletion.ts refunds it. */}
+            Deleting your account (also in settings) cancels immediately, and we
+            put the unused part of the period you&apos;ve paid for back on your
+            card. You don&apos;t have to ask, and you don&apos;t have to wait
+            out the period first.
           </p>
         </Section>
 
         <Section heading="Free trials">
           <p>
-            The monthly and annual plans start with a {LEGAL.serviceName} free
+            The monthly and annual plans start with a {TRIAL_DAYS}-day free
             trial; the weekly plan does not. Starting a trial needs a payment
             method, and unless you cancel before it ends it turns into a paid
             subscription automatically and you&apos;re charged for the first
@@ -133,7 +144,7 @@ export default function RefundsPage() {
           </p>
           <Bullets
             items={[
-              "If you were charged because of a bug on our side, or billed after you'd already canceled, tell us and we'll refund it.",
+              "If you were charged because of a bug on our side, or billed after you'd already canceled, tell us and we'll refund it — in full, not pro-rata.",
               "If Elovox was broadly unusable for a stretch you paid for, email us — we'll look at it fairly rather than hide behind this page.",
               "If we discontinue Elovox, we refund any period you've paid for but can no longer use.",
             ]}

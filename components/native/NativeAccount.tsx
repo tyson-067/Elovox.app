@@ -8,12 +8,17 @@ import {
   type InputHTMLAttributes,
   type ReactNode,
 } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FelixScene } from "@/components/Biome";
-import { NvSparkles } from "@/components/native/felix";
+import { CoinBadge, NvSparkles, popFor } from "@/components/native/felix";
 import { type FelixAccessory } from "@/components/FoxLogo";
 import { useIsNative, useTheme } from "@/lib/native";
 import { LEGAL } from "@/lib/legal";
+import { badgesFor, currentOutfit, wardrobeFor } from "@/lib/quests";
+import { getStats, type UserStats } from "@/lib/daily";
+import { listSessions } from "@/lib/store";
+import type { Session } from "@/lib/types";
 import { fetchShopState, type ShopState } from "@/lib/shop";
 import { usePlanRecord, hasComp, type PlanRecord } from "@/lib/plan";
 import { STREAK_REWARD_DAYS } from "@/lib/streakClaim";
@@ -284,47 +289,217 @@ function ExternalRow({
    so there's no level-outfit fallback, and nothing equipped is just bare
    Felix at home. One read on mount; equipping happens on /shop, and this
    screen remounts on the way back. */
-function IdentityHeader({ email }: { email: string | null }) {
-  const [shop, setShop] = useState<ShopState | null>(null);
-
-  useEffect(() => {
-    let stale = false;
-    void fetchShopState().then((s) => {
-      if (!stale) setShop(s);
-    });
-    return () => {
-      stale = true;
-    };
-  }, []);
+/**
+ * THE DEN — what you've earned, opening the screen that used to open with a
+ * form.
+ *
+ * "Account" was five grouped lists and nothing to be proud of. The Den is the
+ * same five lists entered through the fox: him in his gear with the level on
+ * his shoulder, the badge wall, and the wardrobe rail with the balance that
+ * buys into it. The settings didn't move an inch — they just stopped being the
+ * first thing this screen says about you.
+ *
+ * It fetches its own stats and history for the same reason IdentityHeader
+ * already fetched the shop state: this is the only screen that needs them, and
+ * threading three more props through /account for a native-only surface would
+ * make the web page carry the cost of a screen it never renders.
+ */
+function DenHeader({
+  email,
+  shop,
+  stats,
+}: {
+  email: string | null;
+  shop: ShopState | null;
+  stats: UserStats | null;
+}) {
+  const level = stats?.level;
+  const outfit = currentOutfit(level?.level ?? 1);
+  const wearing =
+    (shop?.equippedAccessory as FelixAccessory | null) ?? outfit?.id;
 
   return (
     <div className="flex flex-col items-center pb-4 pt-2">
-      {/* Decorative for VoiceOver: the email line right below carries the
-          identity, so announcing an image here would only be noise. The
-          skeleton holds the slot until the shop state lands, rather than
-          flashing a default-dressed fox that swaps outfits a beat later. */}
+      {/* Decorative for VoiceOver: the lines right below carry the identity,
+          so announcing an image here would only be noise. The skeleton holds
+          the slot until the shop state lands, rather than flashing a
+          default-dressed fox that swaps outfits a beat later. */}
       <div aria-hidden="true" className="relative">
         {shop ? (
           <>
-            <FelixScene
-              biome={shop.equippedBiome}
-              accessory={
-                (shop.equippedAccessory as FelixAccessory | null) ?? undefined
-              }
-              animate
-              className="h-[72px] w-[72px] rounded-full"
-            />
+            <span
+              className="block h-[104px] w-[104px] overflow-hidden rounded-full"
+              style={{
+                background:
+                  "radial-gradient(circle at 50% 28%, var(--nv-accent-50), var(--nv-accent-100))",
+                boxShadow: "inset 0 0 0 2px var(--nv-accent-100)",
+              }}
+            >
+              <FelixScene
+                biome={shop.equippedBiome}
+                mood="cheer"
+                accessory={wearing}
+                animate
+                className="h-full w-full"
+              />
+            </span>
             <NvSparkles />
+            {level && <span className="nv-lv-chip">{level.level}</span>}
           </>
         ) : (
           <span
-            className="nv-skeleton block h-[72px] w-[72px]"
+            className="nv-skeleton block h-[104px] w-[104px]"
             style={{ borderRadius: "9999px" }}
           />
         )}
       </div>
-      <p className="nv-footnote mt-2 break-all text-center">{email}</p>
+      {level && (
+        <p
+          className="mt-3.5 text-center"
+          style={{
+            fontFamily: "var(--nv-font-display)",
+            fontWeight: 800,
+            fontSize: 22,
+            letterSpacing: "-0.045em",
+          }}
+        >
+          {level.title}
+        </p>
+      )}
+      {/* Joined by hand rather than with a template, because either half can
+          be absent — a provider account with no address, or stats still in
+          flight — and a bare leading "· 716 XP" is what a template gives you. */}
+      <p className="nv-footnote mt-1 break-all text-center">
+        {[email, level ? `${level.xp} XP` : null].filter(Boolean).join(" · ")}
+      </p>
     </div>
+  );
+}
+
+/** The badge wall. Six achievements, four states of pride. */
+function BadgeWall({
+  stats,
+  sessions,
+  failed,
+  loaded,
+}: {
+  stats: UserStats | null;
+  sessions: Session[];
+  /** History couldn't be read — badges are unknown, not un-earned. */
+  failed: boolean;
+  /** History has actually arrived. Absent it, an empty array is not an answer. */
+  loaded: boolean;
+}) {
+  // Nothing, rather than "0 of 6" with all six greyed out. Badges are computed
+  // from the session history, and while that is in flight `sessions` is [] —
+  // which badgesFor correctly reads as "earned none". Rendering it asserts
+  // that every badge is unearned to someone who may have all six, on the
+  // screen built to show them off. A beat of absence is the honest state.
+  if (failed || !loaded) return null;
+  const badges = badgesFor({ stats, sessions });
+  const earned = badges.filter((b) => b.earned).length;
+  const nextUp = badges.find((b) => !b.earned);
+
+  return (
+    <>
+      <NvSectionHeader>Badges</NvSectionHeader>
+      <NvGroup>
+        <div className="px-4 py-4">
+          <div className="mb-3.5 flex items-baseline justify-between">
+            <span className="nv-footnote font-semibold">
+              {earned} of {badges.length}
+            </span>
+          </div>
+          <ul className="grid grid-cols-3 gap-2.5">
+            {badges.map((b, i) => (
+              <li
+                key={b.id}
+                className="nv-badge-tile"
+                data-pop={b.earned ? popFor(i) : undefined}
+                data-locked={b.earned ? undefined : ""}
+              >
+                <span className="nv-badge-emoji" aria-hidden="true">
+                  {b.emoji}
+                </span>
+                <span className="nv-badge-name">{b.name}</span>
+                <span className="sr-only">
+                  {b.earned ? "earned" : `not earned yet — ${b.hint}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {nextUp && (
+            <p className="nv-footnote mt-3.5">
+              {nextUp.name}: {nextUp.hint.toLowerCase()}.
+            </p>
+          )}
+        </div>
+      </NvGroup>
+    </>
+  );
+}
+
+/**
+ * Felix's wardrobe: the level-gated outfits, and the balance that buys the
+ * rest. Tapping anything opens the shop, which is the only screen allowed to
+ * change what he's wearing.
+ */
+function Wardrobe({
+  shop,
+  stats,
+}: {
+  shop: ShopState | null;
+  stats: UserStats | null;
+}) {
+  if (!shop) return null;
+  const level = stats?.level.level ?? 1;
+  const worn = (shop.equippedAccessory as FelixAccessory | null) ?? currentOutfit(level)?.id;
+
+  return (
+    <>
+      <NvSectionHeader>Felix&apos;s wardrobe</NvSectionHeader>
+      <NvGroup>
+        <div className="px-4 py-4">
+          <div className="mb-3.5 flex items-baseline justify-between gap-3">
+            <span className="nv-footnote font-semibold">
+              Tap to open the shop
+            </span>
+            <CoinBadge coins={shop.coins} />
+          </div>
+          <div className="nv-wardrobe">
+            {wardrobeFor(level).map((o) => (
+              <Link
+                key={o.id}
+                href="/shop"
+                className="nv-wardrobe-cell nv-press"
+                data-worn={worn === o.id ? "" : undefined}
+                aria-label={
+                  o.unlocked
+                    ? `${o.name}${worn === o.id ? ", worn" : ", unlocked"}`
+                    : `${o.name}, unlocks at level ${o.level}`
+                }
+              >
+                <span
+                  className="nv-wardrobe-tile"
+                  data-worn={worn === o.id ? "" : undefined}
+                  data-locked={o.unlocked ? undefined : ""}
+                  aria-hidden="true"
+                >
+                  {o.emoji}
+                </span>
+                <span className="nv-wardrobe-label">
+                  {worn === o.id
+                    ? "Worn"
+                    : o.unlocked
+                      ? o.name
+                      : `Level ${o.level}`}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </NvGroup>
+    </>
   );
 }
 
@@ -529,10 +704,14 @@ function PasswordSheet({
   open,
   onClose,
   hasPassword,
+  providerName,
 }: {
   open: boolean;
   onClose: () => void;
   hasPassword: boolean;
+  /** Who actually holds the credentials — "Apple", "Google", or a neutral
+   *  fallback. Hardcoding "Google" was wrong on every Apple account. */
+  providerName: string;
 }) {
   const [curPw, setCurPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -595,7 +774,8 @@ function PasswordSheet({
         </form>
       ) : (
         <p className="nv-subhead pb-2 text-center">
-          This account signs in with Google, so Google manages the password.
+          This account signs in with {providerName}, so {providerName} manages
+          the password.
         </p>
       )}
     </NvSheet>
@@ -923,18 +1103,58 @@ function AccountNative({
   email,
   hasPassword,
   initialVerified,
+  providerName,
 }: {
   email: string | null;
   hasPassword: boolean;
   initialVerified: boolean;
+  providerName: string;
 }) {
   const [verified, setVerified] = useState(initialVerified);
   const [emailOpen, setEmailOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
 
+  // The Den's three reads. Each fails soft and independently: a shop outage
+  // costs the wardrobe, a history outage costs the badges, and the settings
+  // below — the reason anyone actually opens this screen — never wait on any
+  // of it. fetchShopState already never rejects; the other two are caught.
+  const [shop, setShop] = useState<ShopState | null>(null);
+  const [stats, setStats] = useState<UserStats | null>(null);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessionsFailed, setSessionsFailed] = useState(false);
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
+
+  useEffect(() => {
+    let stale = false;
+    void fetchShopState().then((s) => {
+      if (!stale) setShop(s);
+    });
+    getStats()
+      .then((s) => !stale && setStats(s))
+      .catch(() => {});
+    listSessions()
+      .then((s) => {
+        if (stale) return;
+        setSessions(s);
+        setSessionsFailed(false);
+        setSessionsLoaded(true);
+      })
+      .catch(() => !stale && setSessionsFailed(true));
+    return () => {
+      stale = true;
+    };
+  }, []);
+
   return (
     <div className="pb-2">
-      <IdentityHeader email={email} />
+      <DenHeader email={email} shop={shop} stats={stats} />
+      <BadgeWall
+        stats={stats}
+        sessions={sessions}
+        failed={sessionsFailed}
+        loaded={sessionsLoaded}
+      />
+      <Wardrobe shop={shop} stats={stats} />
       <PlanSection />
 
       <NvSectionHeader>Account</NvSectionHeader>
@@ -973,6 +1193,7 @@ function AccountNative({
         open={pwOpen}
         onClose={() => setPwOpen(false)}
         hasPassword={hasPassword}
+        providerName={providerName}
       />
     </div>
   );
@@ -987,6 +1208,8 @@ export function NativeAccount(props: {
   email: string | null;
   hasPassword: boolean;
   initialVerified: boolean;
+  /** "Apple" / "Google" / a neutral fallback, from the account's providers. */
+  providerName: string;
 }) {
   const native = useIsNative();
   if (!native) return null;

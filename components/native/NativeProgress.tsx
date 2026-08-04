@@ -12,14 +12,11 @@ import {
   popFor,
   StreakStat,
 } from "@/components/native/felix";
-import {
-  NvButton,
-  NvGroup,
-  NvRow,
-  NvSectionHeader,
-  NvStat,
-} from "@/components/native/ui";
-import type { UserStats } from "@/lib/daily";
+import { NvButton, NvEmpty, NvGroup, NvSectionHeader, NvStat } from "@/components/native/ui";
+import { NvChevron } from "@/components/native/ui";
+import { Tape } from "@/components/native/Tape";
+import Link from "next/link";
+import { MAX_DAILY_ATTEMPTS, todayKey, type UserStats } from "@/lib/daily";
 import type { Session } from "@/lib/types";
 
 /**
@@ -140,11 +137,49 @@ function GhostSparkline() {
   );
 }
 
-/** Sessions inside the rolling last seven days (same clock idiom tapeDays
- *  uses in NativeToday — the helper owns the date read). */
+/** Sessions inside the rolling last seven days (same clock idiom the Tape
+ *  uses — the helper owns the date read). */
 function sessionsThisWeek(sessions: Session[]): number {
   const weekAgo = new Date().getTime() - 7 * 24 * 60 * 60 * 1000;
   return sessions.filter((s) => s.createdAt >= weekAgo).length;
+}
+
+/**
+ * One recent session, as a row you can open.
+ *
+ * The score wears its band as a colour-tinted square rather than sitting in
+ * the row's grey value slot: eight sessions in a list is the one place you
+ * scan for "which of these went well", and a column of identical grey numerals
+ * makes that a reading exercise. The numeral is still the numeral — the tint
+ * is redundant encoding, never the only signal.
+ */
+function RecentRow({ session, last }: { session: Session; last: boolean }) {
+  const score = session.analysis.overall;
+  return (
+    <Link
+      href={`/report/${session.id}`}
+      className="flex items-center gap-3.5 px-4 py-3"
+      style={last ? undefined : { borderBottom: "1px solid var(--nv-hairline)" }}
+      data-band={bandForScore(score)}
+      aria-label={`Open the report for ${session.speechTitle ?? session.prompt}, scored ${score}`}
+    >
+      <span className="nv-score-sq" aria-hidden="true">
+        {score}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="nv-body block truncate">
+          {session.speechTitle ?? session.prompt}
+        </span>
+        <span className="nv-footnote block">
+          {new Date(session.createdAt).toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+          })}
+        </span>
+      </span>
+      <NvChevron />
+    </Link>
+  );
 }
 
 /** Average each delivery metric over the recent window, latest order first. */
@@ -192,15 +227,18 @@ export function NativeProgress({
     return (
       <div className="pt-6">
         <GhostSparkline />
-        <div className="nv-empty">
-          <Felix mood="coach" animate className="h-24 w-24" />
-          <FelixBubble side="top">
-            Your first rep starts the chart.
-          </FelixBubble>
-          <NvButton onClick={() => router.push("/practice?daily=1")}>
-            Start your Daily Minute
-          </NvButton>
-        </div>
+        {/* NvEmpty, not a hand-rolled .nv-empty. The kit primitive existed and
+            this screen re-implemented it, which is how two versions of one
+            empty state start to drift. */}
+        <NvEmpty
+          icon={<Felix mood="coach" animate className="h-24 w-24" />}
+          line={<FelixBubble side="top">Your first rep starts the chart.</FelixBubble>}
+          action={
+            <NvButton onClick={() => router.push("/practice?daily=1")}>
+              Start your Daily Minute
+            </NvButton>
+          }
+        />
       </div>
     );
   }
@@ -226,6 +264,13 @@ export function NativeProgress({
 
   // Oldest → newest, left to right — same data the web TrendChart plots.
   const scores = [...sessions].reverse().map((s) => s.analysis.overall);
+
+  // Today's bar only breathes while the day is still open. Counted from the
+  // sessions this screen already holds rather than fetching the challenge
+  // state again — a daily rep is exactly a session stamped with today's key.
+  const today = todayKey();
+  const liveToday =
+    sessions.filter((s) => s.challengeDate === today).length < MAX_DAILY_ATTEMPTS;
 
   return (
     <div className="flex flex-col pt-2">
@@ -327,21 +372,28 @@ export function NativeProgress({
         </NvGroup>
       </section>
 
+      {/* THE TAPE. It opened the home screen until the Ladder answered the
+          same question better there — a rung per day, climbing. It belongs
+          here now, beside the score line, because the two measure different
+          things: the line is how WELL, the tape is how OFTEN. */}
+      <section>
+        <NvSectionHeader>Showing up</NvSectionHeader>
+        <NvGroup>
+          <div className="px-4 py-4">
+            <Tape sessions={sessions} streak={streak} liveToday={liveToday} />
+          </div>
+        </NvGroup>
+      </section>
+
       {/* Recent sessions; each row opens its report. */}
       <section>
         <NvSectionHeader>Recent sessions</NvSectionHeader>
         <NvGroup>
-          {sessions.slice(0, RECENT_ROWS).map((s) => (
-            <NvRow
+          {sessions.slice(0, RECENT_ROWS).map((s, i, list) => (
+            <RecentRow
               key={s.id}
-              label={s.speechTitle ?? s.prompt}
-              sub={new Date(s.createdAt).toLocaleDateString(undefined, {
-                month: "short",
-                day: "numeric",
-              })}
-              value={<span className="nv-num">{s.analysis.overall}</span>}
-              href={`/report/${s.id}`}
-              ariaLabel={`Open the report for the session scored ${s.analysis.overall}`}
+              session={s}
+              last={i === Math.min(RECENT_ROWS, list.length) - 1}
             />
           ))}
         </NvGroup>

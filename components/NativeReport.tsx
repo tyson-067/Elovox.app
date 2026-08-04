@@ -15,6 +15,8 @@ import {
   popFor,
 } from "@/components/native/felix";
 import { NvGroup, NvSectionHeader, NvStat } from "@/components/native/ui";
+import { LEVELS } from "@/lib/levels";
+import { currentOutfit } from "@/lib/quests";
 import type { Plan } from "@/lib/plan";
 import type { Session } from "@/lib/types";
 
@@ -80,6 +82,104 @@ function NumberedTips({ tips }: { tips: string[] }) {
   );
 }
 
+/**
+ * One line of the receipt, split into what happened and what it paid.
+ *
+ * `xpForChallengeAttempt` writes its reasons as sentences with the amount
+ * folded in, in three shapes:
+ *
+ *   "Attempt 2 · 87 score"              the base — no amount of its own
+ *   "+42 beat your best by 9"           bonus leading
+ *   "×1.3 4-day streak (+22)"           multiplier leading, gain trailing
+ *
+ * A receipt wants the money in one tabular column, so each shape is peeled
+ * apart here rather than reworded at the source: those strings are the audit
+ * trail for an award that has already been granted, and a display concern is
+ * not a reason to change what was recorded. Anything unrecognised falls
+ * through as a plain label — a new reason shape shows up as prose, never as a
+ * blank row.
+ */
+function splitReason(reason: string): { label: string; amount: string } {
+  const multiplied = reason.match(/^(×[\d.]+)\s+(.*?)\s*\(\+(\d+)\)$/);
+  if (multiplied) {
+    return { label: `${multiplied[2]} ${multiplied[1]}`, amount: `+${multiplied[3]}` };
+  }
+  const bonus = reason.match(/^(\+\d+)\s+(.*)$/);
+  if (bonus) return { label: bonus[2], amount: bonus[1] };
+  return { label: reason, amount: "" };
+}
+
+/**
+ * THE XP RECEIPT — what this take actually paid, itemised.
+ *
+ * Levelling used to be a number that changed somewhere off-screen: you'd get
+ * "+96 XP" as a chip and no idea which part of the minute earned it. Every
+ * line here is one string `xpForChallengeAttempt` already produced when it did
+ * the arithmetic — the report is reading its receipt, not recomputing it, so
+ * the two can never disagree.
+ *
+ * Renders only for daily attempts (nothing else has a breakdown) and only for
+ * sessions recorded since the reasons were persisted. Everything else keeps
+ * the plain +XP badge above.
+ */
+function XpReceipt({ session }: { session: Session }) {
+  const reasons = session.xpReasons ?? [];
+  if (reasons.length === 0) return null;
+
+  // The level this take LANDED on: the one it crossed into if it crossed one,
+  // otherwise leave the headline to the XP itself. Deriving a live level here
+  // would be wrong — the report is a record of a moment, and the user has
+  // almost certainly earned more XP since.
+  const reached = session.leveledUpTo;
+  const level = reached ? LEVELS[reached - 1] : undefined;
+  const outfit = reached ? currentOutfit(reached) : null;
+  // The unlock is only news if THIS level is the one that granted it.
+  const unlocked = outfit && outfit.level === reached ? outfit : null;
+
+  return (
+    <div className="nv-xp-card mt-6">
+      <div className="flex items-center gap-3.5">
+        <div className="min-w-0 flex-1">
+          <div
+            style={{
+              fontFamily: "var(--nv-font-display)",
+              fontWeight: 800,
+              fontSize: 18,
+              letterSpacing: "-0.04em",
+            }}
+          >
+            {level ? `Level ${level.level} — ${level.title}` : "What this earned"}
+          </div>
+          <div className="nv-footnote mt-1">
+            {unlocked
+              ? `The ${unlocked.name} is Felix's now.`
+              : reached
+                ? "A new level, on the same minute."
+                : `+${session.xpEarned ?? 0} XP toward your next level.`}
+          </div>
+        </div>
+        {unlocked && (
+          <span className="nv-xp-unlock" aria-hidden="true">
+            {unlocked.emoji}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-3.5 flex flex-col gap-1.5">
+        {reasons.map((r, i) => {
+          const line = splitReason(r);
+          return (
+            <div key={i} className="nv-xp-line">
+              <span>{line.label}</span>
+              <span className="nv-num">{line.amount}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /** Mono-stroke padlock for the locked-content row (App Store rule: a lock
  *  and reduced opacity, never an upsell). */
 function LockGlyph() {
@@ -133,15 +233,36 @@ export function NativeReport({
     return () => cancelAnimationFrame(raf);
   }, [drawn]);
 
+  // A take you JUST finished earns a celebration; rereading an old report
+  // doesn't. Confetti only for fresh, good takes — rarity is what keeps it
+  // worth something.
+  //
+  // The clock is read ONCE, in a lazy initialiser. Reading it during render is
+  // impure, and it also had a real consequence: a re-render three minutes
+  // after mount flipped this to false and would have torn a celebration down
+  // mid-flight.
+  const [celebrate] = useState(
+    () =>
+      Date.now() - session.createdAt < 3 * 60 * 1000 &&
+      session.analysis.overall >= 75
+  );
+
   if (!native) return null;
 
   const { analysis } = session;
   const arcOffset = DIAL_C * (1 - analysis.overall / 100);
-  // A take you JUST finished earns a celebration; rereading an old report
-  // doesn't. Confetti only for fresh, good takes — rarity is what keeps it
-  // worth something.
-  const fresh = Date.now() - session.createdAt < 3 * 60 * 1000;
-  const celebrate = fresh && analysis.overall >= 75;
+  /**
+   * `isNewBest` is true on the FIRST attempt of every day, whatever the score,
+   * because there was no previous best to beat (lib/daily.ts:
+   * `prior.bestScore === null || score > prior.bestScore`). That is the right
+   * value for the XP formula — the improvement bonus should not fire on a
+   * first attempt either — and the wrong thing to put on a badge: a 41 came
+   * back reading "Your best yet".
+   *
+   * A record needs something to have been broken, so the badge waits for an
+   * attempt that had one to break.
+   */
+  const beatSomething = Boolean(session.isNewBest && (session.attempt ?? 1) > 1);
   // Legacy sessions can miss durationSec; "NaN:NaN" in the meta line is
   // worse than no duration at all.
   const durationLabel = Number.isFinite(session.durationSec)
@@ -217,13 +338,16 @@ export function NativeReport({
           </FelixBubble>
         </div>
 
-        {session.xpEarned ? (
-          <div className="mt-3">
-            <NvBadge pop="sun">
-              <span className="nv-num">+{session.xpEarned}</span>&nbsp;XP
-            </NvBadge>
+        {(session.xpEarned || beatSomething) && (
+          <div className="nv-hud mt-3 justify-center">
+            {beatSomething && <NvBadge pop="mint">Your best yet</NvBadge>}
+            {session.xpEarned ? (
+              <NvBadge pop="sun">
+                <span className="nv-num">+{session.xpEarned}</span>&nbsp;XP
+              </NvBadge>
+            ) : null}
           </div>
-        ) : null}
+        )}
 
         <p className="nv-footnote mt-2 max-w-[44ch] text-center">
           {titleLabel}
@@ -250,6 +374,10 @@ export function NativeReport({
           </p>
         )}
       </section>
+
+      {/* The receipt sits directly under the verdict: the score is what you
+          did, this is what it bought. */}
+      <XpReceipt session={session} />
 
       {/* The six metrics as meters. Sections render only when their data
           exists — a legacy session missing an array gets a shorter report,
@@ -471,8 +599,10 @@ export function NativeReport({
         <Link href={practiceHref} className="nv-btn nv-btn-primary">
           {practiceLabel}
         </Link>
-        <Link href="/progress" className="nv-btn nv-btn-secondary">
-          See your progress
+        {/* Back to the climb, not sideways into another screen. The report is
+            the end of a rep; the ladder is where the next one starts. */}
+        <Link href="/dashboard" className="nv-btn nv-btn-secondary">
+          Back to the ladder
         </Link>
       </div>
     </div>

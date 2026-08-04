@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { TRIAL_DAYS, formatUSD, planFor } from "@/lib/pricing";
 import { FAQ } from "@/lib/faq";
 import { pageGraph } from "@/lib/schema";
 
@@ -19,8 +20,14 @@ import { pageGraph } from "@/lib/schema";
 const SITE = "https://elovox.app";
 
 const TITLE = "Pricing | Elovox";
-const DESCRIPTION =
-  "Elovox pricing. Free forever with a daily speech and three attempts a day, or Premium from $1.54/week for practice with no three-a-day limit, camera coaching, the speech library, and interview practice. Monthly and annual start with a 7-day free trial.";
+// Built from lib/pricing.ts rather than typed out, for the same reason every
+// other price-bearing surface is: a hardcoded figure here outlives a price
+// change and is what search results quote.
+const DESCRIPTION = `Elovox pricing. Free forever with a daily speech and three attempts a day, or Premium from ${formatUSD(
+  planFor("annual").perWeek
+)}/week (${formatUSD(
+  planFor("annual").price
+)}/year) for practice with no three-a-day limit, camera coaching, the speech library, and interview practice. Monthly and annual start with a ${TRIAL_DAYS}-day free trial.`;
 
 export const metadata: Metadata = {
   title: TITLE,

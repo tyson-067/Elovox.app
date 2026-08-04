@@ -157,6 +157,22 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // The login ledgers: failed-attempt counts per account (loginAttempts) and
+    // the per-IP sliding window (loginRates). Deny-all in BOTH directions, and
+    // stated here rather than left to the catch-all because the reason is the
+    // point: a client that could write these could clear its own lockout, and
+    // a client that could READ them could probe which hashed addresses have a
+    // row — turning an anti-enumeration control into an enumeration oracle.
+    // Written only by /api/auth/login through the Admin SDK, which bypasses
+    // these rules. Both carry `expiresAt`; set a Firestore TTL policy on that
+    // field for each collection so old rows clean themselves up.
+    match /loginAttempts/{key} {
+      allow read, write: if false;
+    }
+    match /loginRates/{key} {
+      allow read, write: if false;
+    }
+
     // Everything else is locked down.
     match /{document=**} {
       allow read, write: if false;

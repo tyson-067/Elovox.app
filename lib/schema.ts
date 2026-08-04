@@ -13,6 +13,8 @@
 // page is really about, and let the @id references resolve locally on every
 // document.
 
+import { planFor } from "./pricing";
+
 export const SITE = "https://elovox.app";
 
 export const ORGANIZATION = {
@@ -66,8 +68,24 @@ export const WEBAPP = {
     {
       "@type": "Offer",
       name: "Premium",
-      price: "11.99",
+      // Derived, never typed twice. Every other price-bearing surface (Terms,
+      // Refunds, the pricing page itself) reads lib/pricing.ts explicitly so it
+      // "can never contradict what checkout actually charges" — this node was
+      // the one exception, and it is the one search engines quote back at
+      // people. It happened to be right; being right by coincidence is not a
+      // property you can rely on through a price change.
+      price: planFor("monthly").price.toFixed(2),
       priceCurrency: "USD",
+      // Without a billing period this can surface as a bare "$11.99", which
+      // reads as a one-off purchase for a monthly subscription.
+      priceSpecification: {
+        "@type": "UnitPriceSpecification",
+        price: planFor("monthly").price.toFixed(2),
+        priceCurrency: "USD",
+        billingDuration: 1,
+        billingIncrement: 1,
+        unitCode: "MON",
+      },
       // Mirrors the visible copy's honest wording (see lib/faq.ts): Premium
       // lifts the three-a-day limit, it is not literally unlimited — there is
       // a fair-use ceiling. "Unlimited" here was the one survivor of the

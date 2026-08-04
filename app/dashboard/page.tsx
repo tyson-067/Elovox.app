@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { RequireAuth } from "@/components/RequireAuth";
-import { NativeSections } from "@/components/NativeSections";
-import { NativeToday } from "@/components/NativeToday";
+import { NativeLadder } from "@/components/native/NativeLadder";
 import { Reveal } from "@/components/Reveal";
 import { WordReveal } from "@/components/WordReveal";
 import { GlowCard } from "@/components/GlowCard";
@@ -576,10 +575,10 @@ function TodayScreen() {
         </h1>
       </Reveal>
 
-      {/* The app-scale Today. Everything it shows is derived from the same
-          state the web hero below reads; the web pieces it replaces carry
-          native-hide. Renders nothing in a browser. */}
-      <NativeToday
+      {/* THE LADDER — home at app scale. Everything it shows is derived from
+          the same state the web hero below reads; the web pieces it replaces
+          carry native-hide. Renders nothing in a browser. */}
+      <NativeLadder
         stats={stats}
         daily={daily}
         challenge={challenge}
@@ -622,17 +621,13 @@ function TodayScreen() {
       </Reveal>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* NativeToday carries the Daily Minute in the app; the Den keeps
-            rendering there, restyled by the native CSS layer. */}
+        {/* NativeLadder carries the Daily Minute in the app — it IS the rung. */}
         <Reveal delay={80} className="native-hide lg:col-span-2">
           <DailyCard challenge={daily} state={challenge} />
         </Reveal>
         {/* native-hide: the Den is the busiest card the product has — a
-            badges grid, a scene, three links — and inside the app it sat
-            between the Daily Minute and the section rows. The shell's Today
-            stays minimal: Felix's line, the Tape, the one thing to do.
-            Everything the Den shows is still reachable (shop via Felix,
-            progress via the dock). */}
+            badges grid, a scene, three links — and in the app it is a whole
+            screen (the Den tab), not a widget wedged into the climb. */}
         <Reveal delay={160} className="native-hide">
           <DenWidget
             stats={stats}
@@ -675,9 +670,11 @@ function TodayScreen() {
         </div>
       </section>
 
-      {/* The sections that lost their tab when the sub-nav became a dock.
-          Native only. */}
-      <NativeSections />
+      {/* The sections that lost their tab when the sub-nav became a dock used
+          to be a grouped list here. They are the "Off the ladder" rail inside
+          NativeLadder now — at the FOOT of the climb, which is where you go
+          once the day is dealt with, rather than a menu you scroll past on the
+          way to it. */}
 
       {plan === "free" && (
         // native-hide on the whole card, not just its CTA: with the button

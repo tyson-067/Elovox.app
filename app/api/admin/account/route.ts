@@ -9,6 +9,7 @@ import {
 import { recordAdminDenied } from "@/lib/opsMetrics";
 import { recordAdminAction } from "@/lib/adminAudit";
 import { eraseAccount } from "@/lib/accountDeletion";
+import { readJsonObject } from "@/lib/requestBody";
 
 // Operator account controls — the two heaviest levers in the console, both
 // grounded in commitments the site already makes:
@@ -42,12 +43,11 @@ const rateLimited = makeRateLimiter(10);
 const UID_RE = /^[A-Za-z0-9]{1,128}$/;
 
 async function readBody(req: NextRequest): Promise<Record<string, unknown>> {
-  try {
-    const body = await req.json();
-    return body && typeof body === "object" && !Array.isArray(body) ? body : {};
-  } catch {
-    return {};
-  }
+  // Through the shared reader (lib/requestBody.ts): size cap + shape check,
+  // one implementation. Admin routes are authenticated, which bounds WHO can
+  // post a huge body, not how big it is.
+  const parsed = await readJsonObject(req);
+  return parsed.ok ? parsed.body : {};
 }
 
 export async function POST(req: NextRequest) {

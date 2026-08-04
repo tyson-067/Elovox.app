@@ -31,9 +31,13 @@ function loadServiceAccount(): Record<string, string> | null {
     }
     return parsed;
   } catch (err) {
+    // err.message ONLY, never the error object. V8's "Unexpected token"
+    // form embeds ~10 characters of the input it choked on, and the input
+    // here is a decoded service-account credential.
     console.error(
-      "[firebase-admin] FIREBASE_SERVICE_ACCOUNT is set but unparseable, expected service-account JSON, or base64 of it",
-      err
+      `[firebase-admin] FIREBASE_SERVICE_ACCOUNT is set but unparseable, expected service-account JSON, or base64 of it (${
+        err instanceof Error ? err.name : "unknown error"
+      })`
     );
     return null;
   }
@@ -70,8 +74,9 @@ export function getAdminApp(): App | null {
   } catch (err) {
     initFailed = true;
     console.error(
-      "[firebase-admin] initialization failed; FIREBASE_SERVICE_ACCOUNT is set but unusable",
-      err
+      `[firebase-admin] initialization failed; FIREBASE_SERVICE_ACCOUNT is set but unusable (${
+        err instanceof Error ? err.message : "unknown error"
+      })`
     );
     return null;
   }

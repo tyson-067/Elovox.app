@@ -42,6 +42,20 @@ function Coins({ n }: { n: number }) {
   );
 }
 
+/**
+ * Above this, a purchase asks twice.
+ *
+ * Coins are earned at roughly 40-60 a week by someone practising daily
+ * (lib/coins.ts documents the calibration), so the 500-coin biome is about a
+ * month of work. There is no sell-back, no refund and no undo anywhere in the
+ * coin economy — a mis-tap was permanent, and since a purchase auto-equips,
+ * the only feedback that it registered was the item appearing on Felix.
+ *
+ * Cheap items keep the one-tap buy: making someone confirm an 80-coin beanie
+ * is friction with nothing behind it.
+ */
+const CONFIRM_ABOVE_COINS = 150;
+
 function ItemCard({
   item,
   state,
@@ -55,6 +69,18 @@ function ItemCard({
   onBuy: () => void;
   onEquip: () => void;
 }) {
+  // Armed = this card is asking "sure?". Held per card.
+  const [armed, setArmed] = useState(false);
+  // …and it disarms itself. An armed button that stays armed forever is worse
+  // than no confirmation at all: you arm one, get distracted, come back, tap
+  // what looks like a Buy button and spend 500 coins with no second chance —
+  // the exact mis-tap the step was added to prevent, now with a delay fuse.
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 6000);
+    return () => clearTimeout(t);
+  }, [armed]);
+  const needsConfirm = item.price > CONFIRM_ABOVE_COINS;
   const owned = state.owned.includes(item.id);
   const worn =
     item.kind === "biome"
@@ -120,28 +146,54 @@ function ItemCard({
                   : "Wear it"}
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={onBuy}
-              disabled={busy || !afford}
-              // When it isn't affordable the button's only content is the
-              // price, and the coin emoji inside <Coins> is aria-hidden — so
-              // its entire accessible name was the number "120".
-              aria-label={`Buy ${item.name} for ${item.price} coins`}
-              className={`btn w-full rounded-lg py-2 text-[13px] font-semibold disabled:opacity-60 ${
-                afford
-                  ? "bg-accent-strong text-white"
-                  : "bg-shrimp/50 text-on-surface-variant"
-              }`}
-            >
-              {afford ? (
-                <>
-                  Buy · <Coins n={item.price} />
-                </>
-              ) : (
-                <Coins n={item.price} />
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  if (needsConfirm && !armed) {
+                    setArmed(true);
+                    return;
+                  }
+                  setArmed(false);
+                  onBuy();
+                }}
+                disabled={busy || !afford}
+                // When it isn't affordable the button's only content is the
+                // price, and the coin emoji inside <Coins> is aria-hidden — so
+                // its entire accessible name was the number "120".
+                aria-label={
+                  armed
+                    ? `Confirm: spend ${item.price} coins on ${item.name}`
+                    : `Buy ${item.name} for ${item.price} coins`
+                }
+                className={`btn w-full rounded-lg py-2 text-[13px] font-semibold disabled:opacity-60 ${
+                  afford
+                    ? "bg-accent-strong text-white"
+                    : "bg-shrimp/50 text-on-surface-variant"
+                }`}
+              >
+                {!afford ? (
+                  <Coins n={item.price} />
+                ) : armed ? (
+                  <>
+                    Spend <Coins n={item.price} />?
+                  </>
+                ) : (
+                  <>
+                    Buy · <Coins n={item.price} />
+                  </>
+                )}
+              </button>
+              {armed && (
+                <button
+                  type="button"
+                  onClick={() => setArmed(false)}
+                  className="mt-1.5 block w-full text-center text-[13px] font-semibold text-on-surface-variant"
+                >
+                  Never mind
+                </button>
               )}
-            </button>
+            </>
           )}
         </div>
       </div>
@@ -158,7 +210,16 @@ function ShopScreen() {
   const isNative = useIsNative();
 
   const load = useCallback(async () => {
-    setState(await fetchShopState());
+    const next = await fetchShopState();
+    // A failed read comes back as an EMPTY state with `unavailable` set. Left
+    // unchecked it renders as "0 coins, nothing owned" — which on THIS screen
+    // is a false statement about the user's own property, and the one place
+    // fetchShopState's never-reject contract needed a second signal.
+    if (next.unavailable) {
+      setError("Couldn't load your shop just now. Reload to try again.");
+      return;
+    }
+    setState(next);
   }, []);
 
   // Same shape as the other app screens: fetch, then set behind a cancelled
@@ -166,7 +227,13 @@ function ShopScreen() {
   useEffect(() => {
     let cancelled = false;
     fetchShopState()
-      .then((s) => !cancelled && setState(s))
+      .then((s) => {
+        if (cancelled) return;
+        // Same distinction as `load`: null is "we have nothing to show and we
+        // know it", which is what the screen's own loading/empty branch reads.
+        if (s.unavailable) setState(null);
+        else setState(s);
+      })
       .catch(() => !cancelled && setState(null));
     return () => {
       cancelled = true;
@@ -367,8 +434,9 @@ function ShopScreen() {
               Backgrounds
             </h2>
             <p className="mt-1 text-[14px] text-on-surface-variant">
-              A scene behind the whole site, here in the browser. Plain stays
-              the free default.
+              A scene behind the whole site, here in the browser — these are
+              website-only, so they won&apos;t show up in the Elovox app. Plain
+              stays the free default.
             </p>
             {state.equippedBackdrop && (
               <button

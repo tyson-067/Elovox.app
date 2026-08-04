@@ -549,21 +549,6 @@ html[data-native][data-theme="dark"] .native-tab[aria-current="page"]::before {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-/* The record control, seated. A clean circle on the AA-safe accent, resting
-   IN the bar: no glow bleeding over content, no idle animation. The live
-   ring and pulse belong to the recording screen, not the chrome. */
-html[data-native] .native-record-blob {
-  bottom: 6px;
-  height: 52px;
-  width: 52px;
-  border-radius: 999px;
-  background: var(--nv-accent-700);
-  box-shadow: var(--nv-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.22);
-}
-html[data-native] .native-record-blob::after {
-  display: none;
-}
-
 /* ---------------------------------------------------------------------------
    SCREEN-SPECIFIC STRUCTURES the primitives compose
    --------------------------------------------------------------------------- */
@@ -934,19 +919,12 @@ html[data-native] .nv-row {
 html[data-native] .nv-input {
   min-height: 54px;
 }
-html[data-native] .native-record-blob {
-  height: 56px;
-  width: 56px;
-  /* Seated fully INSIDE the floating capsule ((62-56)/2 = 3), so the glass
-     clips nothing but the last whisper of the halo's gradient. */
-  bottom: 3px;
-}
 
 /* --- Arrival: the cascade -------------------------------------------------
    Cards spring in one after another with ORGANIC spacing — the gaps are
    deliberately irregular (0/45/85/150/190/260ms) and odd cards lean a
    fraction of a degree the other way, so the sequence reads as things
-   landing, not a metronome. Rides the same .native-screen-enter class the
+   landing, not a metronome. Rides the same #main[data-screen-enter] class the
    runtime re-arms per navigation, so it plays on every push and never on
    scroll. */
 @keyframes nv-land {
@@ -955,37 +933,37 @@ html[data-native] .native-record-blob {
     transform: translateY(16px) scale(0.98) rotate(var(--nv-lean, 0.25deg));
   }
 }
-html[data-native] .native-screen-enter .card,
-html[data-native] .native-screen-enter .nv-group {
+html[data-native] #main[data-screen-enter] .card,
+html[data-native] #main[data-screen-enter] .nv-group {
   animation: nv-land 520ms var(--nv-spring) backwards;
 }
-html[data-native] .native-screen-enter .card:nth-child(odd),
-html[data-native] .native-screen-enter .nv-group:nth-child(odd) {
+html[data-native] #main[data-screen-enter] .card:nth-child(odd),
+html[data-native] #main[data-screen-enter] .nv-group:nth-child(odd) {
   --nv-lean: -0.3deg;
 }
-html[data-native] .native-screen-enter .card:nth-child(2),
-html[data-native] .native-screen-enter .nv-group:nth-child(2) { animation-delay: 45ms; }
-html[data-native] .native-screen-enter .card:nth-child(3),
-html[data-native] .native-screen-enter .nv-group:nth-child(3) { animation-delay: 85ms; }
-html[data-native] .native-screen-enter .card:nth-child(4),
-html[data-native] .native-screen-enter .nv-group:nth-child(4) { animation-delay: 150ms; }
-html[data-native] .native-screen-enter .card:nth-child(5),
-html[data-native] .native-screen-enter .nv-group:nth-child(5) { animation-delay: 190ms; }
-html[data-native] .native-screen-enter .card:nth-child(n + 6),
-html[data-native] .native-screen-enter .nv-group:nth-child(n + 6) { animation-delay: 260ms; }
+html[data-native] #main[data-screen-enter] .card:nth-child(2),
+html[data-native] #main[data-screen-enter] .nv-group:nth-child(2) { animation-delay: 45ms; }
+html[data-native] #main[data-screen-enter] .card:nth-child(3),
+html[data-native] #main[data-screen-enter] .nv-group:nth-child(3) { animation-delay: 85ms; }
+html[data-native] #main[data-screen-enter] .card:nth-child(4),
+html[data-native] #main[data-screen-enter] .nv-group:nth-child(4) { animation-delay: 150ms; }
+html[data-native] #main[data-screen-enter] .card:nth-child(5),
+html[data-native] #main[data-screen-enter] .nv-group:nth-child(5) { animation-delay: 190ms; }
+html[data-native] #main[data-screen-enter] .card:nth-child(n + 6),
+html[data-native] #main[data-screen-enter] .nv-group:nth-child(n + 6) { animation-delay: 260ms; }
 
 /* --- The Tape plays itself on arrival ------------------------------------
-   Bars rise from the midline left to right (NativeToday stamps --i per
-   bar), like a take scrubbing onto the reel. */
+   Bars rise from the midline left to right (components/native/Tape.tsx
+   stamps --i per bar), like a take scrubbing onto the reel. */
 @keyframes nv-bar-rise {
   from { transform: scaleY(0.1); opacity: 0; }
 }
-html[data-native] .native-screen-enter .voxline-bar {
+html[data-native] #main[data-screen-enter] .voxline-bar {
   animation: nv-bar-rise 460ms var(--nv-spring) backwards;
   animation-delay: calc(120ms + var(--i, 0) * 26ms);
 }
 /* The live bar keeps its own breath; the rise hands off to it. */
-html[data-native] .native-screen-enter .voxline-bar[data-live] {
+html[data-native] #main[data-screen-enter] .voxline-bar[data-live] {
   animation: nv-bar-rise 460ms var(--nv-spring) backwards,
     felix-bar 900ms ease-in-out infinite alternate 580ms;
   animation-delay: calc(120ms + var(--i, 0) * 26ms), 580ms;
@@ -997,7 +975,7 @@ html[data-native] .native-screen-enter .voxline-bar[data-live] {
 @keyframes nv-fill-in {
   from { transform: scaleX(0); }
 }
-html[data-native] .native-screen-enter .nv-meter-fill {
+html[data-native] #main[data-screen-enter] .nv-meter-fill {
   transform-origin: left center;
   animation: nv-fill-in 640ms var(--nv-spring) 240ms backwards;
 }
@@ -1019,23 +997,19 @@ html[data-native] .nv-press:active {
 }
 
 /* --- The one thing that never quite sleeps --------------------------------
-   The record control breathes — 1.5% over three seconds, the app's pulse.
-   Orange means live, and this is the only always-on trace of it. */
+   The dock's record node used to breathe here. It is gone (the rung IS the
+   button now), but the keyframe stays: the booth's Live dot rides it. */
 @keyframes nv-breathe {
   50% { transform: scale(1.03); }
-}
-html[data-native] .native-record-blob {
-  animation: nv-breathe 3.2s ease-in-out infinite;
 }
 
 /* --- Reduce Motion turns the whole layer off ------------------------------ */
 @media (prefers-reduced-motion: reduce) {
-  html[data-native] .native-screen-enter .card,
-  html[data-native] .native-screen-enter .nv-group,
-  html[data-native] .native-screen-enter .voxline-bar,
-  html[data-native] .native-screen-enter .voxline-bar[data-live],
-  html[data-native] .native-screen-enter .nv-meter-fill,
-  html[data-native] .native-record-blob {
+  html[data-native] #main[data-screen-enter] .card,
+  html[data-native] #main[data-screen-enter] .nv-group,
+  html[data-native] #main[data-screen-enter] .voxline-bar,
+  html[data-native] #main[data-screen-enter] .voxline-bar[data-live],
+  html[data-native] #main[data-screen-enter] .nv-meter-fill {
     animation: none;
   }
   html[data-native] .nv-btn,
@@ -1074,9 +1048,6 @@ html[data-native] #main > * {
 }
 html[data-native] .native-title-lg {
   padding: 0 var(--nv-gutter) 14px;
-}
-html[data-native] .native-bar-sub {
-  padding: 0 var(--nv-gutter) 12px;
 }
 
 /* Rows breathe vertically; their horizontal padding follows the gutter. */
@@ -1302,16 +1273,18 @@ html[data-native][data-theme="dark"] .nv-group {
    the collapse rules globals.css wrote earlier (.native-bar-scrolled
    .native-title-lg) — so a collapsed large title kept its 20px padding box,
    and overflow:hidden clips to the PADDING box, leaving a clipped stripe of
-   title floating over content. The date sub-line was never collapsed at
-   all. Both fold away here, at a specificity nothing above can lose to. */
-html[data-native] .native-bar-sub {
-  transition:
-    opacity 180ms ease,
-    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-html[data-native] .native-bar-scrolled .native-title-lg,
-html[data-native] .native-bar-scrolled .native-bar-sub {
+   title floating over content. It folds away here, at a specificity nothing
+   above can lose to.
+
+   `visibility: hidden` as well as opacity, and that is not belt-and-braces:
+   opacity 0 with height 0 hides a thing from EYES and leaves it in the
+   accessibility tree, so every titled screen announced its name twice — once
+   from the collapsed large title, once from the small one that replaced it.
+   visibility takes it out of the tree. Kept out of the transition list so it
+   flips at the end of the fade rather than snapping the text away. */
+html[data-native] .native-bar-scrolled .native-title-lg {
   opacity: 0;
+  visibility: hidden;
   transform: translateY(-8px) scale(0.9);
   height: 0;
   padding-top: 0;
@@ -1319,6 +1292,18 @@ html[data-native] .native-bar-scrolled .native-bar-sub {
   margin: 0;
   overflow: hidden;
   pointer-events: none;
+}
+html[data-native] .native-title-lg {
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 180ms;
+}
+html[data-native] .native-bar-scrolled .native-title-lg {
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 180ms;
 }
 
 /* --- Accessibility is part of the material ---------------------------------
@@ -1503,13 +1488,13 @@ html[data-native] .nv-hud {
     transform: scale(0.5);
   }
 }
-html[data-native] .native-screen-enter .nv-badge {
+html[data-native] #main[data-screen-enter] .nv-badge {
   animation: nv-pop-in 540ms var(--nv-spring-bouncy) 320ms backwards;
 }
 /* Reward stagger: 70ms apart, so the row reads as one-two-three, not as one
    block landing. */
-html[data-native] .native-screen-enter .nv-hud > .nv-badge:nth-child(2) { animation-delay: 390ms; }
-html[data-native] .native-screen-enter .nv-hud > .nv-badge:nth-child(3) { animation-delay: 460ms; }
+html[data-native] #main[data-screen-enter] .nv-hud > .nv-badge:nth-child(2) { animation-delay: 390ms; }
+html[data-native] #main[data-screen-enter] .nv-hud > .nv-badge:nth-child(3) { animation-delay: 460ms; }
 
 /* --- Felix speaks ----------------------------------------------------------
    His line lives in a real speech bubble now, tail pointing at the fox.
@@ -1548,7 +1533,7 @@ html[data-native] .nv-bubble[data-side="top"]::before {
     transform: translateY(6px) scale(0.92);
   }
 }
-html[data-native] .native-screen-enter .nv-bubble {
+html[data-native] #main[data-screen-enter] .nv-bubble {
   transform-origin: left center;
   animation: nv-bubble-in 400ms var(--nv-spring-soft) 260ms backwards;
 }
@@ -1582,20 +1567,10 @@ html[data-native] [data-tier="5"] .nv-flame { --flame-a: var(--nv-pop-sky); --fl
   80% { transform: scale(1.03, 0.98) rotate(2deg); }
 }
 
-/* --- The XP ring around Felix ----------------------------------------------
-   Level progress drawn around the avatar, Apple-ring style; the level chip
-   sits on the ring's edge. The arc sweeps in on arrival (the component
-   flips the dashoffset one frame after mount, same pattern as the report
-   dial). */
-html[data-native] .nv-ring-track {
-  stroke: var(--nv-tint-soft);
-}
-html[data-native] .nv-ring-arc {
-  /* The soft spring overshoots the fill by ~3% and settles back — progress
-     that feels generous. dashoffset isn't transform, but a 64px ring's
-     paint area is trivial and it draws once per arrival. */
-  transition: stroke-dashoffset 950ms var(--nv-spring-soft) 250ms;
-}
+/* --- The level chip on Felix's shoulder -------------------------------------
+   (The ring these two used to sit inside went with the Ladder pass — see the
+   note where XpAvatar was in components/native/felix.tsx. The chip stayed:
+   the Den's identity header still wears it.) */
 html[data-native] .nv-lv-chip {
   position: absolute;
   bottom: -3px;
@@ -1620,7 +1595,7 @@ html[data-native] .nv-lv-chip {
    Felix's currency, wearing the voice bars. It lands with one flip on
    arrival and then sits still — a coin that never stops spinning is a
    casino, not a den. */
-html[data-native] .native-screen-enter .nv-coin {
+html[data-native] #main[data-screen-enter] .nv-coin {
   animation: nv-coin-flip 760ms var(--nv-spring) 420ms backwards;
 }
 @keyframes nv-coin-flip {
@@ -1703,7 +1678,7 @@ html[data-native] .nv-peek svg {
   width: 48px;
   height: 48px;
 }
-html[data-native] .native-screen-enter .nv-peek svg {
+html[data-native] #main[data-screen-enter] .nv-peek svg {
   animation: nv-peek-rise 620ms var(--nv-spring) 380ms backwards;
 }
 @keyframes nv-peek-rise {
@@ -1890,10 +1865,10 @@ html[data-native] .nv-btn-primary:active {
 
 /* --- Reduce Motion turns the festival off ---------------------------------- */
 @media (prefers-reduced-motion: reduce) {
-  html[data-native] .native-screen-enter .nv-badge,
-  html[data-native] .native-screen-enter .nv-bubble,
-  html[data-native] .native-screen-enter .nv-coin,
-  html[data-native] .native-screen-enter .nv-peek svg,
+  html[data-native] #main[data-screen-enter] .nv-badge,
+  html[data-native] #main[data-screen-enter] .nv-bubble,
+  html[data-native] #main[data-screen-enter] .nv-coin,
+  html[data-native] #main[data-screen-enter] .nv-peek svg,
   html[data-native] .nv-flame,
   html[data-native] .nv-spark,
   html[data-native] .felix-cheer,
@@ -1905,7 +1880,769 @@ html[data-native] .nv-btn-primary:active {
   }
   /* A confetti piece with no animation holds opacity 0 — the burst simply
      never shows, which is the correct reduced-motion celebration. */
-  html[data-native] .nv-ring-arc {
+  /* (nv-ring-arc's transition went with the ring itself.) */
+}
+
+/* ---------------------------------------------------------------------------
+   THE LADDER PASS
+   ---------------------------------------------------------------------------
+   The structural round. Everything before this was the app getting better at
+   being a stack of cards; this one gives the app a SPINE.
+
+   The argument: a day is a rung, a rung is lit or it isn't, and Felix is
+   standing on the one you're meant to climb. Home stops being a dashboard of
+   competing cards and becomes a single vertical climb — yesterday behind you,
+   today enormous and orange in the middle, the next unlock ahead. There is
+   only ever ONE thing at full contrast on the screen.
+
+   What changed structurally, and why:
+   - The dock lost its record node. The rung IS the button, so a separate
+     "record" tab was a second door onto the same room.
+   - The premium modules moved off the home screen into a rail at the foot of
+     the climb ("Off the ladder") — things you go and do, not places you live.
+   - Account became the Den: the same settings, opened by what you've earned.
+   - The reward node on the spine is the next level-gated unlock, so levelling
+     finally has somewhere to land.
+
+   The surface changes with it: the ground goes to warm paper, and cards trade
+   their soft shadow for a HARD BOTTOM EDGE — the physical, pressable card the
+   buttons already had since the festival pass. One material, everywhere.
+   --------------------------------------------------------------------------- */
+
+/* --- Ground and paper ------------------------------------------------------ */
+html[data-native] {
+  --nv-bg: #fdfaf7; /* warm paper, not the old cold #fafafa */
+  --nv-bg-grouped: #f5f0ea;
+  --nv-card: #ffffff;
+  --nv-hairline: #f0e7e0;
+  --nv-tint-soft: #f4efea;
+  /* The card's two edges: a solid darker lip underneath (the thing a finger
+     presses INTO) and a hairline ring around it. Both warm, both tokens, so
+     dark mode swaps them without a single hex escaping a component. */
+  --nv-card-edge: #eadfd6;
+  --nv-card-line: #f0e7e0;
+  /* The climb's LINEWORK — the dashed spine and the rings around settled
+     rungs. Deliberately NOT --nv-card-edge: that token is the card's lip,
+     which in dark mode is a black shadow. Reused as a stroke it drew a black
+     dashed line on a near-black ground, i.e. no line at all, and the spine is
+     the one element the whole screen is organised around. */
+  --nv-rail: #e3d8ce;
+  --nv-r-card: 22px;
+  --nv-glass: rgba(253, 250, 247, 0.84);
+}
+html[data-native][data-theme="dark"] {
+  /* The Booth keeps its night. The lip becomes a shadow rather than a lighter
+     lip, because on a dark ground a *lighter* edge reads as a highlight —
+     which is the opposite of "this sits above the page". */
+  --nv-card-edge: rgba(0, 0, 0, 0.34);
+  --nv-card-line: rgba(255, 255, 255, 0.07);
+  /* Chalk, not shadow. See --nv-rail above. */
+  --nv-rail: rgba(255, 255, 255, 0.16);
+}
+
+/* The aurora warms up: peach over the shoulder, the logo's violet answering
+   from the far corner. Still one fixed, never-repainted layer. */
+html[data-native] body::before {
+  background:
+    radial-gradient(120% 70% at 50% -10%, #ffe9dc, transparent 60%),
+    radial-gradient(90% 60% at 100% 100%, rgba(142, 111, 240, 0.1), transparent 60%),
+    var(--nv-bg);
+}
+
+/* Paper, with a lip. Replaces the frost recipe above at the same specificity
+   (later sheet wins) so cards stop being translucent panes and start being
+   things you could pick up. */
+html[data-native] .card,
+html[data-native] .card-warm,
+html[data-native] .nv-group,
+html[data-native][data-theme="dark"] .card,
+html[data-native][data-theme="dark"] .card-warm,
+html[data-native][data-theme="dark"] .nv-group {
+  background: var(--nv-card);
+  border: none;
+  border-radius: var(--nv-r-card);
+  box-shadow:
+    0 3px 0 var(--nv-card-edge),
+    inset 0 0 0 1px var(--nv-card-line);
+}
+/* Rows inside a group divide on the warm hairline. */
+html[data-native] .nv-row + .nv-row::before,
+html[data-native] .nv-row-divide::before {
+  background: var(--nv-hairline);
+}
+
+/* --- The dock: four destinations, no action -------------------------------
+   The record node is gone. Its job belongs to the rung, which is the biggest
+   thing on the home screen and is never more than one tab away. */
+html[data-native] .native-dock-row {
+  grid-template-columns: repeat(4, 1fr);
+}
+/* The tab hues re-key to the four that are actually there: Ladder ember,
+   Progress sky, Library mint, Den lilac. (The old rules skipped slot 3 for
+   the record node — with four tabs that left Library uncoloured.) */
+html[data-native] .native-dock-row > .native-tab:nth-child(1) { --tab-pop: var(--nv-accent-500); --tab-ink: var(--nv-accent-700); }
+html[data-native] .native-dock-row > .native-tab:nth-child(2) { --tab-pop: var(--nv-pop-sky); --tab-ink: var(--nv-pop-sky-ink); }
+html[data-native] .native-dock-row > .native-tab:nth-child(3) { --tab-pop: var(--nv-pop-mint); --tab-ink: var(--nv-pop-mint-ink); }
+html[data-native] .native-dock-row > .native-tab:nth-child(4) { --tab-pop: var(--nv-pop-lilac); --tab-ink: var(--nv-pop-lilac-ink); }
+
+/* Inactive dock tabs move from ink-3 to ink-2. They are the app's primary
+   navigation, and at ~2.6:1 three of the four destinations were below the
+   threshold for the text they are made of. The ACTIVE tab still separates
+   itself, by hue and by its platter — it never depended on the others being
+   faint. */
+html[data-native] .native-tab {
+  color: var(--nv-ink-2);
+}
+
+/* --- The ladder bar --------------------------------------------------------
+   Home has no large title: the climb is the title. Instead a sticky HUD —
+   Felix (a door to the Den), the level bar, the streak — over a gradient that
+   fades the content out from under it rather than cutting it with glass. */
+html[data-native] .nv-ladder-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin: 0 calc(var(--nv-gutter) * -1);
+  /* The bottom padding is not spacing — it is the RUNWAY the fade happens in.
+     The mask below is measured from the bottom edge in px, so the glass stays
+     fully opaque behind every pixel of the HUD's content and only softens
+     inside this strip. Sized as a percentage it was a bug you could only see
+     on a device: the safe-area inset makes this box much taller on a phone
+     than in a desktop browser, which pushed the XP bar down into the fade and
+     let the page's text scroll visibly THROUGH it. */
+  padding: calc(env(safe-area-inset-top) + 10px) 18px 26px;
+}
+/* The bar's material rides its own masked layer rather than a flat fill.
+   A flat `background: var(--nv-bg)` is a lie in both modes — the aurora is
+   painted BEHIND the page, so a solid ground-coloured rectangle sat over it
+   as a visible band across the top of the climb (worst in the Booth, where
+   the aurora is strongest). Glass + a mask instead: the layer takes the same
+   blur the rest of the chrome uses, and the mask fades the blur out with the
+   tint so there is no cut edge where the box ends. */
+html[data-native] .nv-ladder-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  /* Denser than the chrome's --nv-glass. A nav bar only has to separate
+     itself from content; this one has to HIDE it, because the climb scrolls
+     directly beneath the level bar. */
+  background: color-mix(in srgb, var(--nv-bg) 92%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(1.7);
+  backdrop-filter: blur(14px) saturate(1.7);
+  /* Opaque to within 22px of the bottom, then out. Absolute, not a
+     percentage — see the note on the padding above. */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 22px),
+    rgba(0, 0, 0, 0.55) calc(100% - 8px),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 22px),
+    rgba(0, 0, 0, 0.55) calc(100% - 8px),
+    transparent
+  );
+}
+/* No backdrop-filter (older WebViews) or reduced transparency: fall back to
+   the ground colour, which is the band — but a legible one. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-native] .nv-ladder-bar::before {
+    background: var(--nv-bg);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  html[data-native] .nv-ladder-bar::before {
+    background: var(--nv-bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+html[data-native] .nv-ladder-avatar {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: var(--nv-r-pill);
+  background: var(--nv-accent-50);
+  box-shadow: inset 0 0 0 1.5px var(--nv-accent-100);
+  overflow: hidden;
+}
+html[data-native] .nv-ladder-avatar > * {
+  position: absolute;
+  top: -2px;
+  left: 0;
+  width: 40px;
+  height: 40px;
+}
+html[data-native] .nv-xp-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--nv-tint-soft);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(18, 16, 31, 0.07);
+}
+html[data-native] .nv-xp-fill {
+  height: 100%;
+  border-radius: 4px;
+  /* The DARKER end of the ramp, for the same reason --pop-graphic exists: on
+     the meter's own pale track the raw accent measured under 3:1, which is a
+     bar whose end you cannot find. Dark mode keeps the bright cut, where it is
+     the legible one. */
+  background: linear-gradient(90deg, #d9600d, var(--nv-accent-700));
+  transition: width 700ms var(--nv-ease);
+}
+html[data-native][data-theme="dark"] .nv-xp-fill {
+  background: linear-gradient(90deg, #ff8400, var(--nv-accent-500));
+}
+html[data-native][data-theme="dark"] .nv-xp-track {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* --- The spine -------------------------------------------------------------
+   One dashed line down the middle, behind everything. It stops short of the
+   foot so the rail at the bottom isn't threaded onto the climb. */
+html[data-native] .nv-ladder {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 16px;
+}
+html[data-native] .nv-spine {
+  position: absolute;
+  top: 44px;
+  bottom: 24px;
+  left: 50%;
+  width: 0;
+  border-left: 3px dashed var(--nv-rail);
+  transform: translateX(-1.5px);
+  pointer-events: none;
+}
+
+/* A settled rung: the day, its score, and what it was. Alternates sides. */
+html[data-native] .nv-rung {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+html[data-native] .nv-rung[data-side="right"] {
+  flex-direction: row-reverse;
+}
+html[data-native] .nv-rung-disc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: var(--nv-r-pill);
+  background: var(--nv-card);
+  box-shadow:
+    0 2px 0 var(--nv-card-edge),
+    inset 0 0 0 2px var(--nv-rail);
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.03em;
+  /* ink-2, not ink-3. A settled rung is PAST, not decoration: it carries a
+     real score and a real speech title, and ink-3 put both at ~2.6:1 on the
+     warm paper — under the 4.5:1 body text owes. "Half contrast" is a
+     hierarchy instruction, not a licence to go unreadable. */
+  color: var(--nv-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+html[data-native] .nv-rung-caption {
+  font-size: var(--nv-footnote-size);
+  font-weight: 600;
+  color: var(--nv-ink-2);
+}
+html[data-native] .nv-rung[data-side="right"] .nv-rung-caption {
+  text-align: right;
+}
+
+/* The locked node: tomorrow, which nobody can reach early. */
+html[data-native] .nv-rung-locked {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  flex: none;
+  border-radius: var(--nv-r-pill);
+  background: var(--nv-tint-soft);
+  box-shadow: inset 0 0 0 2px var(--nv-rail);
+  color: var(--nv-ink-2);
+}
+
+/* --- TODAY: the one thing at full contrast -------------------------------- */
+html[data-native] .nv-today {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+html[data-native] .nv-rung-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 136px;
+  height: 136px;
+  border: none;
+  padding: 0;
+  background: none;
+}
+html[data-native] .nv-rung-halo {
+  position: absolute;
+  inset: 2px;
+  border-radius: var(--nv-r-pill);
+  background: var(--nv-accent-500);
+  animation: nv-halo 2.6s ease-out infinite;
+}
+@keyframes nv-halo {
+  0% { transform: scale(1); opacity: 0.5; }
+  70% { opacity: 0; }
+  100% { transform: scale(1.44); opacity: 0; }
+}
+html[data-native] .nv-rung-face {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 132px;
+  height: 132px;
+  border-radius: var(--nv-r-pill);
+  color: #fff;
+  /* The SHEEN recipe, not a two-orange ramp. This ran #ff8f4d -> #e8500f, and
+     white on #ff8f4d is about 2.1:1 — so "60 SEC" and the score, the two
+     pieces of text on the biggest control in the app, sat under every
+     threshold on the upper half of the button. --nv-accent-700 is the surface
+     this system already verified for white (5.2:1); a white gradient laid
+     over it keeps the dimensional read without moving the ink onto anything
+     lighter. Identical to .nv-btn-primary, deliberately. */
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 46%),
+    var(--nv-accent-700);
+  box-shadow:
+    0 8px 0 #a83409,
+    0 18px 34px rgba(194, 65, 12, 0.34),
+    inset 0 2px 0 rgba(255, 255, 255, 0.34);
+}
+/* Done for the day: the rung goes mint and wears the score instead. */
+html[data-native] .nv-rung-face[data-done] {
+  /* A FIXED deep mint, not --nv-pop-mint-ink.
+     That token flips with the theme by design — it is the ink for mint TEXT,
+     so in dark mode it lightens to #56e0cf. Used as a FILL under white text
+     that is exactly backwards: the lit rung came out pale green with white
+     numerals on it. A surface that always carries white text needs a value
+     that is dark in both rooms, the same reasoning as the coin's engraving. */
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 46%),
+    #0b7568;
+  box-shadow:
+    0 8px 0 #0a6a5f,
+    0 18px 34px rgba(15, 149, 133, 0.3),
+    inset 0 2px 0 rgba(255, 255, 255, 0.3);
+}
+html[data-native] .nv-rung-btn:active .nv-rung-face {
+  transform: translateY(4px);
+  box-shadow:
+    0 4px 0 #a83409,
+    0 8px 18px rgba(194, 65, 12, 0.28),
+    inset 0 2px 0 rgba(255, 255, 255, 0.34);
+}
+html[data-native] .nv-rung-btn:active .nv-rung-face[data-done] {
+  box-shadow:
+    0 4px 0 #0a6a5f,
+    0 8px 18px rgba(15, 149, 133, 0.26),
+    inset 0 2px 0 rgba(255, 255, 255, 0.3);
+}
+html[data-native] .nv-rung-face {
+  transition: transform 320ms var(--nv-spring), box-shadow 200ms ease;
+}
+html[data-native] .nv-rung-score {
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  font-size: 46px;
+  letter-spacing: -0.05em;
+  line-height: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+html[data-native] .nv-rung-note {
+  margin-top: 8px;
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.88;
+}
+html[data-native] .nv-rung-secs {
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+/* Felix stands ON the rung you're meant to climb. */
+html[data-native] .nv-rung-felix {
+  position: absolute;
+  top: -62px;
+  left: 50%;
+  margin-left: 22px;
+  z-index: 3;
+  pointer-events: none;
+  animation: nv-bob 3.4s ease-in-out infinite;
+}
+@keyframes nv-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+/* --- The reward node: the next unlock, on the spine ----------------------- */
+html[data-native] .nv-reward-tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 62px;
+  height: 62px;
+  flex: none;
+  border-radius: 20px;
+  font-size: 28px;
+  background: var(--nv-tint-soft);
+  box-shadow: inset 0 0 0 2px var(--nv-rail);
+}
+html[data-native] .nv-reward-tile[data-unlocked] {
+  /* Same fixed cut as the lit rung — see the note there. */
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 46%),
+    #0b7568;
+  box-shadow: 0 5px 0 #0a6a5f, inset 0 2px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* --- Off the ladder: the rail at the foot of the climb -------------------- */
+html[data-native] .nv-tile {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  text-align: left;
+  padding: 14px 12px;
+  border-radius: 16px;
+  background: var(--nv-card);
+  box-shadow:
+    0 2px 0 var(--nv-card-edge),
+    inset 0 0 0 1px var(--nv-card-line);
+  transition: transform 320ms var(--nv-spring), box-shadow 200ms ease;
+}
+html[data-native] .nv-tile:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 0 0 1px var(--nv-card-line);
+}
+html[data-native] .nv-tile-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  margin-bottom: 8px;
+  background: var(--pop-soft, var(--nv-tint-soft));
+  color: var(--pop-ink, var(--nv-ink-2));
+}
+html[data-native] .nv-tile-label {
+  display: block;
+  font-family: var(--nv-font-display);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: -0.02em;
+  color: var(--nv-ink);
+}
+
+/* --- Scores as squares (Progress' recent list, the Library's chips) -------- */
+html[data-native] .nv-score-sq {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 13px;
+  background: var(--band-soft, var(--nv-tint-soft));
+  color: var(--band-ink, var(--nv-ink-2));
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+html[data-native] [data-band="rough"] { --band-soft: var(--nv-pop-rose-soft); }
+html[data-native] [data-band="low"] { --band-soft: var(--nv-pop-sun-soft); }
+html[data-native] [data-band="mid"] { --band-soft: var(--nv-accent-50); }
+html[data-native] [data-band="high"] { --band-soft: var(--nv-pop-mint-soft); }
+
+/* --- The Den: badges and the wardrobe ------------------------------------- */
+html[data-native] .nv-badge-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 6px;
+  border-radius: 16px;
+  background: var(--pop-soft, var(--nv-tint-soft));
+  text-align: center;
+}
+html[data-native] .nv-badge-tile[data-locked] {
+  background: var(--nv-tint-soft);
+  opacity: 0.6;
+}
+html[data-native] .nv-badge-tile[data-locked] .nv-badge-emoji {
+  filter: grayscale(1);
+}
+html[data-native] .nv-badge-emoji {
+  font-size: 26px;
+  line-height: 1;
+}
+html[data-native] .nv-badge-name {
+  font-family: var(--nv-font-display);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: -0.01em;
+  color: var(--pop-ink, var(--nv-ink-2));
+}
+html[data-native] .nv-badge-tile[data-locked] .nv-badge-name {
+  color: var(--nv-ink-2);
+}
+html[data-native] .nv-wardrobe {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+html[data-native] .nv-wardrobe::-webkit-scrollbar {
+  display: none;
+}
+html[data-native] .nv-wardrobe-cell {
+  flex: none;
+  width: 76px;
+  text-align: center;
+}
+html[data-native] .nv-wardrobe-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 76px;
+  border-radius: 18px;
+  font-size: 30px;
+  background: var(--nv-tint-soft);
+}
+html[data-native] .nv-wardrobe-tile[data-worn] {
+  background: var(--nv-accent-50);
+  box-shadow: inset 0 0 0 2px #ff9a6b;
+}
+html[data-native] .nv-wardrobe-tile[data-locked] {
+  opacity: 0.45;
+}
+html[data-native] .nv-wardrobe-label {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--nv-ink-3);
+}
+html[data-native] .nv-wardrobe-cell[data-worn] .nv-wardrobe-label {
+  color: var(--nv-accent-700);
+}
+
+/* --- The report's XP receipt ----------------------------------------------
+   What the take actually paid, itemised, straight out of the reasons
+   xpForChallengeAttempt returns. Levelling used to be a number that changed
+   somewhere off-screen; now the screen that earned it shows the working. */
+html[data-native] .nv-xp-card {
+  padding: 18px 20px;
+  border-radius: var(--nv-r-card);
+  background: linear-gradient(150deg, #fff6ef, #ffeadf);
+  box-shadow:
+    0 3px 0 #f0d9c8,
+    inset 0 0 0 1px #ffdcc6;
+}
+html[data-native][data-theme="dark"] .nv-xp-card {
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--nv-accent-500) 14%, var(--nv-card)),
+    var(--nv-card)
+  );
+  box-shadow:
+    0 3px 0 var(--nv-card-edge),
+    inset 0 0 0 1px color-mix(in srgb, var(--nv-accent-500) 22%, transparent);
+}
+html[data-native] .nv-xp-card .nv-xp-track {
+  height: 9px;
+  border-radius: 5px;
+  background: #f7ded0;
+}
+html[data-native][data-theme="dark"] .nv-xp-card .nv-xp-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+html[data-native] .nv-xp-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13.5px;
+  color: var(--nv-ink-2);
+}
+html[data-native] .nv-xp-line > span:last-child {
+  font-family: var(--nv-font-display);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--nv-ink);
+}
+html[data-native] .nv-xp-unlock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: 16px;
+  background: var(--nv-card);
+  box-shadow: 0 3px 0 #f0d9c8;
+  font-size: 26px;
+}
+html[data-native][data-theme="dark"] .nv-xp-unlock {
+  box-shadow: 0 3px 0 var(--nv-card-edge);
+}
+
+/* --- The booth's header row ------------------------------------------------ */
+html[data-native] .nv-booth-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: var(--nv-r-pill);
+  border: none;
+  background: rgba(245, 244, 248, 0.1);
+  color: #f5f4f8;
+}
+html[data-native] .nv-booth-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: var(--nv-r-pill);
+  background: rgba(255, 107, 53, 0.16);
+  color: #ff9a6b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+html[data-native] .nv-booth-live::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: var(--nv-r-pill);
+  background: var(--nv-accent-500);
+  animation: nv-breathe 1.4s ease-in-out infinite;
+}
+html[data-native] .nv-booth-meta {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(245, 244, 248, 0.45);
+}
+
+/* --- The climb arrives ----------------------------------------------------- */
+@keyframes nv-rung-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.94); }
+}
+html[data-native] #main[data-screen-enter] .nv-rung,
+html[data-native] #main[data-screen-enter] .nv-today,
+html[data-native] #main[data-screen-enter] .nv-tile {
+  animation: nv-rung-in 480ms var(--nv-spring-soft) backwards;
+}
+html[data-native] #main[data-screen-enter] .nv-rung:nth-of-type(2) { animation-delay: 60ms; }
+html[data-native] #main[data-screen-enter] .nv-today { animation-delay: 120ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-native] .nv-rung-halo,
+  html[data-native] .nv-rung-felix,
+  html[data-native] .nv-booth-live::before,
+  html[data-native] #main[data-screen-enter] .nv-rung,
+  html[data-native] #main[data-screen-enter] .nv-today,
+  html[data-native] #main[data-screen-enter] .nv-tile {
+    animation: none;
+  }
+  html[data-native] .nv-rung-face,
+  html[data-native] .nv-tile,
+  html[data-native] .nv-xp-fill {
     transition: none;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   ACCESSIBILITY, RE-ASSERTED
+   ---------------------------------------------------------------------------
+   These rules exist ONLY because of source order. The reduced-transparency
+   block earlier in this file is correct and complete for the layer it was
+   written against — and the LADDER PASS then re-declared `body::before` (the
+   aurora) and the liquid-glass pass re-declared the dark dock, both at equal
+   specificity and both LATER, which silently took those two surfaces back out
+   of the accommodation. Anything that re-declares a translucent surface below
+   here has to come back and add itself to this block.
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-transparency: reduce) {
+  html[data-native] body::before,
+  html[data-native][data-theme="dark"] body::before {
+    background: var(--nv-bg);
+  }
+  html[data-native] .native-dock,
+  html[data-native][data-theme="dark"] .native-dock {
+    background: var(--nv-bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  html[data-native] .nv-ladder-bar::before {
+    background: var(--nv-bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  html[data-native] .card,
+  html[data-native] .card-warm,
+  html[data-native] .nv-group,
+  html[data-native][data-theme="dark"] .card,
+  html[data-native][data-theme="dark"] .card-warm,
+  html[data-native][data-theme="dark"] .nv-group {
+    background: var(--nv-card);
+  }
+}
+
+/* --- Touch targets that are bigger than they look --------------------------
+   Two controls on the Ladder are deliberately small objects: the 40px Felix
+   avatar that opens the Den, and the 32px coin badge. Both were also 40 and 32
+   POINT TARGETS, under the 44 the platform asks for and the rest of this
+   system already meets. The pseudo-element grows the touch area without
+   touching the layout — the thing you see stays the size the design wants. */
+html[data-native] .nv-tap44 {
+  position: relative;
+}
+html[data-native] .nv-tap44::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
 }

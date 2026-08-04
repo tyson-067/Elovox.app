@@ -62,14 +62,24 @@ function LockGlyph() {
 
 export function NativeLibraryList({
   sections,
+  intro,
 }: {
   sections: NativeLibrarySection[];
+  /**
+   * One line under the large title saying what this shelf IS, before the list
+   * of what's on it. The web page has always had this paragraph; the app
+   * dropped straight from a 34pt title into nine rows, which reads as a menu
+   * rather than a collection. Optional — the sections that need no preamble
+   * (Interviews, Social skills) simply don't pass one.
+   */
+  intro?: string;
 }) {
   const native = useIsNative();
   if (!native) return null;
 
   return (
     <div>
+      {intro && <p className="nv-subhead mb-6 px-1">{intro}</p>}
       {sections.map((section, i) => (
         <section
           key={section.header ?? i}

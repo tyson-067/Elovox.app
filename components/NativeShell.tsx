@@ -83,27 +83,6 @@ function AccountIcon() {
   );
 }
 
-/* The record node's mark: a microphone, filled-in white on the orange blob. */
-function MicIcon() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor" stroke="none" />
-      <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0" />
-      <path d="M12 18v3" />
-    </svg>
-  );
-}
-
 function BackChevron() {
   return (
     <svg
@@ -128,14 +107,15 @@ function BackChevron() {
    where you are, the page says what to do. */
 
 const TITLES: Record<string, string> = {
-  "/dashboard": "Today",
+  "/dashboard": "Ladder",
   "/progress": "Progress",
   "/library": "Speech library",
   "/interviews": "Interviews",
   "/social": "Social skills",
   "/custom": "Felix writes it",
   "/own": "My material",
-  "/account": "Account",
+  // The Den: the same settings screen, entered through what you've earned.
+  "/account": "Den",
   "/practice": "Practice",
   "/terms": "Terms",
   "/privacy": "Privacy",
@@ -167,6 +147,15 @@ const ROOTS = new Set([
     a large title above it would be the same screen introducing itself twice.
     They get a bare bar — status-bar inset and nothing else. */
 const BARE = new Set(["/login", "/signup", "/verify-email"]);
+
+/** Screens that supply their own header, so the shell contributes no bar at
+    all — not even the inset row, which would otherwise be counted twice.
+
+    The Ladder is the only one: its sticky HUD (Felix, the level bar, the
+    streak) IS the header, and those three are the only things on that screen
+    that stay true however far you scroll. A 34pt "Ladder" floating above the
+    climb was a label on a thing that already says its own name. */
+const HEADLESS = new Set(["/dashboard"]);
 
 /** Screens that get the dock. Auth and marketing don't; nor does /practice,
     which is a recording session and has its own single job on screen. */
@@ -247,17 +236,6 @@ function NativeTitleBar({ pathname }: { pathname: string }) {
         )}
       </div>
       {!bare && <h1 className="native-title-lg">{title}</h1>}
-      {/* Today is anchored in the actual day, the way Fitness and News open.
-          Only the home screen: on every other screen the date is noise. */}
-      {!bare && pathname === "/dashboard" && (
-        <p className="native-bar-sub" suppressHydrationWarning>
-          {new Date().toLocaleDateString(undefined, {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-          })}
-        </p>
-      )}
     </div>
   );
 }
@@ -271,15 +249,24 @@ interface Tab {
   premium?: boolean;
 }
 
-// Four destinations. The premium sections that used to be peer tabs on the
-// web (Interviews, Social skills, Felix writes it, My material) are cards
-// inside Today now —
-// a free user shouldn't spend a third of the dock on things they can't open.
+// Four destinations and NO action.
+//
+// The dock used to carry a fifth node — a record button between the two pairs
+// — from back when home was a wall of cards and the one thing to do could get
+// lost in it. On the Ladder it cannot: the rung is the biggest object on the
+// home screen, it is orange, it pulses, and it is one tab away from anywhere.
+// A record node beside it was a second door onto the same room, and it cost
+// the dock a fifth of its width to say something the screen was already
+// shouting.
+//
+// The premium sections that used to be peer tabs on the web (Interviews,
+// Social skills, Felix writes it, My material) live in the rail at the foot of
+// the climb — a free user shouldn't spend the dock on things they can't open.
 const TABS: Tab[] = [
-  { href: "/dashboard", label: "Today", icon: TodayIcon },
+  { href: "/dashboard", label: "Ladder", icon: TodayIcon },
   { href: "/progress", label: "Progress", icon: ProgressIcon },
   { href: "/library", label: "Library", icon: LibraryIcon, premium: true },
-  { href: "/account", label: "Account", icon: AccountIcon },
+  { href: "/account", label: "Den", icon: AccountIcon },
 ];
 
 function NativeDock({ pathname }: { pathname: string }) {
@@ -314,22 +301,7 @@ function NativeDock({ pathname }: { pathname: string }) {
 
   return (
     <nav className="native-dock" aria-label="Main">
-      <div className="native-dock-row">
-        {TABS.slice(0, 2).map(tab)}
-        {/* The one action, between the two pairs of destinations. It goes
-            straight into today's drill — the same place the dashboard's
-            primary button goes — so the app is always one tap from speaking. */}
-        <Link
-          href="/practice?daily=1"
-          className="native-record"
-          aria-label="Start today's practice"
-        >
-          <span className="native-record-blob">
-            <MicIcon />
-          </span>
-        </Link>
-        {TABS.slice(2).map(tab)}
-      </div>
+      <div className="native-dock-row">{TABS.map(tab)}</div>
     </nav>
   );
 }
@@ -351,7 +323,7 @@ export function NativeShell() {
 
   return (
     <>
-      <NativeTitleBar pathname={pathname} />
+      {!HEADLESS.has(pathname) && <NativeTitleBar pathname={pathname} />}
       {showDock && <NativeDock pathname={pathname} />}
     </>
   );

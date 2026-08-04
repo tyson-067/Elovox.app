@@ -7,6 +7,7 @@ import {
   logRejectedInput,
 } from "@/lib/verify";
 import { usageDateKey, reserveMeteredUse, refundMeteredUse } from "@/lib/quota";
+import { readJsonObject } from "@/lib/requestBody";
 
 // Deletes one practice session from the user's history, with a reason, under
 // a small daily cap. The cap is why this is a route at all: sessions are
@@ -64,13 +65,14 @@ export async function POST(req: NextRequest) {
 
   let sessionId = "";
   let reason = "";
-  try {
-    const body = await req.json();
+  const parsed = await readJsonObject(req);
+  if (parsed.ok) {
+    const body = parsed.body;
     sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
     reason = typeof body.reason === "string" ? body.reason : "";
-  } catch {
-    // fall through to the checks below
   }
+  // An unparseable or oversized body falls through to the checks below, which
+  // reject an empty sessionId — same outcome, one code path.
   // Doc ids are client-minted (base36 + random); bound and sanity-check
   // rather than pattern-match so older ids never become undeletable. The
   // three excluded shapes are Firestore-RESERVED ids ("." / ".." / "__x__")

@@ -150,7 +150,16 @@ function writeCache(uid: string, plan: Plan): void {
 
 // Local testing escape hatch: set NEXT_PUBLIC_FORCE_PLAN=premium in
 // .env.local to see every gated surface without a Stripe subscription.
+//
+// Compiled out of production builds, the same backstop NEXT_PUBLIC_APPCHECK_DEBUG
+// has. It was the one NEXT_PUBLIC_ var without one: set in a Vercel production
+// env by accident, it bakes into the bundle at build time and hands every
+// browser a premium client plan. Server routes re-derive entitlement
+// independently (lib/verify.ts), so that would have unlocked gated UI rather
+// than paid compute — but "only the UI" is not a reason to leave a live
+// override in a shipped bundle.
 function forcedPlan(): Plan | null {
+  if (process.env.NODE_ENV === "production") return null;
   const forced = process.env.NEXT_PUBLIC_FORCE_PLAN;
   return forced === "premium" || forced === "free" ? forced : null;
 }

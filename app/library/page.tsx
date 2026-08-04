@@ -196,6 +196,11 @@ function LibraryScreen() {
       {/* App shape: one calm grouped list — same slots, same replacements,
           same lock rule as the cards below. Renders nothing in a browser. */}
       <NativeLibraryList
+        intro={
+          plan === "free"
+            ? "Nine speeches, about thirty seconds each. Practice them as much as you like, and swap any of them out. Part of Premium."
+            : "Nine speeches, about thirty seconds each. Run any of them as often as you want, and swap out the ones you're bored of."
+        }
         sections={[
           {
             items: SPEECHES.map((s) => {

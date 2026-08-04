@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { purgeExpiredOpsEvents } from "@/lib/opsMetrics";
-import { makeRateLimiter, clientIp } from "@/lib/verify";
+import { purgeExpiredLoginRows } from "@/lib/loginGuard";
+import { makeRateLimiter, clientIp, timingSafeCompare } from "@/lib/verify";
 
 // The scheduled sweep of expired opsEvents — the backstop that makes the
 // "short operational window" in /privacy true without anyone having to open
@@ -34,18 +35,42 @@ export async function GET(req: NextRequest) {
   if (secret) {
     // Configured: this is the only way in. Vercel sends the value as a
     // Bearer token on every cron invocation.
-    if (auth !== `Bearer ${secret}`) {
+    // Constant-time. `!==` on a shared secret returns at the first mismatched
+    // byte, which is a timing oracle you can walk a character at a time — and
+    // this is the only bearer secret in the tree we compare ourselves (the
+    // Stripe webhook's HMAC is verified inside constructEvent, which is
+    // already constant-time).
+    if (!auth || !timingSafeCompare(auth, `Bearer ${secret}`)) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
-  } else {
-    // Not configured: still run, rate-limited. Refusing outright would mean
-    // the retention promise silently depends on an env var nobody set, which
-    // is the failure mode this route was written to end. The exposure is
-    // small by construction — the only thing an anonymous caller can cause
-    // is the deletion of telemetry rows that were already past their expiry.
-    if (rateLimited(clientIp(req))) {
-      return NextResponse.json({ error: "Slow down." }, { status: 429 });
+  } else if (process.env.NODE_ENV === "production") {
+    // NO SECRET SET. This branch used to run the purge for any anonymous
+    // caller, rate-limited, on the argument that deleting already-expired
+    // telemetry is harmless. The argument holds for the DATA and misses the
+    // point about the SHAPE: it made this the one route in the tree whose
+    // authentication depended on somebody remembering an environment
+    // variable, and a route that is only protected when configured is a route
+    // that is not protected.
+    //
+    // But failing closed outright would trade one silent failure for another:
+    // the retention promise in /privacy would simply stop being kept, loudly
+    // in a log nobody reads. So there is a second credential, and only one:
+    // `x-vercel-cron`, which the platform sets on its own scheduled
+    // invocations and STRIPS from inbound client requests — an external caller
+    // cannot forge it. Anonymous callers get nothing either way.
+    if (!req.headers.get("x-vercel-cron")) {
+      console.error(
+        "[cron] CRON_SECRET is unset and this is not a platform cron invocation — purge refused. Set CRON_SECRET."
+      );
+      return NextResponse.json({ error: "Not available." }, { status: 503 });
     }
+    console.warn(
+      "[cron] running on the platform cron header because CRON_SECRET is unset — set it."
+    );
+  } else if (rateLimited(clientIp(req))) {
+    // Development only: usable without a secret so the sweep can be exercised
+    // locally, still rate-limited so a loop can't hammer the emulator.
+    return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 
   const db = getAdminDb();
@@ -53,7 +78,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Not available." }, { status: 503 });
   }
 
-  const deleted = await purgeExpiredOpsEvents(db, 500);
-  console.info(`[cron] purged ${deleted} expired opsEvents`);
-  return NextResponse.json({ ok: true, deleted });
+  // Both sweeps, independently. The login ledgers are here for the same reason
+  // opsEvents is: a Firestore TTL policy is the natural home for this and
+  // creating one needs an IAM grant the console currently answers 403 to.
+  // Retention should not wait on that.
+  const [deleted, logins] = await Promise.all([
+    purgeExpiredOpsEvents(db, 500),
+    purgeExpiredLoginRows(db, 500),
+  ]);
+  console.info(
+    `[cron] purged ${deleted} expired opsEvents, ${logins} expired login rows`
+  );
+  return NextResponse.json({ ok: true, deleted, logins });
 }

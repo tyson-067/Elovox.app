@@ -272,6 +272,9 @@ export async function getChallengeState(
 const statsKey = (uid: string | null) =>
   uid ? `elovox.stats.v1.${uid}` : "elovox.stats.v1";
 
+/** The day-key shape both clocks agree on. */
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 const EMPTY_STATS = {
   xp: 0,
   streakDays: 0,
@@ -326,11 +329,7 @@ async function readRawStats(): Promise<RawStats> {
       : { ...EMPTY_STATS };
 
     if (server?.exists()) {
-      const s = server.data() as Partial<RawStats>;
-      // lastChallengeDate stays local: it's a LOCAL-midnight day key driving
-      // this device's streak arithmetic, and the server's is a UTC-ish one
-      // from lib/quota.ts. Mixing them would break the streak either side of
-      // midnight for anyone not on UTC.
+      const s = server.data() as Partial<RawStats> & { lastDailyDate?: string };
       stats.xp = Number(s.xp ?? stats.xp);
       stats.streakDays = Number(s.streakDays ?? stats.streakDays);
       stats.longestStreak = Math.max(
@@ -340,6 +339,32 @@ async function readRawStats(): Promise<RawStats> {
       stats.challengesCompleted = Number(
         s.challengesCompleted ?? stats.challengesCompleted
       );
+
+      // THE STREAK AND THE DATE IT WAS COUNTED ON ARE ONE FACT. Taking one
+      // from the server and the other from the mirror double-counted the day.
+      //
+      // The server (lib/leaderboardServer.ts awardXp) advances streakDays on
+      // the day's first attempt and stamps `lastDailyDate` — and it runs
+      // FIRST, inside /api/analyze, before the client's own
+      // recordChallengeAttempt. So from day two on, this read produced
+      // `streakDays: 2` (server, already advanced) alongside
+      // `lastChallengeDate: yesterday` (mirror, not yet advanced).
+      // recordChallengeAttempt then computed gap === 1 and made it THREE.
+      //
+      // The effects were real and one of them was permanent: the XP receipt
+      // on the report quoted a streak and a multiplier the server had not
+      // paid, and `longestStreak` — a Math.max — kept the inflated value
+      // forever, which unlocked Three-Day Fox and Week of Nerve a day early.
+      //
+      // The old reasoning for keeping the local date was sound in isolation
+      // (local-midnight vs the server's UTC-ish key, lib/quota.ts) and wrong
+      // in combination. `usageDateKey` already trusts the client's local day
+      // within ±1 UTC day, so the two keys agree for every honest client
+      // anyway — and when they don't, the smaller error is a streak that
+      // rolls over on the server's boundary, not one that counts twice.
+      if (typeof s.lastDailyDate === "string" && DATE_RE.test(s.lastDailyDate)) {
+        stats.lastChallengeDate = s.lastDailyDate;
+      }
     }
 
     saveLocalStats(uid, stats);

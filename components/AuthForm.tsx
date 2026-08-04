@@ -172,10 +172,24 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   // pricing CTA) or route on into the app. Checkout redirects away entirely;
   // if it fails (e.g. billing not configured) we fall through to the app.
   // Guarded so the submit handler and the signed-in effect can't both fire it.
-  const finishAuth = async () => {
+  //
+  // `resumeCheckout` is the consent boundary. It is TRUE only on the paths
+  // where the person just did something on this form — pressed Log in, pressed
+  // Continue with Google, confirmed their age. It is FALSE when they merely
+  // arrived here already signed in, because the checkout parameters come
+  // straight out of the query string: with it true, a crafted link
+  // (/signup?plan=premium&cycle=annual&skipTrial=1) dropped an already
+  // signed-in user onto a Stripe page primed for the largest single charge we
+  // offer, free trial silently stripped, without their pressing anything of
+  // ours. No charge could happen without them entering a card on Stripe's own
+  // page — but handing a payment surface to an attacker-supplied parameter is
+  // not a thing to leave lying around. The session-scoped stashed intent that
+  // /verify-email resumes is unaffected; that one records a purchase the user
+  // really did start.
+  const finishAuth = async (resumeCheckout = true) => {
     if (finishedRef.current) return;
     finishedRef.current = true;
-    const intent = checkoutIntent();
+    const intent = resumeCheckout ? checkoutIntent() : null;
     if (intent) {
       try {
         await startCheckout(intent.cycle, { skipTrial: intent.skipTrial });
@@ -193,11 +207,21 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   };
 
   useEffect(() => {
-    // Already signed in and just visiting the form: send them on (or resume
-    // an in-flight Checkout intent).
-    if (!loading && user) void finishAuth();
+    // Already signed in and just visiting the form: send them on, WITHOUT
+    // resuming a checkout the query string asked for on their behalf.
+    // `busy` is the guard, and it is load-bearing rather than cosmetic. It is
+    // true for exactly the window in which an auth attempt started ON THIS FORM
+    // is in flight, and it is set before the account can possibly exist — so
+    // this effect can only ever fire for someone who ARRIVED already signed in.
+    //
+    // Without it the two raced, and the effect won: signing up from a pricing
+    // CTA flipped `user` the instant the account existed, this effect claimed
+    // the shared latch and routed to /dashboard, and runAuth's own finishAuth()
+    // then found the latch set and did nothing — silently dropping the purchase
+    // the person had just chosen.
+    if (!loading && user && !busy) void finishAuth(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, user]);
+  }, [loading, user, busy]);
 
   if (!configured) {
     return (

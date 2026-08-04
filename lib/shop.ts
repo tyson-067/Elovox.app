@@ -14,6 +14,18 @@ import { DEFAULT_BIOME, ownedItems, seedCoins, type ShopKind } from "./coins";
 // lib/leaderboard.ts.
 
 export interface ShopState {
+  /**
+   * True when the read FAILED rather than came back empty.
+   *
+   * `fetchShopState` never rejects, and that is deliberate — a rejection once
+   * stranded the Account avatar on its skeleton forever, because both callers
+   * hold `ShopState | null` and read null as "still loading". But returning
+   * EMPTY on failure makes a network error indistinguishable from a brand-new
+   * account: the shop showed zero coins and nothing owned, and its error state
+   * was unreachable. The flag keeps the never-reject promise and lets a caller
+   * that cares tell the two apart.
+   */
+  unavailable?: boolean;
   coins: number;
   /** Everything owned, including the free default biome. */
   owned: string[];
@@ -41,15 +53,20 @@ const EMPTY: ShopState = {
  * against production produced — this read races App Check's first token and
  * Firestore rejects it, once, permanently stranding the avatar.
  *
- * A failed read is not an error worth showing anybody: it means "we could not
- * tell what gear you own", and the honest render of that is Felix at home in
- * the default biome — which is already what a signed-out user sees.
+ * For the avatar surfaces, a failed read is not an error worth showing: it
+ * means "we could not tell what gear you own", and the honest render of that
+ * is Felix at home in the default biome — already what a signed-out user sees.
+ *
+ * The SHOP itself is the one screen where the difference matters, because
+ * there EMPTY reads as "you own nothing and have no coins" — a lie told to
+ * someone who may own everything. Hence `unavailable`, which that screen
+ * checks and the avatars ignore.
  */
 export async function fetchShopState(): Promise<ShopState> {
   try {
     return await readShopState();
   } catch {
-    return EMPTY;
+    return { ...EMPTY, unavailable: true };
   }
 }
 

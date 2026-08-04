@@ -26,7 +26,7 @@ export function AuthNav() {
   // mount is enough — equipping happens on /shop, and the header remounts on
   // the way back.
   //
-  // Deliberately NOT the quests machinery: NativeToday falls back from the
+  // Deliberately NOT the quests machinery: the Ladder falls back from the
   // equipped accessory to the level outfit, but that needs stats this header
   // doesn't have and shouldn't fetch. Nothing equipped is just bare Felix,
   // which is a fine face.

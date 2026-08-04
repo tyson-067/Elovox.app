@@ -221,6 +221,17 @@ export interface OpsFlags {
   /** Site-wide announcement line (web only; the native shell never shows
    *  it). Empty/absent = no banner. Plain text, no links, set from /admin. */
   banner?: string;
+  /**
+   * True when the flags could NOT be read (Firestore unreachable, credential
+   * rejected) rather than read and found empty.
+   *
+   * The two are the same for a brake that fails open — and opposite for one
+   * that fails closed. `pauseCheckout` is the second kind: it exists partly
+   * for a pricing mistake, and resuming sales at the wrong price because a
+   * database blip erased the pause is the exact outcome the switch was thrown
+   * to prevent. Callers that must not fail open read this.
+   */
+  unavailable?: boolean;
 }
 
 const FLAGS_CACHE_MS = 60 * 1000;
@@ -247,8 +258,10 @@ export async function getOpsFlags(db: Firestore | null): Promise<OpsFlags> {
     flagsCache = { at: now, flags };
     return flags;
   } catch (err) {
-    console.error("[ops] flags read failed (failing open)", err);
-    return {};
+    // Deliberately NOT cached: an unreadable answer must not be remembered for
+    // a minute, and the next request should try again.
+    console.error("[ops] flags read failed", err);
+    return { unavailable: true };
   }
 }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { makeRateLimiter, clientIp } from "@/lib/verify";
+import { readJsonObject } from "@/lib/requestBody";
 
 // Server-side sink for client-reported auth validation failures, so they are
 // recorded server-side for monitoring even though the auth itself runs in the
@@ -33,9 +34,16 @@ export async function POST(req: NextRequest) {
     return new NextResponse(null, { status: 429 });
   }
 
-  const body = await req.json().catch(() => ({}));
-  const mode = body?.mode === "signup" ? "signup" : "login";
-  const reasons = Array.isArray(body?.reasons)
+  const parsed = await readJsonObject(req);
+  if (!parsed.ok) {
+    // Recorded with its own reason rather than silently becoming "no reasons":
+    // an oversized body at a telemetry sink is itself worth seeing.
+    console.warn(`auth validation rejected [body] ip=${ip} reason=${parsed.reason}`);
+    return new NextResponse(null, { status: 204 });
+  }
+  const body: Record<string, unknown> = parsed.body;
+  const mode = body.mode === "signup" ? "signup" : "login";
+  const reasons = Array.isArray(body.reasons)
     ? body.reasons.filter((r: unknown): r is string => typeof r === "string" && KNOWN_REASONS.has(r)).slice(0, 8)
     : [];
 

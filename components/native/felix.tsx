@@ -90,7 +90,7 @@ export function FelixBubble({
    Color climbs with the streak: ember → gold → hot pink → violet → the
    legendary blue at 30 days. The tier lives on the wrapper; the CSS keys
    the flame's two layers off it. */
-function flameTier(days: number): number {
+export function flameTier(days: number): number {
   if (days >= 30) return 5;
   if (days >= 14) return 4;
   if (days >= 7) return 3;
@@ -98,7 +98,7 @@ function flameTier(days: number): number {
   return 1;
 }
 
-function FlameGlyph({ className = "" }: { className?: string }) {
+export function FlameGlyph({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 20 26" className={`nv-flame ${className}`.trim()} aria-hidden="true">
       {/* The silhouette is stroked with --flame-edge (native-theme.css): a warm
@@ -122,15 +122,11 @@ function FlameGlyph({ className = "" }: { className?: string }) {
   );
 }
 
-/** The streak as a HUD badge. */
-export function StreakBadge({ days }: { days: number }) {
-  return (
-    <span className="nv-badge" data-pop="ember" data-tier={flameTier(days)}>
-      <FlameGlyph className="h-[18px] w-[14px]" />
-      <span className="nv-num">{days}</span> day streak
-    </span>
-  );
-}
+/* StreakBadge (the HUD chip form) was removed with the Ladder pass: the
+   climb's header draws the flame and the number itself, in the sticky bar,
+   and a second chip saying the same thing sat on the card below it. The stat
+   form below is still used by Progress, and FlameGlyph/flameTier are exported
+   for the Ladder's own header. */
 
 /** The streak at stat size, for Progress's stat strip. */
 export function StreakStat({ days }: { days: number }) {
@@ -197,94 +193,20 @@ export function CoinBadge({ coins }: { coins: number }) {
   );
 }
 
-/* --- The XP ring ------------------------------------------------------------
-   Level progress drawn around the avatar, rings-style. The arc holds empty
-   for one frame, then the real offset lands and the soft spring sweeps it
-   round with a ~3% overshoot (same pattern as the report dial). Fixed
-   gradient id, same shared-defs rule as FoxLogo. */
-const RING_R = 29;
-const RING_C = 2 * Math.PI * RING_R;
+/* --- The XP ring -----------------------------------------------------------
+   REMOVED with the Ladder pass. It drew level progress around Today's avatar;
+   the Ladder's HUD carries a full-width XP bar instead, beside the level's
+   name, and a ring around the fox as well would have been the same number
+   twice on one row.
 
-export function XpAvatar({
-  percent,
-  level,
-  children,
-}: {
-  /** 0-100 through the current level. Absent while stats load. */
-  percent?: number;
-  /**
-   * The level for the corner chip. OPTIONAL on purpose: stats arrive after
-   * first paint, and the caller must keep rendering this same component
-   * while they do. Swapping to a bare avatar and back put two different
-   * component types in one slot — React tore the fox down and rebuilt it
-   * (restarting his animations) and the box jumped 56 -> 64px on every cold
-   * load of the home screen. Undefined means "not yet": empty ring, no chip,
-   * same geometry.
-   */
-  level?: number;
-  /** The avatar itself (FelixScene), filling the ring's well. */
-  children: ReactNode;
-}) {
-  const [drawn, setDrawn] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
-  useEffect(() => {
-    if (drawn) return;
-    const raf = requestAnimationFrame(() => setDrawn(true));
-    return () => cancelAnimationFrame(raf);
-  }, [drawn]);
-
-  const pct = Math.max(0, Math.min(100, percent ?? 0));
-  const offset = RING_C * (1 - pct / 100);
-
-  return (
-    <span className="relative block h-16 w-16">
-      <span className="absolute inset-[5px] overflow-hidden rounded-full">
-        {children}
-      </span>
-      <svg
-        viewBox="0 0 64 64"
-        className="absolute inset-0 h-full w-full -rotate-90"
-        aria-hidden="true"
-      >
-        <defs>
-          <linearGradient id="nv-ring-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="var(--nv-accent-500)" />
-            <stop offset="55%" stopColor="var(--nv-pop-rose)" />
-            <stop offset="100%" stopColor="var(--nv-pop-lilac)" />
-          </linearGradient>
-        </defs>
-        <circle
-          className="nv-ring-track"
-          cx="32"
-          cy="32"
-          r={RING_R}
-          fill="none"
-          strokeWidth="4"
-        />
-        <circle
-          className="nv-ring-arc"
-          cx="32"
-          cy="32"
-          r={RING_R}
-          fill="none"
-          strokeWidth="4"
-          strokeLinecap="round"
-          stroke="url(#nv-ring-grad)"
-          strokeDasharray={RING_C}
-          strokeDashoffset={drawn ? offset : RING_C}
-        />
-      </svg>
-      {level !== undefined && (
-        <span className="nv-lv-chip" aria-hidden="true">
-          {level}
-        </span>
-      )}
-    </span>
-  );
-}
+   The lesson it was built around is not removed, because it recurs: NEVER
+   branch between two DIFFERENT component types in one slot on async data.
+   The ring took optional `percent`/`level` precisely so the caller could keep
+   rendering ONE component while stats loaded — swapping to a bare avatar and
+   back remounted the fox (restarting his animations) and jumped the box
+   56 -> 64px on every cold open. NativeLadder's HUD avatar follows the same
+   rule: FelixScene renders unconditionally and the numbers arrive into it.
+   --------------------------------------------------------------------------- */
 
 /* --- Felix peeks over a card ------------------------------------------------
    Ears and eyes over the top edge; the card clips the rest. The parent card

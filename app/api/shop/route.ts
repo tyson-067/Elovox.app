@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { verifyUser, makeRateLimiter, logRejectedInput } from "@/lib/verify";
 import { equip, purchase } from "@/lib/coinsServer";
+import { readJsonObject } from "@/lib/requestBody";
 
 // Buying and wearing Felix's things.
 //
@@ -32,19 +33,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Slow down a moment." }, { status: 429 });
   }
 
-  let body: { action?: unknown; item?: unknown; kind?: unknown };
-  try {
-    body = await req.json();
-  } catch {
-    logRejectedInput("shop", "bad-json");
+  const parsed = await readJsonObject(req);
+  if (!parsed.ok) {
+    logRejectedInput("shop", parsed.reason);
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
-  // A `null`/array body parses fine but isn't the object we read below;
-  // normalize so a malformed body falls through to "no action matched"
-  // rather than throwing an unhandled 500 on property access.
-  if (!body || typeof body !== "object") body = {};
+  const body: { action?: unknown; item?: unknown; kind?: unknown } = parsed.body;
 
-  const item = typeof body.item === "string" ? body.item : null;
+  // Length-capped BEFORE it reaches the catalog lookup. The lookup is a closed
+  // set so an oversized id can never match anything — but an unbounded string
+  // still travels through a Firestore transaction and into the error log on
+  // the way to being rejected, and no real item id is anywhere near this long.
+  const ITEM_ID_MAX = 64;
+  const rawItem = typeof body.item === "string" ? body.item : null;
+  if (rawItem !== null && rawItem.length > ITEM_ID_MAX) {
+    logRejectedInput("shop", "item-too-long");
+    return NextResponse.json({ error: "Bad request." }, { status: 400 });
+  }
+  const item = rawItem;
 
   try {
     if (body.action === "equip") {
@@ -93,7 +99,11 @@ export async function POST(req: NextRequest) {
     logRejectedInput("shop", "bad-action");
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   } catch (err) {
-    console.error("[shop] failed", uid, body.action, err);
+    // body.action is user-controlled, so it is bounded before it reaches a log
+    // line: an unbounded value here is log-injection noise at best.
+    const action =
+      typeof body.action === "string" ? body.action.slice(0, 24) : "?";
+    console.error("[shop] failed", uid, action, err);
     return NextResponse.json({ error: "Couldn't do that." }, { status: 500 });
   }
 }

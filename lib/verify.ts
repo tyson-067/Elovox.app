@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { getAppCheck } from "firebase-admin/app-check";
 import { getAdminApp, getAdminDb } from "./firebaseAdmin";
@@ -86,6 +87,22 @@ export async function isAdmin(req: NextRequest): Promise<boolean> {
 
 export async function verifyUser(req: NextRequest): Promise<string | null> {
   return (await lookupUser(req))?.uid ?? null;
+}
+
+/**
+ * The uid AND the address on the caller's token.
+ *
+ * `verifyUser` returns only the uid, which is right for every route that acts
+ * on "whoever is signed in". The login guard needs the address too, because
+ * clearing an account's lockout has to prove the token belongs to THAT
+ * account — otherwise anyone holding any valid session could clear anyone
+ * else's. Same verification path, one more field.
+ */
+export async function verifiedIdentity(
+  req: NextRequest
+): Promise<{ uid: string; email: string | null } | null> {
+  const found = await lookupUser(req);
+  return found ? { uid: found.uid, email: found.email ?? null } : null;
 }
 
 /**
@@ -245,7 +262,7 @@ export async function isPremiumServer(
       // A missing doc is a real answer: this account has never subscribed.
       if (!snap.exists) return "free";
       const data = snap.data();
-      if (data?.plan === "premium") return "premium";
+      if (data?.plan === "premium" && !pastDueLapsed(data)) return "premium";
       // A comped week from a 21-day streak (lib/streakReward.ts) is real
       // Premium for as long as it lasts, and it is NOT reflected in `plan` —
       // that field mirrors Stripe and only the webhook writes it.
@@ -273,7 +290,21 @@ export async function isPremiumServer(
       return "unknown";
     }
     const data = await res.json();
-    if (data.fields?.plan?.stringValue === "premium") return "premium";
+    // The SAME past-due lapse check the Admin path applies, in REST's
+    // encoding. Without it the two branches of one function disagreed about
+    // one document: a stored `premium` whose 14-day dunning grace had run out
+    // was refused by the Admin path and granted by this one, so the answer
+    // depended on whether a service account happened to be configured.
+    const restPlan = {
+      plan: data.fields?.plan?.stringValue,
+      status: data.fields?.status?.stringValue,
+      currentPeriodEnd: Number(
+        data.fields?.currentPeriodEnd?.integerValue ??
+          data.fields?.currentPeriodEnd?.doubleValue ??
+          NaN
+      ),
+    };
+    if (restPlan.plan === "premium" && !pastDueLapsed(restPlan)) return "premium";
     // REST encodes numbers as integerValue (a string) or doubleValue.
     const until = data.fields?.premiumUntil;
     return isGrantOpen(until?.integerValue ?? until?.doubleValue)
@@ -283,6 +314,56 @@ export async function isPremiumServer(
     console.error("[entitlement] REST plan read threw", uid, err);
     return "unknown";
   }
+}
+
+/**
+ * A stored `plan: "premium"` that has already lapsed.
+ *
+ * The read-time twin of the same bound in lib/stripe.ts `isEntitled` and
+ * lib/plan.ts `pastDueLapsed`. Duplicated rather than imported because
+ * lib/plan.ts is a "use client" module and this one runs on the server; the
+ * number lives in three places and must move in all three at once.
+ *
+ * Why it matters here: the webhook writes `plan: free` once dunning ends, but
+ * on a Stripe account configured to leave a failed card `past_due`
+ * indefinitely the terminal event may never arrive. Without this check the
+ * server granted Premium where the client showed Free — the two entitlement
+ * readers disagreeing about the same document.
+ */
+const PAST_DUE_GRACE_MS = 14 * 24 * 60 * 60 * 1000;
+
+function pastDueLapsed(
+  data:
+    | { status?: unknown; currentPeriodEnd?: unknown }
+    | FirebaseFirestore.DocumentData
+    | undefined,
+  now = Date.now()
+): boolean {
+  return (
+    data?.status === "past_due" &&
+    typeof data.currentPeriodEnd === "number" &&
+    data.currentPeriodEnd + PAST_DUE_GRACE_MS < now
+  );
+}
+
+/**
+ * Constant-time comparison of two secrets.
+ *
+ * `a === b` on a shared secret leaks its content one character at a time: the
+ * comparison returns at the first mismatched byte, so an attacker who can time
+ * the response can recover the value byte by byte instead of guessing it whole.
+ * The window is small over a network and it is not zero, and there is no reason
+ * to leave it open — this is one line.
+ *
+ * Both sides are hashed to a fixed 32 bytes first, so `timingSafeEqual` (which
+ * throws on length mismatch) can be used at all, and so the LENGTH of the
+ * secret doesn't leak either. Comparing hashes, not strings, is the same
+ * reason `crypto.timingSafeEqual` exists.
+ */
+export function timingSafeCompare(a: string, b: string): boolean {
+  const ha = createHash("sha256").update(a).digest();
+  const hb = createHash("sha256").update(b).digest();
+  return timingSafeEqual(ha, hb);
 }
 
 /** One warn line per rejected input so probing of the validation

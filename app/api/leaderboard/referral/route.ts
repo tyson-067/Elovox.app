@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { verifyUser, makeRateLimiter, logRejectedInput } from "@/lib/verify";
 import { normalizeCode, redeemInvite } from "@/lib/referral";
+import { readJsonObject } from "@/lib/requestBody";
 
 // Redeems an invite code for the signed-in account: records who invited them
 // and makes the two of them friends. Pays no XP — that happens on the
@@ -30,15 +31,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Slow down a moment." }, { status: 429 });
   }
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    logRejectedInput("leaderboard/referral", "bad-json");
+  const parsed = await readJsonObject(req);
+  if (!parsed.ok) {
+    logRejectedInput("leaderboard/referral", parsed.reason);
     return NextResponse.json({ error: "No code." }, { status: 400 });
   }
 
-  const code = normalizeCode((body as { code?: unknown })?.code);
+  const code = normalizeCode(parsed.body.code);
   if (!code) {
     logRejectedInput("leaderboard/referral", "bad-code");
     return NextResponse.json({ error: "That invite link isn't valid." }, { status: 400 });

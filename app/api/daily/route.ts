@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateJson, geminiKey } from "@/lib/gemini";
 import { makeRateLimiter, clientIp, logRejectedInput } from "@/lib/verify";
+import { fallbackChallengeFor } from "@/lib/dailyFallback";
+import type { DailyChallenge } from "@/lib/dailyTypes";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 
 // Writes the improv challenge of the day. Called once per day by whichever
@@ -22,23 +24,7 @@ import { getAdminDb } from "@/lib/firebaseAdmin";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-export interface DailyChallenge {
-  date: string;
-  title: string;
-  topic: string; // the subject to speak about, in one phrase
-  bullets: string[]; // exactly three angles to hit while improvising
-  scenario: string;
-  theme: string;
-  focus: string;
-  /**
-   * False when this came from the canned bank because generation failed.
-   * The client uses it to avoid caching or publishing a fallback as the
-   * day's challenge, otherwise one request during a Gemini outage would
-   * pin canned content for that device (and every other user, via the
-   * shared doc) for the rest of the day.
-   */
-  generated: boolean;
-}
+export type { DailyChallenge } from "@/lib/dailyTypes";
 
 const THEMES = [
   "Persuasion",
@@ -130,101 +116,6 @@ What makes a good one:
 
 The scenario line is second person and puts them in the room ("You have sixty seconds to convince the room..."). The focus line is one specific delivery thing to watch, in the coach's voice.`;
 
-// Used before GEMINI_API_KEY is set, and if generation fails. Deterministic
-// by date so the day still has *a* challenge and everyone sees the same one.
-const FALLBACK: Omit<DailyChallenge, "date" | "generated">[] = [
-  {
-    title: "One Rule To Keep",
-    theme: "Making a case for change",
-    topic: "The one rule at your school or workplace you'd never change",
-    focus: "Say why it matters before you say what it is. Land the reason.",
-    scenario:
-      "You have sixty seconds to convince a room that this one rule is worth keeping.",
-    bullets: [
-      "The rule, in one plain sentence",
-      "A moment it clearly did its job",
-      "What breaks the day it's gone",
-    ],
-  },
-  {
-    title: "Worth The Money",
-    theme: "Selling an idea",
-    topic: "A cheap thing you own that you'd tell anyone to buy",
-    focus: "Sound like you actually mean it, conviction over a sales voice.",
-    scenario:
-      "A friend says they're not spending the money. You have a minute to change their mind.",
-    bullets: [
-      "What it is and what it cost",
-      "The exact moment it earned its keep",
-      "Who you'd hand one to tomorrow",
-    ],
-  },
-  {
-    title: "The Overrated One",
-    theme: "Standing your ground",
-    topic: "Something everyone loves that you think is overrated",
-    focus: "Hold your ground warmly, disagree without getting defensive.",
-    scenario:
-      "The whole room disagrees with you, and they're waiting. Make your case anyway.",
-    bullets: [
-      "The popular thing, and the take",
-      "Why the hype doesn't hold up",
-      "What deserves the love instead",
-    ],
-  },
-  {
-    title: "Two More Hours",
-    theme: "Persuasion",
-    topic: "One thing your town should spend a little more money on",
-    focus: "Slow down on any numbers. Let them do the work.",
-    scenario:
-      "Two minutes at a town meeting, in front of people who've heard a hundred requests this year.",
-    bullets: [
-      "Who it's really for",
-      "What it costs, kept concrete",
-      "The cost of doing nothing",
-    ],
-  },
-  {
-    title: "The Best Advice",
-    theme: "Telling a story",
-    topic: "The best piece of advice you were ever given",
-    focus: "Let the pause land before the advice itself.",
-    scenario:
-      "A younger version of you is in the room. You get one minute that matters.",
-    bullets: [
-      "Who said it, and when",
-      "Why you almost ignored it",
-      "What changed once you didn't",
-    ],
-  },
-  {
-    title: "Fix This One Thing",
-    theme: "Making a case for change",
-    topic: "One everyday thing that's needlessly annoying, and how you'd fix it",
-    focus: "Keep the energy up through the final line, don't fade out.",
-    scenario:
-      "You've got the ear of the person who could actually change it. Go.",
-    bullets: [
-      "The annoyance, made vivid",
-      "Why it's been left broken",
-      "Your fix, in one clear move",
-    ],
-  },
-  {
-    title: "Say Thank You",
-    theme: "Gratitude",
-    topic: "Someone who helped you that you never properly thanked",
-    focus: "Warmth. Do they believe you actually mean it?",
-    scenario:
-      "That person is finally in front of you. Sixty seconds to say the thing.",
-    bullets: [
-      "Who they are to you",
-      "The specific thing they did",
-      "What it would've cost you without them",
-    ],
-  },
-];
 
 // Per-instance memo of days we've settled, so a burst of first-of-the-day
 // clients doesn't fan out into a burst of generations on the same warm
@@ -241,10 +132,19 @@ const inFlight = new Map<string, Promise<DailyChallenge>>();
 // caller from forcing generations across many distinct dates.
 const rateLimited = makeRateLimiter(30, 60 * 1000);
 
-function fallbackFor(date: string): DailyChallenge {
-  const pick = FALLBACK[seedFrom(date) % FALLBACK.length];
-  return { date, ...pick, generated: false };
-}
+// A second, much looser limit that applies to EVERY request including memo
+// hits. The tight limiter above exists to bound paid Gemini generation, and it
+// deliberately sits behind the cache — but a cached response is still a
+// serverless invocation, and this route is public and unauthenticated. This
+// one bounds the invocations. It is set high enough that no honest client
+// (which fetches this once per launch, per midnight rollover, and on focus)
+// can meet it.
+const floodLimited = makeRateLimiter(300, 60 * 1000);
+
+// The bank itself now lives in lib/dailyFallback.ts, because /api/analyze has
+// to be able to recognise a fallback day too — see the note at the top of that
+// file for what went wrong while only this route knew about it.
+const fallbackFor = fallbackChallengeFor;
 
 /**
  * Publish the shared challenge doc for a date, create-only, and RETURN the
@@ -298,7 +198,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "bad date" }, { status: 400 });
   }
 
-  // Cached days are cheap; only rate-limit requests that could cause work.
+  if (floodLimited(clientIp(req))) {
+    return NextResponse.json({ error: "rate limited" }, { status: 429 });
+  }
+
+  // Cached days are cheap, but they are not free — the loose limiter runs
+  // first, on every path, and the tight one only in front of work that costs
+  // money.
   const cached = memo.get(date);
   if (cached) return NextResponse.json(cached);
 

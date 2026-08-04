@@ -214,9 +214,18 @@ export async function POST(req: NextRequest) {
         typeof payment?.payment_intent === "string"
           ? payment.payment_intent
           : payment?.payment_intent?.id;
-      if (paymentIntent) {
+      // The charge is checked too, not just the intent. An invoice paid
+      // without a PaymentIntent (an older or off-session charge) had no
+      // `paymentIntent`, so this whole block was skipped, reconciliation
+      // found nothing, and Retry issued a SECOND refund for money that had
+      // already gone back.
+      const chargeId =
+        typeof payment?.charge === "string" ? payment.charge : payment?.charge?.id;
+      if (paymentIntent || chargeId) {
         const refunds = await stripe.refunds.list({
-          payment_intent: paymentIntent,
+          ...(paymentIntent
+            ? { payment_intent: paymentIntent }
+            : { charge: chargeId as string }),
           limit: 100,
         });
         const existing = refunds.data.find(
@@ -273,9 +282,26 @@ export async function POST(req: NextRequest) {
 
   // No prior refund found: run the shared helper for real. It rewrites this
   // same alert doc with the outcome.
+  //
+  // The MODE and the FRACTION are carried over from the alert, and both matter.
+  // Without the mode a retry of a `full` refund (a duplicate subscription —
+  // our bug, our whole charge to give back) silently downgraded itself to
+  // prorated. Without the fraction the amount was recomputed from today's
+  // clock, so a retry refunded less the longer it waited, and a retry after
+  // the period ended refunded nothing at all while leaving the alert
+  // permanently unresolved.
+  const recordedMode = alert.mode === "full" ? "full" : "prorated";
+  const recordedFraction =
+    typeof alert.unusedFraction === "number" &&
+    alert.unusedFraction > 0 &&
+    alert.unusedFraction <= 1
+      ? alert.unusedFraction
+      : undefined;
   await refundUnusedPortion(stripe, db, sub, {
     uid: typeof alert.uid === "string" ? alert.uid : null,
     context: "admin-retry",
+    mode: recordedMode,
+    fractionOverride: recordedFraction,
   });
 
   const after = (await ref.get()).data() ?? {};

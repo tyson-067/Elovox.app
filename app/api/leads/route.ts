@@ -3,6 +3,7 @@ import { getAdminDb } from "@/lib/firebaseAdmin";
 import { validateEmail } from "@/lib/validation";
 import { makeRateLimiter, clientIp, logRejectedInput } from "@/lib/verify";
 import { FieldValue } from "firebase-admin/firestore";
+import { readJsonObject } from "@/lib/requestBody";
 
 // The tips list: a low-commitment way in for someone not ready to make an
 // account. No mail provider is wired up yet, so this only CAPTURES the
@@ -24,13 +25,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Slow down a moment." }, { status: 429 });
   }
 
-  let body: { email?: unknown; company?: unknown } = {};
-  try {
-    body = await req.json();
-  } catch {
-    logRejectedInput("leads", "bad-json");
+  // Size-capped before it is parsed. This route is public and
+  // unauthenticated, so an unbounded body is a memory cost anyone can impose.
+  const parsed = await readJsonObject(req);
+  if (!parsed.ok) {
+    logRejectedInput("leads", parsed.reason);
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
+  const body: { email?: unknown; company?: unknown } = parsed.body;
   // `JSON.parse("null")` and `JSON.parse("[]")` parse fine but aren't the
   // object the rest of this handler reads; guard before touching properties
   // so a `null`/array body is a clean 400, not an unhandled 500.

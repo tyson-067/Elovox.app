@@ -4,8 +4,14 @@ import {
   validateAuthInput,
   validateEmail,
   validatePassword,
-  GENERIC_INVALID,
 } from "./validation";
+import {
+  GENERIC_CREDENTIALS,
+  GENERIC_ERROR,
+  GENERIC_INVALID,
+  PASSWORD_POLICY,
+  RESET_SENT,
+} from "./authMessages";
 
 // Thin wrappers around Firebase Auth for the onboarding pages. firebase/auth
 // is imported dynamically so the landing page doesn't pay for it upfront.
@@ -128,6 +134,68 @@ export function clearVerificationSendFailed(): void {
   clearVerificationSendFailure();
 }
 
+/**
+ * Thrown when the server-side login gate refuses the attempt.
+ *
+ * Carries the SAME sentence as a wrong password on purpose — a caller that
+ * renders `err.message` cannot accidentally tell a locked account apart from a
+ * mistyped one, whatever it does with the type.
+ */
+export class LoginBlockedError extends Error {
+  constructor() {
+    super(GENERIC_CREDENTIALS);
+    this.name = "LoginBlockedError";
+  }
+}
+
+/**
+ * The server's login gate: rate limiting per IP, a progressive delay per
+ * account, and a lockout after repeated failures.
+ *
+ * `phase: "check"` asks permission before the credentials go anywhere;
+ * `phase: "result"` reports what happened so the counters move.
+ *
+ * Deliberately fails OPEN on a network error. The gate throttles our own login
+ * form in front of an authentication that happens at Google — a browser that
+ * cannot reach our API is not thereby more trustworthy, but refusing to sign
+ * anyone in because a telemetry-adjacent endpoint is down would take the
+ * product off the air to protect nothing.
+ */
+async function loginGate(
+  email: string,
+  phase: "check" | "result",
+  opts: {
+    outcome?: "success" | "failure";
+    /** The single-use ticket `check` issued, required to report a failure. */
+    ticket?: string;
+    /** A fresh ID token, required to report a success. */
+    idToken?: string;
+  } = {}
+): Promise<{ ok: boolean; ticket?: string }> {
+  try {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(opts.idToken ? { authorization: `Bearer ${opts.idToken}` } : {}),
+      },
+      body: JSON.stringify({
+        email,
+        phase,
+        ...(opts.outcome ? { outcome: opts.outcome } : {}),
+        ...(opts.ticket ? { ticket: opts.ticket } : {}),
+      }),
+    });
+    if (!res.ok) return { ok: true };
+    const data = (await res.json().catch(() => null)) as
+      | { ok?: boolean; ticket?: string }
+      | null;
+    return { ok: data?.ok !== false, ticket: data?.ticket };
+  } catch {
+    return { ok: true };
+  }
+}
+
 export async function signInWithEmail(
   email: string,
   password: string
@@ -137,13 +205,56 @@ export async function signInWithEmail(
     reportValidationFailure("login", check.reasons);
     throw new ValidationError();
   }
+
+  // Ask before spending the attempt. A refusal here is indistinguishable from
+  // a wrong password to everyone above this line. The ticket that comes back
+  // is what lets this attempt's outcome be reported at all.
+  const gate = await loginGate(check.clean.email, "check");
+  if (!gate.ok) throw new LoginBlockedError();
+
   const { signInWithEmailAndPassword } = await import("firebase/auth");
-  await signInWithEmailAndPassword(
-    getAuthInstance(),
-    check.clean.email,
-    check.clean.password
-  );
+  let cred;
+  try {
+    cred = await signInWithEmailAndPassword(
+      getAuthInstance(),
+      check.clean.email,
+      check.clean.password
+    );
+  } catch (err) {
+    // Only a genuine credential rejection advances the failure counter. A
+    // network drop or an App Check refusal is not a wrong password, and
+    // counting it would let a flaky connection lock a user out of their own
+    // account.
+    const code = (err as { code?: string })?.code ?? "";
+    if (CREDENTIAL_FAILURE_CODES.has(code)) {
+      void loginGate(check.clean.email, "result", {
+        outcome: "failure",
+        ticket: gate.ticket,
+      });
+    }
+    throw err;
+  }
+  // Clear the slate — with the ID token as proof, because the server does not
+  // take "it worked" on trust. Not awaited: the user is signed in, and nothing
+  // about their session should wait on bookkeeping.
+  void cred.user
+    .getIdToken()
+    .then((idToken) =>
+      loginGate(check.clean.email, "result", { outcome: "success", idToken })
+    )
+    .catch(() => {
+      // The counters stay put and expire on their own. The worst outcome is
+      // one progressive delay on the next sign-in.
+    });
 }
+
+/** Firebase codes that mean "those credentials were wrong", and nothing else. */
+const CREDENTIAL_FAILURE_CODES = new Set([
+  "auth/invalid-credential",
+  "auth/wrong-password",
+  "auth/user-not-found",
+  "auth/invalid-login-credentials",
+]);
 
 /**
  * Ask the native Google account picker for an ID token.
@@ -378,8 +489,7 @@ export async function sendPasswordReset(email: string): Promise<void> {
 }
 
 /** The one neutral line shown after any password-reset request. */
-export const PASSWORD_RESET_NOTICE =
-  "If that email is registered, you will receive a reset link.";
+export const PASSWORD_RESET_NOTICE = RESET_SENT;
 
 // --- Account management (signed-in user) --------------------------------
 // Changing an email or password is a "sensitive" operation: Firebase requires
@@ -387,6 +497,20 @@ export const PASSWORD_RESET_NOTICE =
 // verifyBeforeUpdateEmail, the link is sent to the NEW address and the email
 // only changes once the user clicks it, so a typo can't lock anyone out and
 // nobody can move their login to an address they don't control.
+
+/**
+ * Which service actually holds this account's credentials.
+ *
+ * Every screen that says "X manages your password" used to hardcode "Google",
+ * which was already wrong the day Sign in with Apple shipped — and wrong on
+ * the exact screen an Apple user goes to when they want to change a password
+ * they don't have.
+ */
+export function federatedProviderName(user: User): string {
+  if (user.providerData.some((p) => p.providerId === "apple.com")) return "Apple";
+  if (user.providerData.some((p) => p.providerId === "google.com")) return "Google";
+  return "your sign-in provider";
+}
 
 /** Does this account sign in with an email + password (vs. only Google)? */
 export function hasPasswordProvider(user: User): boolean {
@@ -513,10 +637,9 @@ export async function changePassword(
   const user = getAuthInstance().currentUser;
   if (!user) throw new Error("You're not signed in.");
   if (!hasPasswordProvider(user)) {
-    const provider = user.providerData.some((p) => p.providerId === "apple.com")
-      ? "Apple"
-      : "Google";
-    throw new Error(`This account signs in with ${provider}, so it has no password.`);
+    throw new Error(
+      `This account signs in with ${federatedProviderName(user)}, so it has no password.`
+    );
   }
   await reauthenticate(user, currentPassword);
   const { updatePassword } = await import("firebase/auth");
@@ -566,12 +689,18 @@ export function accountErrorMessage(err: unknown): string {
       return "That current password is incorrect.";
     case "auth/requires-recent-login":
       return "For security, sign out and back in, then try again.";
+    // NOT "that email is already in use". This screen speaks to the account
+    // owner, but the TARGET of a change-email is an arbitrary address in the
+    // global namespace — so a specific answer here is a logged-in
+    // account-enumeration endpoint, which is only marginally harder to abuse
+    // than an anonymous one. changeEmail already swallows this code; the
+    // generic answer means a future caller that doesn't can't reopen the hole.
     case "auth/email-already-in-use":
-      return "That email is already in use.";
+      return GENERIC_INVALID;
     case "auth/invalid-email":
-      return "That email doesn't look right.";
+      return GENERIC_INVALID;
     case "auth/weak-password":
-      return "Password needs to be at least 8 characters.";
+      return PASSWORD_POLICY;
     case "auth/too-many-requests":
       return "Too many attempts. Wait a moment and try again.";
     case "auth/popup-closed-by-user":
@@ -592,7 +721,7 @@ export function accountErrorMessage(err: unknown): string {
     case "auth/network-request-failed":
       return "No connection. Check your network and try again.";
     default:
-      return "Something went wrong. Please try again.";
+      return GENERIC_ERROR;
   }
 }
 
@@ -607,6 +736,11 @@ export function authErrorMessage(
 ): string {
   // Our own local validation failure, already generic.
   if (err instanceof ValidationError) return err.message;
+  // The server-side login gate refused: rate limit, progressive delay, or a
+  // lockout. It carries the credentials sentence and it is returned here
+  // WITHOUT a branch on which of those it was — a user who can tell "locked
+  // out" from "wrong password" is a user who has confirmed an address exists.
+  if (err instanceof LoginBlockedError) return GENERIC_CREDENTIALS;
 
   const code = (err as { code?: string })?.code ?? "";
   switch (code) {
@@ -618,7 +752,7 @@ export function authErrorMessage(
     case "auth/invalid-email":
     case "auth/too-many-requests":
     case "auth/user-disabled":
-      if (mode === "login") return "Incorrect email or password";
+      if (mode === "login") return GENERIC_CREDENTIALS;
       // On signup these mostly can't occur; fall through to the generic below.
       return GENERIC_INVALID;
 
@@ -628,13 +762,13 @@ export function authErrorMessage(
 
     case "auth/weak-password":
       // Safe to state the policy for a password being created.
-      return "Password needs to be at least 8 characters.";
+      return PASSWORD_POLICY;
 
     case "auth/popup-closed-by-user":
     case "auth/cancelled-popup-request":
       return ""; // user changed their mind; not an error worth showing
 
     default:
-      return "Something went wrong. Please try again.";
+      return GENERIC_ERROR;
   }
 }

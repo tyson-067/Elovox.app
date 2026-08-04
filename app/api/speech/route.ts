@@ -10,6 +10,7 @@ import {
 import { sanitizeText } from "@/lib/validation";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { usageDateKey, reserveMeteredUse } from "@/lib/quota";
+import { readJsonObject } from "@/lib/requestBody";
 
 // Durable per-user daily ceiling on Gemini speech generation, on the same
 // Admin-SDK-only usage doc as the analysis meter. The in-memory limiter above
@@ -238,11 +239,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const raw = await req.json().catch(() => ({}));
-  // A `null`/array body parses without throwing, so the .catch above doesn't
-  // cover it; normalize to {} before reading properties (unhandled 500 → the
-  // graceful "regenerate" default).
-  const body = raw && typeof raw === "object" ? raw : {};
+  // Size-capped and shape-checked in one place. An unusable body falls back to
+  // the graceful "regenerate" default rather than a 500, exactly as before.
+  const parsedBody = await readJsonObject(req);
+  const body: Record<string, unknown> = parsedBody.ok ? parsedBody.body : {};
   const kind =
     body.kind === "custom" || body.kind === "interview" ? body.kind : "regenerate";
   // 300s ceiling, matching the longest option on /custom. A five-minute

@@ -19,7 +19,10 @@ export interface FieldResult {
 }
 
 // Generic, non-specific message. Deliberately does not say which field or why.
-export const GENERIC_INVALID = "Please check your details and try again.";
+// Re-exported from lib/authMessages.ts, which is where the rule that governs it
+// is written down — this alias exists so the many callers already importing it
+// from here keep working and can never end up with a second wording.
+export { GENERIC_INVALID } from "./authMessages";
 
 const EMAIL_MAX = 254; // RFC 5321
 const PASSWORD_MIN = 8; // Firebase minimum is 6; we require a bit more

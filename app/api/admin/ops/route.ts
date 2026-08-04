@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sanitizeText } from "@/lib/validation";
 import { after } from "next/server";
 import { FieldPath } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/firebaseAdmin";
@@ -164,7 +165,12 @@ export async function POST(req: NextRequest) {
   if (typeof body.banner === "string") {
     // Plain text only: strip angle brackets outright and cap the length. The
     // banner renders as a text node, this is belt-and-braces, not the defense.
-    update.banner = body.banner.replace(/[<>]/g, "").trim().slice(0, 140);
+    // The shared sanitizer, not a local [<>] strip: it also drops whole tags
+    // and control characters, and it is the one implementation every other
+    // free-text field in the app already goes through. The banner renders as a
+    // text node, so this is belt-and-braces — but two spellings of "sanitize"
+    // is how one of them ends up weaker.
+    update.banner = sanitizeText(body.banner).slice(0, 140);
   }
   if (Object.keys(update).length === 0) {
     return NextResponse.json(

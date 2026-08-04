@@ -22,6 +22,7 @@ import {
   deleteAccount,
   changePassword,
   hasPasswordProvider,
+  federatedProviderName,
   refreshVerifiedStatus,
   resendVerificationEmail,
   EMAIL_CHANGE_NOTICE,
@@ -332,6 +333,7 @@ function BillingSection() {
 function AccountScreen() {
   const { user } = useAuth();
   const hasPassword = user ? hasPasswordProvider(user) : false;
+  const providerName = user ? federatedProviderName(user) : "your sign-in provider";
 
   // Verification -----------------------------------------------------------
   const [verified, setVerified] = useState(user?.emailVerified ?? false);
@@ -432,6 +434,7 @@ function AccountScreen() {
         email={user?.email ?? null}
         hasPassword={hasPassword}
         initialVerified={verified}
+        providerName={providerName}
       />
 
       <BillingSection />
@@ -584,7 +587,12 @@ function AccountScreen() {
           </form>
         ) : (
           <p className="mt-2 text-sm text-on-surface-variant">
-            This account signs in with Google, so Google manages the password.
+            {/* Named from the account's actual providers. This said "Google"
+                unconditionally, which was wrong on every Apple account — on the
+                one screen an Apple user reaches when they go looking for a
+                password they were never given. */}
+            This account signs in with {providerName}, so {providerName} manages
+            the password.
           </p>
         )}
       </section>

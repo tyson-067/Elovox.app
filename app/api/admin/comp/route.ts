@@ -4,6 +4,7 @@ import { getAdminDb } from "@/lib/firebaseAdmin";
 import { adminIdentity, makeRateLimiter, clientIp } from "@/lib/verify";
 import { recordAdminDenied } from "@/lib/opsMetrics";
 import { recordAdminAction } from "@/lib/adminAudit";
+import { readJsonObject } from "@/lib/requestBody";
 
 // Comped Premium, the operator version of the streak reward: a make-good for
 // a billing hiccup, a tester account, a refund alternative. Same mechanism as
@@ -27,12 +28,11 @@ const MAX_COMP_DAYS = 90;
 const UID_RE = /^[A-Za-z0-9]{1,128}$/;
 
 async function readBody(req: NextRequest): Promise<Record<string, unknown>> {
-  try {
-    const body = await req.json();
-    return body && typeof body === "object" && !Array.isArray(body) ? body : {};
-  } catch {
-    return {};
-  }
+  // Through the shared reader (lib/requestBody.ts): size cap + shape check,
+  // one implementation. Admin routes are authenticated, which bounds WHO can
+  // post a huge body, not how big it is.
+  const parsed = await readJsonObject(req);
+  return parsed.ok ? parsed.body : {};
 }
 
 export async function POST(req: NextRequest) {

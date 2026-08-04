@@ -109,6 +109,20 @@ export interface Session {
   socialSkillId?: SocialSkillId;
   withVideo?: boolean; // camera was on (Premium)
   xpEarned?: number;
+  /**
+   * The itemised working behind `xpEarned`, exactly as xpForChallengeAttempt
+   * returned it ("Attempt 2 · 87 score", "+42 beat your best by 9", …).
+   *
+   * Stored so the report can show the receipt whenever it is opened, not only
+   * in the seconds after the take. Optional: absent on every rep recorded
+   * before this field existed, and on non-daily reps, which have no breakdown
+   * to show — a flat rate needs no itemising.
+   */
+  xpReasons?: string[];
+  /** The level this attempt crossed into, if it crossed one. */
+  leveledUpTo?: number;
+  /** This attempt beat the day's previous best (or was the day's first). */
+  isNewBest?: boolean;
   createdAt: number; // epoch ms
   durationSec: number;
   analysis: Analysis;

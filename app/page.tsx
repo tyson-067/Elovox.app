@@ -8,6 +8,7 @@ import { GlowCard } from "@/components/GlowCard";
 import { CountUp } from "@/components/CountUp";
 import { TiltCard } from "@/components/TiltCard";
 import { GOALS } from "@/lib/goals";
+import { TRIAL_DAYS, formatUSD, planFor } from "@/lib/pricing";
 import { LEVELS } from "@/lib/levels";
 import { TESTIMONIALS } from "@/lib/testimonials";
 import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
@@ -687,8 +688,18 @@ export default function LandingPage() {
           <Reveal delay={120} className="h-full">
             <GlowCard className="card card-glow-light h-full p-6 navy-gradient border-none! text-white">
               <h3 className="font-headline text-2xl font-semibold">Premium</h3>
+              {/* Qualified, and priced by what is actually charged.
+                  This read "7-day free trial · from $1.54/week", which was
+                  wrong twice: the trial is on monthly and annual only (weekly
+                  bills from day one), and $1.54/week is the annual plan's
+                  DERIVED rate — the charge is $79.99 once. /pricing went to
+                  visible trouble to qualify both; the homepage inverted the
+                  emphasis on the page more people see. Figures come from
+                  lib/pricing.ts so they can never drift from checkout. */}
               <p className="mt-1 font-data text-sm text-white/70">
-                7-day free trial · from $1.54/week
+                {formatUSD(planFor("annual").price)}/year (
+                {formatUSD(planFor("annual").perWeek)}/week) · {TRIAL_DAYS}-day
+                free trial on monthly and annual
               </p>
               {/* Four lines, not eight. The feature grid further up this page
                   already made the case in detail; restating all of it here

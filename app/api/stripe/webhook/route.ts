@@ -4,6 +4,7 @@ import { getStripe, isEntitled } from "@/lib/stripe";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
 import { cycleForPriceId } from "@/lib/pricing";
 import { refundUnusedPortion } from "@/lib/refunds";
+import { clientIp, makeRateLimiter } from "@/lib/verify";
 
 // Stripe → Firestore entitlement sync. This is the ONLY writer of
 // users/{uid}/profile/plan (the Admin SDK bypasses the read-only rule on
@@ -188,13 +189,22 @@ async function syncSubscription(
             if (code === "resource_missing") canceled = true; // already stopped
             else console.error(`[stripe] couldn't cancel duplicate ${dupe.id}`, err);
           }
-          // Give the unused portion of the superseded sub back to the card.
+          // Give the money for the superseded sub back to the card, IN FULL.
           // Best-effort, never throws (see lib/refunds). Only after a confirmed
           // cancel, so we never refund a subscription that's still billing.
+          //
+          // Full, not prorated: this charge should never have existed. A user
+          // holding two entitling subscriptions was never getting two products
+          // — they were getting one, twice-billed, by our bug. Prorating meant
+          // the longer the duplicate went unnoticed the more of it we kept,
+          // which inverts the incentive and is less generous than the refunds
+          // page promises for exactly this case. Caught in the same second (a
+          // double-click) the two modes agree anyway.
           if (canceled) {
             await refundUnusedPortion(stripe, db, dupe, {
               uid: uid ?? null,
               context: "superseded-subscription",
+              mode: "full",
             });
           }
           try {
@@ -249,7 +259,23 @@ async function syncSubscription(
   );
 }
 
+/**
+ * A ceiling on invocations, not on Stripe.
+ *
+ * Signature verification is the real control and it rejects an unsigned body
+ * cheaply — but "cheaply" is still a serverless invocation on a public,
+ * unauthenticated endpoint, and this is the one route in the tree that had no
+ * limiter at all. The ceiling is set far above anything Stripe produces (their
+ * retries are per-event with backoff, from a small set of source IPs), so a
+ * legitimate delivery can never meet it; a flood of forged bodies from one
+ * source will.
+ */
+const rateLimited = makeRateLimiter(600, 60 * 1000);
+
 export async function POST(req: NextRequest) {
+  if (rateLimited(clientIp(req))) {
+    return new NextResponse(null, { status: 429 });
+  }
   const stripe = getStripe();
   const db = getAdminDb();
   // Trimmed: a value pasted into a dashboard field is the likeliest place for

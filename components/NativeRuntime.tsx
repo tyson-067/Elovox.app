@@ -398,34 +398,73 @@ export function NativeRuntime() {
     surface.style.transition = "";
     surface.style.transform = "";
 
-    const screens = Array.from(surface.children) as HTMLElement[];
-    screens.forEach((el) => el.classList.remove("native-screen-enter"));
-    void surface.offsetWidth;
-    screens.forEach((el) => el.classList.add("native-screen-enter"));
+    // The mark goes on #main, NOT on its children.
+    //
+    // The children are React-owned nodes that hydrate on every navigation, and
+    // a class this effect had already added to one of them was a class the
+    // server's HTML did not have — so React logged a hydration mismatch on
+    // every native push, on the busiest code path in the app. #main is
+    // rendered once by the root layout and never re-hydrates, so an attribute
+    // on it is invisible to reconciliation. The CSS selects the children
+    // through it (`#main[data-screen-enter] > *`), so nothing about the
+    // animation changed.
+    surface.removeAttribute("data-screen-enter");
+    void surface.offsetWidth; // force the removal to be observed
+    surface.setAttribute("data-screen-enter", "");
   }, [native, pathname]);
 
   /* --- Parallax ------------------------------------------------------------
-     Anything marked data-parallax drifts against the scroll at its own
-     factor (e.g. "0.08" = 8% of scroll distance, upward), which is what
-     gives a flat screen its faint sense of depth. One passive scroll
-     listener, one rAF, direct transform writes — React never hears about
-     any of it, and Reduce Motion means it never arms at all. Re-queried per
-     pathname: the marks belong to screens, and screens come and go. */
+     Anything marked data-parallax drifts against the scroll at its own factor
+     (e.g. "0.08" = 8% of the distance it travels across the viewport), which
+     is what gives a flat screen its faint sense of depth. One passive scroll
+     listener, one rAF, direct transform writes — React never hears about any
+     of it, and Reduce Motion means it never arms at all. Re-queried per
+     pathname: the marks belong to screens, and screens come and go.
+
+     THE OFFSET IS RELATIVE TO THE VIEWPORT, NOT TO ABSOLUTE PAGE SCROLL.
+     It used to be `-scrollY * f`, which is only correct for a mark sitting at
+     the very top of the document: the further down the page a mark lived, the
+     larger its offset was before it had even been seen. On a long screen —
+     Progress, or a full report — a 0.05 mark 1,400px down opened 70px out of
+     position, which pulled the Tape's bars clean out of their card and stood
+     the report's dial off its own hero. Measuring against the element's own
+     trip through the window makes the drift bounded and symmetric: zero as it
+     crosses the middle of the screen, and never more than CAP either side. */
   useEffect(() => {
     if (!native) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    /** Hard ceiling on the drift, in px. Depth is a whisper or it is a bug:
+     *  a mark inside a card has only its padding to spend before it pokes
+     *  out of the top. */
+    const CAP = 12;
 
     // The marks mount AFTER this effect runs — most screens client-fetch
     // before they render their cards — so the list is collected lazily and
     // re-collected whenever it has gone stale (empty, or its first element
     // unmounted by a navigation). Steady-state cost per frame: one
     // isConnected check.
-    let marks: { el: HTMLElement; f: number }[] = [];
+    //
+    // `home` is the mark's untransformed centre in DOCUMENT space, measured
+    // once at collect time (with any previous transform cleared, or the
+    // measurement would fold in the offset it is meant to produce). Holding it
+    // means the per-frame work stays arithmetic — no getBoundingClientRect in
+    // the scroll path, no layout thrash.
+    let marks: { el: HTMLElement; f: number; home: number }[] = [];
     const collect = () => {
+      const scrolled = window.scrollY;
       marks = Array.from(
         document.querySelectorAll<HTMLElement>("[data-parallax]")
       )
-        .map((el) => ({ el, f: parseFloat(el.dataset.parallax || "0") }))
+        .map((el) => {
+          el.style.transform = "";
+          const rect = el.getBoundingClientRect();
+          return {
+            el,
+            f: parseFloat(el.dataset.parallax || "0"),
+            home: rect.top + scrolled + rect.height / 2,
+          };
+        })
         .filter((m) => m.f !== 0);
     };
 
@@ -441,17 +480,30 @@ export function NativeRuntime() {
       const y = window.scrollY;
       if (y === last) return;
       last = y;
+      const middle = y + window.innerHeight / 2;
       for (const m of marks) {
-        m.el.style.transform = `translate3d(0, ${(-y * m.f).toFixed(1)}px, 0)`;
+        const drift = (middle - m.home) * m.f;
+        const clamped = drift > CAP ? CAP : drift < -CAP ? -CAP : drift;
+        m.el.style.transform = `translate3d(0, ${clamped.toFixed(1)}px, 0)`;
       }
     };
     const onScroll = () => {
       if (!raf) raf = requestAnimationFrame(frame);
     };
+    // A rotation or a keyboard changes both innerHeight and every home
+    // measurement, so the set is re-measured rather than drifting against
+    // stale geometry.
+    const onResize = () => {
+      collect();
+      last = -1;
+      onScroll();
+    };
     window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
     frame();
     return () => {
       window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
       if (raf) cancelAnimationFrame(raf);
       for (const m of marks) m.el.style.transform = "";
     };

@@ -388,6 +388,11 @@ function RecordingScreen() {
     id: string;
     xpEarned: number;
     attemptNumber?: number;
+    /** The daily award's working, carried onto the session so the report can
+     *  show the receipt on every later visit and not just this one. */
+    xpReasons?: string[];
+    leveledUpTo?: number;
+    isNewBest?: boolean;
   } | null>(null);
   // False after unmount, so an analysis that finishes after the user navigated
   // away doesn't yank them to the report from wherever they went.
@@ -561,6 +566,9 @@ function RecordingScreen() {
         // your own previous attempt is worth far more than the rep itself.
         let xpEarned: number;
         let attemptNumber: number | undefined;
+        let xpReasons: string[] | undefined;
+        let leveledUpTo: number | undefined;
+        let isNewBest: boolean | undefined;
         if (isDaily) {
           const result = await recordChallengeAttempt({
             score: analysis.overall,
@@ -568,6 +576,9 @@ function RecordingScreen() {
           });
           xpEarned = result.attempt?.xp ?? 0;
           attemptNumber = result.attempt?.attempt;
+          xpReasons = result.xpReasons.length ? result.xpReasons : undefined;
+          leveledUpTo = result.leveledUpTo ?? undefined;
+          isNewBest = result.isNewBest;
           // Today's rep is done, so drop today's reminder — being nudged to
           // practice an hour after you practised is how a reminder gets
           // switched off for good. Not awaited: this is housekeeping, and it
@@ -577,11 +588,21 @@ function RecordingScreen() {
           xpEarned = xpForRep(analysis.overall);
           await awardPracticeXp(xpEarned);
         }
-        cached = { take, analysis, id, xpEarned, attemptNumber };
+        cached = {
+          take,
+          analysis,
+          id,
+          xpEarned,
+          attemptNumber,
+          xpReasons,
+          leveledUpTo,
+          isNewBest,
+        };
         pendingSaveRef.current = cached;
       }
 
-      const { analysis, id, xpEarned, attemptNumber } = cached;
+      const { analysis, id, xpEarned, attemptNumber, xpReasons, leveledUpTo, isNewBest } =
+        cached;
 
       await saveSession({
         id,
@@ -602,6 +623,9 @@ function RecordingScreen() {
           : {}),
         ...(frames?.length ? { withVideo: true } : {}),
         xpEarned,
+        ...(xpReasons ? { xpReasons } : {}),
+        ...(leveledUpTo !== undefined ? { leveledUpTo } : {}),
+        ...(isNewBest !== undefined ? { isNewBest } : {}),
         createdAt: Date.now(),
         durationSec: Math.round(durationSec),
         analysis,
@@ -832,6 +856,25 @@ function RecordingScreen() {
       }
     }
   }, []);
+
+  /**
+   * Throw the take away and come back out of the booth.
+   *
+   * NOT `stop`. Stopping ends the recording and runs the analysis — which
+   * spends a daily attempt and real money at two providers. This is the other
+   * thing a person wants from a recording screen: "forget it, I wasn't ready".
+   *
+   * `stopEverything` is what makes it safe: it detaches the recorder's
+   * handlers BEFORE tearing down the tracks, so `onstop` never fires and the
+   * pipeline is never entered. Nothing is analysed, nothing is saved, no
+   * attempt is spent.
+   */
+  const discardTake = useCallback(() => {
+    stopEverything();
+    levelsRef.current = [];
+    setElapsed(0);
+    setState("idle");
+  }, [stopEverything]);
 
   const retryAnalysis = useCallback(() => {
     if (lastTakeRef.current) runAnalysis(lastTakeRef.current);
@@ -1341,6 +1384,45 @@ function RecordingScreen() {
             (native && recording ? " nv-takeover" : "")
           }
         >
+          {native && recording && (
+            // The booth's own header. A recording screen with no way off it
+            // reads as a trap, and the shell's chrome is gone by design while
+            // the takeover is up — so the booth carries its own: a way out, a
+            // reminder of which attempt this is, and one word saying the mic
+            // is hot.
+            //
+            // The two controls do DIFFERENT things and must keep doing so: the
+            // big square below ends the take and sends it to be scored (a
+            // daily attempt, a paid pipeline); this X throws it away and spends
+            // nothing.
+            <div className="mb-3.5 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={discardTake}
+                className="nv-booth-btn"
+                aria-label="Discard this take and go back"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2.4}
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                >
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+              {isDaily && (
+                <span className="nv-booth-meta">
+                  Attempt {attemptNumber} of {MAX_DAILY_ATTEMPTS}
+                </span>
+              )}
+              <span className="nv-booth-live ml-auto">Live</span>
+            </div>
+          )}
           {native && recording && (
             // The brief, collapsed to one peek line so the speaker can glance
             // without reading. Tap to expand. Color inherits from the takeover

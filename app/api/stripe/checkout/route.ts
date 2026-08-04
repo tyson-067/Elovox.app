@@ -8,6 +8,7 @@ import {
 } from "@/lib/verify";
 import { getOpsFlags } from "@/lib/opsMetrics";
 import { PLANS, stripePriceIdFor, type BillingCycle } from "@/lib/pricing";
+import { readJsonObject } from "@/lib/requestBody";
 
 // Starts a Stripe Checkout session for a signed-in user. Subscription mode
 // with card-up-front, so the trial captures a payment method and converts
@@ -64,24 +65,29 @@ export async function POST(req: NextRequest) {
   // Operator kill switch for NEW purchases (ops/flags.pauseCheckout, set from
   // /admin → Ops): a pricing mistake or a Stripe incident shouldn't keep
   // selling while it's being fixed. Existing subscribers are untouched.
-  // Fail-open + cached, same posture as the analyze brake: a Firestore blip
-  // can never stop revenue by itself.
+  //
+  // FAILS CLOSED, unlike the analyze brake. Both used to fail open on the
+  // argument that "a Firestore blip can never stop revenue by itself" — right
+  // for analyze, and backwards here. Half of what this switch is for is a
+  // PRICING MISTAKE, and failing open means a database blip resumes selling at
+  // the wrong price, for a full cache window, with nobody watching. The cost
+  // of the two failures is not symmetric: a paused checkout during an outage
+  // is minutes of lost sales, an unpaused one is charges we have to unwind.
   const opsFlags = await getOpsFlags(db);
-  if (opsFlags.pauseCheckout) {
+  if (opsFlags.pauseCheckout || opsFlags.unavailable) {
     return NextResponse.json(
       { error: "Purchases are briefly paused for maintenance. Try again soon." },
       { status: 503 }
     );
   }
 
-  let cycle: BillingCycle;
-  let skipTrial: unknown;
-  try {
-    ({ cycle, skipTrial } = await req.json());
-  } catch {
-    logRejectedInput("stripe/checkout", "bad-json");
+  const parsed = await readJsonObject(req);
+  if (!parsed.ok) {
+    logRejectedInput("stripe/checkout", parsed.reason);
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
+  const cycle = parsed.body.cycle as BillingCycle;
+  const skipTrial: unknown = parsed.body.skipTrial;
   if (!CYCLES.includes(cycle)) {
     logRejectedInput("stripe/checkout", "unknown-cycle");
     return NextResponse.json({ error: "Unknown plan." }, { status: 400 });

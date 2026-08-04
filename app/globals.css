@@ -1558,10 +1558,16 @@ html[data-native] #main {
   letter-spacing: -0.01em;
   color: var(--color-primary);
   opacity: 0;
-  transition: opacity 180ms ease;
+  /* Out of the accessibility tree while invisible, for the same reason the
+     large title now hides: two copies of one screen's name, both live, meant
+     VoiceOver read it twice on every push. */
+  visibility: hidden;
+  transition: opacity 180ms ease, visibility 0s linear 180ms;
 }
 .native-bar-scrolled .native-title-sm {
   opacity: 1;
+  visibility: visible;
+  transition: opacity 180ms ease, visibility 0s;
 }
 
 /* Bar controls: back chevron, theme switch. 44px targets, no chrome of their
@@ -1658,50 +1664,11 @@ html[data-native] #main {
 
 /* The record node. Lifted out of the dock, off-round, haloed — the single
    place in the app where the brand orange appears at full strength. */
-.native-record {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 56px;
-}
-.native-record-blob {
-  position: absolute;
-  bottom: 8px;
-  height: 58px;
-  width: 58px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  border-radius: 47% 53% 52% 48% / 51% 49% 52% 48%;
-  background: linear-gradient(150deg, #ff8400 0%, #ff6b35 62%, #f7623a 100%);
-  box-shadow:
-    0 8px 22px rgba(255, 107, 53, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.native-record:active .native-record-blob {
-  transform: scale(0.92);
-}
-/* A slow breath, so the one action in the app is never quite still. */
-.native-record-blob::after {
-  content: "";
-  position: absolute;
-  inset: -6px;
-  border-radius: inherit;
-  background: radial-gradient(
-    circle,
-    rgba(255, 107, 53, 0.3) 0%,
-    rgba(255, 107, 53, 0) 70%
-  );
-  animation: loader-halo 3.6s ease-in-out infinite;
-}
+/* (The dock's record node was removed with the Ladder pass: the rung IS the
+   button, and it is the biggest object on the home screen. Its rules — the
+   raised blob, the halo, the press state — went with it.) */
 
 @media (prefers-reduced-motion: reduce) {
-  .native-record-blob::after {
-    animation: none;
-  }
   .native-title-lg,
   .native-title-sm,
   .native-bar {
@@ -1756,7 +1723,7 @@ html[data-native][data-keyboard] body {
    replays. `both` would leave a reused node stuck at opacity 1 with the
    animation already finished — which is the state we want anyway, so a
    forwards fill is all this needs. */
-html[data-native] #main > .native-screen-enter {
+html[data-native] #main[data-screen-enter] > * {
   animation: native-screen-in 260ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
 }
 
@@ -1768,7 +1735,7 @@ html[data-native] .native-dock {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html[data-native] #main > .native-screen-enter {
+  html[data-native] #main[data-screen-enter] > * {
     animation: none;
   }
   .native-dock {
@@ -1944,22 +1911,8 @@ html[data-native] #main .font-data.text-2xl {
   font-size: 33px;
   letter-spacing: -0.025em;
 }
-.native-bar-sub {
-  padding: 0 16px 10px;
-  margin-top: -6px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--color-on-surface-variant);
-  transition: opacity 180ms ease;
-}
-.native-bar-scrolled .native-bar-sub {
-  opacity: 0;
-  height: 0;
-  padding-bottom: 0;
-  overflow: hidden;
-}
+/* (.native-bar-sub was the date line under Today's large title. The Ladder has
+   no large title — its sticky HUD is the header — so nothing renders it.) */
 
 /* Tab labels at the iOS 10pt register with the 49pt-content dock they sit
    in; the active tint is already handled above. */

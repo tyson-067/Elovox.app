@@ -3,6 +3,7 @@ import { getAdminDb } from "@/lib/firebaseAdmin";
 import { verifyUser, makeRateLimiter, logRejectedInput } from "@/lib/verify";
 import { checkHandle, setHandle } from "@/lib/leaderboardServer";
 import { isRestricted } from "@/lib/moderation";
+import { readJsonObject } from "@/lib/requestBody";
 
 // Sets the name a user appears under on the leaderboard.
 //
@@ -44,15 +45,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    logRejectedInput("leaderboard/handle", "bad-json");
+  const parsed = await readJsonObject(req);
+  if (!parsed.ok) {
+    logRejectedInput("leaderboard/handle", parsed.reason);
     return NextResponse.json({ error: "Pick a name." }, { status: 400 });
   }
 
-  const check = checkHandle((body as { handle?: unknown })?.handle);
+  const check = checkHandle(parsed.body.handle);
   if (!check.ok) {
     logRejectedInput("leaderboard/handle", "bad-handle");
     return NextResponse.json({ error: check.error }, { status: 400 });
