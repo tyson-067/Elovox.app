@@ -5,7 +5,9 @@ import { clientIp, logRejectedInput, makeRateLimiter, verifiedIdentity } from "@
 import type { Firestore } from "firebase-admin/firestore";
 import { validateEmail } from "@/lib/validation";
 import { GENERIC_CREDENTIALS } from "@/lib/authMessages";
-import { isMailConfigured, sendMail } from "@/lib/mailer";
+import { isMailConfigured } from "@/lib/email/config";
+import { send } from "@/lib/email/send";
+import { lockoutNotice } from "@/lib/email/messages";
 import {
   LOCKOUT_AFTER_FAILURES,
   LOCKOUT_MS,
@@ -14,7 +16,6 @@ import {
   rateLimitIp,
   recordLoginFailure,
 } from "@/lib/loginGuard";
-import { LEGAL } from "@/lib/legal";
 import { readJsonObject } from "@/lib/requestBody";
 
 /**
@@ -100,22 +101,10 @@ async function notifyLockout(email: string): Promise<void> {
     return;
   }
 
-  await sendMail({
-    to: email,
-    subject: `Unusual sign-in attempts on your ${LEGAL.serviceName} account`,
-    text: [
-      `Someone has been trying to sign in to your ${LEGAL.serviceName} account and getting the password wrong.`,
-      "",
-      `We've paused sign-in on the account for ${Math.round(LOCKOUT_MS / 60000)} minutes. If that was you, just try again after that.`,
-      "",
-      "If it wasn't you, set a new password now:",
-      link,
-      "",
-      "This link works once and expires. If you don't use it, your password stays as it is.",
-      "",
-      `— ${LEGAL.serviceName}`,
-    ].join("\n"),
-  });
+  // Category "security" in lib/email/config.ts, which is what makes this
+  // message unstoppable by a preference, unsuppressible by an unsubscribe, and
+  // entitled to the last of the day's send allowance if it comes to that.
+  await send(getAdminDb(), lockoutNotice(email, link, Math.round(LOCKOUT_MS / 60000)));
 }
 
 export async function POST(req: NextRequest) {

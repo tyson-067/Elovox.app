@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { RequireAuth } from "@/components/RequireAuth";
 import { NativeAccount } from "@/components/native/NativeAccount";
+import { EmailPrefs } from "@/components/EmailPrefs";
 import { useAuth } from "@/components/AuthProvider";
 import { usePlanRecord, refreshPlan, hasComp, type PlanRecord } from "@/lib/plan";
 import { STREAK_REWARD_DAYS } from "@/lib/streakClaim";
@@ -483,6 +484,12 @@ function AccountScreen() {
           </p>
         )}
       </section>
+
+      {/* Which optional emails they get. Sits directly under the address it
+          governs, rather than at the bottom with the destructive actions —
+          somebody who came here to stop an email should find it next to the
+          email settings, not below "Delete account". */}
+      <EmailPrefs className={`${cardClass} native-hide`} />
 
       {/* Change email */}
       <section className={`${cardClass} native-hide`}>

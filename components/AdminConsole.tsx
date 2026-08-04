@@ -7,15 +7,16 @@ import { AdminBillingScreen } from "@/components/AdminBillingScreen";
 import { AdminOpsScreen } from "@/components/AdminOpsScreen";
 import { AdminCommunityScreen } from "@/components/AdminCommunityScreen";
 import { AdminAuditScreen } from "@/components/AdminAuditScreen";
+import { AdminEmailScreen } from "@/components/AdminEmailScreen";
 
-// The /admin shell: one page, six tabs, each screen owning its own data.
+// The /admin shell: one page, seven tabs, each screen owning its own data.
 // Only the active tab is mounted, so switching refetches — for an operator
 // console, current beats cached.
 //
 // Access control stays entirely server-side (every /api/admin route 404s
 // outside ADMIN_EMAILS). The first screen to see that 404 reports it here,
 // and the shell collapses to the same "nothing here" the stats screen has
-// always shown — one message, not six, and no tab bar advertising what a
+// always shown — one message, not seven, and no tab bar advertising what a
 // non-admin can't open.
 
 const TABS = [
@@ -24,6 +25,7 @@ const TABS = [
   { id: "billing", label: "Billing" },
   { id: "ops", label: "Ops" },
   { id: "community", label: "Community" },
+  { id: "email", label: "Email" },
   { id: "audit", label: "Audit" },
 ] as const;
 
@@ -72,6 +74,7 @@ export function AdminConsole() {
       {tab === "billing" && <AdminBillingScreen onDenied={onDenied} />}
       {tab === "ops" && <AdminOpsScreen onDenied={onDenied} />}
       {tab === "community" && <AdminCommunityScreen onDenied={onDenied} />}
+      {tab === "email" && <AdminEmailScreen onDenied={onDenied} />}
       {tab === "audit" && <AdminAuditScreen onDenied={onDenied} />}
     </div>
   );

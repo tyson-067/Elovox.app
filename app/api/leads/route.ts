@@ -4,12 +4,16 @@ import { validateEmail } from "@/lib/validation";
 import { makeRateLimiter, clientIp, logRejectedInput } from "@/lib/verify";
 import { FieldValue } from "firebase-admin/firestore";
 import { readJsonObject } from "@/lib/requestBody";
+import { send } from "@/lib/email/send";
+import { tipsWelcome } from "@/lib/email/messages";
+import { upsertContact } from "@/lib/email/audience";
 
 // The tips list: a low-commitment way in for someone not ready to make an
-// account. No mail provider is wired up yet, so this only CAPTURES the
-// address — into `leads/{email}`, which firestore.rules' catch-all denies to
-// every client, written here through the Admin SDK. When a sender exists,
-// the drip reads from this collection; nothing about the form changes.
+// account. The address lands in `leads/{email}` — which firestore.rules'
+// catch-all denies to every client, written here through the Admin SDK — and
+// a first signup also gets a confirmation tip and a mirrored contact in the
+// Resend Audience. `leads` stays the source of truth; the Audience is a copy
+// kept so the list can be reached by a Broadcast.
 //
 // Public and unauthenticated by design (the whole point is pre-signup), so:
 // per-IP rate limit, server-side format validation, a honeypot field bots
@@ -82,6 +86,11 @@ export async function POST(req: NextRequest) {
   }
 
   const ref = db.doc(`leads/${docId}`);
+  // Whether this submission is the one that created the row. Only a FIRST
+  // signup gets the confirmation email — a resubmit (a double-click, a second
+  // visit) must not send a second one, and the durable row is the only honest
+  // record of which this was.
+  let isNew = false;
   try {
     // Doc id is the address (URI-encoded for safety), so subscribing twice
     // is one row, not a duplicate. create() stamps `since` exactly once; a
@@ -91,6 +100,7 @@ export async function POST(req: NextRequest) {
       since: FieldValue.serverTimestamp(),
       submissions: 1,
     });
+    isNew = true;
   } catch (err) {
     if ((err as { code?: number })?.code !== 6) {
       console.error("[leads] write failed", err);
@@ -102,6 +112,23 @@ export async function POST(req: NextRequest) {
     await ref
       .update({ submissions: FieldValue.increment(1) })
       .catch(() => {}); // the row exists; losing a resubmit count is nothing
+  }
+
+  if (isNew) {
+    // Two follow-ups, neither of which the caller waits on and neither of
+    // which can fail this request: the address is already saved, which was
+    // the promise the form made.
+    //
+    // The confirmation is a tip, which is the ONLY thing this list may ever
+    // receive — /privacy tells these addresses they are used "only to send
+    // those tips", and lib/email/audience.ts repeats that where it would be
+    // easiest to forget. Category "marketing", so the unsubscribe link and
+    // the one-click headers come as standard.
+    void send(db, tipsWelcome(email)).catch(() => {});
+    // Mirror into the Resend Audience so this list can also be reached by a
+    // Broadcast — one API call for the whole list, rather than one per person
+    // against a two-request-per-second ceiling. No-op when unconfigured.
+    void upsertContact({ email }).catch(() => {});
   }
 
   return NextResponse.json({ ok: true });

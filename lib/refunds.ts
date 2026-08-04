@@ -245,6 +245,20 @@ export async function refundUnusedPortion(
         { merge: true }
       )
       .catch(() => {});
+
+    // Tell the person whose money it is.
+    //
+    // Every refund in here is one Elovox decided on by itself — a superseded
+    // subscription, an early cancellation — so nobody is expecting it, and an
+    // unexplained credit on a card statement reads as a billing error, not as
+    // the app doing the right thing. Stripe's own receipt says "refund" and
+    // nothing about why.
+    //
+    // Best-effort, after the durable alert is written, and it cannot throw:
+    // this whole module's contract is that a refund never fails the caller.
+    await notifyRefund(db, opts.uid, amount, invoice.currency ?? "usd").catch(
+      () => {}
+    );
   } catch (err) {
     // Couldn't refund (Stripe error, missing payment, network). Record it so a
     // human can settle it, and let the caller proceed regardless.
@@ -266,4 +280,57 @@ export async function refundUnusedPortion(
       )
       .catch(() => {});
   }
+}
+
+/**
+ * The "money is on its way back" email.
+ *
+ * Separate from the refund itself so the refund path stays readable and so
+ * this can never affect it: every failure here is swallowed, including the
+ * account having been deleted between the refund and this call — which is the
+ * normal case for the deletion path, where there is deliberately nobody left
+ * to email.
+ *
+ * Category "billing": non-optional, no unsubscribe link. A refund notice is
+ * not marketing and a user cannot have opted out of being told about their
+ * own money.
+ */
+async function notifyRefund(
+  db: Firestore,
+  uid: string | null,
+  amountMinor: number,
+  currency: string
+): Promise<void> {
+  if (!uid || amountMinor <= 0) return;
+  const { isMailConfigured } = await import("./email/config");
+  if (!isMailConfigured()) return;
+
+  const { getAdminApp } = await import("./firebaseAdmin");
+  const app = getAdminApp();
+  if (!app) return;
+
+  const { getAuth } = await import("firebase-admin/auth");
+  let email: string | null = null;
+  try {
+    const user = await getAuth(app).getUser(uid);
+    // Unverified addresses are never mailed. See the same rule in the Stripe
+    // webhook and in lib/email/campaigns.ts.
+    if (user.emailVerified && user.email) email = user.email;
+  } catch {
+    // Account gone — the account-deletion path refunds on the way out, so
+    // this is expected, not an error.
+    return;
+  }
+  if (!email) return;
+
+  // Minor units to a formatted amount. Intl knows how many decimal places
+  // each currency actually has, which hardcoding /100 does not (JPY has none).
+  const formatted = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currency.toUpperCase(),
+  }).format(amountMinor / 100);
+
+  const { send } = await import("./email/send");
+  const { refundIssued } = await import("./email/messages");
+  await send(db, refundIssued(email, uid, formatted));
 }

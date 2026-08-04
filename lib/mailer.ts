@@ -1,69 +1,70 @@
 /**
- * The one place this app sends an email itself.
+ * Kept as the front door for callers that already import from here.
  *
- * Everything transactional — verification, password reset when the user asks
- * for it — is sent by Firebase Auth from its own templates. This exists for
- * the one message Firebase has no concept of: telling an account's owner that
- * someone has been trying to get in.
+ * The real implementation moved to lib/email/ when this app grew past its one
+ * message. That directory is where the interesting decisions now live —
+ * lib/email/send.ts is the door every message goes through, lib/email/budget.ts
+ * is why a digest run can't starve a security notice, lib/email/config.ts is
+ * what the Resend free plan actually allows.
  *
- * Provider-agnostic on purpose, and dependency-free: it POSTs to Resend's REST
- * API with `fetch`. Set RESEND_API_KEY and MAIL_FROM and mail goes out; leave
- * them unset and `sendMail` returns `{ sent: false }` — it never throws, and
- * it never pretends. A caller that reports "we emailed you" on the strength of
- * this function without checking `sent` is lying to a user about a security
- * notice, which is worse than not sending it.
+ * `sendMail` below is the old plain-text one-shot, re-expressed on top of the
+ * new pipeline so that anything still calling it gets the suppression check,
+ * the budget, tagging and the delivery log for free. Prefer building a message
+ * in lib/email/messages.ts and calling `send` — that gets you the branded HTML
+ * half and a stable idempotency key, neither of which this shim can invent.
  */
+
+import { getAdminDb } from "./firebaseAdmin";
+import { send } from "./email/send";
+import type { Block } from "./email/render";
+
+export { isMailConfigured } from "./email/config";
 
 export interface MailMessage {
   to: string;
   subject: string;
-  /** Plain text. There is no HTML half — a security notice does not need one. */
+  /** Plain text. Rendered into the standard shell so it still arrives with an
+   *  HTML half — a text-only message is a measurable spam signal. */
   text: string;
 }
 
 export interface MailResult {
   sent: boolean;
   /** Machine reason when `sent` is false. Never contains the address. */
-  reason?: "not-configured" | "rejected" | "error";
-}
-
-export function isMailConfigured(): boolean {
-  return Boolean(process.env.RESEND_API_KEY && process.env.MAIL_FROM);
+  reason?: "not-configured" | "rejected" | "error" | "suppressed" | "budget";
 }
 
 export async function sendMail(message: MailMessage): Promise<MailResult> {
-  const key = process.env.RESEND_API_KEY;
-  const from = process.env.MAIL_FROM;
-  if (!key || !from) return { sent: false, reason: "not-configured" };
-
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${key}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        from,
-        to: [message.to],
-        subject: message.subject,
-        text: message.text,
-      }),
-      // A mail send must never hold a request open. The caller is always doing
-      // something more important than this.
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) {
-      // Status only. The body can echo the recipient address, and this line
-      // goes to a shared log.
-      console.warn(`[mail] send rejected: ${res.status}`);
-      return { sent: false, reason: "rejected" };
-    }
-    return { sent: true };
-  } catch (err) {
-    console.warn(
-      `[mail] send failed: ${err instanceof Error ? err.name : "unknown"}`
+  const blocks: Block[] = message.text
+    .split(/\n{2,}/)
+    .map((para) => para.trim())
+    .filter(Boolean)
+    .map((text) =>
+      // A bare URL on its own line was the old format's way of saying "this
+      // is a link the user must be able to copy". Keep that meaning.
+      /^https?:\/\/\S+$/.test(text)
+        ? { kind: "link", href: text }
+        : { kind: "p", text }
     );
-    return { sent: false, reason: "error" };
-  }
+
+  const result = await send(getAdminDb(), {
+    to: message.to,
+    subject: message.subject,
+    // Non-optional by default. A caller reaching this shim believes the user
+    // needs the message; anything opt-in should go through
+    // lib/email/messages.ts, where its category is declared explicitly.
+    category: "transactional",
+    type: "legacy",
+    doc: {
+      preheader: message.subject,
+      heading: message.subject,
+      blocks,
+    },
+  });
+
+  if (result.sent) return { sent: true };
+  return {
+    sent: false,
+    reason: result.outcome === "failed" ? "error" : (result.outcome as MailResult["reason"]),
+  };
 }

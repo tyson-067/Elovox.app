@@ -14,6 +14,7 @@ import { FelixScene } from "@/components/Biome";
 import { CoinBadge, NvSparkles, popFor } from "@/components/native/felix";
 import { type FelixAccessory } from "@/components/FoxLogo";
 import { useIsNative, useTheme } from "@/lib/native";
+import { getUser, isFirebaseConfigured } from "@/lib/firebase";
 import { LEGAL } from "@/lib/legal";
 import { badgesFor, currentOutfit, wardrobeFor } from "@/lib/quests";
 import { getStats, type UserStats } from "@/lib/daily";
@@ -890,6 +891,113 @@ function PracticeSection() {
   );
 }
 
+/* --- Group 3b: Email (which optional emails arrive) ------------------------- */
+/* The native half of components/EmailPrefs.tsx — same endpoint, same store,
+   the switches rendered as an inset group instead of a card. Both surfaces
+   read and write the suppression list keyed by address (lib/email/prefs.ts),
+   which is also what the unsubscribe link in every footer writes, so the
+   phone, the website and a link tapped in Mail can never disagree.
+
+   Renders NOTHING when the request comes back unavailable — no service
+   account, an unverified address — rather than showing a group of switches
+   that will not save. */
+type NvPrefKey = "progress" | "streak" | "product" | "tips";
+
+interface NvPrefPayload {
+  prefs: Record<NvPrefKey, boolean>;
+  blocked: "hard-bounce" | "complaint" | null;
+  labels: Record<NvPrefKey, { title: string; blurb: string }>;
+  order: NvPrefKey[];
+}
+
+async function nvPrefHeaders(): Promise<Record<string, string>> {
+  if (!isFirebaseConfigured()) return {};
+  const user = await getUser();
+  if (!user) return {};
+  return { authorization: `Bearer ${await user.getIdToken()}` };
+}
+
+function EmailPrefsSection() {
+  const [data, setData] = useState<NvPrefPayload | null>(null);
+  const [busy, setBusy] = useState<NvPrefKey | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let stale = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/account/email-prefs", {
+          headers: await nvPrefHeaders(),
+        });
+        if (stale) return;
+        if (!res.ok) return;
+        setData((await res.json()) as NvPrefPayload);
+      } catch {
+        /* offline. The group simply doesn't appear. */
+      }
+    })();
+    return () => {
+      stale = true;
+    };
+  }, []);
+
+  if (!data) return null;
+
+  const toggle = async (key: NvPrefKey, next: boolean) => {
+    setBusy(key);
+    setFailed(false);
+    // Optimistic, then reconciled against what the server says is actually in
+    // force — a bounced address cannot switch anything back on.
+    setData({ ...data, prefs: { ...data.prefs, [key]: next } });
+    try {
+      const res = await fetch("/api/account/email-prefs", {
+        method: "POST",
+        headers: { ...(await nvPrefHeaders()), "content-type": "application/json" },
+        body: JSON.stringify({ prefs: { [key]: next } }),
+      });
+      if (!res.ok) throw new Error();
+      setData((await res.json()) as NvPrefPayload);
+    } catch {
+      setData((d) => (d ? { ...d, prefs: { ...d.prefs, [key]: !next } } : d));
+      setFailed(true);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <>
+      <NvSectionHeader>Email</NvSectionHeader>
+      <NvGroup>
+        {data.order.map((key) => (
+          <NvRow
+            key={key}
+            label={data.labels[key].title}
+            sub={data.labels[key].blurb}
+            value={
+              <NvSwitch
+                checked={data.prefs[key] && !data.blocked}
+                busy={busy === key || Boolean(data.blocked)}
+                onChange={(next) => void toggle(key, next)}
+                label={data.labels[key].title}
+              />
+            }
+          />
+        ))}
+      </NvGroup>
+      <p className="nv-footnote mt-2 px-1">
+        {data.blocked
+          ? data.blocked === "complaint"
+            ? "You marked an Elovox email as spam, so we've stopped sending. Reply to any of our emails and we'll turn it back on."
+            : "Email to this address bounced, so we've stopped sending. Check the address above, or reply to us and we'll look."
+          : failed
+            ? "Couldn't save that. Try again."
+            : "Account and billing emails always come through \u2014 you'd want the one about a failed sign-in."}
+      </p>
+    </>
+  );
+}
+
 /* --- Group 4: About --------------------------------------------------------- */
 function AboutSection() {
   return (
@@ -1178,6 +1286,7 @@ function AccountNative({
       </NvGroup>
 
       <PracticeSection />
+      <EmailPrefsSection />
       <AboutSection />
       <DataSection hasPassword={hasPassword} />
 

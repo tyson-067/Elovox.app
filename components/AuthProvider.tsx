@@ -102,9 +102,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [configured]);
 
+  usePingWelcome(user);
+
   return (
     <AuthContext.Provider value={{ user, loading, configured }}>
       {children}
     </AuthContext.Provider>
   );
+}
+
+/**
+ * Tell the server a verified account has shown up, so it can send the welcome
+ * email once.
+ *
+ * Sign-up happens entirely in the browser against Firebase, so there is no
+ * server step for that email to hang off and no webhook to receive — see the
+ * note at the top of /api/account/welcome. This is the "I'm here" ping.
+ *
+ * The localStorage flag is only there to stop a call on every page load. It is
+ * NOT what makes the email send once: that is a durable claim on the server,
+ * keyed by uid, because a flag in the browser is cleared by a new device, a
+ * private window, or anyone who opens devtools. Deliberately fire-and-forget —
+ * nothing in the app waits on it, and a failure is silent, because the person
+ * this could interrupt is trying to use the app, not read email.
+ */
+function usePingWelcome(user: User | null) {
+  useEffect(() => {
+    if (!user || !user.emailVerified) return;
+    const key = `elovox.welcomed.${user.uid}`;
+    try {
+      if (localStorage.getItem(key)) return;
+    } catch {
+      // Private mode with storage blocked. Ping anyway — the server's claim
+      // makes a repeat harmless, it just costs a request per load.
+    }
+    let cancelled = false;
+    user
+      .getIdToken()
+      .then((token) =>
+        fetch("/api/account/welcome", {
+          method: "POST",
+          headers: { authorization: `Bearer ${token}` },
+        })
+      )
+      .then(() => {
+        if (cancelled) return;
+        try {
+          localStorage.setItem(key, "1");
+        } catch {
+          /* nothing to do; see above */
+        }
+      })
+      .catch(() => {
+        /* offline, or the route is unavailable. Next load tries again. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 }

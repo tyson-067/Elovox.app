@@ -5,6 +5,13 @@ import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
 import { cycleForPriceId } from "@/lib/pricing";
 import { refundUnusedPortion } from "@/lib/refunds";
 import { clientIp, makeRateLimiter } from "@/lib/verify";
+import { isMailConfigured, siteUrl } from "@/lib/email/config";
+import { send } from "@/lib/email/send";
+import {
+  paymentFailed,
+  subscriptionCanceled,
+  subscriptionStarted,
+} from "@/lib/email/messages";
 
 // Stripe → Firestore entitlement sync. This is the ONLY writer of
 // users/{uid}/profile/plan (the Admin SDK bypasses the read-only rule on
@@ -236,6 +243,17 @@ async function syncSubscription(
     source.items.data[0]?.current_period_end
   );
 
+  // What the plan doc said BEFORE this event, so the mail below can tell a
+  // state CHANGE from a redelivery. Stripe sends `customer.subscription.updated`
+  // for things as small as a card-brand refresh; mailing on every one of them
+  // would be several "your subscription changed" emails a month for a user
+  // whose subscription did not change.
+  const priorSnap = await db
+    .doc(`users/${uid}/profile/plan`)
+    .get()
+    .catch(() => null);
+  const prior = priorSnap?.data() ?? {};
+
   await db.doc(`users/${uid}/profile/plan`).set(
     {
       plan: entitled ? "premium" : "free",
@@ -257,6 +275,104 @@ async function syncSubscription(
     },
     { merge: true }
   );
+
+  await notifyPlanChange(db, uid, prior, {
+    entitled,
+    status: source.status,
+    cycle: priceId ? (cycleForPriceId(priceId) ?? null) : null,
+    periodEnd: ms(source.items.data[0]?.current_period_end) ?? null,
+    canceling:
+      (source.cancel_at_period_end ?? false) || source.cancel_at != null,
+  });
+}
+
+/**
+ * The billing emails, decided by comparing the plan doc before and after.
+ *
+ * TRANSITIONS, NEVER STATES. Every one of these fires on a change and nothing
+ * fires on a redelivery, because Stripe redelivers freely and because
+ * `customer.subscription.updated` arrives for changes a user would not call a
+ * change at all. The comparison against the prior doc is what makes that true;
+ * the per-message idempotency keys in lib/email/messages.ts are the second
+ * line, collapsing anything that slips through within 24 hours.
+ *
+ * Category "billing" — non-optional, no unsubscribe link, entitled to the
+ * day's allowance ahead of anything promotional. Somebody whose card just
+ * failed needs to hear about it whatever their email preferences say.
+ *
+ * Never throws and never blocks: the entitlement write above is the part that
+ * must land, and an email provider having a bad minute must not make Stripe
+ * retry a subscription sync that already succeeded.
+ */
+async function notifyPlanChange(
+  db: FirebaseFirestore.Firestore,
+  uid: string,
+  prior: FirebaseFirestore.DocumentData,
+  next: {
+    entitled: boolean;
+    status: string;
+    cycle: string | null;
+    periodEnd: number | null;
+    canceling: boolean;
+  }
+): Promise<void> {
+  try {
+    if (!isMailConfigured()) return;
+
+    const app = getAdminApp();
+    if (!app) return;
+    const { getAuth } = await import("firebase-admin/auth");
+    const user = await getAuth(app).getUser(uid);
+    // Unverified means an address somebody typed, not one anybody proved they
+    // own. Billing mail is the last place to guess.
+    if (!user.email || !user.emailVerified) return;
+    const email = user.email;
+
+    const wasPremium = prior.plan === "premium";
+    const wasPastDue = prior.status === "past_due" || prior.status === "unpaid";
+    const wasCanceling = prior.cancelAtPeriodEnd === true;
+    const date = (ms: number | null) =>
+      ms ? new Date(ms).toLocaleDateString("en-US", { dateStyle: "long" }) : null;
+
+    // 1. Payment trouble. Ahead of the others because it is the one the user
+    //    has to act on, and because `past_due` also flips `plan` around.
+    if (
+      (next.status === "past_due" || next.status === "unpaid") &&
+      !wasPastDue
+    ) {
+      await send(
+        db,
+        paymentFailed(email, uid, `${siteUrl()}/account`)
+      );
+      return;
+    }
+
+    // 2. Premium turned on. Only from a genuinely non-premium prior state, so
+    //    a renewal — premium before, premium after — is silent, as it should
+    //    be. Stripe emails its own receipt for that.
+    if (next.entitled && !wasPremium) {
+      await send(
+        db,
+        subscriptionStarted(email, uid, next.cycle ?? "premium", date(next.periodEnd))
+      );
+      return;
+    }
+
+    // 3. Cancellation, at the moment it is scheduled, and again never on a
+    //    redelivery of the same state.
+    if (next.canceling && !wasCanceling) {
+      await send(db, subscriptionCanceled(email, uid, date(next.periodEnd)));
+      return;
+    }
+
+    // 4. Premium actually lapsed. Skipped when the cancellation was already
+    //    announced above — the user has had that email and knows the date.
+    if (!next.entitled && wasPremium && !wasCanceling) {
+      await send(db, subscriptionCanceled(email, uid, null));
+    }
+  } catch (err) {
+    console.warn(`[stripe] billing email for ${uid} failed`, err);
+  }
 }
 
 /**

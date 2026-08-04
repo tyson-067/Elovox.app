@@ -173,6 +173,34 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // The email system's four collections. All Admin-SDK only, and all
+    // covered by the catch-all below — spelled out anyway because "denied by
+    // omission" and "denied on purpose" look identical in a rules file, and
+    // the first person to add a client-side email feature should have to
+    // delete a rule that says no rather than add one that says yes.
+    //
+    //  emailSuppression — bounced, complained, unsubscribed. Read before every
+    //    send. A client that could WRITE this could permanently block anyone's
+    //    password-reset notice; one that could READ it gets a list of
+    //    addresses. Both are denied. The user's own switches go through
+    //    /api/account/email-prefs, which reads the address off a verified ID
+    //    token rather than trusting the caller.
+    //  emailLog — one row per message sent, holding addresses, purged nightly.
+    //  emailBudget — pure counters, no personal data, never client-read.
+    //  emailOnce — the "sent exactly once" claims (welcome, win-back).
+    match /emailSuppression/{email} {
+      allow read, write: if false;
+    }
+    match /emailLog/{id} {
+      allow read, write: if false;
+    }
+    match /emailBudget/{key} {
+      allow read, write: if false;
+    }
+    match /emailOnce/{key} {
+      allow read, write: if false;
+    }
+
     // Everything else is locked down.
     match /{document=**} {
       allow read, write: if false;

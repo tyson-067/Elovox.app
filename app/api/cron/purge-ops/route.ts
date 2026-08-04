@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { purgeExpiredOpsEvents } from "@/lib/opsMetrics";
 import { purgeExpiredLoginRows } from "@/lib/loginGuard";
+import { purgeExpiredEmailLog } from "@/lib/email/retention";
 import { makeRateLimiter, clientIp, timingSafeCompare } from "@/lib/verify";
 
 // The scheduled sweep of expired opsEvents — the backstop that makes the
@@ -82,12 +83,18 @@ export async function GET(req: NextRequest) {
   // opsEvents is: a Firestore TTL policy is the natural home for this and
   // creating one needs an IAM grant the console currently answers 403 to.
   // Retention should not wait on that.
-  const [deleted, logins] = await Promise.all([
+  // Three sweeps, independently. The email delivery log joins them for the
+  // same reason the other two are here: it holds addresses, so it lives under
+  // the privacy policy's "short operational window", and a Firestore TTL
+  // policy — the natural home for all three — needs an IAM grant the console
+  // still answers 403 to.
+  const [deleted, logins, mail] = await Promise.all([
     purgeExpiredOpsEvents(db, 500),
     purgeExpiredLoginRows(db, 500),
+    purgeExpiredEmailLog(db, 500),
   ]);
   console.info(
-    `[cron] purged ${deleted} expired opsEvents, ${logins} expired login rows`
+    `[cron] purged ${deleted} expired opsEvents, ${logins} expired login rows, ${mail} expired email log rows`
   );
-  return NextResponse.json({ ok: true, deleted, logins });
+  return NextResponse.json({ ok: true, deleted, logins, mail });
 }
