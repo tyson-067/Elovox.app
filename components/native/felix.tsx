@@ -210,9 +210,18 @@ export function XpAvatar({
   level,
   children,
 }: {
-  /** 0-100 through the current level. */
-  percent: number;
-  level: number;
+  /** 0-100 through the current level. Absent while stats load. */
+  percent?: number;
+  /**
+   * The level for the corner chip. OPTIONAL on purpose: stats arrive after
+   * first paint, and the caller must keep rendering this same component
+   * while they do. Swapping to a bare avatar and back put two different
+   * component types in one slot — React tore the fox down and rebuilt it
+   * (restarting his animations) and the box jumped 56 -> 64px on every cold
+   * load of the home screen. Undefined means "not yet": empty ring, no chip,
+   * same geometry.
+   */
+  level?: number;
   /** The avatar itself (FelixScene), filling the ring's well. */
   children: ReactNode;
 }) {
@@ -227,7 +236,7 @@ export function XpAvatar({
     return () => cancelAnimationFrame(raf);
   }, [drawn]);
 
-  const pct = Math.max(0, Math.min(100, percent));
+  const pct = Math.max(0, Math.min(100, percent ?? 0));
   const offset = RING_C * (1 - pct / 100);
 
   return (
@@ -268,9 +277,11 @@ export function XpAvatar({
           strokeDashoffset={drawn ? offset : RING_C}
         />
       </svg>
-      <span className="nv-lv-chip" aria-hidden="true">
-        {level}
-      </span>
+      {level !== undefined && (
+        <span className="nv-lv-chip" aria-hidden="true">
+          {level}
+        </span>
+      )}
     </span>
   );
 }

@@ -175,25 +175,20 @@ export function NativeToday({
         <div className="flex items-center gap-3.5">
           <Link href="/shop" aria-label="Felix's shop" className="nv-press shrink-0 rounded-full">
             <span data-parallax="0.04" className="block">
-              {level ? (
-                <XpAvatar percent={level.percent} level={level.level}>
-                  <FelixScene
-                    biome={shop?.equippedBiome}
-                    mood={mood}
-                    animate
-                    accessory={wearing}
-                    className="h-full w-full"
-                  />
-                </XpAvatar>
-              ) : (
+              {/* ALWAYS the same component, stats or not. Branching to a bare
+                  fox while they load remounted him a beat later — animations
+                  restarted and the avatar grew 56 -> 64px on every cold open
+                  of the screen people see most. The ring just arrives empty
+                  and fills when the numbers land. */}
+              <XpAvatar percent={level?.percent} level={level?.level}>
                 <FelixScene
                   biome={shop?.equippedBiome}
                   mood={mood}
                   animate
                   accessory={wearing}
-                  className="h-[56px] w-[56px] rounded-2xl"
+                  className="h-full w-full"
                 />
-              )}
+              </XpAvatar>
             </span>
           </Link>
           <div className="min-w-0 flex-1">
