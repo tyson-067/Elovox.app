@@ -135,7 +135,7 @@ export function NativeReport({
   return (
     <div>
       {/* The dial: the score is the page, so it's the h1. */}
-      <section className="flex flex-col items-center pt-2">
+      <section className="flex flex-col items-center pt-6">
         <div className="relative h-[148px] w-[148px]" data-parallax="0.05">
           <svg width="148" height="148" viewBox="0 0 148 148" aria-hidden="true">
             <circle

@@ -95,7 +95,7 @@ export function NativeSections() {
   if (!native) return null;
 
   return (
-    <section className="mt-8">
+    <section className="mt-6">
       <NvSectionHeader>More ways to practice</NvSectionHeader>
       <NvGroup>
         {SECTIONS.map((s) => (

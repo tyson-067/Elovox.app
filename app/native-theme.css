@@ -1001,3 +1001,54 @@ html[data-native] .native-record-blob {
     transition: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   THE AIR PASS
+   ---------------------------------------------------------------------------
+   More space between everything — the user's word was "cluttered", and the
+   fix is rhythm, not removal: wider screen edges, taller card interiors,
+   real pauses between sections, and a longer breath under the large title.
+   Every change is a system value, so the whole app loosens in step.
+   --------------------------------------------------------------------------- */
+html[data-native] {
+  --nv-gutter: 20px; /* was 16 — the edges are where "minimal" lives */
+}
+
+/* Card interiors: 16px reads as economy, 20 as intent. The old native rule
+   squeezed the web's p-6 down to 18px; it opens to 24 instead. */
+html[data-native] #main .p-4 {
+  padding: 20px;
+}
+html[data-native] #main .p-6 {
+  padding: 24px;
+}
+
+/* A longer beat between the large title and the first card, and under the
+   title itself. */
+html[data-native] #main > * {
+  padding-top: 14px !important;
+}
+html[data-native] .native-title-lg {
+  padding: 0 var(--nv-gutter) 14px;
+}
+html[data-native] .native-bar-sub {
+  padding: 0 var(--nv-gutter) 12px;
+}
+
+/* Rows breathe vertically; their horizontal padding follows the gutter. */
+html[data-native] .nv-row {
+  padding: 10px var(--nv-gutter);
+}
+
+/* Empty states hold the silence a little longer. */
+html[data-native] .nv-empty {
+  padding: 56px 24px;
+}
+
+/* Sheets and the goal grid loosen with everything else. */
+html[data-native] .nv-sheet {
+  padding: 12px 20px calc(20px + env(safe-area-inset-bottom));
+}
+html[data-native] .nv-grid-2 {
+  gap: 12px;
+}

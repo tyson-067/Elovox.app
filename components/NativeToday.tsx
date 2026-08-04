@@ -92,7 +92,7 @@ export function NativeToday({
   const streak = stats?.streakDays ?? 0;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       {/* THE HERO: the Daily Minute. The screen's one saturated element is
           this card's button — everything else on Today is ink and hairlines. */}
       <section className="card p-4">
@@ -103,10 +103,10 @@ export function NativeToday({
           )}
         </div>
 
-        <h2 className="nv-title mt-2">
+        <h2 className="nv-title mt-3">
           {daily?.title ?? "Felix is picking today's topic…"}
         </h2>
-        {daily?.topic && <p className="nv-subhead mt-1">{daily.topic}</p>}
+        {daily?.topic && <p className="nv-subhead mt-2">{daily.topic}</p>}
 
         {challenge === null ? (
           <p className="nv-footnote mt-3" role="status">
@@ -114,7 +114,7 @@ export function NativeToday({
           </p>
         ) : (
           <div
-            className="mt-4 flex items-center gap-2"
+            className="mt-5 flex items-center gap-2"
             aria-label={
               done
                 ? "All attempts used"
@@ -142,7 +142,7 @@ export function NativeToday({
         {challenge !== null && !done && (
           <Link
             href="/practice?daily=1"
-            className="nv-btn nv-btn-primary mt-4"
+            className="nv-btn nv-btn-primary mt-5"
           >
             {used === 0
               ? "Start your Daily Minute"

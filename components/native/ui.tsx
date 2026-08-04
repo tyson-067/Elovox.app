@@ -16,7 +16,9 @@ import Link from "next/link";
 
 /* --- Section header: uppercase footnote above a group ---------------------- */
 export function NvSectionHeader({ children }: { children: ReactNode }) {
-  return <h2 className="nv-caption mt-7 mb-2 px-1">{children}</h2>;
+  // mt-10: the pause between sections is most of what "uncluttered" means —
+  // a section header is a place to stop, not a line to pass.
+  return <h2 className="nv-caption mt-10 mb-3 px-1">{children}</h2>;
 }
 
 /* --- Inset grouped list ---------------------------------------------------- */

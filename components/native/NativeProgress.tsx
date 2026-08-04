@@ -192,7 +192,7 @@ export function NativeProgress({
   const scores = [...sessions].reverse().map((s) => s.analysis.overall);
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col pt-2">
       {/* The score, huge and tabular, with its move since last session. */}
       <section
         aria-label={`Overall score ${latest}${
@@ -222,7 +222,7 @@ export function NativeProgress({
             </span>
           )}
         </div>
-        <div className="mt-3" data-parallax="0.06">
+        <div className="mt-5" data-parallax="0.06">
           <Sparkline scores={scores} />
         </div>
       </section>
@@ -260,7 +260,7 @@ export function NativeProgress({
       )}
 
       {/* Streak, week, best — the three numbers that only move by doing. */}
-      <section aria-label="Practice stats" className="mt-4">
+      <section aria-label="Practice stats" className="mt-8">
         <NvGroup>
           <div className="grid grid-cols-3 items-start px-2 py-4">
             <NvStat value={streak} label="day streak" />
