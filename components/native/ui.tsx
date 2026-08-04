@@ -61,6 +61,7 @@ export function NvRow({
   onClick,
   destructive,
   accent,
+  pop,
   chevron,
   disabled,
   ariaLabel,
@@ -73,6 +74,16 @@ export function NvRow({
   onClick?: () => void;
   destructive?: boolean;
   accent?: boolean;
+  /**
+   * Pin this row's icon tint instead of taking one from the palette cycle.
+   *
+   * The cycle is keyed on nth-child, which is right for a fixed list and
+   * wrong the moment a group can gain or lose a row: the Practice group grows
+   * a "Remind me at" row when the reminder is switched on, and every row after
+   * it changed colour as the switch flipped. A row that can move says what
+   * colour it is.
+   */
+  pop?: string;
   chevron?: boolean;
   disabled?: boolean;
   ariaLabel?: string;
@@ -99,7 +110,13 @@ export function NvRow({
   const noicon = icon ? undefined : "";
   if (href && !disabled) {
     return (
-      <Link href={href} className={cls} data-noicon={noicon} aria-label={ariaLabel}>
+      <Link
+        href={href}
+        className={cls}
+        data-noicon={noicon}
+        data-pop={pop}
+        aria-label={ariaLabel}
+      >
         {body}
       </Link>
     );
@@ -112,6 +129,7 @@ export function NvRow({
         disabled={disabled}
         className={cls}
         data-noicon={noicon}
+        data-pop={pop}
         aria-label={ariaLabel}
       >
         {body}
@@ -119,7 +137,7 @@ export function NvRow({
     );
   }
   return (
-    <div className={cls} data-noicon={noicon}>
+    <div className={cls} data-noicon={noicon} data-pop={pop}>
       {body}
     </div>
   );

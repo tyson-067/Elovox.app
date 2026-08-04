@@ -31,7 +31,29 @@ const EMPTY: ShopState = {
   equippedBackdrop: null,
 };
 
+/**
+ * The shop state, or EMPTY. NEVER REJECTS — and callers depend on that.
+ *
+ * Both call sites (the web header chip in AuthNav, the native Account avatar)
+ * hold a `ShopState | null` and treat null as "still loading", so a rejection
+ * here is indistinguishable from a fetch that never finished: the skeleton
+ * stays up for the life of the screen. That is exactly what a cold launch
+ * against production produced — this read races App Check's first token and
+ * Firestore rejects it, once, permanently stranding the avatar.
+ *
+ * A failed read is not an error worth showing anybody: it means "we could not
+ * tell what gear you own", and the honest render of that is Felix at home in
+ * the default biome — which is already what a signed-out user sees.
+ */
 export async function fetchShopState(): Promise<ShopState> {
+  try {
+    return await readShopState();
+  } catch {
+    return EMPTY;
+  }
+}
+
+async function readShopState(): Promise<ShopState> {
   if (!isFirebaseConfigured()) return EMPTY;
   const user = await getUser();
   if (!user) return EMPTY;

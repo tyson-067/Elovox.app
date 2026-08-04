@@ -1453,12 +1453,24 @@ html[data-native] [data-pop="ember"] {
 html[data-native][data-theme="dark"] [data-pop="ember"] {
   --pop-ink: var(--nv-accent-500);
 }
-html[data-native] [data-pop="sun"] { --pop: var(--nv-pop-sun); --pop-soft: var(--nv-pop-sun-soft); --pop-ink: var(--nv-pop-sun-ink); }
-html[data-native] [data-pop="mint"] { --pop: var(--nv-pop-mint); --pop-soft: var(--nv-pop-mint-soft); --pop-ink: var(--nv-pop-mint-ink); }
-html[data-native] [data-pop="sky"] { --pop: var(--nv-pop-sky); --pop-soft: var(--nv-pop-sky-soft); --pop-ink: var(--nv-pop-sky-ink); }
-html[data-native] [data-pop="lilac"] { --pop: var(--nv-pop-lilac); --pop-soft: var(--nv-pop-lilac-soft); --pop-ink: var(--nv-pop-lilac-ink); }
-html[data-native] [data-pop="rose"] { --pop: var(--nv-pop-rose); --pop-soft: var(--nv-pop-rose-soft); --pop-ink: var(--nv-pop-rose-ink); }
-html[data-native] [data-pop="lime"] { --pop: var(--nv-pop-lime); --pop-soft: var(--nv-pop-lime-soft); --pop-ink: var(--nv-pop-lime-ink); }
+html[data-native] [data-pop="sun"] { --pop: var(--nv-pop-sun); --pop-soft: var(--nv-pop-sun-soft); --pop-ink: var(--nv-pop-sun-ink); --pop-graphic: #bd7d00; }
+html[data-native] [data-pop="mint"] { --pop: var(--nv-pop-mint); --pop-soft: var(--nv-pop-mint-soft); --pop-ink: var(--nv-pop-mint-ink); --pop-graphic: #0f9585; }
+html[data-native] [data-pop="sky"] { --pop: var(--nv-pop-sky); --pop-soft: var(--nv-pop-sky-soft); --pop-ink: var(--nv-pop-sky-ink); --pop-graphic: #2185d6; }
+html[data-native] [data-pop="lilac"] { --pop: var(--nv-pop-lilac); --pop-soft: var(--nv-pop-lilac-soft); --pop-ink: var(--nv-pop-lilac-ink); --pop-graphic: #7350dd; }
+html[data-native] [data-pop="rose"] { --pop: var(--nv-pop-rose); --pop-soft: var(--nv-pop-rose-soft); --pop-ink: var(--nv-pop-rose-ink); --pop-graphic: #d6317c; }
+html[data-native] [data-pop="lime"] { --pop: var(--nv-pop-lime); --pop-soft: var(--nv-pop-lime-soft); --pop-ink: var(--nv-pop-lime-ink); --pop-graphic: #5f9114; }
+html[data-native] [data-pop="ember"] { --pop-graphic: #e35318; }
+
+/* THE GRAPHIC CUT. --pop is tuned as a fill on a card; on the meter's own
+   pale track the light hues collapse (gold measured 1.54:1 — a bar you
+   cannot find the end of). --pop-graphic is the same hue darkened just past
+   the 3:1 bar for graphical objects, hand-picked per hue because a single
+   blend formula clears blue and violet while still failing gold.
+   Dark mode has the opposite problem — a darkened hue disappears into
+   #16132c — so there the bright pop IS the graphic cut. */
+html[data-native][data-theme="dark"] [data-pop] {
+  --pop-graphic: var(--pop);
+}
 
 /* --- Badges & the HUD ------------------------------------------------------
    The game's chips: streak, coins, XP, "new best". Soft ground, pop ink,
@@ -1551,6 +1563,13 @@ html[data-native] .nv-flame {
   animation: nv-flame-lick 2.4s ease-in-out infinite;
   --flame-a: var(--nv-accent-500);
   --flame-b: var(--nv-pop-sun);
+  /* Light mode grounds are pale and the tiers climb through pale hues, so the
+     silhouette is carried by an outline rather than by the fill. Dark mode
+     needs none — a bright flame on a dark card is already a shape. */
+  --flame-edge: rgba(88, 38, 0, 0.5);
+}
+html[data-native][data-theme="dark"] .nv-flame {
+  --flame-edge: transparent;
 }
 html[data-native] [data-tier="2"] .nv-flame { --flame-a: var(--nv-pop-sun); --flame-b: #ffe08a; }
 html[data-native] [data-tier="3"] .nv-flame { --flame-a: var(--nv-pop-rose); --flame-b: var(--nv-pop-sun); }
@@ -1716,7 +1735,16 @@ html[data-native] [data-band="low"] { --band: var(--nv-pop-sun); --band-ink: var
 html[data-native] [data-band="mid"] { --band: var(--nv-accent-500); --band-ink: var(--nv-accent-700); }
 html[data-native][data-theme="dark"] [data-band="mid"] { --band-ink: var(--nv-accent-500); }
 html[data-native] [data-band="high"] { --band: var(--nv-pop-mint); --band-ink: var(--nv-pop-mint-ink); }
+/* The arc is a GRAPHIC, so it answers to the 3:1 bar, and the raw pops are
+   tuned as fills on a card rather than as strokes on the near-white ground —
+   gold measured 1.67:1 there, which is a stripe you cannot see. The arc takes
+   the -ink cut instead (all of which clear 4.5:1 on both grounds), so every
+   band reads at arm's length. Dark mode keeps the bright pop: on #0d0a20 the
+   saturated hue is the legible one, and the dark inks would disappear. */
 html[data-native] [data-band] .nv-dial-arc {
+  stroke: var(--band-ink);
+}
+html[data-native][data-theme="dark"] [data-band] .nv-dial-arc {
   stroke: var(--band);
 }
 html[data-native] [data-band] .nv-display {
@@ -1727,7 +1755,7 @@ html[data-native] [data-band] .nv-display {
    Each skill owns a color (the component cycles data-pop per row), so six
    identical orange bars become a spectrum you can tell apart at a glance. */
 html[data-native] .nv-metric[data-pop] .nv-meter-fill {
-  background: var(--pop);
+  background: var(--pop-graphic, var(--pop));
 }
 html[data-native] .nv-metric[data-pop] .nv-metric-num {
   color: var(--pop-ink);
@@ -1763,6 +1791,17 @@ html[data-native] .nv-group .nv-row:nth-child(6n + 3):not(.nv-row-destructive) .
 html[data-native] .nv-group .nv-row:nth-child(6n + 4):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent) { background: var(--nv-pop-sun-soft); color: var(--nv-pop-sun-ink); }
 html[data-native] .nv-group .nv-row:nth-child(6n + 5):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent) { background: var(--nv-pop-lilac-soft); color: var(--nv-pop-lilac-ink); }
 html[data-native] .nv-group .nv-row:nth-child(6n + 6):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent) { background: var(--nv-pop-rose-soft); color: var(--nv-pop-rose-ink); }
+
+/* A row that pins its own colour (NvRow's `pop`) beats the cycle. Deliberately
+   the SAME specificity as the six rules above — it wins on source order, so
+   keep it below them. Needed wherever a group can gain or lose a row: the
+   Practice group grows a "Remind me at" row when the reminder is switched on,
+   which shifted every nth-child after it and repainted the Appearance icon as
+   the switch flipped. */
+html[data-native] .nv-group .nv-row[data-pop]:not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent) {
+  background: var(--pop-soft);
+  color: var(--pop-ink);
+}
 
 /* --- Each tab owns a color -------------------------------------------------
    The dock's active platter and ink take the tab's own hue: Today ember,

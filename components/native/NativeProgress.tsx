@@ -75,9 +75,27 @@ function Sparkline({ scores }: { scores: number[] }) {
       aria-hidden="true"
     >
       {/* Fixed gradient id, shared-defs rule as ever: the journey line runs
-          ember into violet, left to right — time itself gets a color. */}
+          ember into violet, left to right — time itself gets a color.
+
+          gradientUnits="userSpaceOnUse" is load-bearing, not tidiness. The
+          default (objectBoundingBox) resolves against the PATH's bounding
+          box, and a flat line has zero height — which is exactly what one
+          session produces (sparkPaths duplicates the point), and what any
+          run of identical scores produces. A degenerate box makes the
+          gradient unresolvable and WebKit drops the stroke entirely: the
+          chart painted its fill and no line at all. Verified in Mobile
+          Safari on the simulator, i.e. the WKWebView this actually ships to.
+          Anchoring to the viewBox instead means the ramp is the same every
+          time and never depends on how the data happens to sit. */}
       <defs>
-        <linearGradient id="nv-spark-grad" x1="0" y1="0" x2="1" y2="0">
+        <linearGradient
+          id="nv-spark-grad"
+          gradientUnits="userSpaceOnUse"
+          x1="0"
+          y1="0"
+          x2={SPARK_W}
+          y2="0"
+        >
           <stop offset="0%" stopColor="var(--nv-accent-500)" />
           <stop offset="55%" stopColor="var(--nv-pop-rose)" />
           <stop offset="100%" stopColor="var(--nv-pop-lilac)" />

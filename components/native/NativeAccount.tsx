@@ -632,8 +632,12 @@ function PracticeSection() {
     <>
       <NvSectionHeader>Practice</NvSectionHeader>
       <NvGroup>
+        {/* Both icon rows pin their colour: the "Remind me at" row between
+            them comes and goes with the switch, and an nth-child cycle would
+            have repainted Appearance every time it did. */}
         <NvRow
           icon={iconBell}
+          pop="ember"
           label="Daily reminder"
           value={
             <NvSwitch
@@ -667,6 +671,7 @@ function PracticeSection() {
         )}
         <NvRow
           icon={iconMoon}
+          pop="sky"
           label="Appearance"
           value={
             <div className="nv-seg" role="group" aria-label="Appearance">

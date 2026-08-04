@@ -101,9 +101,17 @@ function flameTier(days: number): number {
 function FlameGlyph({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 20 26" className={`nv-flame ${className}`.trim()} aria-hidden="true">
+      {/* The silhouette is stroked with --flame-edge (native-theme.css): a warm
+          dark outline in light mode, none in dark. Without it the gold tier
+          sat at 1.6:1 on its own pale badge ground and the flame simply was
+          not there — the tiers climb through pale hues, so no single fill can
+          carry the shape on both grounds. The outline does it instead, and
+          every tier keeps its own color. */}
       <path
         d="M10 0 C13.5 6 18 9.5 18 16 A8 8 0 0 1 2 16 C2 9.5 6.5 6 10 0 Z"
         fill="var(--flame-a)"
+        stroke="var(--flame-edge, transparent)"
+        strokeWidth="1.1"
       />
       <path
         d="M10 8 C12 11 14.5 13.5 14.5 17.5 A4.5 4.5 0 0 1 5.5 17.5 C5.5 13.5 8 11 10 8 Z"
@@ -143,6 +151,14 @@ export function StreakStat({ days }: { days: number }) {
 /* --- The coin ---------------------------------------------------------------
    Felix's currency wears the voice bars, like everything he owns. The badge
    links to the shop — tapping your money shows you what it buys. */
+/* The engraving is a FIXED dark brown in both modes, not --nv-pop-sun-ink.
+   That token is the ink for text sitting ON the pale soft ground, and in dark
+   mode it lightens to #ffd35c — which is the same value as the disc itself
+   (1.08:1), so the coin lost its bars entirely and read as a blank counter.
+   A real coin's relief is dark in any light; the disc is always gold, so the
+   engraving can be a constant. */
+const COIN_ENGRAVING = "#7a4e00";
+
 function CoinGlyph({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 20 20" className={`nv-coin ${className}`.trim()} aria-hidden="true">
@@ -152,11 +168,11 @@ function CoinGlyph({ className = "" }: { className?: string }) {
         cy="10"
         r="7.2"
         fill="none"
-        stroke="var(--nv-pop-sun-ink)"
+        stroke={COIN_ENGRAVING}
         strokeWidth="1.2"
         opacity="0.55"
       />
-      <g fill="var(--nv-pop-sun-ink)">
+      <g fill={COIN_ENGRAVING}>
         <rect x="6.1" y="8.2" width="1.7" height="3.6" rx="0.85" />
         <rect x="9.15" y="6.4" width="1.7" height="7.2" rx="0.85" />
         <rect x="12.2" y="8.2" width="1.7" height="3.6" rx="0.85" />
