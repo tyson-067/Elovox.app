@@ -1,4 +1,9 @@
-import { FieldPath, FieldValue, type Firestore } from "firebase-admin/firestore";
+import {
+  FieldPath,
+  FieldValue,
+  Timestamp,
+  type Firestore,
+} from "firebase-admin/firestore";
 
 // Operational telemetry for the /admin Ops tab, and the analyze kill switch.
 //
@@ -134,8 +139,14 @@ export async function recordOpsEvent(
       ...(e.uid ? { uid: e.uid } : {}),
       ...(e.ip ? { ip: e.ip } : {}),
       ...(e.detail ? { detail: e.detail.slice(0, 300) } : {}),
+      // `at` is epoch ms for display (the route and UI read it as a number).
       at: now,
-      expiresAt: now + OPS_EVENT_TTL_MS,
+      // `expiresAt` is a real Firestore Timestamp, and MUST stay one: a
+      // Firestore TTL policy only ever acts on a Date-and-time field and
+      // silently ignores documents whose TTL field holds a number. Written as
+      // ms first, this looked configured in the console and deleted nothing —
+      // the retention promise resting entirely on the lazy purge below.
+      expiresAt: Timestamp.fromMillis(now + OPS_EVENT_TTL_MS),
     });
   } catch (err) {
     console.error("[ops] couldn't record event", err);
@@ -164,14 +175,28 @@ export async function purgeExpiredOpsEvents(
 ): Promise<void> {
   if (!db) return;
   try {
-    const snap = await db
-      .collection("opsEvents")
-      .where("expiresAt", "<", Date.now())
-      .limit(limit)
-      .get();
-    if (snap.empty) return;
+    // TWO queries, because Firestore range comparisons are type-scoped: a
+    // `< Timestamp` bound matches only Timestamp-valued fields and skips
+    // numeric ones entirely (verified against live data — a Timestamp query
+    // matched 0 of 23 numeric rows). The second query sweeps events written
+    // before `expiresAt` became a Timestamp; it can retire once no numeric
+    // rows remain, and costs one empty query until then.
+    const [fresh, legacy] = await Promise.all([
+      db
+        .collection("opsEvents")
+        .where("expiresAt", "<", Timestamp.now())
+        .limit(limit)
+        .get(),
+      db
+        .collection("opsEvents")
+        .where("expiresAt", "<", Date.now())
+        .limit(limit)
+        .get(),
+    ]);
+    const docs = [...fresh.docs, ...legacy.docs];
+    if (docs.length === 0) return;
     const batch = db.batch();
-    for (const doc of snap.docs) batch.delete(doc.ref);
+    for (const doc of docs) batch.delete(doc.ref);
     await batch.commit();
   } catch (err) {
     console.error("[ops] purge failed", err);
