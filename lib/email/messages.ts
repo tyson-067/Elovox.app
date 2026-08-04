@@ -176,6 +176,67 @@ export function subscriptionStarted(
   };
 }
 
+/**
+ * "Your free trial is about to become a charge."
+ *
+ * THIS IS THE MOST IMPORTANT BILLING EMAIL THE APP SENDS, and it was missing.
+ *
+ * Everything else about the trial is already honest — the pricing page says
+ * what happens, checkout says it again, and cancelling takes a minute with no
+ * email or phone call. But disclosure at the moment of signup is not the same
+ * as a reminder seven days later, when the person has forgotten and the card
+ * gets charged anyway. That gap is the single most common subscription
+ * complaint there is, it is what makes people feel tricked by companies that
+ * did technically tell them, and in a growing number of places it is also
+ * simply required.
+ *
+ * So: sent before the money moves, naming the exact amount and the exact date,
+ * with the cancel link right there. Category "billing", which means no
+ * preference can switch it off — a reminder you can accidentally disable is
+ * not a safeguard.
+ *
+ * It should read like a favour, not like a retention email. No "don't lose
+ * your progress", no discount, no guilt. Somebody who wants out should find
+ * this email makes it easy.
+ */
+export function trialEnding(
+  email: string,
+  uid: string,
+  endsOn: string,
+  amount: string,
+  unit: string,
+  manageUrl: string
+): AppMessage {
+  return {
+    to: email,
+    category: "billing",
+    type: "trial-ending",
+    // Keyed on the trial's own end date, so someone who trials again later
+    // gets a fresh reminder while a redelivery today collapses.
+    key: `trial-ending:${uid}:${endsOn}`,
+    subject: `Your free trial ends ${endsOn}`,
+    doc: {
+      preheader: `After that it's ${amount} per ${unit}. Cancel any time before then.`,
+      heading: "Your free trial ends soon",
+      blocks: [
+        {
+          kind: "lead",
+          text: `On ${endsOn} your trial ends and we'll charge ${amount}, then ${amount} every ${unit} after that.`,
+        },
+        {
+          kind: "p",
+          text: "If that's what you want, there's nothing to do. If it isn't, cancel before then and you won't be charged at all — it takes a minute, from your account, with no email to write and nobody to talk to.",
+        },
+        { kind: "cta", label: "Manage or cancel", href: manageUrl },
+        {
+          kind: "note",
+          text: "We send this because being charged for something you'd forgotten about is a horrible way to find out about it.",
+        },
+      ],
+    },
+  };
+}
+
 export function paymentFailed(email: string, uid: string, portalUrl: string): AppMessage {
   return {
     to: email,

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
-import { clientIp, makeRateLimiter, verifyVerifiedUser } from "@/lib/verify";
+import {
+  clientIp,
+  logRejectedInput,
+  makeRateLimiter,
+  verifyVerifiedUser,
+} from "@/lib/verify";
 import { readJsonObject } from "@/lib/requestBody";
 import { getSuppression } from "@/lib/email/suppression";
 import { markUnsubscribed, upsertContact } from "@/lib/email/audience";
@@ -92,7 +97,10 @@ export async function POST(req: NextRequest) {
   if (!email) return NextResponse.json({ error: "Not available." }, { status: 401 });
 
   const parsed = await readJsonObject(req);
-  if (!parsed.ok) return NextResponse.json({ error: "Bad request." }, { status: 400 });
+  if (!parsed.ok) {
+    logRejectedInput("account/email-prefs", parsed.reason);
+    return NextResponse.json({ error: "Bad request." }, { status: 400 });
+  }
 
   // Only the four known keys, only booleans. Anything else is dropped rather
   // than rejected: a client sending an unknown key is a version skew, and the
@@ -106,6 +114,10 @@ export async function POST(req: NextRequest) {
     }
   }
   if (Object.keys(next).length === 0) {
+    // Either the body carried no known switch, or every value was the wrong
+    // type. Recorded as a machine reason; the caller is told only that there
+    // was nothing to change.
+    logRejectedInput("account/email-prefs", "no-valid-prefs");
     return NextResponse.json({ error: "Nothing to change." }, { status: 400 });
   }
 

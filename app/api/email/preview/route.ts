@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminIdentity } from "@/lib/verify";
+import { adminIdentity, clientIp, makeRateLimiter } from "@/lib/verify";
 import { render } from "@/lib/email/render";
 import * as messages from "@/lib/email/messages";
 import type { AppMessage } from "@/lib/email/send";
@@ -25,6 +25,14 @@ import { CATEGORY } from "@/lib/email/config";
  */
 
 export const runtime = "nodejs";
+
+/**
+ * Rendering a template is cheap, but it is still a serverless invocation, and
+ * this was the one route in the tree without a ceiling. In production it is
+ * admin-gated so the exposure is small; in development it is wide open, which
+ * is exactly where a runaway script points at it.
+ */
+const rateLimited = makeRateLimiter(60, 60 * 1000);
 
 const SAMPLE = "you@example.com";
 const UID = "preview-uid";
@@ -56,6 +64,9 @@ const GALLERY: Record<string, () => AppMessage> = {
 };
 
 export async function GET(req: NextRequest) {
+  if (rateLimited(clientIp(req))) {
+    return new NextResponse("Slow down", { status: 429 });
+  }
   const allowed =
     process.env.NODE_ENV !== "production" || (await adminIdentity(req)) !== null;
   if (!allowed) return new NextResponse("Not found", { status: 404 });

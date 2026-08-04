@@ -1,16 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
-import { clientIp, makeRateLimiter, timingSafeCompare } from "@/lib/verify";
+import {
+  clientIp,
+  logRejectedInput,
+  makeRateLimiter,
+  timingSafeCompare,
+} from "@/lib/verify";
 import { isMailConfigured } from "@/lib/email/config";
 import {
   runStreakNudge,
+  runTrialEnding,
   runWeeklyDigest,
   runWinBack,
 } from "@/lib/email/campaigns";
 import { runTipsDrip } from "@/lib/email/tips";
 
 /**
- * The scheduled email runs. ONE cron entry, four jobs.
+ * The scheduled email runs. ONE cron entry, five jobs.
  *
  * Why one route rather than three: Vercel's Hobby plan allows two cron jobs
  * per project and one invocation a day each, and `/api/cron/purge-ops` is
@@ -20,8 +26,10 @@ import { runTipsDrip } from "@/lib/email/tips";
  * decides for itself what today's work is.
  *
  * ORDER MATTERS, and it is the priority order for the day's allowance. The
- * weekly digest goes first on the day it runs because it is the message
- * people actually opted into; the streak nudge and win-back take what's left.
+ * trial-ending warning goes first, unconditionally: it is the only one about
+ * money about to leave somebody's account. Then the weekly digest on the day
+ * it runs, because it is the message people actually opted into; the streak
+ * nudge and win-back take what's left.
  * The tips drip is last of the lifecycle work and draws on a separate
  * `marketing` allowance anyway, so it cannot starve any of them.
  * lib/email/budget.ts enforces the ceiling; this just decides who asks first.
@@ -43,7 +51,7 @@ export const maxDuration = 60;
 
 const rateLimited = makeRateLimiter(6, 60 * 60 * 1000);
 
-type Job = "weekly" | "streak" | "winback" | "tips";
+type Job = "trial" | "weekly" | "streak" | "winback" | "tips";
 
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -90,7 +98,16 @@ export async function GET(req: NextRequest) {
   // `?only=` runs a single job, for exercising one of these by hand without
   // sending the other two. Development and an authenticated operator only —
   // getting here at all already required the cron credential.
-  const only = req.nextUrl.searchParams.get("only") as Job | null;
+  // Validated against the known set rather than cast. An unrecognised value
+  // is currently harmless (it simply matches no job), but "harmless because
+  // of how the comparison happens to work" is not a property to rely on.
+  const JOBS: Job[] = ["trial", "weekly", "streak", "winback", "tips"];
+  const rawOnly = req.nextUrl.searchParams.get("only");
+  if (rawOnly && !JOBS.includes(rawOnly as Job)) {
+    logRejectedInput("cron/email", "unknown-job");
+    return NextResponse.json({ error: "Unknown job." }, { status: 400 });
+  }
+  const only = (rawOnly as Job | null) ?? null;
   const wants = (job: Job) => (only ? only === job : true);
 
   // `tips` reports a `finished` count the others have no equivalent for, so
@@ -99,6 +116,12 @@ export async function GET(req: NextRequest) {
   const results: Record<string, unknown> = {};
 
   try {
+    // FIRST, always. This one is about money leaving somebody's account, it
+    // spends the `billing` allowance rather than the optional ones, and if a
+    // day's quota is ever tight it is the message that must still go out.
+    if (wants("trial")) {
+      results.trial = await runTrialEnding(app, db, now);
+    }
     if (wants("weekly") && (isMonday || only === "weekly")) {
       results.weekly = await runWeeklyDigest(app, db, now);
     }

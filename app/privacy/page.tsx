@@ -119,10 +119,10 @@ export default function PrivacyPage() {
           payment. We think you&apos;d want those, and turning them off would
           leave you in the dark about your own money and security.
           Everything else — a weekly summary of your practice, a nudge about a
-          streak, the occasional note when we ship something — is optional and
-          switchable under Email in your account settings, or from the
-          unsubscribe link in any of them. We do not add account holders to the
-          tips list, or the tips list to anything else.
+          streak you&apos;re about to break, a single note if you&apos;ve been
+          away a while — is optional and switchable under Email in your account
+          settings, or from the unsubscribe link in any of them. We do not add
+          account holders to the tips list, or the tips list to anything else.
         </p>
         <p>
           <strong>Your recordings.</strong> When you practice, your browser

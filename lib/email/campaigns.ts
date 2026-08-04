@@ -26,8 +26,15 @@
 import type { App } from "firebase-admin/app";
 import type { Firestore } from "firebase-admin/firestore";
 import { sendBulk, type AppMessage } from "./send";
-import { streakAtRisk, weeklyProgress, winBack, type WeekStats } from "./messages";
+import {
+  streakAtRisk,
+  trialEnding,
+  weeklyProgress,
+  winBack,
+  type WeekStats,
+} from "./messages";
 import { claimOnce, confirmOnce, releaseOnce } from "./once";
+import { siteUrl } from "./config";
 
 const DAY_MS = 86_400_000;
 
@@ -351,6 +358,119 @@ export async function runWinBack(
     const address = people.get(uid)?.email.trim().toLowerCase();
     if (address && sentSet.has(address)) await confirmOnce(db, "winback", uid);
     else await releaseOnce(db, "winback", uid);
+  }
+
+  return { candidates: messages.length, ...result };
+}
+
+/* --- Trial ending ---------------------------------------------------------- */
+
+/**
+ * Warn people before a free trial turns into a charge.
+ *
+ * This is a billing run, not a lifecycle one: it uses the `billing` allowance,
+ * no preference can switch it off, and it carries no unsubscribe link. See the
+ * note on `trialEnding` in ./messages.ts for why it exists at all.
+ *
+ * Window is three days rather than one. The cron fires once a day, so a
+ * 24-hour window would miss anyone whose trial ends between two runs, and
+ * missing it is the whole failure this guards against. Three days means
+ * everybody gets caught by at least one run with a day to spare, and
+ * `claimOnce` — keyed on the uid AND the trial's end date — makes sure they
+ * are told exactly once per trial.
+ *
+ * Reads the plan docs directly rather than asking Stripe: the webhook already
+ * mirrors `status` and `trialEnd` into Firestore, so this costs one
+ * collection-group scan instead of a paged API call over every customer.
+ */
+const TRIAL_WARN_WINDOW_MS = 3 * DAY_MS;
+
+export async function runTrialEnding(
+  app: App | null,
+  db: Firestore | null,
+  now: number = Date.now()
+): Promise<CampaignResult> {
+  if (!db) return NOTHING;
+
+  const candidates: Array<{ uid: string; endsAt: number; cycle: string }> = [];
+  try {
+    // Same shape as allProgress: Firestore has no "every doc named plan"
+    // query, so scan the group and filter on the id.
+    const snap = await db.collectionGroup("profile").get();
+    for (const doc of snap.docs) {
+      if (doc.id !== "plan") continue;
+      const uid = doc.ref.parent.parent?.id;
+      if (!uid) continue;
+      const data = doc.data();
+      if (data.status !== "trialing") continue;
+
+      const endsAt = toMillis(data.trialEnd);
+      // Only a trial still ahead of us. A `trialEnd` in the past means it has
+      // already converted — Stripe leaves the field set — and warning someone
+      // about a charge they have already paid would be worse than silence.
+      if (endsAt == null || endsAt <= now) continue;
+      if (endsAt - now > TRIAL_WARN_WINDOW_MS) continue;
+
+      // Somebody who has already cancelled is not about to be charged.
+      if (data.cancelAtPeriodEnd === true) continue;
+
+      candidates.push({
+        uid,
+        endsAt,
+        cycle: typeof data.cycle === "string" ? data.cycle : "monthly",
+      });
+    }
+  } catch (err) {
+    console.error("[mail-campaign] trial scan failed", err);
+    return NOTHING;
+  }
+  if (candidates.length === 0) return NOTHING;
+
+  const people = await recipientsFor(
+    app,
+    candidates.map((c) => c.uid)
+  );
+
+  const { planFor, formatUSD } = await import("../pricing");
+  const messages: AppMessage[] = [];
+  const claimed: Array<{ uid: string; key: string; email: string }> = [];
+
+  for (const { uid, endsAt, cycle } of candidates) {
+    const who = people.get(uid);
+    if (!who) continue;
+
+    const plan = planFor(cycle as Parameters<typeof planFor>[0]);
+    const endsOn = new Date(endsAt).toLocaleDateString("en-US", {
+      dateStyle: "long",
+    });
+
+    // The claim carries the END DATE, so a second trial later is a second
+    // warning while a redelivery today is not.
+    const claimKey = `${uid}:${endsOn}`;
+    if (!(await claimOnce(db, "trial-ending", claimKey))) continue;
+    claimed.push({ uid, key: claimKey, email: who.email.trim().toLowerCase() });
+
+    messages.push(
+      trialEnding(
+        who.email,
+        uid,
+        endsOn,
+        formatUSD(plan.price),
+        plan.unit,
+        `${siteUrl()}/account`
+      )
+    );
+  }
+  if (messages.length === 0) return NOTHING;
+
+  const result = await sendBulk(db, "billing", messages);
+
+  // Only a confirmed send burns the claim; anything else is handed back so
+  // tomorrow's run tries again while there is still time to be useful.
+  const sentSet = new Set(result.sentTo);
+  for (const c of claimed) {
+    if (sentSet.has(c.email)) await confirmOnce(db, "trial-ending", c.key);
+    else await releaseOnce(db, "trial-ending", c.key);
   }
 
   return { candidates: messages.length, ...result };

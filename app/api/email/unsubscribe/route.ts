@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import { clientIp, makeRateLimiter } from "@/lib/verify";
+import { clientIp, logRejectedInput, makeRateLimiter } from "@/lib/verify";
 import { applyUnsubscribe, verifyUnsubToken, PREF_LABELS } from "@/lib/email/prefs";
 import { markUnsubscribed } from "@/lib/email/audience";
 import { esc } from "@/lib/email/render";
@@ -82,7 +82,10 @@ export async function GET(req: NextRequest) {
 
   const token = req.nextUrl.searchParams.get("t") ?? "";
   const claim = token ? verifyUnsubToken(token) : null;
-  if (!claim) return BAD_LINK;
+  if (!claim) {
+    logRejectedInput("email/unsubscribe", token ? "bad-token" : "no-token");
+    return BAD_LINK;
+  }
 
   const what = claim.key
     ? PREF_LABELS[claim.key].title.toLowerCase()
@@ -123,6 +126,7 @@ export async function POST(req: NextRequest) {
 
   const claim = token ? verifyUnsubToken(token) : null;
   if (!claim) {
+    logRejectedInput("email/unsubscribe", token ? "bad-token" : "no-token");
     // A mail client's one-click POST wants a status, not a page.
     return oneClick ? new NextResponse(null, { status: 400 }) : BAD_LINK;
   }

@@ -12,7 +12,6 @@ import {
   TwoStepButton,
 } from "@/components/AdminBits";
 import { AdminSparkline } from "@/components/AdminSparkline";
-import { AdminAnnounce } from "@/components/AdminAnnounce";
 
 // The Email tab: what's left of the free plan, whether the domain is still
 // verified, who has been suppressed and why, and a test send that goes down
@@ -63,13 +62,6 @@ interface EmailData {
     status: string;
     at: number | null;
   }[];
-  announce: {
-    recipients: number;
-    unverified: number;
-    affordable: number;
-    fitsToday: boolean;
-    dailyRemaining: number;
-  } | null;
   tips: { subscribers: number; finished: number; due: number; total: number };
 }
 
@@ -248,8 +240,6 @@ export function AdminEmailScreen({ onDenied }: { onDenied: () => void }) {
           )}
         </div>
       </Section>
-
-      <AdminAnnounce estimate={data.announce} onSent={() => void load()} />
 
       <Section title="Setup">
         <AdminTable headers={["Thing", "State"]} minWidth={420}>

@@ -150,12 +150,35 @@ once — which is the only way to notice that somebody could get four in a day.
 | Premium started | billing | Stripe webhook, free → premium |
 | Card declined | billing | Stripe webhook, → `past_due` |
 | Premium ending | billing | Stripe webhook, cancellation scheduled |
+| **Trial ending** | **billing** | **cron, 1–3 days before a trial converts** |
 | Refund issued | billing | `lib/refunds.ts`, after money moves |
 | Weekly progress | lifecycle | cron, Mondays |
 | Streak nudge | lifecycle | cron, daily, streak ≥ 7 and nothing recorded |
 | Win-back | lifecycle | cron, once ever, 3–5 weeks after last activity |
 | Speaking tips 1–12 | marketing | cron, daily — one a week per subscriber |
-| Announcement | lifecycle | **manual**, /admin → Email |
+
+### The trial warning
+
+The most important billing email here, and it was missing until it was
+specifically looked for. Everything about the trial was already disclosed — the
+pricing page says it, checkout says it again, cancelling takes a minute with no
+email or phone call — but disclosure at signup is not a reminder seven days
+later, when the person has forgotten and the card is charged anyway. That gap
+is what makes people feel tricked by companies that did technically tell them.
+
+Sent 1–3 days before the charge, naming the exact amount and date, with the
+cancel link in it. Category `billing`, so no preference can switch it off: a
+safeguard you can accidentally disable is not a safeguard. It runs FIRST in the
+cron, ahead of every optional message, because it is the only one about money
+about to leave somebody's account.
+
+The window is three days rather than one because the cron fires daily — a
+24-hour window would miss anyone whose trial ends between two runs, which is
+precisely the failure being guarded against. `claimOnce`, keyed on the uid *and*
+the trial's end date, means exactly one warning per trial.
+
+Skipped for anyone who has already cancelled: they are not about to be charged,
+and telling them otherwise would be alarming and wrong.
 
 Billing emails fire on **transitions**, compared against the plan doc as it was
 before the event. Stripe redelivers freely and sends
@@ -185,8 +208,8 @@ That sentence in the policy is a written commitment, and "we also told them
 about a feature once" is a breach of it.
 
 **Account holders** — people with an Elovox account. They get the account and
-billing mail they can't switch off, the lifecycle mail they can, and
-announcements via /admin → Email. They are never added to the tips list.
+billing mail they can't switch off, and the lifecycle mail they can (weekly
+progress, streak nudge, win-back). They are never added to the tips list.
 
 `lib/email/announce.ts` and `lib/email/audience.ts` both repeat this at the
 top, because those are the two files where it would be easiest to forget.
@@ -212,25 +235,6 @@ carries straight on into the new ones the week they reach them. When the array
 runs out the drip stops, which is a fine ending — the last tip says so.
 
 **Never reuse an `id`**: it is half of the idempotency key.
-
-## Announcements
-
-/admin → Email → *Announce something*. A staircase on purpose:
-
-    write → preview → send to yourself → send to everyone
-
-The final button stays disabled until a preview has rendered, and the
-confirmation it submits is a hash of the content. Edit a word after previewing
-and the hash no longer matches, the server answers 409, and you are sent back
-to look again. The failure being prevented is mailing the entire userbase a
-draft.
-
-The estimate above the form is the other half: on a 100-a-day plan, "can I
-send to everyone right now?" is frequently no, and it says so before you
-compose rather than after. If the list doesn't fit, it sends what fits and
-reports the rest as **not sent** — nothing is queued for tomorrow, because a
-half-sent announcement that quietly finishes later is worse than one you know
-is half-sent.
 
 ## Consent and unsubscribe
 
@@ -317,10 +321,14 @@ Two entries total, which is Vercel Hobby's ceiling:
 | `/api/cron/purge-ops` | `0 4 * * *` | expires ops events, login rows, email log |
 | `/api/cron/email` | `0 9 * * *` | weekly digest (Mondays), streak nudge, win-back |
 
-`/api/cron/email` is one route with **four** jobs — weekly digest, streak
-nudge, win-back, tips drip — precisely because more cron entries would not
-schedule. Add `?only=tips` (or `weekly` / `streak` / `winback`), with the cron
-credential, to exercise one by hand without firing the others.
+`/api/cron/email` is one route with **five** jobs — trial-ending warning,
+weekly digest, streak nudge, win-back, tips drip — precisely because more cron
+entries would not schedule. Add `?only=trial` (or `weekly` / `streak` /
+`winback` / `tips`), with the cron credential, to exercise one by hand without
+firing the others.
+
+The trial warning runs first and unconditionally. If a day's allowance is ever
+tight, that is the message that must still go out.
 
 The tips drip runs daily rather than weekly: the cadence is per-subscriber, so
 a weekly cron would round everybody onto the same morning.
@@ -333,11 +341,11 @@ a weekly cron would round everybody onto the same morning.
   For transactional mail that is a privacy cost with no decision attached to it,
   and rewritten links are their own spam signal. The webhook accepts the events
   if tracking is ever switched on; nothing has to change in the code.
-- **Announcements on a schedule.** An announcement needs something to announce.
-  A cron that sends product news every fortnight will send it every fortnight
-  whether or not anything shipped, and the empty fortnights are exactly how a
-  list learns to ignore you. The machinery is automatic; pressing send is not.
-- **Resend Broadcasts.** `lib/email/audience.ts` can create and send one, but
+- **Broadcast-to-everyone.** Built once and removed: an announcement needs
+  something to announce, and a button that mails the entire userbase is a large
+  standing risk for a feature used a few times a year. `lib/email/audience.ts`
+  still has the Resend Broadcast calls if it is ever wanted back.
+- **Resend Broadcasts on a schedule.** `lib/email/audience.ts` can create and send one, but
   nothing calls it — the tips drip covers that list better, because it is
   per-subscriber rather than one blast to everyone at once. Kept for the case
   where a genuine one-off to the whole tips list is wanted. Note a broadcast
