@@ -406,6 +406,10 @@ export function Felix({
     <svg
       viewBox="0 0 200 200"
       className={`${className} ${motion}`.trim()}
+      // The app's follow-through layer keys on this: the shell animates the
+      // tail and ear groups on every mood except sleepy, whose folded ears
+      // must not twitch back open. The website has no rules for it — inert.
+      data-mood={mood}
       aria-hidden="true"
     >
       <FurGradient />
@@ -414,15 +418,19 @@ export function Felix({
           whole animal. */}
       {wearingBackPiece && accessory ? <Accessory id={accessory} /> : null}
 
-      {/* tail, sweeping out behind him with the white tip */}
-      <path
-        d="M134 172 C176 176 196 142 185 112 C178 94 160 89 151 102 C167 111 168 137 149 148 C141 153 136 162 134 172 Z"
-        fill={fur}
-      />
-      <path
-        d="M185 112 C178 94 160 89 151 102 C159 107 164 115 165 124 C174 125 182 120 185 112 Z"
-        fill={CREAM}
-      />
+      {/* Tail, sweeping out behind him with the white tip. Its own group so
+          the app can give it follow-through — the body stops, the tail
+          doesn't. Web renders it identically. */}
+      <g className="felix-tail">
+        <path
+          d="M134 172 C176 176 196 142 185 112 C178 94 160 89 151 102 C167 111 168 137 149 148 C141 153 136 162 134 172 Z"
+          fill={fur}
+        />
+        <path
+          d="M185 112 C178 94 160 89 151 102 C159 107 164 115 165 124 C174 125 182 120 185 112 Z"
+          fill={CREAM}
+        />
+      </g>
 
       {/* body */}
       <path
@@ -446,6 +454,7 @@ export function Felix({
 
       {/* ears. Sleepy Felix's fold back, which is most of what sells the mood */}
       <g
+        className="felix-ears"
         style={
           mood === "sleepy"
             ? { transform: "rotate(-8deg)", transformOrigin: "100px 76px" }

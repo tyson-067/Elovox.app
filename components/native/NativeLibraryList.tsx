@@ -2,6 +2,7 @@
 
 import { type ReactNode } from "react";
 import { useIsNative } from "@/lib/native";
+import { FelixPeek } from "@/components/native/felix";
 import { NvGroup, NvRow, NvSectionHeader } from "@/components/native/ui";
 
 /**
@@ -77,6 +78,10 @@ export function NativeLibraryList({
           {section.header && (
             <NvSectionHeader>{section.header}</NvSectionHeader>
           )}
+          {/* Felix peeks over the first shelf — the librarian is in. The
+              wrapper exists because NvGroup clips its own overflow. */}
+          <div className={i === 0 ? "relative" : undefined}>
+          {i === 0 && <FelixPeek />}
           <NvGroup>
             {section.items.map((item) =>
               item.locked ? (
@@ -114,6 +119,7 @@ export function NativeLibraryList({
               )
             )}
           </NvGroup>
+          </div>
         </section>
       ))}
     </div>

@@ -1519,6 +1519,12 @@ html[data-native] .nv-bubble::before {
   background: inherit;
   transform: rotate(45deg);
 }
+/* When Felix stands OVER his line (empty states), the tail points up. */
+html[data-native] .nv-bubble[data-side="top"]::before {
+  left: 50%;
+  top: -4px;
+  margin-left: -5px;
+}
 /* Everyday entrance: from 0.92, never from zero — the difference between
    elegant and cartoon. */
 @keyframes nv-bubble-in {

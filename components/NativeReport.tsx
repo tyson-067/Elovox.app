@@ -4,7 +4,16 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useIsNative } from "@/lib/native";
 import { CountUp } from "@/components/CountUp";
+import { Felix } from "@/components/FoxLogo";
 import { Reveal } from "@/components/Reveal";
+import {
+  bandForScore,
+  FelixBubble,
+  moodForScore,
+  NvBadge,
+  NvConfetti,
+  popFor,
+} from "@/components/native/felix";
 import { NvGroup, NvSectionHeader, NvStat } from "@/components/native/ui";
 import type { Plan } from "@/lib/plan";
 import type { Session } from "@/lib/types";
@@ -29,21 +38,26 @@ const DIAL_R = 62;
 const DIAL_C = 2 * Math.PI * DIAL_R;
 
 /** Label + meter + coaching line — the report's metric grammar, and the
- *  stage metrics reuse it so the two lists can never disagree. */
+ *  stage metrics reuse it so the two lists can never disagree. Each row
+ *  takes its color from the festival cycle by position. */
 function MeterRow({
   label,
   score,
   note,
+  index,
 }: {
   label: string;
   score: number;
   note: string;
+  index: number;
 }) {
   return (
-    <div>
+    <div className="nv-metric" data-pop={popFor(index)}>
       <div className="flex items-baseline justify-between gap-4">
         <span className="text-[15px] font-semibold">{label}</span>
-        <span className="nv-num text-[15px] font-semibold">{score}</span>
+        <span className="nv-num nv-metric-num text-[15px] font-semibold">
+          {score}
+        </span>
       </div>
       <div className="nv-meter-track mt-2">
         <div className="nv-meter-fill" style={{ width: `${score}%` }} />
@@ -123,6 +137,11 @@ export function NativeReport({
 
   const { analysis } = session;
   const arcOffset = DIAL_C * (1 - analysis.overall / 100);
+  // A take you JUST finished earns a celebration; rereading an old report
+  // doesn't. Confetti only for fresh, good takes — rarity is what keeps it
+  // worth something.
+  const fresh = Date.now() - session.createdAt < 3 * 60 * 1000;
+  const celebrate = fresh && analysis.overall >= 75;
   // Legacy sessions can miss durationSec; "NaN:NaN" in the meta line is
   // worse than no duration at all.
   const durationLabel = Number.isFinite(session.durationSec)
@@ -134,8 +153,15 @@ export function NativeReport({
 
   return (
     <div>
-      {/* The dial: the score is the page, so it's the h1. */}
-      <section className="flex flex-col items-center pt-6">
+      {celebrate && (
+        <NvConfetti count={analysis.overall >= 85 ? 40 : 26} originY={230} />
+      )}
+      {/* The dial: the score is the page, so it's the h1 — drawn in the
+          color of the band it landed in. */}
+      <section
+        className="flex flex-col items-center pt-6"
+        data-band={bandForScore(analysis.overall)}
+      >
         <div className="relative h-[148px] w-[148px]" data-parallax="0.05">
           <svg width="148" height="148" viewBox="0 0 148 148" aria-hidden="true">
             <circle
@@ -177,9 +203,27 @@ export function NativeReport({
           </div>
         </div>
 
-        <p className="nv-subhead mt-3 max-w-[40ch] text-center">
-          {analysis.summary}
-        </p>
+        {/* The verdict comes FROM Felix now: him beside his summary, mood
+            matched to the band — the cheer for a flying take, the professor's
+            glasses when there's work to point at. */}
+        <div className="mt-4 flex w-full max-w-[46ch] items-start gap-3 text-left">
+          <Felix
+            mood={moodForScore(analysis.overall)}
+            animate
+            className="h-14 w-14 shrink-0"
+          />
+          <FelixBubble className="min-w-0 flex-1">
+            {analysis.summary}
+          </FelixBubble>
+        </div>
+
+        {session.xpEarned ? (
+          <div className="mt-3">
+            <NvBadge pop="sun">
+              <span className="nv-num">+{session.xpEarned}</span>&nbsp;XP
+            </NvBadge>
+          </div>
+        ) : null}
 
         <p className="nv-footnote mt-2 max-w-[44ch] text-center">
           {titleLabel}
@@ -193,12 +237,6 @@ export function NativeReport({
               <span className="nv-num">{durationLabel}</span>
             </>
           )}
-          {session.xpEarned ? (
-            <>
-              {" · "}
-              <span className="nv-num">+{session.xpEarned} XP</span>
-            </>
-          ) : null}
           {" · "}
           <Link href="/ai" className="underline">
             AI-generated
@@ -221,8 +259,14 @@ export function NativeReport({
           <NvSectionHeader>How it broke down</NvSectionHeader>
           <NvGroup>
             <div className="flex flex-col gap-5 px-4 py-4">
-              {analysis.skills.map((s) => (
-                <MeterRow key={s.skill} label={s.skill} score={s.score} note={s.note} />
+              {analysis.skills.map((s, i) => (
+                <MeterRow
+                  key={s.skill}
+                  label={s.skill}
+                  score={s.score}
+                  note={s.note}
+                  index={i}
+                />
               ))}
             </div>
           </NvGroup>
@@ -316,12 +360,13 @@ export function NativeReport({
               </div>
               <p className="nv-subhead mt-2">{analysis.stage.summary}</p>
               <div className="mt-4 flex flex-col gap-5">
-                {analysis.stage.metrics.map((m) => (
+                {analysis.stage.metrics.map((m, i) => (
                   <MeterRow
                     key={m.metric}
                     label={m.metric}
                     score={m.score}
                     note={m.note}
+                    index={i}
                   />
                 ))}
               </div>

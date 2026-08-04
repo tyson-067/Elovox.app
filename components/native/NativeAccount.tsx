@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { FelixScene } from "@/components/Biome";
+import { NvSparkles } from "@/components/native/felix";
 import { type FelixAccessory } from "@/components/FoxLogo";
 import { useIsNative, useTheme } from "@/lib/native";
 import { LEGAL } from "@/lib/legal";
@@ -302,15 +303,19 @@ function IdentityHeader({ email }: { email: string | null }) {
           identity, so announcing an image here would only be noise. The
           skeleton holds the slot until the shop state lands, rather than
           flashing a default-dressed fox that swaps outfits a beat later. */}
-      <div aria-hidden="true">
+      <div aria-hidden="true" className="relative">
         {shop ? (
-          <FelixScene
-            biome={shop.equippedBiome}
-            accessory={
-              (shop.equippedAccessory as FelixAccessory | null) ?? undefined
-            }
-            className="h-[72px] w-[72px] rounded-full"
-          />
+          <>
+            <FelixScene
+              biome={shop.equippedBiome}
+              accessory={
+                (shop.equippedAccessory as FelixAccessory | null) ?? undefined
+              }
+              animate
+              className="h-[72px] w-[72px] rounded-full"
+            />
+            <NvSparkles />
+          </>
         ) : (
           <span
             className="nv-skeleton block h-[72px] w-[72px]"

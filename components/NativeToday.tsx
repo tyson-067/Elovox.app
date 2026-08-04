@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { useIsNative } from "@/lib/native";
 import { FelixScene } from "@/components/Biome";
-import { type FelixAccessory } from "@/components/FoxLogo";
+import { Felix, type FelixAccessory } from "@/components/FoxLogo";
+import {
+  CoinBadge,
+  FelixBubble,
+  FelixPeek,
+  StreakBadge,
+  XpAvatar,
+} from "@/components/native/felix";
 import { currentOutfit, felixLine, moodFor } from "@/lib/quests";
 import {
   MAX_DAILY_ATTEMPTS,
@@ -93,9 +100,11 @@ export function NativeToday({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* THE HERO: the Daily Minute. The screen's one saturated element is
-          this card's button — everything else on Today is ink and hairlines. */}
-      <section className="card p-4">
+      {/* THE HERO: the Daily Minute. Felix peeks over its top edge while the
+          topic still wants doing; once all three attempts are in he comes
+          round the front to celebrate instead. */}
+      <section className="card relative p-4">
+        {!done && <FelixPeek />}
         <div className="flex items-baseline justify-between gap-2">
           <span className="nv-caption">The Daily Minute</span>
           {daily?.theme && (
@@ -150,58 +159,73 @@ export function NativeToday({
           </Link>
         )}
         {challenge !== null && done && (
-          <p className="nv-footnote mt-3">
-            New topic at midnight. The rest is rest.
-          </p>
+          <div className="mt-4 flex items-center gap-3">
+            <Felix mood="cheer" animate className="h-12 w-12 shrink-0" />
+            <p className="nv-footnote">
+              New topic at midnight. The rest is rest.
+            </p>
+          </div>
         )}
       </section>
 
-      {/* The day's numbers, Whoop-quiet: Felix holds the left edge (he is
-          the brand's whole illustration budget on this screen), the level
-          bar runs under his line, streak and level sit as tabular stats. */}
-      <section className="card p-4" aria-label="Level and streak">
+      {/* The game card: Felix in his XP ring, speaking in an actual bubble,
+          with the reward HUD — streak flame and coin balance — underneath.
+          Felix still links to his shop; so does the coin badge. */}
+      <section className="card p-4" aria-label="Level, streak and coins">
         <div className="flex items-center gap-3.5">
-          <Link href="/shop" aria-label="Felix's shop" className="nv-press shrink-0 rounded-2xl">
+          <Link href="/shop" aria-label="Felix's shop" className="nv-press shrink-0 rounded-full">
             <span data-parallax="0.04" className="block">
-              <FelixScene
-                biome={shop?.equippedBiome}
-                mood={mood}
-                animate
-                accessory={wearing}
-                className="h-[56px] w-[56px] rounded-2xl"
-              />
+              {level ? (
+                <XpAvatar percent={level.percent} level={level.level}>
+                  <FelixScene
+                    biome={shop?.equippedBiome}
+                    mood={mood}
+                    animate
+                    accessory={wearing}
+                    className="h-full w-full"
+                  />
+                </XpAvatar>
+              ) : (
+                <FelixScene
+                  biome={shop?.equippedBiome}
+                  mood={mood}
+                  animate
+                  accessory={wearing}
+                  className="h-[56px] w-[56px] rounded-2xl"
+                />
+              )}
             </span>
           </Link>
           <div className="min-w-0 flex-1">
-            <p className="nv-subhead leading-snug">{line}</p>
-            {level && (
-              <div className="mt-2">
-                <div className="flex items-baseline justify-between">
-                  <span className="nv-footnote font-semibold">
-                    Level {level.level} · {level.title}
-                  </span>
-                  <span className="nv-footnote nv-num">
-                    {level.isMax
-                      ? `${level.xp} XP`
-                      : `${level.xpForNextLevel} XP to L${level.level + 1}`}
-                  </span>
-                </div>
-                <div className="nv-meter-track mt-1.5">
-                  <div
-                    className="nv-meter-fill"
-                    style={{ width: `${level.percent}%` }}
-                  />
-                </div>
-              </div>
-            )}
+            <FelixBubble>{line}</FelixBubble>
           </div>
-          {streak > 0 && (
-            <div className="shrink-0 pl-1 text-center">
-              <div className="nv-stat-value nv-num">{streak}</div>
-              <div className="nv-stat-label">day streak</div>
-            </div>
-          )}
         </div>
+        {level && (
+          <div className="mt-3">
+            <div className="flex items-baseline justify-between">
+              <span className="nv-footnote font-semibold">
+                Level {level.level} · {level.title}
+              </span>
+              <span className="nv-footnote nv-num">
+                {level.isMax
+                  ? `${level.xp} XP`
+                  : `${level.xpForNextLevel} XP to L${level.level + 1}`}
+              </span>
+            </div>
+            <div className="nv-meter-track mt-1.5">
+              <div
+                className="nv-meter-fill"
+                style={{ width: `${level.percent}%` }}
+              />
+            </div>
+          </div>
+        )}
+        {(streak > 0 || shop) && (
+          <div className="nv-hud mt-3.5">
+            {streak > 0 && <StreakBadge days={streak} />}
+            {shop && <CoinBadge coins={shop.coins} />}
+          </div>
+        )}
       </section>
 
       {/* THE TAPE: the last fourteen days as a waveform strip — the app's

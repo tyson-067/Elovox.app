@@ -1545,11 +1545,14 @@ function RecordingScreen() {
 
             {/* Felix, waiting on you. He steps aside while a take is being
                 analyzed: AnalyzingLoader puts him inside the ring up on the
-                stage, and two of him on one screen is one too many. */}
+                stage, and two of him on one screen is one too many. In the
+                app's booth he LISTENS while you speak — eyes shut, chest bars
+                alive, tail going — the same pose the loader shows him in
+                right after. The web keeps his quiet idle. */}
             {!busy && (
               <Felix
-                mood={recording ? "idle" : "coach"}
-                animate={!recording}
+                mood={recording ? (native ? "listening" : "idle") : "coach"}
+                animate={!recording || native}
                 className="h-20 w-20 opacity-90"
               />
             )}

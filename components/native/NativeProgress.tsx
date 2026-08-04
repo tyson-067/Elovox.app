@@ -3,9 +3,17 @@
 import { useRouter } from "next/navigation";
 import { CountUp } from "@/components/CountUp";
 import { useIsNative } from "@/lib/native";
+import { Felix } from "@/components/FoxLogo";
+import {
+  bandForScore,
+  FelixBubble,
+  moodForScore,
+  NvBadge,
+  popFor,
+  StreakStat,
+} from "@/components/native/felix";
 import {
   NvButton,
-  NvEmpty,
   NvGroup,
   NvRow,
   NvSectionHeader,
@@ -66,11 +74,20 @@ function Sparkline({ scores }: { scores: number[] }) {
       className="block h-[120px] w-full"
       aria-hidden="true"
     >
+      {/* Fixed gradient id, shared-defs rule as ever: the journey line runs
+          ember into violet, left to right — time itself gets a color. */}
+      <defs>
+        <linearGradient id="nv-spark-grad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="var(--nv-accent-500)" />
+          <stop offset="55%" stopColor="var(--nv-pop-rose)" />
+          <stop offset="100%" stopColor="var(--nv-pop-lilac)" />
+        </linearGradient>
+      </defs>
       <path d={area} style={{ fill: "var(--nv-accent-50)" }} />
       <path
         d={line}
         fill="none"
-        style={{ stroke: "var(--nv-accent-500)" }}
+        stroke="url(#nv-spark-grad)"
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -152,19 +169,20 @@ export function NativeProgress({
     (s) => typeof s.analysis?.overall === "number"
   );
 
-  /* --- Empty: the chart's ghost, one line, one action ------------------- */
+  /* --- Empty: the chart's ghost, and the coach himself ------------------- */
   if (sessions.length === 0) {
     return (
       <div className="pt-6">
         <GhostSparkline />
-        <NvEmpty
-          line="Your first rep starts the chart."
-          action={
-            <NvButton onClick={() => router.push("/practice?daily=1")}>
-              Start your Daily Minute
-            </NvButton>
-          }
-        />
+        <div className="nv-empty">
+          <Felix mood="coach" animate className="h-24 w-24" />
+          <FelixBubble side="top">
+            Your first rep starts the chart.
+          </FelixBubble>
+          <NvButton onClick={() => router.push("/practice?daily=1")}>
+            Start your Daily Minute
+          </NvButton>
+        </div>
       </div>
     );
   }
@@ -193,8 +211,11 @@ export function NativeProgress({
 
   return (
     <div className="flex flex-col pt-2">
-      {/* The score, huge and tabular, with its move since last session. */}
+      {/* The score, huge and tabular, in its band's color — and Felix beside
+          it, reacting to the move: up or flying gets the cheer, a dip gets
+          the coach. He is the delta, readable from across the room. */}
       <section
+        data-band={bandForScore(latest)}
         aria-label={`Overall score ${latest}${
           delta === null
             ? ""
@@ -204,23 +225,37 @@ export function NativeProgress({
         }`}
       >
         <p className="nv-caption">Overall</p>
-        <div className="mt-1 flex items-baseline gap-2.5">
-          <CountUp value={latest} duration={900} className="nv-display nv-num" />
-          {delta !== null && (
-            <span
-              className="nv-headline nv-num flex items-baseline gap-1"
-              style={{ color: deltaColor }}
-              aria-hidden="true"
-            >
-              <span>{delta === 0 ? "–" : delta > 0 ? "▲" : "▼"}</span>
-              {Math.abs(delta)}
-            </span>
-          )}
-          {delta !== null && (
-            <span className="nv-footnote" aria-hidden="true">
-              vs last
-            </span>
-          )}
+        <div className="mt-1 flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-baseline gap-2.5">
+              <CountUp value={latest} duration={900} className="nv-display nv-num" />
+              {delta !== null && (
+                <span
+                  className="nv-headline nv-num flex items-baseline gap-1"
+                  style={{ color: deltaColor }}
+                  aria-hidden="true"
+                >
+                  <span>{delta === 0 ? "–" : delta > 0 ? "▲" : "▼"}</span>
+                  {Math.abs(delta)}
+                </span>
+              )}
+              {delta !== null && (
+                <span className="nv-footnote" aria-hidden="true">
+                  vs last
+                </span>
+              )}
+            </div>
+            {latest === best && sessions.length > 1 && (
+              <div className="mt-2.5">
+                <NvBadge pop="sun">Your best yet</NvBadge>
+              </div>
+            )}
+          </div>
+          <Felix
+            mood={delta !== null && delta < 0 ? "coach" : moodForScore(latest)}
+            animate
+            className="h-16 w-16 shrink-0"
+          />
         </div>
         <div className="mt-5" data-parallax="0.06">
           <Sparkline scores={scores} />
@@ -233,11 +268,15 @@ export function NativeProgress({
           <NvSectionHeader>Where the work is</NvSectionHeader>
           <NvGroup>
             <div className="flex flex-col gap-4 p-4">
-              {metrics.map((m) => (
-                <div key={m.skill}>
+              {/* Each skill owns a color from the festival cycle — six bars
+                  you can tell apart at a glance instead of six orange ones. */}
+              {metrics.map((m, i) => (
+                <div key={m.skill} className="nv-metric" data-pop={popFor(i)}>
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="nv-subhead truncate">{m.skill}</span>
-                    <span className="nv-headline nv-num">{m.avg}</span>
+                    <span className="nv-headline nv-num nv-metric-num">
+                      {m.avg}
+                    </span>
                   </div>
                   <div
                     className="nv-meter-track mt-1.5"
@@ -263,7 +302,7 @@ export function NativeProgress({
       <section aria-label="Practice stats" className="mt-8">
         <NvGroup>
           <div className="grid grid-cols-3 items-start px-2 py-4">
-            <NvStat value={streak} label="day streak" />
+            <StreakStat days={streak} />
             <NvStat value={thisWeek} label="this week" />
             <NvStat value={best} label="best" />
           </div>
