@@ -35,7 +35,16 @@ export function AuthNav() {
   // lint is right that those cascade), and another account's gear can never
   // flash during the switchover.
   const [fetched, setFetched] = useState<{ uid: string; shop: ShopState } | null>(null);
+  // Bumped by the shop page after any successful buy/equip ("elovox:shop") —
+  // the layout persists across client navigations, so without this the chip
+  // kept wearing the gear from sign-in time until a full reload.
+  const [rev, setRev] = useState(0);
   const uid = user?.uid ?? null;
+  useEffect(() => {
+    const onShopChange = () => setRev((r) => r + 1);
+    window.addEventListener("elovox:shop", onShopChange);
+    return () => window.removeEventListener("elovox:shop", onShopChange);
+  }, []);
   useEffect(() => {
     if (!uid) return;
     let stale = false;
@@ -45,7 +54,7 @@ export function AuthNav() {
     return () => {
       stale = true;
     };
-  }, [uid]);
+  }, [uid, rev]);
   const shop = uid && fetched?.uid === uid ? fetched.shop : null;
 
   if (loading) return null;

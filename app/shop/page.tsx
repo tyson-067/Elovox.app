@@ -186,6 +186,12 @@ function ShopScreen() {
         await load().catch(() =>
           setError("Couldn't refresh. Reload to see the latest.")
         );
+        // Tell every avatar in the layout the wardrobe may have changed. The
+        // header chip and the native Account fetch shop state once per
+        // sign-in on the (wrong) theory that they remount on the way back —
+        // the layout persists across client navigations, so a fresh equip
+        // never reached them until a full reload.
+        if (!result.error) window.dispatchEvent(new Event("elovox:shop"));
       } finally {
         setBusy(null);
       }
