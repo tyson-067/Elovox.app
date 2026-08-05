@@ -94,6 +94,15 @@ const iconMail = (
     <path d="m3.5 6.5 6.5 5 6.5-5" />
   </Glyph>
 );
+/** Three plinths, tallest in the middle — the board's mark, same as the badge
+ *  at the foot of the Ladder. */
+const iconBoard = (
+  <Glyph>
+    <rect x="2.25" y="10.5" width="4.6" height="6.5" rx="1" />
+    <rect x="7.7" y="6" width="4.6" height="11" rx="1" />
+    <rect x="13.15" y="12.5" width="4.6" height="4.5" rx="1" />
+  </Glyph>
+);
 const iconLock = (
   <Glyph>
     <rect x="4.5" y="9" width="11" height="8" rx="2" />
@@ -522,7 +531,15 @@ function PlanSection() {
     );
     const subscribed =
       r.status === "trialing" || r.status === "active" || r.status === "past_due";
-    if (r.status === "trialing" && ending) {
+    if (r.status === "past_due" || r.status === "unpaid") {
+      // The web card shows an "Action needed" chip beside a Manage-billing
+      // button; the app can carry neither (App Store rule), and carried
+      // NOTHING — a subscriber whose card had failed saw "Plan · Premium" and
+      // no hint that anything was wrong until access simply stopped. Says what
+      // happened and where it is fixed, without a route to a purchase.
+      footnote =
+        "A payment didn't go through. Update your card in a browser to keep Premium.";
+    } else if (r.status === "trialing" && ending) {
       footnote = `Trial canceled. Access until ${endsOn} — you won't be charged.`;
     } else if (r.status === "trialing") {
       footnote = `Free trial until ${fmtDate(r.trialEnd)}.`;
@@ -1263,6 +1280,22 @@ function AccountNative({
         loaded={sessionsLoaded}
       />
       <Wardrobe shop={shop} stats={stats} />
+
+      {/* The board's second door. The first is the badge at the foot of the
+          Ladder; this one is here because the Den is where "who you are" lives
+          and the handle you appear under is part of that. Before either
+          existed, the leaderboard was unreachable from inside the app. */}
+      <NvSectionHeader>Community</NvSectionHeader>
+      <NvGroup>
+        <NvRow
+          icon={iconBoard}
+          label="Leaderboard"
+          sub="Where you stand, and your name on it"
+          href="/leaderboard"
+          pop="lilac"
+        />
+      </NvGroup>
+
       <PlanSection />
 
       <NvSectionHeader>Account</NvSectionHeader>

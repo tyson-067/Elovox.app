@@ -119,6 +119,22 @@ const TITLES: Record<string, string> = {
   "/practice": "Practice",
   "/terms": "Terms",
   "/privacy": "Privacy",
+  // Every legal page you can walk to from inside the app needs a name here,
+  // or `titleFor` falls through to the bare "Elovox" default and the screen
+  // announces the company instead of itself. /cookies is one tap from Privacy,
+  // which is one tap from the Den — three screens deep, all of them titled
+  // "Elovox" until now. The rest are here so the same thing can't happen the
+  // moment one of them gains a link.
+  // Linked from every report's "AI-generated" byline, so it is one tap from
+  // the busiest screen in the app.
+  "/ai": "How Felix works",
+  "/cookies": "Cookies",
+  "/legal": "Legal",
+  "/refunds": "Refunds",
+  "/accessibility": "Accessibility",
+  "/dmca": "Copyright",
+  "/biometrics": "Biometric data",
+  "/children": "Children",
   "/about": "About",
   "/login": "Log in",
   "/signup": "Create account",
@@ -228,8 +244,20 @@ function NativeTitleBar({ pathname }: { pathname: string }) {
         )}
         {/* The collapsed title is centred over the whole row, the way iOS
             centres it, which is why it's absolutely placed rather than
-            sitting between the two controls. */}
-        {!bare && (
+            sitting between the two controls.
+
+            MOUNTED ONLY WHILE COLLAPSED, and that is a device fix, not tidying.
+            It used to render always and hide with `opacity: 0; visibility:
+            hidden`, which — with a transition on both properties — gives it a
+            composited layer of its own. On the simulator that layer went stale:
+            a Den scrolled down and back sat at the top of its page showing the
+            collapsed title AND the large title at once, with the same words
+            twice. A live debug readout pinned to the app proved the DOM was
+            right at that moment (bar not scrolled, this span at opacity 0,
+            visibility hidden) — WebKit was painting a layer that no longer
+            existed in any computed style. A span React has removed cannot be
+            painted by anybody. */}
+        {!bare && scrolled && (
           <span className="pointer-events-none absolute inset-x-0 flex justify-center">
             <span className="native-title-sm">{title}</span>
           </span>

@@ -19,7 +19,12 @@ export function LegalDoc({
 }) {
   return (
     <article className="mx-auto max-w-2xl py-12 md:py-16">
-      <h1 className="font-headline text-3xl font-bold tracking-tight text-primary md:text-4xl">
+      {/* native-hide: inside the app the title bar already carries this
+          document's name (NativeShell's TITLES), so the h1 under it was the
+          same words twice in two different families — on NINE screens at once,
+          because every legal page and /ai share this shell. The page keeps its
+          h1 in a browser, where there is no bar to say it first. */}
+      <h1 className="native-hide font-headline text-3xl font-bold tracking-tight text-primary md:text-4xl">
         {title}
       </h1>
       <p className="mt-2 text-sm text-on-surface-variant">

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CountUp } from "@/components/CountUp";
 import { useIsNative } from "@/lib/native";
@@ -12,11 +13,19 @@ import {
   popFor,
   StreakStat,
 } from "@/components/native/felix";
-import { NvButton, NvEmpty, NvGroup, NvSectionHeader, NvStat } from "@/components/native/ui";
-import { NvChevron } from "@/components/native/ui";
+import {
+  NvButton,
+  NvEmpty,
+  NvGroup,
+  NvRow,
+  NvSectionHeader,
+  NvSheet,
+  NvStat,
+} from "@/components/native/ui";
 import { Tape } from "@/components/native/Tape";
 import Link from "next/link";
 import { MAX_DAILY_ATTEMPTS, todayKey, type UserStats } from "@/lib/daily";
+import { deleteSession, type DeleteReason } from "@/lib/store";
 import type { Session } from "@/lib/types";
 
 /**
@@ -153,32 +162,162 @@ function sessionsThisWeek(sessions: Session[]): number {
  * makes that a reading exercise. The numeral is still the numeral — the tint
  * is redundant encoding, never the only signal.
  */
-function RecentRow({ session, last }: { session: Session; last: boolean }) {
+function RecentRow({
+  session,
+  last,
+  onDeleteRequest,
+}: {
+  session: Session;
+  last: boolean;
+  onDeleteRequest: () => void;
+}) {
   const score = session.analysis.overall;
   return (
-    <Link
-      href={`/report/${session.id}`}
-      className="flex items-center gap-3.5 px-4 py-3"
+    // The × is a sibling of the link, not a child of it: a <button> inside an
+    // <a> is nested interactive content, which no assistive technology and few
+    // browsers agree on. Same shape the web card uses.
+    <div
+      className="relative"
       style={last ? undefined : { borderBottom: "1px solid var(--nv-hairline)" }}
-      data-band={bandForScore(score)}
-      aria-label={`Open the report for ${session.speechTitle ?? session.prompt}, scored ${score}`}
     >
-      <span className="nv-score-sq" aria-hidden="true">
-        {score}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="nv-body block truncate">
-          {session.speechTitle ?? session.prompt}
+      <Link
+        href={`/report/${session.id}`}
+        className="flex items-center gap-3.5 py-3 pl-4 pr-12"
+        data-band={bandForScore(score)}
+        aria-label={`Open the report for ${session.speechTitle ?? session.prompt}, scored ${score}`}
+      >
+        <span className="nv-score-sq" aria-hidden="true">
+          {score}
         </span>
-        <span className="nv-footnote block">
-          {new Date(session.createdAt).toLocaleDateString(undefined, {
-            month: "short",
-            day: "numeric",
-          })}
+        <span className="min-w-0 flex-1">
+          <span className="nv-body block truncate">
+            {session.speechTitle ?? session.prompt}
+          </span>
+          <span className="nv-footnote block">
+            {new Date(session.createdAt).toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
         </span>
-      </span>
-      <NvChevron />
-    </Link>
+        {/* No chevron. The × is this row's trailing control, and a chevron
+            beside it read as two affordances for one row while costing the
+            title twenty pixels it needed more. The row is still the link. */}
+      </Link>
+      <button
+        type="button"
+        onClick={onDeleteRequest}
+        className="nv-recent-x"
+        aria-label={`Delete this session, scored ${score}`}
+      >
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.4}
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+/** The reasons a user can pick when deleting; labels here, codes to the API.
+ *  Same closed set /api/session/delete accepts, and the same labels the web
+ *  list offers — this is one product's vocabulary, not two. */
+const DELETE_REASONS: { code: DeleteReason; label: string }[] = [
+  { code: "mic-test", label: "Just testing the mic" },
+  { code: "interrupted", label: "I got interrupted" },
+  { code: "wrong-scenario", label: "Wrong scenario" },
+  { code: "privacy", label: "I'd rather not keep it" },
+  { code: "other", label: "Something else" },
+];
+
+/**
+ * Deleting a take, in a sheet.
+ *
+ * The app had no way to do this at all: on the web every row in Past sessions
+ * carries an ×, and in the app a rep you only made to test the microphone was
+ * in your history and your averages forever. It asks why for the same reason
+ * the web does — the reason is what the daily cap is counted against, and
+ * "I'd rather not keep it" is a privacy answer that deserves to be one tap.
+ */
+function DeleteSheet({
+  session,
+  onClose,
+  onDeleted,
+}: {
+  session: Session | null;
+  onClose: () => void;
+  onDeleted: (id: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const remove = async (reason: DeleteReason) => {
+    if (!session) return;
+    setBusy(true);
+    setError("");
+    const result = await deleteSession(session.id, reason);
+    setBusy(false);
+    if (result.ok) {
+      onDeleted(session.id);
+      onClose();
+      return;
+    }
+    setError(result.message ?? "Couldn't delete that just now.");
+  };
+
+  return (
+    <NvSheet
+      open={session !== null}
+      onClose={() => {
+        setError("");
+        onClose();
+      }}
+      title="Delete this attempt?"
+    >
+      <p className="nv-footnote mb-3 text-center">
+        {busy ? "Removing…" : "Tell us why — it helps us know what went wrong."}
+      </p>
+      <NvGroup>
+        {DELETE_REASONS.map((r) => (
+          <NvRow
+            key={r.code}
+            label={r.label}
+            destructive
+            chevron={false}
+            disabled={busy}
+            onClick={() => void remove(r.code)}
+          />
+        ))}
+      </NvGroup>
+      {error && (
+        <p
+          role="alert"
+          className="nv-footnote mt-2 text-center"
+          style={{ color: "var(--nv-destructive)" }}
+        >
+          {error}
+        </p>
+      )}
+      <NvButton
+        variant="plain"
+        className="mt-2"
+        disabled={busy}
+        onClick={() => {
+          setError("");
+          onClose();
+        }}
+      >
+        Keep it
+      </NvButton>
+    </NvSheet>
   );
 }
 
@@ -206,13 +345,19 @@ function metricAverages(
 export function NativeProgress({
   sessions: rawSessions,
   stats,
+  onDeleted,
 }: {
   /** Newest-first, exactly as the page holds them. */
   sessions: Session[];
   stats: UserStats | null;
+  /** Drop a deleted session from the page's list. Same handler the web rows use. */
+  onDeleted?: (id: string) => void;
 }) {
   const native = useIsNative();
   const router = useRouter();
+  // Held here rather than per row, so only one confirm can ever be open —
+  // and so the sheet outlives the row it came from while it is deleting it.
+  const [pendingDelete, setPendingDelete] = useState<Session | null>(null);
   if (!native) return null;
 
   // The type promises analysis on every session; storage predating the type
@@ -385,7 +530,7 @@ export function NativeProgress({
         </NvGroup>
       </section>
 
-      {/* Recent sessions; each row opens its report. */}
+      {/* Recent sessions; each row opens its report, the × removes it. */}
       <section>
         <NvSectionHeader>Recent sessions</NvSectionHeader>
         <NvGroup>
@@ -394,10 +539,17 @@ export function NativeProgress({
               key={s.id}
               session={s}
               last={i === Math.min(RECENT_ROWS, list.length) - 1}
+              onDeleteRequest={() => setPendingDelete(s)}
             />
           ))}
         </NvGroup>
       </section>
+
+      <DeleteSheet
+        session={pendingDelete}
+        onClose={() => setPendingDelete(null)}
+        onDeleted={(id) => onDeleted?.(id)}
+      />
     </div>
   );
 }

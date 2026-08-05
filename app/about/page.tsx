@@ -157,8 +157,13 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Closing CTA */}
-      <section className="mt-16 md:mt-24">
+      {/* Closing CTA.
+          native-hide: the only way to About inside the app is the Den's About
+          row, which means the reader is signed in and practising — and this
+          section invited them to "Get started free" on a sign-up page they
+          have no business seeing again. The story above is what the row
+          promised; the pitch under it is website chrome. */}
+      <section className="native-hide mt-16 md:mt-24">
         <Reveal>
           <h2 className="text-display-sm font-headline font-bold text-primary">
             Come practice with us.

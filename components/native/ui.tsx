@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, type ReactNode, type ButtonHTMLAttributes } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 
 /**
@@ -200,7 +201,17 @@ export function NvEmpty({
   return (
     <div className="nv-empty">
       {icon}
-      <p className="nv-subhead max-w-[30ch]">{line}</p>
+      {/* A <div>, not a <p>. `line` is a ReactNode and two callers already
+          pass a <FelixBubble>, which is a div — and a div inside a p is
+          invalid HTML that the parser hoists OUT of the paragraph, so the
+          server's markup and React's tree disagree and hydration FAILS. On
+          native a hydration failure is not cosmetic: React discards the server
+          DOM and re-renders <html>'s attributes from JSX, which wipes the
+          pre-paint `data-native` stamp — so the shell's CSS stops applying
+          until the dev script re-asserts it, and the app briefly wears the
+          website's chrome. Progress's empty state was doing this on every
+          load. */}
+      <div className="nv-subhead max-w-[30ch]">{line}</div>
       {action}
     </div>
   );
@@ -208,7 +219,18 @@ export function NvEmpty({
 
 /* --- Sheet: detent-style bottom sheet with a grabber -------------------------
    Escape and backdrop both close. Body scroll locks while open — the sheet
-   is the screen for as long as it's up. */
+   is the screen for as long as it's up.
+
+   RENDERED INTO <body>, NOT WHERE IT IS WRITTEN. `position: fixed` resolves
+   against the nearest ancestor carrying a transform, filter or containment,
+   not against the viewport, and a sheet is written deep inside a screen. That
+   is not a hypothetical: the screen-transition rule in globals.css used to end
+   in `forwards`, which left every screen root holding an animated identity
+   transform forever, and so every sheet in this app opened thousands of pixels
+   down the document where nobody could see it. That rule is fixed, but the
+   fix is one CSS property away from being undone by any future card that wants
+   a `filter` on a wrapper. A modal that covers the screen belongs at the top of
+   the document; then no ancestor can ever capture it again. */
 export function NvSheet({
   open,
   onClose,
@@ -234,8 +256,12 @@ export function NvSheet({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
-  return (
+  // A portal needs a DOM target, which prerendering has none of. There is no
+  // hydration risk in reading `document` here rather than gating on a mounted
+  // flag: `open` only ever becomes true from a tap, which is necessarily after
+  // hydration, so the server and the first client paint both render null.
+  if (!open || typeof document === "undefined") return null;
+  return createPortal(
     <>
       <button
         type="button"
@@ -248,6 +274,7 @@ export function NvSheet({
         {title && <h2 className="nv-headline mb-3 text-center">{title}</h2>}
         {children}
       </div>
-    </>
+    </>,
+    document.body
   );
 }

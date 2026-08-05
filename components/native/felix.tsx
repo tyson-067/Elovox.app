@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { FelixMark, type FelixMood } from "@/components/FoxLogo";
 
@@ -155,7 +156,7 @@ export function StreakStat({ days }: { days: number }) {
    engraving can be a constant. */
 const COIN_ENGRAVING = "#7a4e00";
 
-function CoinGlyph({ className = "" }: { className?: string }) {
+export function CoinGlyph({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 20 20" className={`nv-coin ${className}`.trim()} aria-hidden="true">
       <circle cx="10" cy="10" r="9" fill="var(--nv-pop-sun)" />
@@ -181,7 +182,13 @@ export function CoinBadge({ coins }: { coins: number }) {
   return (
     <Link
       href="/shop"
-      className="nv-badge nv-press"
+      // nv-tap44 belongs HERE, on the link, and never on a wrapper around it.
+      // The class works by laying a 44x44 pseudo-element over the control, and
+      // a pseudo-element paints above its parent's children — so a wrapper
+      // carrying it (which is how the Ladder used to grow this badge) puts an
+      // invisible 44pt lid over the link and swallows every tap. The door to
+      // Felix's shop was completely dead on the home screen.
+      className="nv-badge nv-press nv-tap44"
       data-pop="sun"
       aria-label={`${coins.toLocaleString()} coins — open Felix's shop`}
     >
@@ -326,8 +333,17 @@ export function NvConfetti({
     return () => clearTimeout(t);
   }, []);
 
-  if (gone) return null;
-  return (
+  // Into <body>, for the same reason NvSheet goes there: this is a
+  // `position: fixed` layer over the whole screen, and it mounts the instant
+  // the report does — i.e. DURING the screen-enter animation, while the screen
+  // root really does carry a transform and would capture it. Written inline it
+  // burst from the middle of a 4,000px report instead of from the dial.
+  //
+  // Reading `document` in render is safe here: the only caller is NativeReport,
+  // which is behind useIsNative() — false on the server AND on the first client
+  // paint — so nothing about hydration sees this branch.
+  if (gone || typeof document === "undefined") return null;
+  return createPortal(
     <div className="nv-confetti" aria-hidden="true">
       {pieces.map((p, i) => (
         <i
@@ -349,6 +365,7 @@ export function NvConfetti({
           }
         />
       ))}
-    </div>
+    </div>,
+    document.body
   );
 }

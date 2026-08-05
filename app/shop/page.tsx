@@ -24,6 +24,7 @@ import {
   type ShopState,
 } from "@/lib/shop";
 import { useIsNative } from "@/lib/native";
+import { NativeShop } from "@/components/native/NativeShop";
 
 // Felix's shop. Spend coins on what he wears and where he stands.
 //
@@ -308,7 +309,26 @@ function ShopScreen() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8 md:py-12">
+    <>
+      {/* Felix's shop at app scale. Same state, same `act()`, same server —
+          only the presentation changes. It sits OUTSIDE the container below
+          because that container's own px-4 would nest inside the shell's
+          gutter and pinch the grid to 32px margins. Renders nothing in a
+          browser; the whole web page it replaces is native-hidden. */}
+      <NativeShop
+        state={state}
+        busy={busy}
+        error={error}
+        onBuy={(item) => void act(item.id, () => buyItem(item.id))}
+        onEquip={(item) =>
+          void act(item.id, () =>
+            equipItem(item.id, item.kind === "biome" ? "biome" : "accessory")
+          )
+        }
+        onUnequip={() => void act("bare", () => equipItem(null, "accessory"))}
+      />
+
+      <div className="native-hide mx-auto w-full max-w-5xl px-4 py-8 md:py-12">
       <Reveal>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -493,7 +513,8 @@ function ShopScreen() {
           </Link>
         </p>
       </Reveal>
-    </div>
+      </div>
+    </>
   );
 }
 

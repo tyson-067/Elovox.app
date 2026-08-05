@@ -97,6 +97,18 @@ function MicGlyph() {
   );
 }
 
+/** Three plinths, tallest in the middle — the board's own mark, echoing the
+ *  podium the screen it opens is built around. */
+function PodiumGlyph() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <rect x="2.5" y="13" width="5.6" height="8" rx="1.2" />
+      <rect x="9.2" y="7.5" width="5.6" height="13.5" rx="1.2" />
+      <rect x="15.9" y="15.5" width="5.6" height="5.5" rx="1.2" />
+    </svg>
+  );
+}
+
 function LockGlyph() {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" {...stroke} strokeWidth={2.2} aria-hidden="true">
@@ -511,15 +523,30 @@ export function NativeLadder({
         </div>
       </div>
 
-      {/* The coin balance keeps its door to the shop; the reward node up the
-          climb is the thing it buys toward. */}
-      {shop && (
-        <div className="mt-6 flex justify-center">
-          <span className="nv-tap44 inline-flex">
-            <CoinBadge coins={shop.coins} />
-          </span>
-        </div>
-      )}
+      {/* The two doors off the foot of the climb.
+
+          The coin balance keeps its door to the shop — the reward node up the
+          climb is the thing it buys toward. Beside it, the board: this app had
+          a full leaderboard that NOTHING in the native shell linked to. The
+          dock carries four tabs, the rail carries the four Premium modules,
+          and the coin badge and the reward node both go to /shop, so a
+          signed-in user simply could not reach it. It belongs here rather than
+          in the rail because it is the other face of the same XP the HUD bar
+          at the top of this screen is drawing. */}
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
+        {/* No nv-tap44 wrapper — CoinBadge carries it on its own link now. The
+            wrapper's pseudo-element was sitting on top of that link and eating
+            every tap, so this badge navigated nowhere at all. */}
+        {shop && <CoinBadge coins={shop.coins} />}
+        <Link
+          href="/leaderboard"
+          className="nv-badge nv-press nv-tap44"
+          data-pop="lilac"
+        >
+          <PodiumGlyph />
+          <span>Leaderboard</span>
+        </Link>
+      </div>
     </div>
   );
 }

@@ -562,8 +562,15 @@ function ProgressScreen() {
 
       {/* The app-scale Progress. Same sessions/stats the web sections below
           read; those sections carry native-hide. Renders nothing in a
-          browser. */}
-      <NativeProgress sessions={sessions} stats={stats} />
+          browser. Deletion goes through the same handler as the web rows, so
+          both lists drop the session from the same state. */}
+      <NativeProgress
+        sessions={sessions}
+        stats={stats}
+        onDeleted={(id) =>
+          setSessions((prev) => prev?.filter((x) => x.id !== id) ?? prev)
+        }
+      />
 
       {/* 1. Level and streak, the running story */}
       {stats && (

@@ -25,6 +25,7 @@ import {
   type ShareOutcome,
 } from "@/lib/invite";
 import { REFERRAL_BONUS_XP } from "@/lib/referralShared";
+import { NativeLeaderboard } from "@/components/native/NativeLeaderboard";
 
 // The XP leaderboard.
 //
@@ -352,10 +353,23 @@ function LeaderboardScreen() {
   const rest = scope === "global" ? rows.slice(3) : rows;
 
   return (
-    <div className="py-10 md:py-14">
+    <>
+      {/* The board at app scale — same fetches, same server-computed numbers,
+          same handle save. Renders nothing in a browser; the whole web page
+          below it is native-hidden. */}
+      <NativeLeaderboard
+        scope={scope}
+        onScope={switchTo}
+        board={board}
+        failed={failed}
+        handle={handle}
+        onHandleSaved={onHandleSaved}
+      />
+
+      <div className="native-hide py-10 md:py-14">
       <Reveal>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="native-hide text-title font-headline font-semibold text-primary">
+          <h1 className="text-title font-headline font-semibold text-primary">
             <WordReveal text="Leaderboard" delay={80} step={60} />
           </h1>
           <InfoTip label="How is XP counted here?">
@@ -465,7 +479,8 @@ function LeaderboardScreen() {
           </p>
         </Reveal>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

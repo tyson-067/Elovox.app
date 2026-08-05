@@ -1551,23 +1551,29 @@ html[data-native] #main {
   padding-bottom: 0;
   overflow: hidden;
 }
+/* NativeShell only mounts this while the bar is collapsed, so there is no
+   hidden state left to style — and deliberately no `visibility`/`opacity`
+   pair with a transition on it, which is what gave the span a composited
+   layer that WebKit then left on screen after the DOM had hidden it (see the
+   note at its render site). It fades IN from a keyframe instead: an animation
+   ends and releases its layer, where a two-way transition on a permanently
+   mounted node never does.
+
+   The old rules also existed to keep it out of the accessibility tree while
+   invisible — two live copies of one screen's name made VoiceOver read every
+   push twice. Unmounting does that better than `visibility` ever did. */
 .native-title-sm {
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 16px;
   letter-spacing: -0.01em;
   color: var(--color-primary);
-  opacity: 0;
-  /* Out of the accessibility tree while invisible, for the same reason the
-     large title now hides: two copies of one screen's name, both live, meant
-     VoiceOver read it twice on every push. */
-  visibility: hidden;
-  transition: opacity 180ms ease, visibility 0s linear 180ms;
+  animation: native-title-in 180ms ease;
 }
-.native-bar-scrolled .native-title-sm {
-  opacity: 1;
-  visibility: visible;
-  transition: opacity 180ms ease, visibility 0s;
+@keyframes native-title-in {
+  from {
+    opacity: 0;
+  }
 }
 
 /* Bar controls: back chevron, theme switch. 44px targets, no chrome of their
@@ -1670,9 +1676,12 @@ html[data-native] #main {
 
 @media (prefers-reduced-motion: reduce) {
   .native-title-lg,
-  .native-title-sm,
   .native-bar {
     transition: none;
+  }
+  /* The small title fades in from a keyframe now, not a transition. */
+  .native-title-sm {
+    animation: none;
   }
 }
 
@@ -1720,11 +1729,33 @@ html[data-native][data-keyboard] body {
 
 /* The class is added by NativeRuntime on every navigation, not matched
    structurally, so that a DOM node React reused across two routes still
-   replays. `both` would leave a reused node stuck at opacity 1 with the
-   animation already finished — which is the state we want anyway, so a
-   forwards fill is all this needs. */
+   replays.
+
+   NO FILL, and that is load-bearing rather than tidy-mindedness.
+
+   This rule used to end in `forwards`, which was reasoned about purely as
+   "hold the end state" — and the end state (`opacity: 1; transform: none`) is
+   the element's natural state anyway, so the fill bought nothing. What it
+   COST was severe: `data-screen-enter` is never removed once set (NativeRuntime
+   only strips and re-adds it to replay), so a forwards fill left every screen
+   root permanently holding an animated `transform`. An animated transform
+   computes to the identity matrix, not to `none` — and any transform, identity
+   included, makes an element the containing block for `position: fixed`
+   descendants.
+
+   So every fixed element rendered inside a screen was being positioned against
+   that screen's box instead of the viewport. The bottom sheets were the visible
+   casualty: tapping Password in the Den dimmed the screen and put the sheet
+   ~3,800px down the document, off-screen, with no sheet to be seen and a
+   backdrop that stopped short of the title bar. Every sheet in the app — email,
+   password, reminder time, delete account — opened onto nothing.
+
+   Without the fill the animation reverts to the same values when it ends, and
+   the containing block goes with it. NvSheet portals to <body> as well, so a
+   sheet opened inside the 260ms window while the animation IS running still
+   lands on the viewport. */
 html[data-native] #main[data-screen-enter] > * {
-  animation: native-screen-in 260ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  animation: native-screen-in 260ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 /* The chrome is the fixed reference the content moves against, so it must

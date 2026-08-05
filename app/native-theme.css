@@ -1216,14 +1216,25 @@ html[data-native] .nv-takeover {
    most-travelled navigation — and globals.css is right that the chrome is
    the fixed reference and must never join the content's movement.) */
 
-/* --- Long lists render lazily ----------------------------------------------
-   Library and Account are dozens of rows in grouped lists; off-screen groups
-   skip layout and paint entirely until scrolled toward. contain-intrinsic-
-   size auto keeps the scrollbar honest with the last rendered height. */
-html[data-native] .nv-group {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 400px;
-}
+/* --- Long lists used to render lazily, and it broke the Den ----------------
+   This was `content-visibility: auto` + `contain-intrinsic-size: auto 400px`
+   on every grouped list, so off-screen groups skipped layout and paint.
+
+   REMOVED. On device (not in any browser) the Den — the screen with the most
+   groups — came back from a scroll with the whole page painted ~65pt below
+   where the DOM said it was, and with a ghost of the collapsed title still on
+   screen underneath the expanded one. A debug readout pinned live at the
+   bottom of the app proved the DOM was entirely correct at that moment
+   (scrollY 0, bar not scrolled, small title opacity 0 / visibility hidden, one
+   bar, native stamp intact) — WebKit was simply showing stale tiles and a
+   stale scroll offset. That is what skipping layout for a box whose real
+   height is nothing like the 400px placeholder buys you: every group that
+   scrolls out swaps its height for a guess, and scroll anchoring resolves
+   against the guess.
+
+   The lists this was for are ten or twenty rows of text and a 30px icon
+   square. They were never the expensive thing on the screen; the blur layers
+   and the SVG foxes are. Correctness wins. */
 
 /* --- Clearance for the floating capsule ------------------------------------
    The floating dock occludes ~74px + the safe inset (10 float + 62 row + 2
@@ -2633,7 +2644,15 @@ html[data-native] #main[data-screen-enter] .nv-today { animation-delay: 120ms; }
    avatar that opens the Den, and the 32px coin badge. Both were also 40 and 32
    POINT TARGETS, under the 44 the platform asks for and the rest of this
    system already meets. The pseudo-element grows the touch area without
-   touching the layout — the thing you see stays the size the design wants. */
+   touching the layout — the thing you see stays the size the design wants.
+
+   PUT THIS CLASS ON THE CONTROL, NEVER ON A WRAPPER AROUND IT. The catcher is
+   a pseudo-element, and a pseudo-element paints above its own element's
+   children — so on a wrapper it becomes an invisible 44pt lid over whatever is
+   inside, and the control underneath stops receiving taps entirely. That is
+   not theoretical: the coin badge on the home screen spent this whole redesign
+   wrapped in `<span className="nv-tap44">`, and the door to Felix's shop did
+   nothing when you pressed it. */
 html[data-native] .nv-tap44 {
   position: relative;
 }
@@ -2645,4 +2664,436 @@ html[data-native] .nv-tap44::after {
   width: max(100%, 44px);
   height: max(100%, 44px);
   transform: translate(-50%, -50%);
+}
+
+/* ---------------------------------------------------------------------------
+   THE SHOP PASS
+   ---------------------------------------------------------------------------
+   Felix's shop was the last screen in the app still wearing the website. It
+   pushed under a title bar reading "Felix's shop" and then said "Felix's shop"
+   again in its own h1 — the double-title tell NativeShell's docs open by
+   warning about, on the screen the coin badge and the reward node BOTH lead
+   to. Two doors, one website behind them.
+
+   The grammar is the Ladder's, unchanged: warm card, hard bottom edge, radius
+   from --nv-r-card down. What's new is only that an item here has ART, and the
+   art is the point — the cape you can't afford yet has to be visible or there
+   is nothing to come back for.
+   --------------------------------------------------------------------------- */
+
+/* The stage: Felix as he stands right now, above everything you could change
+   about him. */
+html[data-native] .nv-shop-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 14px 18px;
+  border-radius: var(--nv-r-card);
+  background: var(--nv-card);
+  box-shadow:
+    0 3px 0 var(--nv-card-edge),
+    inset 0 0 0 1px var(--nv-card-line);
+}
+html[data-native] .nv-shop-stage-art {
+  width: 100%;
+  max-width: 260px;
+  aspect-ratio: 1;
+  border-radius: 18px;
+  overflow: hidden;
+}
+html[data-native] .nv-shop-stage-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+html[data-native] .nv-shop-error {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--nv-pop-rose-soft);
+  color: var(--nv-pop-rose-ink);
+  font-size: var(--nv-footnote-size);
+  font-weight: 600;
+}
+
+/* Two up. Three would put a 108px square on a 375pt screen, which is too
+   small to read a fox in — and the whole catalogue is eight items, so the
+   extra column buys one row of scroll and costs the preview. */
+html[data-native] .nv-shop-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+html[data-native] .nv-shop-item {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--nv-card);
+  box-shadow:
+    0 3px 0 var(--nv-card-edge),
+    inset 0 0 0 1px var(--nv-card-line);
+}
+/* A warm well, not --nv-tint-soft. The accessories are a transparent fox on
+   whatever sits behind them, and tint-soft (#f4efea) is within a hair of the
+   page ground (#fdfaf7) — so the art half of an accessory tile dissolved into
+   the page and only the white body below it read as a card. The biomes never
+   showed it, because a full-bleed scene draws its own edge. */
+html[data-native] .nv-shop-art {
+  position: relative;
+  aspect-ratio: 1;
+  background: var(--nv-accent-50);
+}
+/* Locked items are DIMMED, never hidden. Standard treatment across the
+   product: seeing the thing you haven't bought is the reason to earn it.
+
+   A real `filter` on the art, not the web card's veil-plus-backdrop-filter
+   recipe. `backdrop-filter: grayscale()` only greys what is painted BEHIND the
+   pseudo-element, which is the art well and not the fox drawn in it — so a
+   locked cape stayed fully orange, and the translucent white veil that was
+   doing the rest of the work turns into a translucent BLACK one in the Booth,
+   where it darkened the tile instead of greying it. Filtering the element
+   itself works the same in both modes. */
+html[data-native] .nv-shop-art[data-locked] {
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+html[data-native] .nv-shop-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 11px 11px;
+}
+html[data-native] .nv-shop-name {
+  font-family: var(--nv-font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.03em;
+  color: var(--nv-ink);
+}
+html[data-native] .nv-shop-detail {
+  flex: 1;
+  margin-bottom: 8px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--nv-ink-3);
+}
+
+/* One control per tile, and its TONE says which of the four states it's in.
+   44 tall, because a mis-tap here spends money that cannot be refunded. */
+html[data-native] .nv-shop-btn,
+html[data-native] .nv-shop-worn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-family: var(--nv-font-display);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  transition: transform var(--nv-t-micro) var(--nv-ease);
+}
+html[data-native] .nv-shop-btn:active {
+  transform: scale(0.96);
+}
+html[data-native] .nv-shop-btn:disabled {
+  transform: none;
+}
+/* Affordable: the Duolingo bottom edge the primary button wears everywhere
+   else, so "this one costs money" reads the same in the shop as it does at
+   the foot of the practice booth. */
+html[data-native] .nv-shop-btn[data-tone="buy"] {
+  background: var(--nv-accent-700);
+  color: #fff;
+  box-shadow: 0 2px 0 #9a3412;
+}
+html[data-native] .nv-shop-btn[data-tone="buy"]:active {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+/* Armed: the confirm step. Rose, not accent — a different colour is the
+   cheapest way to say "this is not the button you just pressed". */
+html[data-native] .nv-shop-btn[data-tone="armed"] {
+  background: var(--nv-pop-rose);
+  color: #fff;
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--nv-pop-rose) 70%, #000);
+}
+html[data-native] .nv-shop-btn[data-tone="armed"]:active {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+/* Owned but off. Solid ink rather than a second tinted fill: this IS an
+   action, and next to the price tag below it the two states have to be
+   telling apart at a glance, not by reading them. */
+html[data-native] .nv-shop-btn[data-tone="own"] {
+  background: var(--nv-ink);
+  color: var(--nv-card);
+}
+/* Can't afford it yet. Reads as a PRICE TAG, not a dead button — the
+   disabled state is doing the work, so the fill stays out of the way. */
+html[data-native] .nv-shop-btn[data-tone="short"] {
+  background: var(--nv-tint-soft);
+  color: var(--nv-ink-3);
+}
+html[data-native] .nv-shop-worn {
+  background: var(--nv-accent-50);
+  color: var(--nv-accent-700);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--nv-accent-500) 40%, transparent);
+}
+html[data-native][data-theme="dark"] .nv-shop-worn {
+  background: color-mix(in srgb, var(--nv-accent-500) 18%, var(--nv-card));
+  color: var(--nv-accent-500);
+}
+html[data-native] .nv-shop-cancel {
+  width: 100%;
+  min-height: 34px;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--nv-ink-3);
+}
+
+/* ---------------------------------------------------------------------------
+   THE BOARD PASS
+   ---------------------------------------------------------------------------
+   The leaderboard had two problems and only one of them could be seen. It
+   rendered the website inside the shell — pill toggles, `card` blocks, a
+   podium built from Tailwind height utilities. The other one was that there
+   was NO WAY TO REACH IT: the dock has four tabs, the rail has the four
+   Premium modules, and both the coin badge and the reward node go to /shop.
+   A signed-in user in the app could not open this screen at all.
+
+   Same grammar as everything since the Ladder: warm card, hard bottom edge,
+   display type for anything that is a name or a number you care about.
+   --------------------------------------------------------------------------- */
+
+/* Who you are on the board. One fact, one action, 56 tall like every other
+   row in the app. */
+html[data-native] .nv-handle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 62px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: var(--nv-card);
+  box-shadow:
+    0 2px 0 var(--nv-card-edge),
+    inset 0 0 0 1px var(--nv-card-line);
+  transition: transform var(--nv-t-micro) var(--nv-ease);
+}
+html[data-native] .nv-handle:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 0 0 1px var(--nv-card-line);
+}
+html[data-native] .nv-handle-name {
+  font-family: var(--nv-font-display);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.03em;
+  color: var(--nv-ink);
+}
+html[data-native] .nv-handle-action {
+  flex: none;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--nv-tint-soft);
+  font-family: var(--nv-font-display);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--nv-accent-700);
+}
+html[data-native][data-theme="dark"] .nv-handle-action {
+  color: var(--nv-accent-500);
+}
+
+/* --- The podium ------------------------------------------------------------
+   Three columns, the winner in the middle, standing on plinths whose heights
+   are set inline from the RANK. Deliberately not a chart: the point is who is
+   on top, and a bar chart of three numbers says that worse than a fox on a
+   box does. */
+html[data-native] .nv-podium {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 22px;
+}
+html[data-native] .nv-podium-col {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  max-width: 116px;
+  flex-direction: column;
+  align-items: center;
+}
+html[data-native] .nv-podium-medal {
+  margin-top: 2px;
+  font-size: 19px;
+  line-height: 1;
+}
+html[data-native] .nv-podium-name {
+  width: 100%;
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  font-family: var(--nv-font-display);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: -0.02em;
+  color: var(--nv-ink);
+}
+html[data-native] .nv-podium-name[data-self] {
+  color: var(--nv-accent-700);
+}
+html[data-native][data-theme="dark"] .nv-podium-name[data-self] {
+  color: var(--nv-accent-500);
+}
+html[data-native] .nv-podium-xp {
+  font-size: 11px;
+  color: var(--nv-ink-3);
+}
+/* An OPAQUE fill, and that is load-bearing rather than cosmetic — a
+   translucent tint takes the ground's ink, and the plinth's numeral has to
+   stay legible whatever is behind the page. */
+html[data-native] .nv-podium-plinth {
+  display: grid;
+  place-items: end center;
+  width: 100%;
+  margin-top: 7px;
+  padding-bottom: 5px;
+  border-radius: 12px 12px 0 0;
+  background: var(--nv-tint-soft);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--nv-ink-2);
+}
+html[data-native] .nv-podium-plinth[data-self] {
+  background: var(--nv-accent-50);
+  color: var(--nv-accent-700);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--nv-accent-500) 38%, transparent);
+}
+
+/* --- The list --------------------------------------------------------------- */
+html[data-native] .nv-board {
+  margin-top: 18px;
+  padding: 4px;
+  border-radius: var(--nv-r-card);
+  background: var(--nv-card);
+  box-shadow:
+    0 3px 0 var(--nv-card-edge),
+    inset 0 0 0 1px var(--nv-card-line);
+}
+html[data-native] .nv-board-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 48px;
+  padding: 6px 10px;
+  border-radius: 14px;
+}
+html[data-native] .nv-board-row[data-self] {
+  background: var(--nv-accent-50);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--nv-accent-500) 34%, transparent);
+}
+html[data-native] .nv-board-rank {
+  flex: none;
+  width: 22px;
+  text-align: right;
+  font-size: 13px;
+  color: var(--nv-ink-3);
+}
+html[data-native] .nv-board-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  color: var(--nv-ink);
+}
+html[data-native] .nv-board-you {
+  margin-left: 6px;
+  font-family: var(--nv-font-display);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--nv-accent-700);
+}
+html[data-native][data-theme="dark"] .nv-board-you {
+  color: var(--nv-accent-500);
+}
+html[data-native] .nv-board-streak {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--nv-ink-2);
+}
+/* Takes its hue from data-pop="lilac" on the element itself, which is how
+   every other coloured glyph in the system gets one. --pop-graphic, not
+   --pop: the light lilac fill measures 2.4:1 on a near-white card, and this
+   is text. */
+html[data-native] .nv-board-lv {
+  flex: none;
+  font-size: 12px;
+  color: var(--pop-graphic, var(--nv-ink-2));
+}
+html[data-native] .nv-board-xp {
+  flex: none;
+  width: 58px;
+  text-align: right;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--nv-ink);
+}
+
+/* --- The invite ------------------------------------------------------------- */
+html[data-native] .nv-invite {
+  margin-top: 14px;
+  padding: 16px 15px 17px;
+  border-radius: var(--nv-r-card);
+  background: var(--nv-accent-50);
+  box-shadow:
+    0 3px 0 var(--nv-card-edge),
+    inset 0 0 0 1px color-mix(in srgb, var(--nv-accent-500) 20%, transparent);
+}
+
+/* The × on a Recent-sessions row. A sibling of the row's link, absolutely
+   placed so the link keeps the whole row as its own target, and a 44pt box
+   around a 13px glyph so the destructive control is never the easy mis-tap.
+   Before this the app had no way to delete a take at all: a rep recorded to
+   test the microphone stayed in the history and in the averages forever,
+   while every row of the web list carried an ×. */
+html[data-native] .nv-recent-x {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  color: var(--nv-ink-3);
+  transition: color var(--nv-t-micro) var(--nv-ease),
+    background-color var(--nv-t-micro) var(--nv-ease);
+}
+html[data-native] .nv-recent-x:active {
+  color: var(--nv-destructive);
+  background: var(--nv-tint-soft);
 }
