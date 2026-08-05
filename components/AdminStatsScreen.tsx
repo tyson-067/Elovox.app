@@ -4,12 +4,18 @@ import { useEffect, useState } from "react";
 import { adminGet, type AdminState } from "@/lib/adminClient";
 import { Section, Stat, StatGrid } from "@/components/AdminBits";
 import { AdminSparkline } from "@/components/AdminSparkline";
+import { AdminRevenueSection } from "@/components/AdminRevenueSection";
 
 // The Overview tab of /admin. Everything here comes from Elovox's own
-// Firestore and Firebase Auth records, the questions traffic analytics can't
-// answer (who signed up, who converted, who actually practices), plus a
-// list-price revenue estimate — Stripe stays the book of record for actual
-// money, and the tile says so.
+// Firestore and Firebase Auth records — the questions traffic analytics can't
+// answer: who signed up, who converted, who actually practices.
+//
+// EXCEPT the money. Revenue used to be a list-price estimate computed here
+// (price × active plan docs), which could not see a coupon, a refund, a failed
+// card or a currency, and could not answer "how much came in" at all. That
+// section is <AdminRevenueSection>, which reads Stripe directly and fetches on
+// its own so a Stripe outage costs one section rather than this whole tab. The
+// estimate survives inside it as a cross-check line.
 //
 // The real access control is server-side in /api/admin/stats, which 404s for
 // anyone outside ADMIN_EMAILS. This screen just renders whatever it gets and
@@ -184,10 +190,15 @@ export function AdminStatsScreen({ onDenied }: { onDenied?: () => void }) {
         </StatGrid>
       </Section>
 
-      <Section title="Revenue (estimated)">
+      {/* Real money, read from Stripe, with its own loading and error state so
+          a Stripe outage degrades one section instead of the whole tab. The
+          list-price estimate this replaced is now a cross-check line inside
+          it — it never knew about coupons, refunds or failed cards, and it
+          could not answer "how much came in" at all. */}
+      <AdminRevenueSection estMrr={r.estMrr} onDenied={onDenied} />
+
+      <Section title="Subscriber mix">
         <StatGrid>
-          <Stat label="Est. MRR" value={`$${r.estMrr.toFixed(2)}`} hint={r.note} />
-          <Stat label="Est. ARR" value={`$${r.estArr.toFixed(2)}`} />
           <Stat
             label="Paying by cycle"
             value={`${r.activeByCycle.weekly}/${r.activeByCycle.monthly}/${r.activeByCycle.annual}`}
@@ -197,6 +208,12 @@ export function AdminStatsScreen({ onDenied }: { onDenied?: () => void }) {
             label="Trial → paid"
             value={s.activePaid}
             hint={`${s.trialing} currently in trial`}
+          />
+          <Stat label="Comped" value={s.comped} hint="streak-reward weeks" />
+          <Stat
+            label="Canceling"
+            value={s.canceling}
+            hint="still paid until period end"
           />
         </StatGrid>
       </Section>
