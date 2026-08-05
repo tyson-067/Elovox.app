@@ -68,6 +68,7 @@ interface RevenuePayload {
     };
     unpricedItems: number;
     truncated: boolean;
+    discountsUnavailable: boolean;
   };
 }
 
@@ -291,6 +292,13 @@ export function AdminRevenueSection({
             {/* An explicit {" "} — JSX strips the leading whitespace of a text
                 line, so the plural "s" ran straight into the next word. */}
             couldn&apos;t be priced from the price alone — MRR is a floor.
+          </p>
+        )}
+        {data.recurring.discountsUnavailable && (
+          <p className="mt-2 font-semibold text-amber">
+            This key can read subscriptions but not the coupons on them, so any
+            discount is invisible — MRR is a list-price ceiling. Add
+            &ldquo;Coupons: Read&rdquo; to the restricted key to fix it.
           </p>
         )}
         {(data.volume.truncated || data.recurring.truncated) && (

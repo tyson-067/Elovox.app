@@ -263,6 +263,27 @@ export interface RecurringResult {
    */
   unpricedItems: number;
   truncated: boolean;
+  /**
+   * True when the key could read subscriptions but not the coupons attached to
+   * them, so any discount is invisible and MRR is a list-price CEILING.
+   */
+  discountsUnavailable: boolean;
+}
+
+/**
+ * Stripe's "this key isn't allowed to do that" shape.
+ *
+ * Worth matching precisely rather than catching everything: a genuine outage,
+ * a bad request or a rate limit must still surface as an error, and only a
+ * permissions refusal is safe to work around by asking for less.
+ */
+function isPermissionError(err: unknown): boolean {
+  const e = err as { type?: string; code?: string; statusCode?: number };
+  return (
+    e?.type === "StripePermissionError" ||
+    e?.code === "permission_error" ||
+    e?.statusCode === 403
+  );
 }
 
 const MAX_SUBS = 5_000;
@@ -332,7 +353,7 @@ export async function recurringRevenue(
     return b;
   };
 
-  const counts = {
+  let counts = {
     active: 0,
     pastDue: 0,
     trialing: 0,
@@ -341,20 +362,32 @@ export async function recurringRevenue(
   let unpricedItems = 0;
   let scanned = 0;
   let truncated = false;
+  let discountsUnavailable = false;
+
+  const reset = () => {
+    buckets.clear();
+    counts = { active: 0, pastDue: 0, trialing: 0, cancelingAtPeriodEnd: 0 };
+    unpricedItems = 0;
+    scanned = 0;
+    truncated = false;
+  };
 
   // `status: "all"` in one pass rather than three filtered passes: the trial
   // and past-due numbers come from the same walk, and one list call with a
   // cursor is cheaper on the rate limit than three.
-  await stripe.subscriptions
-    .list({
-      status: "all",
-      limit: 100,
-      // Four levels, which is Stripe's maximum — and the coupon is genuinely
-      // four deep (data → discounts → source → coupon). Without it every
-      // discounted subscription is silently counted at list price.
-      expand: ["data.discounts.source.coupon"],
-    })
-    .autoPagingEach((sub) => {
+  const walk = (expandDiscounts: boolean) =>
+    stripe.subscriptions
+      .list({
+        status: "all",
+        limit: 100,
+        // Four levels, which is Stripe's maximum — and the coupon is genuinely
+        // four deep (data → discounts → source → coupon). Without it every
+        // discounted subscription is silently counted at list price.
+        ...(expandDiscounts
+          ? { expand: ["data.discounts.source.coupon"] }
+          : {}),
+      })
+      .autoPagingEach((sub) => {
       scanned++;
       if (scanned > MAX_SUBS) {
         truncated = true;
@@ -404,6 +437,21 @@ export async function recurringRevenue(
       else b.mrr += subMonthly;
     });
 
+  // A RESTRICTED KEY CAN READ SUBSCRIPTIONS AND STILL REFUSE THE COUPON.
+  // `expand` is authorised per expanded resource, so a key scoped to
+  // subscriptions but not coupons fails the whole list call — and losing MRR
+  // entirely because we asked a question about discounts is a bad trade when
+  // most accounts have none. Retry unexpanded and say the discounts are
+  // unknown, which makes MRR a list-price ceiling rather than nothing at all.
+  try {
+    await walk(true);
+  } catch (err) {
+    if (!isPermissionError(err)) throw err;
+    discountsUnavailable = true;
+    reset();
+    await walk(false);
+  }
+
   for (const b of buckets.values()) {
     b.mrr = Math.round(b.mrr);
     b.trialMrr = Math.round(b.trialMrr);
@@ -411,6 +459,7 @@ export async function recurringRevenue(
   }
 
   return {
+    discountsUnavailable,
     byCurrency: [...buckets.values()].sort((a, b) => b.mrr - a.mrr),
     counts,
     unpricedItems,
