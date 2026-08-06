@@ -7,8 +7,10 @@ import {
   formatMoney,
   minorToMajor,
   PERIOD_LABELS,
+  REASON_LABELS,
   REVENUE_PERIODS,
   type RevenuePeriod,
+  type VolumeReason,
 } from "@/lib/stripeMetrics";
 
 /**
@@ -70,7 +72,36 @@ interface RevenuePayload {
     truncated: boolean;
     discountsUnavailable: boolean;
   };
+  breakdown: {
+    lines: {
+      id: string;
+      number: string | null;
+      at: number;
+      amount: number;
+      tax: number;
+      currency: string;
+      reason: VolumeReason;
+      description: string | null;
+      customerEmail: string | null;
+      subscriptionId: string | null;
+    }[];
+    byReason: { reason: VolumeReason; count: number; amount: number }[];
+    totals: { currency: string; amount: number }[];
+    taxTotals: { currency: string; amount: number }[];
+    listTruncated: boolean;
+    unavailable: boolean;
+  };
+  reconciliation: {
+    currency: string | null;
+    gross: number;
+    itemised: number;
+    difference: number;
+    matches: boolean;
+  };
 }
+
+/** How many payments show before the "show all" toggle. */
+const LINES_SHOWN = 10;
 
 export function AdminRevenueSection({
   /** The Firestore list-price estimate, for the cross-check line. */
@@ -85,6 +116,9 @@ export function AdminRevenueSection({
   const [data, setData] = useState<RevenuePayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  // Collapsed by default and reset whenever the window changes — "show all"
+  // is a statement about a list that no longer exists once the period moves.
+  const [showAll, setShowAll] = useState(false);
 
   // Deliberately sets NO state before its first await. The loading signal is
   // derived (`data === null && error === null`) and the period buttons clear
@@ -144,6 +178,7 @@ export function AdminRevenueSection({
             // what gives the switch a loading state without a cascading render.
             setData(null);
             setError(null);
+            setShowAll(false);
             setPeriod(p);
           }}
           aria-pressed={period === p}
@@ -329,6 +364,166 @@ export function AdminRevenueSection({
           {PERIOD_LABELS[data.period]}
         </p>
       </div>
+
+      <Breakdown data={data} currency={currency} showAll={showAll} onShowAll={() => setShowAll(true)} />
     </Section>
+  );
+}
+
+/**
+ * What the volume was actually made of.
+ *
+ * The totals alone could not distinguish "a good week" from "a bug": $177.90
+ * of gross against $37.31 of MRR is exactly what a week of annual sign-ups
+ * looks like (an annual is $79.99 of cash and $6.67 of MRR), and it is also
+ * what a double-count would look like. This answers it by name — new
+ * subscriber, renewal, or a mid-cycle plan change — and shows the tax, which
+ * is the reason a gross figure never decomposes neatly into list prices.
+ */
+function Breakdown({
+  data,
+  currency,
+  showAll,
+  onShowAll,
+}: {
+  data: RevenuePayload;
+  currency: string;
+  showAll: boolean;
+  onShowAll: () => void;
+}) {
+  const b = data.breakdown;
+
+  if (b.unavailable) {
+    return (
+      <div className="card mt-3 p-4">
+        <p className="text-[14px] font-semibold text-amber">
+          This key can&apos;t read invoices, so the volume can&apos;t be itemised.
+          Add &ldquo;Invoices: Read&rdquo; to the restricted key.
+        </p>
+      </div>
+    );
+  }
+  if (b.lines.length === 0) return null;
+
+  const tax = b.taxTotals.find((t) => t.currency === currency)?.amount ?? 0;
+  const itemised = b.totals.find((t) => t.currency === currency)?.amount ?? 0;
+  const shown = showAll ? b.lines : b.lines.slice(0, LINES_SHOWN);
+
+  return (
+    <div className="card mt-3 p-4">
+      <h3 className="text-[13px] font-semibold uppercase tracking-[0.04em] text-on-surface-variant">
+        What made up the volume
+      </h3>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {b.byReason.map((r) => (
+          <span
+            key={r.reason}
+            className="rounded-full bg-surface-container px-3 py-1.5 text-[13px]"
+          >
+            <span className="font-semibold text-primary">
+              {REASON_LABELS[r.reason]}
+            </span>{" "}
+            ×{r.count} ·{" "}
+            <span className="font-data font-semibold">
+              {formatMoney(r.amount, currency)}
+            </span>
+          </span>
+        ))}
+        {tax > 0 && (
+          <span className="rounded-full bg-surface-container px-3 py-1.5 text-[13px]">
+            <span className="font-semibold text-primary">Tax collected</span> ·{" "}
+            <span className="font-data font-semibold">
+              {formatMoney(tax, currency)}
+            </span>
+          </span>
+        )}
+      </div>
+
+      {tax > 0 && (
+        // The single most confusing thing about a gross figure: it includes
+        // tax, so it will never add up to a whole number of list prices.
+        <p className="mt-2 text-[13px] text-on-surface-variant">
+          Gross includes tax. Net of tax, the subscriptions themselves came to{" "}
+          <span className="font-data font-semibold text-primary">
+            {formatMoney(itemised - tax, currency)}
+          </span>{" "}
+          — that&apos;s the figure that decomposes into plan prices.
+        </p>
+      )}
+
+      {/* The two reads of the same window, reconciled out loud. */}
+      {!data.reconciliation.matches && (
+        <p className="mt-2 text-[13px] font-semibold text-amber">
+          Itemised total is{" "}
+          {formatMoney(Math.abs(data.reconciliation.difference), currency)}{" "}
+          {data.reconciliation.difference > 0 ? "short of" : "above"} the gross
+          figure — usually a payment whose invoice sits the other side of the
+          window edge, or a charge with no invoice behind it.
+        </p>
+      )}
+
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full min-w-[34rem] text-left text-[14px]">
+          <thead>
+            <tr className="text-[12px] uppercase tracking-[0.04em] text-on-surface-variant">
+              <th className="py-1.5 pr-3 font-semibold">Date</th>
+              <th className="py-1.5 pr-3 text-right font-semibold">Amount</th>
+              <th className="py-1.5 pr-3 font-semibold">What</th>
+              <th className="py-1.5 font-semibold">Who</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((l) => (
+              <tr key={l.id} className="border-t border-primary/8 align-top">
+                <td className="py-2 pr-3 whitespace-nowrap text-on-surface-variant">
+                  {new Date(l.at).toLocaleDateString()}
+                </td>
+                <td className="font-data py-2 pr-3 text-right font-semibold whitespace-nowrap">
+                  {formatMoney(l.amount, l.currency)}
+                  {l.tax > 0 && (
+                    <span className="block text-[12px] font-normal text-on-surface-variant">
+                      incl. {formatMoney(l.tax, l.currency)} tax
+                    </span>
+                  )}
+                </td>
+                <td className="py-2 pr-3">
+                  <span className="font-semibold text-primary">
+                    {REASON_LABELS[l.reason]}
+                  </span>
+                  {l.description && (
+                    <span className="block text-[13px] text-on-surface-variant">
+                      {l.description}
+                    </span>
+                  )}
+                </td>
+                <td className="py-2 text-on-surface-variant">
+                  {l.customerEmail ?? "—"}
+                  {l.number && (
+                    <span className="font-data block text-[12px]">{l.number}</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {!showAll && b.lines.length > LINES_SHOWN && (
+        <button
+          type="button"
+          onClick={onShowAll}
+          className="mt-3 text-[13px] font-semibold text-accent-strong"
+        >
+          Show all {b.lines.length} payments
+        </button>
+      )}
+      {b.listTruncated && (
+        <p className="mt-2 text-[13px] font-semibold text-amber">
+          More payments exist than are listed — the totals above still count
+          them all.
+        </p>
+      )}
+    </div>
   );
 }

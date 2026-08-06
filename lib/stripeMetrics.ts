@@ -211,6 +211,193 @@ export async function grossVolume(
   };
 }
 
+/* --- What the volume was made of -------------------------------------------
+   The totals above answer "how much", and stop there. The first time they were
+   read in anger the obvious next question had no answer on the screen: a week
+   showing $177.90 against an MRR of $37.31 is entirely normal — one annual sale
+   is $79.99 of cash and $6.67 of MRR, a 12x ratio — but "normal" and "correct"
+   are different claims, and the totals alone cannot tell them apart.
+
+   So: the same window, itemised. INVOICES rather than balance transactions,
+   because an invoice carries `billing_reason`, which is exactly the
+   classification that makes the number readable — was this a new subscriber, a
+   renewal, or a mid-cycle plan change that billed an odd partial amount?
+   Balance transactions know the money moved and nothing about why.
+
+   The totals stay sourced from balance transactions. This is a SECOND read of
+   the same window from a different angle, and the two are reconciled rather
+   than assumed to agree — see `matchesGross` on the result. */
+
+export type VolumeReason = "first" | "renewal" | "change" | "manual" | "other";
+
+export const REASON_LABELS: Record<VolumeReason, string> = {
+  first: "New subscriber",
+  renewal: "Renewal",
+  change: "Plan change / proration",
+  manual: "One-off invoice",
+  other: "Other",
+};
+
+function reasonOf(billingReason: string | null): VolumeReason {
+  switch (billingReason) {
+    case "subscription_create":
+      return "first";
+    case "subscription_cycle":
+      return "renewal";
+    case "subscription_update":
+    case "subscription_threshold":
+      return "change";
+    case "manual":
+    case "quote_accept":
+      return "manual";
+    default:
+      // `subscription`, `automatic_pending_invoice_item_invoice`, null, and
+      // anything Stripe adds later. Named rather than silently bucketed with
+      // renewals, so an unexpected shape shows up as unexpected.
+      return "other";
+  }
+}
+
+export interface VolumeLine {
+  id: string;
+  /** Invoice number, which is what appears in the Stripe dashboard search. */
+  number: string | null;
+  /** When it was PAID, falling back to created for anything odd. */
+  at: number;
+  amount: number;
+  /**
+   * The tax inside `amount`.
+   *
+   * Carried explicitly because its absence is what made the headline
+   * unreadable: a plan sold at $11.99 invoiced at $12.80, and with only the
+   * total on screen the 81c looked like a pricing bug. Gross volume is what
+   * the customer paid, tax included — that is correct and it is also why the
+   * total will not decompose into list prices.
+   */
+  tax: number;
+  currency: string;
+  reason: VolumeReason;
+  description: string | null;
+  customerEmail: string | null;
+  subscriptionId: string | null;
+}
+
+export interface BreakdownResult {
+  lines: VolumeLine[];
+  byReason: { reason: VolumeReason; count: number; amount: number }[];
+  /** Sum of `amount_paid` across every paid invoice in the window, per currency. */
+  totals: { currency: string; amount: number }[];
+  /** Tax collected in the window, per currency. Part of the totals, not on top. */
+  taxTotals: { currency: string; amount: number }[];
+  /** More invoices existed than we listed; `totals` still counts them all. */
+  listTruncated: boolean;
+  /** The key could read balance transactions but not invoices. */
+  unavailable: boolean;
+}
+
+/** How many individual lines come back. The totals count everything regardless. */
+const MAX_LINES = 250;
+const MAX_INVOICES = 5_000;
+
+export async function volumeBreakdown(
+  stripe: Stripe,
+  period: RevenuePeriod,
+  now = Date.now()
+): Promise<BreakdownResult> {
+  const { fromSec, toSec } = periodRange(period, now);
+  const lines: VolumeLine[] = [];
+  const byReason = new Map<VolumeReason, { count: number; amount: number }>();
+  const totals = new Map<string, number>();
+  const taxTotals = new Map<string, number>();
+  let scanned = 0;
+  let listTruncated = false;
+
+  try {
+    await stripe.invoices
+      .list({ created: { gte: fromSec, lte: toSec }, status: "paid", limit: 100 })
+      .autoPagingEach((inv) => {
+        scanned++;
+        if (scanned > MAX_INVOICES) {
+          listTruncated = true;
+          return false;
+        }
+        // A $0 invoice is what a trial start looks like. Real, and not money —
+        // counting it as a payment would put phantom rows in a revenue list.
+        if (!inv.amount_paid) return;
+
+        const reason = reasonOf(inv.billing_reason);
+        const agg = byReason.get(reason) ?? { count: 0, amount: 0 };
+        agg.count++;
+        agg.amount += inv.amount_paid;
+        byReason.set(reason, agg);
+        totals.set(
+          inv.currency,
+          (totals.get(inv.currency) ?? 0) + inv.amount_paid
+        );
+
+        // `total_taxes` is an array — one entry per rate applied — and only
+        // the exclusive ones are ON TOP of the price. An inclusive tax is
+        // already inside the amount the customer agreed to, so adding it to a
+        // "tax collected" figure double-counts what they paid.
+        const tax = (inv.total_taxes ?? []).reduce(
+          (sum, t) => sum + (t.tax_behavior === "inclusive" ? 0 : t.amount),
+          0
+        );
+        if (tax) taxTotals.set(inv.currency, (taxTotals.get(inv.currency) ?? 0) + tax);
+
+        if (lines.length < MAX_LINES) {
+          const line = inv.lines?.data?.[0];
+          const sub = (inv as unknown as { subscription?: string | { id: string } })
+            .subscription;
+          lines.push({
+            id: inv.id ?? "",
+            number: inv.number,
+            at: (inv.status_transitions?.paid_at ?? inv.created) * 1000,
+            amount: inv.amount_paid,
+            tax,
+            currency: inv.currency,
+            reason,
+            description: line?.description ?? null,
+            customerEmail: inv.customer_email,
+            subscriptionId:
+              typeof sub === "string" ? sub : (sub?.id ?? null),
+          });
+        } else {
+          listTruncated = true;
+        }
+      });
+  } catch (err) {
+    // Same rule as the coupon expand: a permissions refusal degrades to "we
+    // couldn't itemise", anything else is a real failure and belongs upstairs.
+    if (!isPermissionError(err)) throw err;
+    return {
+      lines: [],
+      byReason: [],
+      totals: [],
+      taxTotals: [],
+      listTruncated: false,
+      unavailable: true,
+    };
+  }
+
+  lines.sort((a, b) => b.at - a.at);
+
+  return {
+    lines,
+    byReason: [...byReason.entries()]
+      .map(([reason, v]) => ({ reason, ...v }))
+      .sort((a, b) => b.amount - a.amount),
+    totals: [...totals.entries()]
+      .map(([currency, amount]) => ({ currency, amount }))
+      .sort((a, b) => b.amount - a.amount),
+    taxTotals: [...taxTotals.entries()]
+      .map(([currency, amount]) => ({ currency, amount }))
+      .sort((a, b) => b.amount - a.amount),
+    listTruncated,
+    unavailable: false,
+  };
+}
+
 /* --- MRR ------------------------------------------------------------------- */
 
 /**

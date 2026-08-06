@@ -6,6 +6,7 @@ import { getStripe } from "@/lib/stripe";
 import {
   grossVolume,
   recurringRevenue,
+  volumeBreakdown,
   isRevenuePeriod,
   periodRange,
   PERIOD_LABELS,
@@ -94,6 +95,29 @@ export async function GET(req: NextRequest) {
     // win worth the 429.
     const volume = await grossVolume(stripe, period);
     const recurring = await recurringRevenue(stripe);
+    const breakdown = await volumeBreakdown(stripe, period);
+
+    // RECONCILE THE TWO READS RATHER THAN TRUSTING THEM TO AGREE. `volume` is
+    // summed from balance transactions (when money moved); `breakdown` from
+    // paid invoices (what was billed). They should match, and when they don't
+    // the difference is real information — a payment with no invoice behind it,
+    // an invoice paid outside the window it was created in, or a charge that
+    // isn't subscription revenue at all. Saying "these disagree by $X" beats
+    // showing an itemisation that quietly fails to add up to the headline.
+    const primary = volume.byCurrency[0]?.currency ?? null;
+    const breakdownTotal = primary
+      ? (breakdown.totals.find((t) => t.currency === primary)?.amount ?? 0)
+      : 0;
+    const grossTotal = volume.byCurrency[0]?.gross ?? 0;
+    const reconciliation = {
+      currency: primary,
+      gross: grossTotal,
+      itemised: breakdownTotal,
+      difference: grossTotal - breakdownTotal,
+      // A window boundary can legitimately split a payment from its invoice,
+      // so exact equality is too strict a test to put a warning behind.
+      matches: Math.abs(grossTotal - breakdownTotal) < 100,
+    };
 
     const body = {
       generatedAt: Date.now(),
@@ -104,6 +128,8 @@ export async function GET(req: NextRequest) {
       to: range.toMs,
       volume,
       recurring,
+      breakdown,
+      reconciliation,
     };
     cache.set(key, { at: Date.now(), body });
     return NextResponse.json(body, {
