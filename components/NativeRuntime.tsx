@@ -77,8 +77,17 @@ export function NativeRuntime() {
     let disposed = false;
 
     const apply = () => {
+      // The bar's glyphs answer to what the app PAINTED under them, which is
+      // not the same question as "what theme is this". Since the modern pass,
+      // three screens are near-black at the top in LIGHT mode — the Report and
+      // the Den open on an ink stage, and the booth is a dark room — and each
+      // of them says so with `data-topbar="ink"` (lib/native.ts). Without it
+      // the Den's violet stage got the light theme's dark glyphs and the
+      // clock, the wifi bars and the battery all but vanished.
+      const el = document.documentElement;
       const dark =
-        document.documentElement.getAttribute("data-theme") === "dark";
+        el.getAttribute("data-theme") === "dark" ||
+        el.getAttribute("data-topbar") === "ink";
       void import("@capacitor/status-bar")
         .then(async ({ StatusBar, Style }) => {
           if (disposed) return;
@@ -94,11 +103,13 @@ export function NativeRuntime() {
     apply();
 
     // The theme is a `data-theme` attribute written by Account (and by the
-    // pre-paint script at launch), so the attribute is the event.
+    // pre-paint script at launch), and `data-topbar` is written by whichever
+    // screen is mounted — so the attributes are the event, and one observer
+    // covers both.
     const observer = new MutationObserver(apply);
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-theme"],
+      attributeFilter: ["data-theme", "data-topbar"],
     });
 
     // iOS resets the style on some returns from background — reasserting on

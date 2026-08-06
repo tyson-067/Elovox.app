@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 /**
  * Is this the iOS/Android shell rather than a browser?
@@ -106,4 +106,32 @@ function subscribeToTheme(onChange: () => void): () => void {
     attributeFilter: ["data-theme"],
   });
   return () => observer.disconnect();
+}
+
+/**
+ * Declare that this screen paints INK under the status bar.
+ *
+ * The status bar's glyphs are chosen by NativeRuntime, and until the modern
+ * pass the only question it had to answer was "is the app in dark mode?" —
+ * because in light mode the top of every screen was paper. That stopped being
+ * true the moment screens grew ink stages: the Report, the Den and the
+ * recording booth are near-black at the top IN LIGHT MODE, and the status bar
+ * was still drawing dark glyphs on them. On the Den's violet stage the clock,
+ * the wifi bars and the battery were all but invisible.
+ *
+ * The webview cannot infer this — `viewport-fit=cover` means the app paints
+ * under the bar, but nothing tells iOS what colour it painted. So the screen
+ * says so, via an attribute the runtime already knows how to watch.
+ *
+ * Takes the flag as an ARGUMENT rather than being called conditionally, so
+ * callers whose stage is conditional (the booth, which is only ink while
+ * recording) still call it on every render.
+ */
+export function useInkTopBar(active: boolean): void {
+  useEffect(() => {
+    if (!active || typeof document === "undefined") return;
+    const el = document.documentElement;
+    el.setAttribute("data-topbar", "ink");
+    return () => el.removeAttribute("data-topbar");
+  }, [active]);
 }

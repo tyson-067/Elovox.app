@@ -3,7 +3,7 @@
 import { Fragment, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useIsNative } from "@/lib/native";
+import { useInkTopBar, useIsNative } from "@/lib/native";
 import { CountUp } from "@/components/CountUp";
 import { Felix } from "@/components/FoxLogo";
 import { Reveal } from "@/components/Reveal";
@@ -317,6 +317,9 @@ export function NativeReport({
 }) {
   const native = useIsNative();
   const router = useRouter();
+  // The report opens on an ink stage, so the status bar owes it light glyphs
+  // even in the light theme.
+  useInkTopBar(native);
 
   // A take you JUST finished earns a celebration; rereading an old report
   // doesn't. Confetti only for fresh, good takes — rarity is what keeps it
