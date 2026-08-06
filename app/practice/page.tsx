@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Felix } from "@/components/FoxLogo";
 import { useInkTopBar, useIsNative } from "@/lib/native";
+import { notifyError } from "@/lib/haptics";
 import { NvChip } from "@/components/native/ui";
 import { AnalyzingLoader } from "@/components/AnalyzingLoader";
 import { getCategory, pickPrompt } from "@/lib/categories";
@@ -881,6 +882,20 @@ function RecordingScreen() {
   }, [runAnalysis]);
 
   const recording = state === "recording";
+
+  /* --- The two beats worth feeling --------------------------------------
+     `notifyError` and `notifySuccess` have existed in lib/haptics.ts since
+     the shell was built and neither was ever called: the delegated listener
+     in NativeRuntime covers every TAP, but a tap is the user acting, and
+     these two are the app answering.
+
+     Driven off `state` rather than added to the three `setState("error")`
+     sites, so a fourth failure path added later feels the same as the other
+     three without anyone remembering to wire it. */
+  useEffect(() => {
+    if (!native || state !== "error") return;
+    notifyError();
+  }, [native, state]);
   // The booth is a dark room in both themes, so the status bar owes it light
   // glyphs while the takeover is up — and dark ones again the moment it isn't.
   useInkTopBar(native && recording);
