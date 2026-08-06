@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { verifyUser, makeRateLimiter, logRejectedInput } from "@/lib/verify";
+import { isRestricted } from "@/lib/moderation";
 import { equip, purchase } from "@/lib/coinsServer";
 import { readJsonObject } from "@/lib/requestBody";
 
@@ -31,6 +32,23 @@ export async function POST(req: NextRequest) {
   }
   if (rateLimited(uid)) {
     return NextResponse.json({ error: "Slow down a moment." }, { status: 429 });
+  }
+
+  // A suspended or banned account doesn't get the reward economy either —
+  // spending coins and dressing Felix up is exactly the kind of thing a
+  // suspension is meant to pause. Fail-OPEN like every other moderation read.
+  const restriction = await isRestricted(db, uid);
+  if (restriction.blocked) {
+    return NextResponse.json(
+      {
+        error: "account-restricted",
+        message:
+          restriction.state === "suspended"
+            ? "Your account is suspended for a Terms violation. Contact support if you think that's wrong."
+            : "This account has been closed for Terms violations.",
+      },
+      { status: 403 }
+    );
   }
 
   const parsed = await readJsonObject(req);

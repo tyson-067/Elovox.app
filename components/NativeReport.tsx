@@ -456,6 +456,19 @@ export function NativeReport({
             ))}
           </div>
         )}
+        {/* Why some words are hashed out, and what it cost. Sits inside the
+            transcript card because that is where the evidence is — a notice
+            somewhere else would read as unrelated. */}
+        {analysis.languageNotice && (
+          <div
+            className="px-4 py-3"
+            style={{ borderTop: "1px solid var(--nv-hairline)" }}
+          >
+            <p className="nv-subhead" style={{ color: "var(--nv-warning)" }}>
+              {analysis.languageNotice}
+            </p>
+          </div>
+        )}
       </NvGroup>
       </>
       )}

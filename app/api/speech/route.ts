@@ -9,6 +9,7 @@ import {
 } from "@/lib/verify";
 import { sanitizeText } from "@/lib/validation";
 import { getAdminDb } from "@/lib/firebaseAdmin";
+import { isRestricted } from "@/lib/moderation";
 import { usageDateKey, reserveMeteredUse } from "@/lib/quota";
 import { readJsonObject } from "@/lib/requestBody";
 
@@ -147,6 +148,24 @@ export async function POST(req: NextRequest) {
   // lib/verify.ts.
   const appCheckReject = await enforceAppCheck(req, "speech");
   if (appCheckReject) return appCheckReject;
+
+  // Same moderation gate as /api/analyze (lib/moderation.ts). A suspended or
+  // banned account doesn't get paid Gemini generation either — a strike that
+  // only closed one of the two expensive doors wouldn't be a suspension.
+  // Fail-OPEN, so a Firestore blip never locks out honest subscribers.
+  const restriction = await isRestricted(getAdminDb(), uid);
+  if (restriction.blocked) {
+    return NextResponse.json(
+      {
+        error: "account-restricted",
+        message:
+          restriction.state === "suspended"
+            ? `Your account is suspended until ${new Date(restriction.until).toLocaleDateString()} for a Terms violation. Think that's wrong? Contact support.`
+            : "This account has been closed for Terms violations. Contact support if you think this is a mistake.",
+      },
+      { status: 403 }
+    );
+  }
 
   // Both /library (regenerate) and /custom are Premium features, and both
   // gate on usePlan(), in the browser, which protects nobody. An ordinary

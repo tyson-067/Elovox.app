@@ -65,6 +65,15 @@ interface Detail {
     strikes: number;
     state: "ok" | "warned" | "suspended" | "banned";
     suspendedUntil: number | null;
+    events: {
+      kind: string;
+      severity: number | null;
+      reason: string | null;
+      source: string | null;
+      actor: string | null;
+      stateAfter: string | null;
+      at: number;
+    }[];
   };
 }
 
@@ -541,10 +550,14 @@ export function AdminUserDrawer({
             <div className="card mt-3 p-4">
               <p className="text-sm font-semibold">Moderation</p>
               <p className="mt-1 text-[12px] text-on-surface-variant">
-                Conduct only — reports, abuse, an offensive public name. Warn
-                at 1 strike, 7-day suspension at 3, ban (login locked) at 5.
-                Severity adds 1 / 2 / 5. Every strike needs a written reason
-                and lands in the audit log. Billing is never touched here.
+                Yours are conduct only — reports, abuse, an offensive public
+                name. Swearing (+1) and slurs (+2) in a recording are struck
+                automatically by the analyze pipeline, marked &ldquo;auto&rdquo;
+                below; mild words are masked in the transcript and never
+                struck. Warn at 1 strike, 7-day suspension at 3, ban (login
+                locked) at 5. Severity adds 1 / 2 / 5. Every strike needs a
+                written reason and lands in the audit log. Billing is never
+                touched here.
               </p>
               <p className="mt-2 text-sm">
                 {detail.moderation.state === "ok" ? (
@@ -670,6 +683,29 @@ export function AdminUserDrawer({
                   />
                 )}
               </div>
+              {/* The record behind the number: who struck, why, and what it
+                  left them in. Without this an automated strike is a count
+                  with no story, and the first thing an appeal needs is the
+                  story. */}
+              {detail.moderation.events.length > 0 && (
+                <ul className="mt-3 flex flex-col gap-1.5 border-t border-primary/5 pt-2">
+                  {detail.moderation.events.map((e, i) => (
+                    <li key={i} className="text-[12px] text-on-surface-variant">
+                      <span className="font-medium text-on-surface">
+                        {e.kind === "strike"
+                          ? `Strike ${e.severity ?? "?"}`
+                          : e.kind === "lift"
+                            ? "Suspension lifted"
+                            : "Reinstated"}
+                      </span>{" "}
+                      · {e.source === "audio" ? "auto" : (e.actor ?? "—")} ·{" "}
+                      {fmtDateTime(e.at)}
+                      {e.stateAfter ? ` · → ${e.stateAfter}` : ""}
+                      {e.reason ? <span className="block">{e.reason}</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             {/* --- Access ------------------------------------------------- */}

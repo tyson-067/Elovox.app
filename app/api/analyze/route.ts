@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import type { Analysis, CategoryId, StageAnalysis } from "@/lib/types";
 import { getCategory } from "@/lib/categories";
@@ -14,7 +15,8 @@ import {
 import { sanitizeText } from "@/lib/validation";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { getOpsFlags, recordAnalyzeOutcome } from "@/lib/opsMetrics";
-import { isRestricted } from "@/lib/moderation";
+import { isRestricted, applyAutoStrike } from "@/lib/moderation";
+import { screenWords, languageNotice, TIER_SEVERITY } from "@/lib/profanity";
 import { awardXp } from "@/lib/leaderboardServer";
 import {
   MAX_DAILY_ATTEMPTS,
@@ -1177,7 +1179,33 @@ export async function POST(req: NextRequest) {
       );
     }
     const metrics = computeMetrics(words, durationSec);
-    const segments = buildSegments(words);
+
+    // Language screening (lib/profanity.ts). Runs on the raw word tokens, then
+    // the segments — the only thing that ever leaves this function — are built
+    // from MASKED words. So the swearing is gone from the report, gone from
+    // the saved session, and gone from the model's prompt (Felix can't quote
+    // back a word we just hid). Metrics are computed above, on the unmasked
+    // words, because pace and fillers are counts and don't care.
+    const { scan, masked } = screenWords(words);
+    const segments = buildSegments(masked);
+
+    // What this recording is worth as a strike. ZERO for the mild tier
+    // ("damn", "hell", "crap"): those are masked in the transcript and cost
+    // nothing, so a take that only tripped those never touches moderation at
+    // all — no event, no write, nothing to appeal. See TIER_SEVERITY.
+    const strikeSeverity = scan.worst ? TIER_SEVERITY[scan.worst] : 0;
+
+    // A stable id for THIS recording, used as the strike's dedupe key so a
+    // retried analysis of the same take can never be struck twice. Derived
+    // from the transcript rather than stored: the same audio transcribes to
+    // the same words, and the digest is one-way, so nothing about what was
+    // said survives in it.
+    const takeKey = strikeSeverity
+      ? `audio-${createHash("sha256")
+          .update(`${uid}|${durationSec}|${words.map((w) => w.text).join(" ")}`)
+          .digest("hex")
+          .slice(0, 40)}`
+      : "";
 
     // The camera pass is Premium and costs a second vision call, so the
     // plan is verified server-side. A free user who sends frames simply
@@ -1212,6 +1240,28 @@ export async function POST(req: NextRequest) {
           pauses: metrics.pauses,
         });
 
+        // The strike for what the screening found, started here so its
+        // transaction runs alongside the model call rather than after it —
+        // moderation must not add a second to the wait for the report.
+        //
+        // Deliberately does NOT block this report. The take is already
+        // recorded, transcribed and paid for; withholding the coaching for it
+        // would be a second punishment the thresholds don't call for. The
+        // strike bites on the NEXT recording, at the isRestricted gate above.
+        // The dedupe key is the recording itself, so a retried analysis of the
+        // same take is one strike, not two.
+        const languageStrike =
+          strikeSeverity === 1 || strikeSeverity === 2
+            ? applyAutoStrike(db, uid, {
+                severity: strikeSeverity,
+                // Counts and tier only. The words themselves stay out of the
+                // durable log — the event records THAT it happened, not a
+                // transcript of someone's practice.
+                reason: `Automated language screening: ${scan.tallies.slur} slur + ${scan.tallies.profanity} profanity token(s) in one recording.`,
+                dedupeKey: takeKey,
+              })
+            : Promise.resolve(null);
+
         try {
           const tModel = Date.now();
           const [report, stage] = await Promise.all([
@@ -1242,6 +1292,9 @@ export async function POST(req: NextRequest) {
               ` words=${words.length} camera=${wantsStage} premium=${premium}`
           );
 
+          // Await the moderation write only now, when the report is otherwise
+          // ready: the speaker is told the same thing the record says.
+          const strike = await languageStrike;
           const analysis: Analysis = {
             isSample: false,
             ...report,
@@ -1249,6 +1302,9 @@ export async function POST(req: NextRequest) {
             paceWpm: metrics.paceWpm,
             fillerWords: metrics.fillerWords,
             pauses: metrics.pauses,
+            ...(scan.worst
+              ? { languageNotice: languageNotice(scan, strike?.state ?? null) }
+              : {}),
           };
 
           // The one place ranked XP is awarded: a real score, just produced, by

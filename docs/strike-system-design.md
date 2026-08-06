@@ -1,8 +1,12 @@
-# Strike / warning / ban system — design for approval
+# Strike / warning / ban system — design, and what was built
 
-Status: **design only, not built.** It changes the data schema and touches
-moderation of user content, so per the working agreement it needs your sign-off
-and a few decisions (end of doc) before any code lands.
+Status: **built.** The manual half shipped first (`lib/moderation.ts`,
+`/api/admin/moderation`, the Moderation card in the user drawer). The
+automated language half shipped on 5 August 2026: `lib/profanity.ts` screens
+every transcript inside `/api/analyze`, masks what it finds, and applies at
+most one strike per recording. The decisions at the end of this doc are
+answered in "What was settled" below; the sections between are the design as
+approved, kept for the reasoning.
 
 ## Principle (same one the rest of the app follows)
 
@@ -112,3 +116,40 @@ route. Appeals are manual review here in v1.
 6. **Which signals auto-strike vs. only log?** I lean toward auto-striking only
    high-confidence severe content and clear tampering, and logging everything
    else for review — auto-striking on rate-limit hits would punish power users.
+
+## What was settled
+
+1. **Auto-moderate audio content?** Yes, but only a word-list screen, not a
+   classifier: `lib/profanity.ts` matches AssemblyAI's word tokens against
+   tiered lists. No extra model call, so no added cost or latency, and no
+   probability to argue with in an appeal — a strike can always be explained
+   by "this word was said".
+2. **What a ban blocks:** full lock. The Firebase account is disabled, by the
+   manual route and by `applyAutoStrike` alike, and `isRestricted` gates
+   `/api/analyze`, `/api/speech`, `/api/shop` and `/api/leaderboard/handle`.
+3. **Banned paying subscriber:** billing untouched. The moderation response
+   flags a live subscription so the operator settles it from the Billing
+   controls, where the refund rules live.
+4. **Thresholds:** as designed. Warn at 1, suspend 7 days at 3, ban at 5;
+   severities weigh 1 / 2 / 5.
+5. **Appeals:** manual review, via support email.
+6. **Which signals auto-strike:** language only, and never at severity 3.
+   Swearing is +1, slurs and hate speech are +2, so it takes three separate
+   recordings to earn a suspension and five to earn a ban — no automated read
+   of a speech-to-text guess can close an account in one shot. A third tier,
+   `mild` ("damn", "hell", "crap", "piss"), is masked in the transcript and
+   worth ZERO: those words turn up in speeches people are practising in good
+   faith, and striking for them would make the whole system read as arbitrary.
+   Rate-limit hits, malformed requests and injection signatures still do NOT
+   auto-strike; they remain operator judgement, as designed.
+
+Everything after the recording is hands-off. The scan, the masking, the
+strike, the threshold, the 7-day window, the login lock at ban and the
+expiry of a served suspension all happen without an operator — suspensions
+expire at READ (`effectiveState`), so there is no cron to miss. The only
+manual paths are the ones that should be: an operator striking for conduct,
+and lifting or reinstating on appeal.
+
+Both `/terms` (Acceptable use) and `/privacy` (the step-by-step of what happens
+to a recording) disclose the screening. If the word lists or the tier
+severities change, that copy has to move with them.

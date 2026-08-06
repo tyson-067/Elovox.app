@@ -159,6 +159,7 @@ export default function PrivacyPage() {
           items={[
             "Your browser records you and sends the audio to our server. It is not written to disk on our side.",
             "The audio is passed to AssemblyAI, which transcribes it and returns the words with their timings.",
+            "Our server checks that transcript against a list of swear words and slurs. Matches are hashed out before anything else sees them, so the report you get, the copy we save, and the copy Gemini reads are all masked. No person reads your practice to do this.",
             "The transcript and the timing metrics are sent to Google's Gemini API, which writes the coaching feedback.",
             "If you recorded with the camera on (a Premium feature), a small number of still frames, no more than twelve, are sent to Gemini as well, so it can comment on posture, gestures and expression.",
             "The transcript and the finished report are saved to your account. The audio and the video frames are not saved by Elovox.",

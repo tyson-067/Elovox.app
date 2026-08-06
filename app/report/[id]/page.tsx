@@ -342,6 +342,12 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
               )}
             </div>
           </Reveal>
+          {/* Why some words are hashed out, and what it cost. */}
+          {analysis.languageNotice && (
+            <p className="mt-4 text-base leading-6 text-amber">
+              {analysis.languageNotice}
+            </p>
+          )}
           <ul className="mt-6 space-y-3">
             {analysis.transcript
               .filter((s) => s.note)

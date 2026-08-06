@@ -221,12 +221,31 @@ export default function TermsPage() {
         <Bullets
           items={[
             "Break the law with it, or use it to harass, defraud, or impersonate anyone.",
+            "Swear, or use slurs and hate speech, in what you record.",
             "Upload someone else's voice or likeness without their permission.",
             "Attempt to bypass plan limits, quotas, or payment, including by creating multiple accounts to avoid the free-tier cap.",
             "Scrape the service, resell it, or run automated load against it.",
             "Attack the service or attempt to gain access to systems or accounts that aren't yours.",
           ]}
         />
+        <p>
+          Because every recording is transcribed anyway, that transcript is
+          screened automatically for swearing and slurs, and anything it finds
+          is hidden in your report. Swearing adds a strike to your account, and
+          slurs add two. Milder words — &ldquo;damn&rdquo;, &ldquo;hell&rdquo;,
+          &ldquo;crap&rdquo; and the like — are hidden without a strike, but
+          they are not welcome either, and a pattern of them is grounds for us
+          to act on this account. No person reads your
+          practice to do any of this, and the record we keep says how many
+          words were flagged, never what they were.
+        </p>
+        <p>
+          Strikes add up: one is a warning, three suspends the account for
+          seven days, five closes it. Serious things (threats, sexual content
+          involving minors, attacks on the service) can close an account
+          immediately. If you think a strike is wrong, email us and a person
+          will look at it.
+        </p>
         <p>
           We may suspend or close an account that does these things, and we may
           impose rate limits to keep the service running for everyone.

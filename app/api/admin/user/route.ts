@@ -62,7 +62,16 @@ export async function GET(req: NextRequest) {
   }
 
   const today = usageDateKey("");
-  const [planSnap, progressSnap, rowSnap, usageSnap, lastSessionSnap, countSnap, moderation] =
+  const [
+    planSnap,
+    progressSnap,
+    rowSnap,
+    usageSnap,
+    lastSessionSnap,
+    countSnap,
+    moderation,
+    moderationEventSnap,
+  ] =
     await Promise.all([
       db.doc(`users/${uid}/profile/plan`).get(),
       db.doc(`users/${uid}/score/progress`).get(),
@@ -79,6 +88,16 @@ export async function GET(req: NextRequest) {
       // "2000+", it doesn't need the exact figure past that.
       db.collection(`users/${uid}/sessions`).select().limit(2001).get(),
       getModerationStatus(db, uid),
+      // The record behind the number. It mattered less when every strike was
+      // an operator's own decision; now that /api/analyze can apply one for
+      // language, "2 strikes" with no reasons next to it is a state nobody can
+      // act on. Filter-only query (no orderBy) so no composite index is
+      // needed; sorted in memory, since moderation histories are short.
+      //
+      // Still metadata, not content: an "audio" event carries how many words
+      // were flagged and at what tier, never the words. That is the same line
+      // this whole route holds.
+      db.collection("moderationEvents").where("uid", "==", uid).limit(25).get(),
     ]);
 
   const plan = planSnap.exists ? (planSnap.data() ?? {}) : {};
@@ -164,6 +183,21 @@ export async function GET(req: NextRequest) {
         strikes: moderation?.strikes ?? 0,
         state: effectiveState(moderation),
         suspendedUntil: moderation?.suspendedUntil ?? null,
+        events: moderationEventSnap.docs
+          .map((d) => {
+            const e = d.data();
+            return {
+              kind: strOrNull(e.kind) ?? "strike",
+              severity: num(e.severity),
+              reason: strOrNull(e.reason),
+              source: strOrNull(e.source),
+              actor: strOrNull(e.actor),
+              stateAfter: strOrNull(e.stateAfter),
+              at: num(e.at) ?? 0,
+            };
+          })
+          .sort((a, b) => b.at - a.at)
+          .slice(0, 10),
       },
     },
     { headers: { "cache-control": "private, no-store" } }

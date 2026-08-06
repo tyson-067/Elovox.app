@@ -69,6 +69,12 @@ export interface Analysis {
   paceWpm: number;
   fillerWords: number;
   pauses: number;
+  /**
+   * Set only when language screening (lib/profanity.ts) masked words in this
+   * transcript: what was hidden, and what it cost. Absent on every clean
+   * recording, which is nearly all of them.
+   */
+  languageNotice?: string;
 }
 
 export type GoalId =

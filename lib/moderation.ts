@@ -1,16 +1,19 @@
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
+import { adminEmailList } from "./verify";
 
 // The strike / warning / ban system, v1 — built from docs/strike-system-design.md
 // with the open decisions settled as follows:
 //
-//   - MANUAL STRIKES ONLY. No automated content scanning: a classifier on
-//     transcripts would need new policy language ("we scan your recordings")
-//     that the Terms and /ai's "not written by a human listening in" don't
-//     carry, and its false positives would punish real users. Every strike is
-//     an operator's decision, from /admin, about CONDUCT (reports, abuse the
-//     ops tab surfaces, offensive public handles) — never from reading
-//     practice content. The existing Terms clause ("We may suspend or end
-//     your access if you break these terms") is the whole legal basis needed.
+//   - TWO SOURCES OF STRIKES. Most are an operator's decision, from /admin,
+//     about CONDUCT (reports, abuse the ops tab surfaces, offensive public
+//     handles). The one automated source is LANGUAGE: /api/analyze already
+//     transcribes every recording, so lib/profanity.ts screens that transcript
+//     for swearing and slurs, masks what it finds, and applies at most ONE
+//     strike per recording (source "audio"). Nothing else reads practice
+//     content, and no automated source can reach severity 3 — a speech-to-text
+//     guess must never close an account in one shot. The Terms say this
+//     plainly ("Acceptable use": no slurs/hate speech, transcripts are
+//     screened automatically), which is the legal basis the scan needs.
 //   - A ban blocks the paid pipeline and public surfaces AND disables the
 //     Firebase account (full lock, reversible via reinstate).
 //   - Billing is never touched by moderation. A banned subscriber's money is
@@ -120,12 +123,15 @@ export async function isRestricted(
 
 export interface StrikeInput {
   severity: 1 | 2 | 3;
-  /** Operator's stated grounds. Conduct, never content. */
+  /** The stated grounds. For "manual", the operator's words; for "audio", a
+   *  fixed description of what the scan found — counts and tier, never the
+   *  words themselves, so the log stays metadata rather than content. */
   reason: string;
-  /** "manual" is the only v1 source; the field exists so a future automated
-   *  source can't be confused with an operator's decision. */
-  source: "manual";
-  /** Admin email — every strike is attributable. */
+  /** Which side applied it, so an operator's decision is never confused with
+   *  the pipeline's. "audio" is lib/profanity.ts via /api/analyze. */
+  source: "manual" | "audio";
+  /** Admin email, or "system" for an automated strike — every strike is
+   *  attributable. */
   actor: string;
   /** Optional idempotency key: a repeated apply with the same key is a
    *  no-op, so a double-submitted form can't double-punish. */
@@ -208,6 +214,53 @@ export async function applyStrike(
     });
     return { applied: true, strikes, state, ...(suspendedUntil ? { suspendedUntil } : {}) };
   });
+}
+
+/**
+ * The automated path: a strike the pipeline applies, with the two guardrails
+ * an operator's hands would otherwise provide.
+ *
+ * 1. Operator accounts are exempt, same as the manual route — the console must
+ *    not be able to eat its own operators because one of them swore into a
+ *    test recording.
+ * 2. Landing on "banned" disables the Firebase account, so an automated ban is
+ *    the same full lock a manual one is (lookupUser treats a disabled account
+ *    as no valid caller) rather than a half-enforced state.
+ *
+ * Never throws: the caller is mid-analysis, and a moderation write that fails
+ * must not cost the speaker the report they just earned. A missed strike is
+ * recoverable; a lost report is not.
+ */
+export async function applyAutoStrike(
+  db: Firestore | null,
+  uid: string,
+  input: Omit<StrikeInput, "source" | "actor">
+): Promise<StrikeOutcome | null> {
+  if (!db || uid === "local-dev") return null;
+  try {
+    const { getAdminApp } = await import("./firebaseAdmin");
+    const app = getAdminApp();
+    if (!app) return null;
+    const { getAuth } = await import("firebase-admin/auth");
+    const auth = getAuth(app);
+
+    const user = await auth.getUser(uid);
+    const email = user.email?.toLowerCase() ?? "";
+    if (email && adminEmailList().includes(email)) return null;
+
+    const outcome = await applyStrike(db, uid, {
+      ...input,
+      source: "audio",
+      actor: "system",
+    });
+    if (outcome.applied && outcome.state === "banned" && !user.disabled) {
+      await auth.updateUser(uid, { disabled: true });
+    }
+    return outcome;
+  } catch (err) {
+    console.error("[moderation] auto-strike failed", uid, err);
+    return null;
+  }
 }
 
 /** End a suspension early. Strikes stand; state drops to "warned". */
