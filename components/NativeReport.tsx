@@ -76,6 +76,25 @@ function MeterRow({
           <span className="nv-meter-fill block" style={{ width: `${score}%` }} />
         </span>
         <span className="nv-metric-row-num">{score}</span>
+        {/* The affordance. Without it the row is a silent disclosure: the
+            coaching line is one tap away and nothing on screen says so, which
+            is just hiding it. Rotates to point down while open. */}
+        {note && (
+          <svg
+            className="nv-metric-row-caret"
+            width="8"
+            height="14"
+            viewBox="0 0 8 14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m1.5 1.5 5 5.5-5 5.5" />
+          </svg>
+        )}
       </button>
       {note && open && (
         <p className="nv-metric-note">
@@ -318,6 +337,25 @@ export function NativeReport({
   const { analysis } = session;
   const band = bandForScore(analysis.overall);
   const matters = whatMatters(analysis);
+  /**
+   * WHAT THE THREE CARDS ALREADY SAID.
+   *
+   * "What matters" is built out of the same arrays the sections below render
+   * in full — the first strength, the first drill, sometimes the first tip —
+   * so without this the report printed the same sentence twice on one screen,
+   * once as a hero card and once as list item 1. Each list drops only the
+   * entry the cards actually took, matched on its text rather than its index,
+   * because which array `matters` reached for depends on what the analysis
+   * happened to contain.
+   */
+  const shown = new Set(
+    [matters.keep?.title, matters.fix?.title, matters.next?.title].filter(
+      Boolean
+    ) as string[]
+  );
+  const restDrills = (analysis.drills ?? []).filter((d) => !shown.has(d.title));
+  const restTips = analysis.tips.filter((t) => !shown.has(t));
+  const restStrengths = (analysis.strengths ?? []).filter((s) => !shown.has(s));
   /**
    * `isNewBest` is true on the FIRST attempt of every day, whatever the score,
    * because there was no previous best to beat (lib/daily.ts:
@@ -670,12 +708,12 @@ export function NativeReport({
         </>
       )}
 
-      {analysis.strengths && analysis.strengths.length > 0 && (
+      {restStrengths.length > 0 && (
         <>
-          <NvSectionHeader>What worked</NvSectionHeader>
+          <NvSectionHeader>What else worked</NvSectionHeader>
           <NvGroup>
             <div className="flex flex-col gap-2.5 px-4 py-4">
-              {analysis.strengths.map((s, i) => (
+              {restStrengths.map((s, i) => (
                 <div key={i} className="flex gap-3">
                   <span
                     className="mt-2 h-2 w-2 shrink-0 rounded-full"
@@ -699,25 +737,29 @@ export function NativeReport({
         </>
       )}
 
-      {analysis.tips.length > 0 && (
+      {restTips.length > 0 && (
         <>
           <NvSectionHeader>Try this next time</NvSectionHeader>
           <NvGroup>
             <div className="px-4 py-4">
-              <NumberedTips tips={analysis.tips} />
+              <NumberedTips tips={restTips} />
             </div>
           </NvGroup>
         </>
       )}
 
-      {analysis.drills && analysis.drills.length > 0 && (
+      {/* The FIRST drill is already the third card at the top of this report —
+          it is the "then what do I do about it" of the three things. Listing
+          it again down here printed the same title and the same sentence
+          twice on one screen. Only the drills the hero card didn't take. */}
+      {restDrills.length > 0 && (
         <>
-          <NvSectionHeader>Drills to run</NvSectionHeader>
+          <NvSectionHeader>More drills</NvSectionHeader>
           <p className="nv-footnote mb-2 px-1">
             Short, targeted exercises for exactly what this take needs.
           </p>
           <NvGroup>
-            {analysis.drills.map((d, i) => (
+            {restDrills.map((d, i) => (
               <div
                 key={i}
                 className="px-4 py-4"

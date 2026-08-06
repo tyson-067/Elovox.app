@@ -446,7 +446,14 @@ export function NativeProgress({
   if (sessions.length === 0) {
     return (
       <div className="pt-6">
-        <GhostSparkline />
+        {/* In a card, not full-bleed. The ghost is a rectangle of flat grey
+            with a hard edge, and run to both screen edges under a large title
+            it read as a rendering artefact rather than as the chart that
+            isn't there yet. Inside a rounded surface it reads as a placeholder
+            for the hero the first rep will put there. */}
+        <div className="card overflow-hidden p-0">
+          <GhostSparkline />
+        </div>
         {/* NvEmpty, not a hand-rolled .nv-empty. The kit primitive existed and
             this screen re-implemented it, which is how two versions of one
             empty state start to drift. */}

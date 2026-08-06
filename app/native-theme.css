@@ -4286,11 +4286,27 @@ html[data-native] .nv-metric-row-label {
   color: var(--nv-ink);
 }
 html[data-native] .nv-metric-row .nv-meter-track {
-  width: 96px;
+  width: 84px;
   flex: none;
 }
 html[data-native] .nv-metric-row .nv-meter-fill {
   background: var(--band, var(--nv-ink));
+}
+html[data-native] .nv-metric-row-caret {
+  flex: none;
+  color: #cfc8d2;
+  transition: transform var(--nv-t-micro) var(--nv-ease);
+}
+html[data-native][data-theme="dark"] .nv-metric-row-caret {
+  color: var(--nv-ink-3);
+}
+html[data-native] .nv-metric-row[aria-expanded="true"] .nv-metric-row-caret {
+  transform: rotate(90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-native] .nv-metric-row-caret {
+    transition: none;
+  }
 }
 html[data-native] .nv-metric-row-num {
   width: 30px;
