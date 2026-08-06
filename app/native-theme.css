@@ -1767,26 +1767,30 @@ html[data-native] .nv-dot[data-filled]:nth-child(3) {
   border-color: var(--nv-pop-mint);
 }
 
-/* --- Every icon square gets a color ----------------------------------------
-   Grouped-list icon squares cycle the palette by row, Settings-app style —
-   the single cheapest "whole app got colorful" move there is. Deliberate
-   accents and destructive rows keep their own meaning. */
-html[data-native] .nv-group .nv-row:nth-child(6n + 1):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent) { background: var(--nv-accent-50); color: var(--nv-accent-700); }
-html[data-native] .nv-group .nv-row:nth-child(6n + 2):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent) { background: var(--nv-pop-sky-soft); color: var(--nv-pop-sky-ink); }
-html[data-native] .nv-group .nv-row:nth-child(6n + 3):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent) { background: var(--nv-pop-mint-soft); color: var(--nv-pop-mint-ink); }
-html[data-native] .nv-group .nv-row:nth-child(6n + 4):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent) { background: var(--nv-pop-sun-soft); color: var(--nv-pop-sun-ink); }
-html[data-native] .nv-group .nv-row:nth-child(6n + 5):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent) { background: var(--nv-pop-lilac-soft); color: var(--nv-pop-lilac-ink); }
-html[data-native] .nv-group .nv-row:nth-child(6n + 6):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent) { background: var(--nv-pop-rose-soft); color: var(--nv-pop-rose-ink); }
+/* --- Every icon square gets a color — RETIRED BY THE MODERN PASS ------------
+   These six rules cycled the palette down every grouped list, Settings-app
+   style: the cheapest "whole app got colorful" move there is, and — five
+   passes later — the single most dated object left in the app. Six hues
+   fighting inside one white card said the five rows differ in kind, when the
+   only thing they share is that they are rows.
 
-/* A row that pins its own colour (NvRow's `pop`) beats the cycle. Deliberately
-   the SAME specificity as the six rules above — it wins on source order, so
-   keep it below them. Needed wherever a group can gain or lose a row: the
-   Practice group grows a "Remind me at" row when the reminder is switched on,
-   which shifted every nth-child after it and repainted the Appearance icon as
-   the switch flipped. */
+   Emptied rather than deleted, because they are the highest-specificity
+   selectors that touch `.nv-icon-square` in this file: a plain
+   `html[data-native] .nv-icon-square { background: none }` at the bottom of
+   the sheet loses to them outright, which is exactly what happened the first
+   time this was tried. Left in place, at their original specificity, saying
+   nothing — so nothing has to out-shout them.
+
+   The glyph itself, its size and its colour are set in THE MODERN PASS. */
+html[data-native] .nv-group .nv-row:nth-child(6n + 1):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent),
+html[data-native] .nv-group .nv-row:nth-child(6n + 2):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent),
+html[data-native] .nv-group .nv-row:nth-child(6n + 3):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent),
+html[data-native] .nv-group .nv-row:nth-child(6n + 4):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent),
+html[data-native] .nv-group .nv-row:nth-child(6n + 5):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent),
+html[data-native] .nv-group .nv-row:nth-child(6n + 6):not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent),
 html[data-native] .nv-group .nv-row[data-pop]:not(.nv-row-destructive) .nv-icon-square:not(.nv-icon-square-accent) {
-  background: var(--pop-soft);
-  color: var(--pop-ink);
+  background: none;
+  color: var(--nv-ink-2);
 }
 
 /* --- Each tab owns a color -------------------------------------------------
@@ -3096,4 +3100,1716 @@ html[data-native] .nv-recent-x {
 html[data-native] .nv-recent-x:active {
   color: var(--nv-destructive);
   background: var(--nv-tint-soft);
+}
+
+/* ===========================================================================
+   THE MODERN PASS
+   ===========================================================================
+   The eighth native round, and the first one that takes something AWAY.
+
+   What read as dated across the passes above: a hard 3px lip under every
+   surface (a 2019 "pressable card" that, applied to everything, made nothing
+   feel pressable), six competing pop colours, emoji standing in for reward
+   art, iOS-2015 grouped lists with tinted icon squares, and six identical
+   bars doing the report's thinking.
+
+   What stays, deliberately: the ladder's argument, the warm ground,
+   Montserrat over Jost, Felix.
+
+   The moves:
+   - ONE INK STAGE per screen that needs a hero — a deep #171326 block with an
+     ember bloom, rounded off the bottom — so Felix has somewhere to stand at
+     full size and the bone paper below reads as calm rather than empty.
+   - Hard lips out, LAYERED SOFT SHADOW in: a 1px contact shadow plus a wide,
+     heavily-negative-spread ambient. Surfaces float; they don't sit on a shelf.
+   - Palette cut to EMBER + MINT + VIOLET (gold survives for currency alone,
+     because a coin that isn't gold is a token). The six pops are remapped onto
+     the three rather than deleted, so every `data-pop` in every component
+     keeps working and simply resolves into the smaller palette.
+   - Tinted icon squares off the grouped lists. A settings row is a glyph, a
+     label and a value.
+   - Labels off the dock; the active tab is an ink capsule.
+
+   Everything here is scoped to html[data-native] like the rest of the file,
+   and it is LAST, so it wins ties at equal specificity without needing
+   !important anywhere.
+   --------------------------------------------------------------------------- */
+
+/* --- Ground, ink, paper ---------------------------------------------------- */
+html[data-native] {
+  --nv-bg: #fbf7f2; /* bone, a half-step cooler and lighter than the old paper */
+  --nv-bg-grouped: #f4f1ee;
+  --nv-card: #ffffff;
+  --nv-hairline: #f2eee9;
+  --nv-tint-soft: #f4f1ee;
+  --nv-ink: #1a1520;
+  --nv-ink-2: #6b6478;
+  --nv-ink-3: #a19aab;
+  --nv-rail: #e7e0d8;
+  --nv-scrim: rgba(23, 19, 38, 0.44);
+
+  /* THE INK STAGE. One value, used by every hero on every screen, so a Report
+     and a Den are unmistakably the same app in the same room. */
+  --nv-stage: #171326;
+  --nv-stage-deep: #12101f;
+  --nv-on-stage: #ffffff;
+  --nv-on-stage-2: rgba(255, 255, 255, 0.62);
+  --nv-on-stage-3: rgba(255, 255, 255, 0.45);
+  --nv-on-stage-fill: rgba(255, 255, 255, 0.1);
+
+  /* THE LIFT. This replaces `0 3px 0 <edge>` everywhere. Two shadows: a 1px
+     contact shadow that says the surface is touching, and a wide ambient with
+     a large negative spread so it reads as depth rather than as a drop
+     shadow. Nothing in this system uses a hard edge any more. */
+  --nv-lift: 0 1px 2px rgba(23, 19, 38, 0.04),
+    0 18px 40px -22px rgba(23, 19, 38, 0.3);
+  --nv-lift-sm: 0 1px 2px rgba(23, 19, 38, 0.04),
+    0 10px 22px -16px rgba(23, 19, 38, 0.28);
+  /* --nv-shadow stays a CONTACT shadow and is deliberately NOT aliased to the
+     lift. It is read by small things as well as large — a 27px switch knob
+     reads it — and a 40px ambient with a heavy negative spread under a knob is
+     a grey halo the width of the track. Cards ask for --nv-lift by name. */
+  --nv-shadow: 0 1px 2px rgba(23, 19, 38, 0.06);
+
+  /* Shape: bigger radii, one step of scale between a card and a tile. */
+  --nv-r-card: 26px;
+  --nv-r-tile: 22px;
+  --nv-r-row: 16px;
+  --nv-r-btn: 999px; /* every action in this pass is a pill */
+
+  /* Type sizes the pass actually sets. */
+  --nv-body-size: 16px;
+  --nv-subhead-size: 14.5px;
+  --nv-footnote-size: 12.5px;
+}
+
+/* The Booth: the same room at night. The stage IS the ground here, which is
+   why the dark mode of this pass is so much simpler than the light one — an
+   ink screen needs no ink stage on top of it. */
+html[data-native][data-theme="dark"] {
+  --nv-bg: #12101f;
+  --nv-bg-grouped: #1c1830;
+  --nv-card: #1c1830;
+  --nv-hairline: rgba(255, 255, 255, 0.08);
+  --nv-tint-soft: #241f3c;
+  --nv-ink: #f6f4fa;
+  --nv-ink-2: rgba(246, 244, 250, 0.66);
+  --nv-ink-3: rgba(246, 244, 250, 0.44);
+  --nv-rail: rgba(255, 255, 255, 0.14);
+  --nv-scrim: rgba(0, 0, 0, 0.6);
+  --nv-stage: #1c1830;
+  --nv-stage-deep: #0f0b1c;
+  --nv-lift: 0 1px 2px rgba(0, 0, 0, 0.3), 0 18px 40px -22px rgba(0, 0, 0, 0.8);
+  --nv-lift-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 22px -16px rgba(0, 0, 0, 0.7);
+}
+
+/* --- The three colours ------------------------------------------------------
+   Ember acts. Mint approves. Violet is the app's own quiet (premium, the Den,
+   the board). Gold survives in exactly one job: currency.
+
+   The six festival pops are REMAPPED rather than removed. Every component in
+   components/native/ says `data-pop="sky"` or `data-pop="rose"` in a dozen
+   places; re-pointing the tokens collapses all of it into the smaller palette
+   in one edit, and no component learns a new vocabulary. */
+html[data-native] {
+  --nv-accent-50: #ffede4;
+  --nv-accent-100: #ffd9c6;
+  --nv-accent-500: #ff5a1f; /* the ember. Carries INK, never white. */
+  --nv-accent-600: #ea4e15;
+  --nv-accent-700: #b93e0c; /* ember ink on paper (6.3:1) and under white (6.3:1) */
+  --nv-accent-light: #ff9b72; /* ember on the ink stage */
+
+  --nv-mint: #0e7c6b;
+  --nv-mint-soft: #e2f2ee;
+  --nv-mint-light: #7fe3ce; /* mint on the ink stage */
+
+  --nv-violet: #6e56cf;
+  --nv-violet-soft: #f2eefd;
+  --nv-violet-light: #b9a8f5;
+
+  --nv-gold: #ffb703;
+  --nv-gold-soft: #fff2d1;
+  --nv-gold-ink: #8a5800;
+
+  --nv-premium: var(--nv-violet);
+  --nv-success: var(--nv-mint);
+  --nv-destructive: #c2352b;
+
+  /* The remap. sky and lilac answer to violet; rose and lime answer to ember
+     and mint respectively; sun stays gold because it is only ever a coin. */
+  --nv-pop-sun: var(--nv-gold);
+  --nv-pop-sun-soft: var(--nv-gold-soft);
+  --nv-pop-sun-ink: var(--nv-gold-ink);
+  --nv-pop-mint: var(--nv-mint);
+  --nv-pop-mint-soft: var(--nv-mint-soft);
+  --nv-pop-mint-ink: var(--nv-mint);
+  --nv-pop-sky: var(--nv-violet);
+  --nv-pop-sky-soft: var(--nv-violet-soft);
+  --nv-pop-sky-ink: #5b41bd;
+  --nv-pop-lilac: var(--nv-violet);
+  --nv-pop-lilac-soft: var(--nv-violet-soft);
+  --nv-pop-lilac-ink: #5b41bd;
+  --nv-pop-rose: var(--nv-accent-500);
+  --nv-pop-rose-soft: var(--nv-accent-50);
+  --nv-pop-rose-ink: var(--nv-accent-700);
+  --nv-pop-lime: var(--nv-mint);
+  --nv-pop-lime-soft: var(--nv-mint-soft);
+  --nv-pop-lime-ink: var(--nv-mint);
+}
+html[data-native][data-theme="dark"] {
+  --nv-accent-50: #3a1f14;
+  --nv-accent-100: #4a2617;
+  --nv-accent-700: #ff7a45; /* on ink, the ember ink is the LIGHT cut */
+  --nv-mint-soft: #10352f;
+  --nv-violet-soft: #251f45;
+  --nv-gold-soft: #3a2c0d;
+  --nv-gold-ink: #ffd35c;
+
+  --nv-pop-sun-ink: var(--nv-gold);
+  --nv-pop-mint: var(--nv-mint-light);
+  --nv-pop-mint-soft: #10352f;
+  --nv-pop-mint-ink: var(--nv-mint-light);
+  --nv-pop-sky: var(--nv-violet-light);
+  --nv-pop-sky-soft: #251f45;
+  --nv-pop-sky-ink: var(--nv-violet-light);
+  --nv-pop-lilac: var(--nv-violet-light);
+  --nv-pop-lilac-soft: #251f45;
+  --nv-pop-lilac-ink: var(--nv-violet-light);
+  --nv-pop-rose-soft: #3a1f14;
+  --nv-pop-rose-ink: var(--nv-accent-light);
+  --nv-pop-lime: var(--nv-mint-light);
+  --nv-pop-lime-soft: #10352f;
+  --nv-pop-lime-ink: var(--nv-mint-light);
+}
+/* The graphic cut collapses with the palette: three hues, three values, all
+   of them already past 3:1 on the bone ground. */
+html[data-native] [data-pop="ember"] { --pop-graphic: #e04a10; }
+html[data-native] [data-pop="rose"] { --pop-graphic: #e04a10; }
+html[data-native] [data-pop="mint"] { --pop-graphic: #0e7c6b; }
+html[data-native] [data-pop="lime"] { --pop-graphic: #0e7c6b; }
+html[data-native] [data-pop="sky"] { --pop-graphic: #5b41bd; }
+html[data-native] [data-pop="lilac"] { --pop-graphic: #5b41bd; }
+html[data-native] [data-pop="sun"] { --pop-graphic: #b07d00; }
+
+/* --- The ground stops being an aurora and becomes paper --------------------
+   Three coloured radials under a near-white page was the depth trick the
+   glass pass needed. This pass has real depth — the ink stage — so the ground
+   goes quiet: one warm breath at the top, nothing else. */
+html[data-native] body::before,
+html[data-native][data-theme="dark"] body::before {
+  background:
+    radial-gradient(110% 52% at 50% -6%, #fff0e6, transparent 64%),
+    var(--nv-bg);
+}
+html[data-native][data-theme="dark"] body::before {
+  background:
+    radial-gradient(100% 46% at 50% -4%, rgba(255, 90, 31, 0.16), transparent 62%),
+    radial-gradient(90% 50% at 104% 104%, rgba(110, 86, 207, 0.18), transparent 60%),
+    var(--nv-bg);
+}
+
+/* --- Lift replaces the lip --------------------------------------------------
+   The single highest-leverage rule in the pass. Every card, group, tile and
+   rung in the app was carrying `0 3px 0 <edge>`; they all lose it here. */
+html[data-native] .card,
+html[data-native] .card-warm,
+html[data-native] .nv-group,
+html[data-native][data-theme="dark"] .card,
+html[data-native][data-theme="dark"] .card-warm,
+html[data-native][data-theme="dark"] .nv-group {
+  background: var(--nv-card);
+  border: none;
+  border-radius: var(--nv-r-card);
+  box-shadow: var(--nv-lift);
+}
+html[data-native] .nv-tile {
+  border-radius: var(--nv-r-tile);
+  box-shadow: var(--nv-lift-sm);
+}
+html[data-native] .nv-tile:active {
+  transform: scale(0.97);
+  box-shadow: var(--nv-lift-sm);
+}
+
+/* --- The ink stage ----------------------------------------------------------
+   A screen's hero, full-bleed to the top of the document and rounded off the
+   bottom. It carries its own status-bar inset, so a screen wearing a stage
+   asks the shell for no title bar at all.
+
+   `--stage-bloom` is the one thing a screen changes: ember for Today and the
+   paywall, mint for a report, violet for the Den. */
+html[data-native] .nv-stage {
+  position: relative;
+  margin: 0 calc(var(--nv-gutter) * -1);
+  padding: calc(env(safe-area-inset-top) + 10px) var(--nv-gutter) 24px;
+  border-radius: 0 0 34px 34px;
+  overflow: hidden;
+  color: var(--nv-on-stage);
+  background:
+    var(--stage-bloom, radial-gradient(92% 66% at 50% 4%, rgba(255, 90, 31, 0.34), transparent 62%)),
+    radial-gradient(70% 50% at 104% 104%, rgba(110, 86, 207, 0.3), transparent 60%),
+    var(--nv-stage);
+  /* The stage is the top of the document, so it owes the same lift downward
+     that a card owes — otherwise the paper below it looks glued on. */
+  box-shadow: 0 18px 40px -28px rgba(23, 19, 38, 0.55);
+}
+html[data-native] .nv-stage[data-bloom="mint"] {
+  --stage-bloom: radial-gradient(90% 70% at 50% 0%, rgba(14, 124, 107, 0.42), transparent 62%);
+}
+html[data-native] .nv-stage[data-bloom="violet"] {
+  --stage-bloom: radial-gradient(85% 65% at 50% 0%, rgba(110, 86, 207, 0.4), transparent 62%);
+}
+/* Ink on the stage: the same three ranks the paper has, re-pointed, so a
+   .nv-caption or .nv-footnote written inside a stage needs no override. */
+html[data-native] .nv-stage,
+html[data-native] .nv-takeover {
+  --nv-ink: var(--nv-on-stage);
+  --nv-ink-2: var(--nv-on-stage-2);
+  --nv-ink-3: var(--nv-on-stage-3);
+  --nv-tint-soft: var(--nv-on-stage-fill);
+  --nv-hairline: rgba(255, 255, 255, 0.12);
+  --nv-card: rgba(255, 255, 255, 0.09);
+  --nv-accent-700: var(--nv-accent-light);
+  --nv-mint-soft: rgba(14, 124, 107, 0.28);
+  --nv-pop-mint-ink: var(--nv-mint-light);
+  --nv-accent-50: rgba(255, 90, 31, 0.18);
+}
+/* A stage's own eyebrow is ember; on a mint stage it is mint. */
+html[data-native] .nv-stage-eyebrow {
+  display: block;
+  font-family: var(--nv-font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--nv-accent-light);
+}
+html[data-native] .nv-stage[data-bloom="mint"] .nv-stage-eyebrow {
+  color: var(--nv-mint-light);
+}
+html[data-native] .nv-stage[data-bloom="violet"] .nv-stage-eyebrow {
+  color: var(--nv-violet-light);
+}
+/* The stage's title, and the giant numeral a report or a hero puts on it. */
+html[data-native] .nv-stage-title {
+  margin: 8px 0 0;
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  font-size: 29px;
+  letter-spacing: -0.05em;
+  line-height: 1.02;
+  color: var(--nv-on-stage);
+}
+html[data-native] .nv-stage-num {
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  font-size: 88px;
+  letter-spacing: -0.055em;
+  line-height: 0.82;
+  font-variant-numeric: tabular-nums;
+  color: var(--nv-on-stage);
+}
+/* A round control on the stage: the close ×, the settings cog, the share. */
+html[data-native] .nv-stage-btn {
+  position: relative; /* the 44pt tap pseudo below anchors to this, not the stage */
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: var(--nv-r-pill);
+  background: var(--nv-on-stage-fill);
+  color: var(--nv-on-stage);
+  transition: transform var(--nv-t-micro) var(--nv-ease);
+}
+html[data-native] .nv-stage-btn:active {
+  transform: scale(0.92);
+}
+/* 36pt of glass, 44pt of target. A back control is the one button on a screen
+   that has to work on the first try, and the design's 36pt circle is below the
+   platform floor. Same pseudo-element trick as .nv-tap44 — and on the element
+   itself, never on a wrapper: a pseudo-element paints above its own element's
+   children, so a wrapper's lid swallows the control inside it. */
+html[data-native] .nv-stage-btn::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+/* The pool of warm light Felix stands in. */
+html[data-native] .nv-spot {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  width: 210px;
+  height: 60px;
+  margin-left: -105px;
+  border-radius: var(--nv-r-pill);
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255, 90, 31, 0.5), transparent);
+  filter: blur(6px);
+  animation: nv-spot 4.2s ease-in-out infinite;
+}
+html[data-native] .nv-stage[data-bloom="mint"] .nv-spot {
+  background: radial-gradient(closest-side, rgba(14, 124, 107, 0.55), transparent);
+}
+html[data-native] .nv-stage[data-bloom="violet"] .nv-spot {
+  background: radial-gradient(closest-side, rgba(110, 86, 207, 0.5), transparent);
+}
+@keyframes nv-spot {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.05); }
+}
+
+/* Felix speaks from the stage: the bubble goes translucent-white instead of
+   the paper card the festival gave it. */
+html[data-native] .nv-stage .nv-bubble {
+  background: var(--nv-on-stage-fill);
+  color: rgba(255, 255, 255, 0.92);
+  box-shadow: none;
+}
+
+/* THE TAIL IS A TRIANGLE, NOT A ROTATED SQUARE.
+   The square sat half inside the bubble and half outside, which is invisible
+   while the bubble is opaque and is a seam the moment it isn't: on the ink
+   stage the fill is rgba(255,255,255,.1), so the overlapping half painted at
+   double strength and the tail read as a separate grey diamond floating
+   beside the bubble. A clip-path triangle lives entirely outside the box, so
+   it stacks with nothing and works at any opacity. */
+html[data-native] .nv-bubble::before {
+  left: -7px;
+  top: 16px;
+  width: 8px;
+  height: 16px;
+  border-radius: 0;
+  transform: none;
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+}
+html[data-native] .nv-bubble[data-side="top"]::before {
+  left: 50%;
+  top: -7px;
+  margin-left: -8px;
+  width: 16px;
+  height: 8px;
+  clip-path: polygon(0 100%, 50% 0, 100% 100%);
+}
+
+/* --- Type ------------------------------------------------------------------
+   Same two families, tuned. Display goes tighter and heavier; the section
+   header widens and lightens into a true eyebrow. */
+html[data-native] {
+  --nv-track-display: -0.055em;
+  --nv-track-title: -0.045em;
+}
+html[data-native] .nv-caption {
+  font-family: var(--nv-font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--nv-ink-3);
+}
+html[data-native] .nv-title {
+  font-size: 20px;
+  letter-spacing: -0.04em;
+}
+html[data-native] .nv-headline {
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: -0.03em;
+}
+html[data-native] .nv-body {
+  font-size: var(--nv-body-size);
+}
+html[data-native] .nv-subhead {
+  font-size: var(--nv-subhead-size);
+  line-height: 1.42;
+}
+html[data-native] .nv-footnote {
+  font-size: var(--nv-footnote-size);
+}
+html[data-native] .native-title-lg {
+  font-size: 36px;
+  letter-spacing: -0.055em;
+  line-height: 0.9;
+}
+
+/* --- Chrome: the bar, and a dock with no labels -----------------------------
+   The label under a tab icon is the oldest thing in the app. Four icons, one
+   ink capsule under the live one — the way the platform's own floating bar
+   reads in 2026. */
+/* Denser than the old bar glass, and deliberately so: at 82% a WHITE object
+   scrolling under a bar tinted with a near-white ground stays white, so the
+   goal chips on /practice read as sitting ON TOP of the title. Glass has to
+   be darker or denser than what passes under it to read as glass at all, and
+   on bone paper the only lever is density. */
+html[data-native] .native-bar::before {
+  background: color-mix(in srgb, var(--nv-bg) 94%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.7);
+  backdrop-filter: blur(16px) saturate(1.7);
+  box-shadow: none;
+}
+html[data-native] .native-bar-scrolled {
+  border-bottom-color: var(--nv-hairline);
+}
+html[data-native] .native-dock {
+  left: 20px;
+  right: 20px;
+  bottom: calc(env(safe-area-inset-bottom) + 10px);
+  border: none;
+  border-radius: 30px;
+  background: color-mix(in srgb, var(--nv-card) 82%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.7);
+  backdrop-filter: blur(18px) saturate(1.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 2px rgba(23, 19, 38, 0.05),
+    0 16px 34px -14px rgba(23, 19, 38, 0.35);
+}
+html[data-native][data-theme="dark"] .native-dock {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 16px 34px -14px rgba(0, 0, 0, 0.7);
+}
+html[data-native] .native-dock-row {
+  height: 60px;
+}
+/* The label is hidden, not deleted: it is still the tab's accessible name,
+   and `sr-only` geometry is what keeps it out of the layout without taking it
+   out of the tree. */
+html[data-native] .native-tab > span:not(.native-tab-lock):not(.sr-only) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+html[data-native] .native-tab {
+  position: relative;
+  color: var(--nv-ink-3);
+  /* The tabs each owned a festival hue. One palette, one active state: the
+     capsule. */
+  --tab-pop: var(--nv-ink);
+  --tab-ink: var(--nv-ink);
+}
+html[data-native] .native-tab[aria-current="page"] {
+  color: #fff;
+}
+html[data-native][data-theme="dark"] .native-tab[aria-current="page"] {
+  color: var(--nv-stage);
+}
+html[data-native] .native-tab[aria-current="page"]::before,
+html[data-native][data-theme="dark"] .native-tab[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  /* `inset: auto` FIRST. The glass pass left this pseudo-element at
+     `inset: 7px 6px`, and clearing it after setting top/left silently reset
+     both back to auto — which is not "no opinion", it is "use the static
+     position", so the capsule painted at the tab's flow origin instead of its
+     centre and sat visibly to the left of every active icon. The shorthand
+     always wins over the longhands written above it. */
+  inset: auto;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  z-index: -1;
+  border-radius: var(--nv-r-pill);
+  background: var(--nv-ink);
+  box-shadow: none;
+}
+/* The premium lock keeps its corner but loses the festival dot. */
+html[data-native] .native-tab-lock {
+  background: var(--nv-ink-3);
+}
+
+/* --- Rows: the tinted square retires ---------------------------------------
+   A leading glyph in a coloured rounded square is the single most "2015 iOS
+   Settings" object in the app, and the palette cycle that coloured them per
+   row was six hues fighting inside one card. The glyph stays; the square,
+   the tint and the cycle go.
+
+   `.nv-icon-square` is still the class every row writes, so nothing in
+   components/native/ changes — it simply stops being a square. */
+html[data-native] .nv-icon-square,
+html[data-native] .nv-group .nv-row .nv-icon-square,
+html[data-native] .nv-row[data-pop] .nv-icon-square {
+  width: 22px;
+  height: 22px;
+  border-radius: 0;
+  background: none;
+  color: var(--nv-ink-2);
+  box-shadow: none;
+}
+html[data-native] .nv-icon-square svg {
+  width: 19px;
+  height: 19px;
+}
+html[data-native] .nv-icon-square-accent,
+html[data-native] .nv-row[data-pop] .nv-icon-square-accent {
+  background: none;
+  color: var(--nv-accent-700);
+}
+html[data-native] .nv-row-destructive .nv-icon-square {
+  color: var(--nv-destructive);
+}
+/* Dividers start after the glyph's column, which is now 22 + 14 rather than
+   29 + 12. */
+html[data-native] .nv-row + .nv-row::before,
+html[data-native] .nv-row-divide::before {
+  left: calc(var(--nv-gutter) + 36px);
+  background: var(--nv-hairline);
+}
+html[data-native] .nv-row[data-noicon] + .nv-row::before {
+  left: var(--nv-gutter);
+}
+html[data-native] .nv-row {
+  gap: 14px;
+  min-height: 56px;
+  font-size: var(--nv-body-size);
+  font-weight: 500;
+}
+html[data-native] .nv-row-value {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--nv-ink-3);
+}
+html[data-native] .nv-chevron {
+  color: #cfc8d2;
+}
+html[data-native][data-theme="dark"] .nv-chevron {
+  color: var(--nv-ink-3);
+}
+html[data-native] .nv-group {
+  padding: 0 18px;
+  overflow: visible; /* the lift must not be clipped by the group's own box */
+}
+html[data-native] .nv-group .nv-row {
+  padding-left: 0;
+  padding-right: 0;
+  border-radius: 0;
+}
+html[data-native] .nv-group .nv-row + .nv-row::before,
+html[data-native] .nv-group .nv-row-divide::before {
+  left: 36px;
+  right: 0;
+}
+html[data-native] .nv-group .nv-row[data-noicon] + .nv-row::before {
+  left: 0;
+}
+html[data-native] .nv-group .nv-row:active {
+  background: none;
+  opacity: 0.55;
+}
+
+/* --- Buttons: everything is a pill -----------------------------------------
+   The Duolingo bottom edge goes with the card lip. Primary is the EMBER with
+   ink on it — the highest-contrast pairing in the palette (7.4:1) and the one
+   that makes the orange read as light rather than as a warning. `.nv-btn-ink`
+   is its quieter twin, for screens where the ember is already the subject. */
+html[data-native] .nv-btn {
+  min-height: 58px;
+  padding: 16px 24px;
+  border-radius: var(--nv-r-pill);
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.03em;
+}
+html[data-native] .nv-btn-primary,
+html[data-native] .nv-btn-primary:active,
+html[data-native][data-theme="dark"] .nv-btn-primary {
+  background: var(--nv-accent-500);
+  color: var(--nv-stage);
+  box-shadow: 0 12px 34px -8px rgba(255, 90, 31, 0.5);
+  border: none;
+}
+html[data-native] .nv-btn-primary:active {
+  background: var(--nv-accent-600);
+  box-shadow: 0 6px 16px -6px rgba(255, 90, 31, 0.5);
+}
+html[data-native] .nv-btn-ink,
+html[data-native][data-theme="dark"] .nv-btn-ink {
+  background: var(--nv-stage);
+  color: #fff;
+  box-shadow: 0 16px 34px -16px rgba(23, 19, 38, 0.9);
+}
+/* In the Booth there is no ink surface to be distinct FROM — the whole room
+   is ink — so the quiet-emphasis button and the loud one collapse into the
+   same thing, and that thing is ember. A white pill here was the brightest
+   object on a night screen, which is the opposite of what "the quieter of the
+   two actions" means. */
+html[data-native][data-theme="dark"] .nv-btn-ink {
+  background: var(--nv-accent-500);
+  color: var(--nv-stage-deep);
+  box-shadow: 0 12px 34px -8px rgba(255, 90, 31, 0.5);
+}
+html[data-native] .nv-btn-secondary {
+  background: var(--nv-tint-soft);
+  color: var(--nv-ink);
+  box-shadow: none;
+}
+html[data-native] .nv-btn-plain {
+  background: none;
+  box-shadow: none;
+  color: var(--nv-ink-2);
+  font-weight: 600;
+  font-family: var(--nv-font-body);
+  font-size: 15px;
+  letter-spacing: 0;
+  min-height: 44px;
+}
+html[data-native] .nv-chip {
+  border: none;
+  border-radius: var(--nv-r-pill);
+  background: var(--nv-card);
+  box-shadow: var(--nv-lift-sm);
+  font-family: var(--nv-font-body);
+  font-weight: 500;
+  font-size: 15px;
+}
+html[data-native] .nv-chip[data-selected] {
+  background: var(--nv-stage);
+  color: #fff;
+  box-shadow: var(--nv-lift-sm);
+}
+html[data-native][data-theme="dark"] .nv-chip[data-selected] {
+  background: #fff;
+  color: var(--nv-stage);
+}
+html[data-native] .nv-badge {
+  min-height: 30px;
+  padding: 5px 12px;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+/* --- Segmented control ------------------------------------------------------ */
+html[data-native] .nv-seg {
+  border-radius: 12px;
+  background: var(--nv-tint-soft);
+}
+html[data-native] .nv-seg-item {
+  /* 44, not 36. It sits inside a 56pt row, so the platform's minimum tap
+     target costs no height at all here — and a control the whole app's
+     appearance hangs off should not be the one thing on the screen you have
+     to aim at. */
+  min-height: 44px;
+  border-radius: 10px;
+  font-family: var(--nv-font-body);
+  font-weight: 600;
+  font-size: 13px;
+}
+html[data-native] .nv-seg-item[aria-pressed="true"],
+html[data-native] .nv-seg-item[data-selected] {
+  background: var(--nv-card);
+  box-shadow: 0 1px 2px rgba(23, 19, 38, 0.08);
+}
+
+/* --- Meters, tracks and the dial -------------------------------------------
+   A meter is a hairline, not a bar: 4px, ink fill, and it only takes colour
+   when the number has something to say (see the score bands below). */
+html[data-native] .nv-meter-track {
+  height: 4px;
+  border-radius: 2px;
+  background: #f0ece7;
+}
+html[data-native][data-theme="dark"] .nv-meter-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+html[data-native] .nv-meter-fill {
+  border-radius: 2px;
+  background: var(--nv-ink);
+}
+html[data-native] .nv-xp-track {
+  height: 5px;
+  border-radius: 3px;
+  background: #f0ece7;
+  box-shadow: none;
+}
+html[data-native][data-theme="dark"] .nv-xp-track {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+}
+html[data-native] .nv-xp-fill,
+html[data-native][data-theme="dark"] .nv-xp-fill {
+  border-radius: 3px;
+  background: var(--nv-accent-500);
+}
+html[data-native] .nv-dial-track {
+  stroke: #f0e9e2;
+}
+html[data-native][data-theme="dark"] .nv-dial-track {
+  stroke: rgba(255, 255, 255, 0.12);
+}
+html[data-native] .nv-dial-arc {
+  stroke: var(--nv-accent-500);
+}
+
+/* --- Score bands ------------------------------------------------------------
+   The one place colour still carries meaning, and now the only place the
+   palette forks: mint is good, ember is working, and a rough take is ember's
+   deep ink rather than a fifth hue. */
+html[data-native] [data-band="high"] {
+  --band-soft: var(--nv-mint-soft);
+  --band-ink: var(--nv-mint);
+  --band: var(--nv-mint);
+}
+html[data-native] [data-band="mid"] {
+  --band-soft: var(--nv-accent-50);
+  --band-ink: var(--nv-accent-700);
+  --band: var(--nv-accent-500);
+}
+html[data-native] [data-band="low"] {
+  --band-soft: var(--nv-accent-50);
+  --band-ink: var(--nv-accent-700);
+  --band: var(--nv-accent-500);
+}
+html[data-native] [data-band="rough"] {
+  --band-soft: #f4f1ee;
+  --band-ink: var(--nv-ink-2);
+  --band: var(--nv-ink-3);
+}
+html[data-native][data-theme="dark"] [data-band="high"] {
+  --band-soft: #10352f;
+  --band-ink: var(--nv-mint-light);
+  --band: var(--nv-mint-light);
+}
+html[data-native][data-theme="dark"] [data-band="mid"],
+html[data-native][data-theme="dark"] [data-band="low"] {
+  --band-soft: #3a1f14;
+  --band-ink: var(--nv-accent-light);
+  --band: var(--nv-accent-500);
+}
+html[data-native][data-theme="dark"] [data-band="rough"] {
+  --band-soft: var(--nv-tint-soft);
+  --band-ink: var(--nv-ink-2);
+  --band: var(--nv-ink-3);
+}
+html[data-native] .nv-score-sq {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+/* --- Sheets ----------------------------------------------------------------- */
+html[data-native] .nv-sheet {
+  border-radius: 28px 28px 0 0;
+  background: var(--nv-card);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: 0 -20px 60px -20px rgba(23, 19, 38, 0.35);
+}
+html[data-native] .nv-grabber {
+  background: var(--nv-ink-3);
+  opacity: 0.35;
+}
+
+/* --- Inputs ----------------------------------------------------------------- */
+html[data-native] .nv-input {
+  border-radius: 16px;
+  background: var(--nv-tint-soft);
+  font-size: var(--nv-body-size);
+}
+
+/* --- Empty states ----------------------------------------------------------- */
+html[data-native] .nv-empty svg {
+  color: var(--nv-ink-3);
+}
+
+/* --- Reduce motion ---------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  html[data-native] .nv-spot {
+    animation: none;
+  }
+}
+
+/* --- The climb, refined -----------------------------------------------------
+   The rung stops being a 136px orange planet and becomes a RING that Felix
+   stands inside: the arc is today's score, the halo is the invitation, and
+   the action moves down into a pill where every other action in the app
+   lives. The giant orange circle was the loudest object in the app and it
+   was carrying the least information on the screen. */
+html[data-native] .nv-ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 196px;
+  height: 196px;
+}
+html[data-native] .nv-ring > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+/* THE HALO IS A RING, NOT A DISC.
+   As a filled circle at 18% it painted a flat peach lozenge inside the track
+   the whole time — on device the "start today" control read as a solid pale
+   button with a fox printed on it, not as a ring waiting to be filled. A
+   spreading stroke says the same "tap me" and leaves the middle empty, which
+   is the point: the middle is where today's score is going to go. */
+html[data-native] .nv-ring-halo {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--nv-r-pill);
+  background: none;
+  box-shadow: 0 0 0 3px var(--nv-accent-500);
+  opacity: 0;
+  animation: nv-ring-pulse 3s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes nv-ring-pulse {
+  0% { transform: scale(1); opacity: 0.45; }
+  70% { opacity: 0.1; }
+  100% { transform: scale(1.16); opacity: 0; }
+}
+html[data-native] .nv-ring-spot {
+  position: absolute;
+  bottom: 22px;
+  width: 150px;
+  height: 44px;
+  border-radius: var(--nv-r-pill);
+  background: radial-gradient(closest-side, rgba(255, 90, 31, 0.28), transparent);
+  filter: blur(4px);
+  pointer-events: none;
+}
+html[data-native] .nv-ring-felix {
+  position: relative;
+  animation: nv-bob 3.4s ease-in-out infinite;
+}
+html[data-native] .nv-ring-arc {
+  transition: stroke-dashoffset 900ms var(--nv-ease);
+}
+
+/* A settled rung is a small rounded square now, not a disc with a lip. */
+html[data-native] .nv-rung-disc {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  background: var(--nv-card);
+  box-shadow: var(--nv-lift-sm);
+  font-size: 15px;
+  color: var(--band-ink, var(--nv-ink-2));
+}
+html[data-native] .nv-rung-locked {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  background: var(--nv-tint-soft);
+  box-shadow: none;
+  color: var(--nv-ink-3);
+}
+html[data-native] .nv-rung-caption {
+  font-weight: 500;
+  color: var(--nv-ink-2);
+}
+/* THE SPINE IS SEGMENTED NOW, not one absolute line down the whole climb.
+   As a single element it ran behind the today block — through the eyebrow,
+   the topic title and the attempt dots — and a dashed line crossing three
+   lines of type reads as a rendering fault, not as a climb. A segment
+   between each pair of nodes says the same thing and touches no text.
+
+   `.nv-spine` is still exported so the absolute version can't come back by
+   accident: it is explicitly emptied. */
+html[data-native] .nv-spine {
+  display: none;
+}
+html[data-native] .nv-spine-seg {
+  flex: none;
+  width: 2px;
+  height: var(--seg, 34px);
+  background: repeating-linear-gradient(
+    var(--nv-rail) 0 6px,
+    transparent 6px 14px
+  );
+  pointer-events: none;
+}
+
+/* The reward node wears the reward. An emoji standing in for a hat Felix
+   could simply be shown wearing was the last piece of placeholder art in the
+   app. */
+html[data-native] .nv-reward-tile,
+html[data-native] .nv-reward-tile[data-unlocked] {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--nv-accent-50);
+  box-shadow: none;
+  font-size: 0;
+}
+html[data-native] .nv-reward-tile[data-unlocked] {
+  background: var(--nv-mint-soft);
+}
+html[data-native] .nv-reward-tile > * {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* --- The week strip ---------------------------------------------------------
+   Seven days, each a 34px square carrying its best score. Borrowed from the
+   ink-stage home and kept here because the climb shows you the last two days
+   and this shows you the shape of the week. */
+html[data-native] .nv-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+html[data-native] .nv-week-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+html[data-native] .nv-week-day {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--nv-ink-3);
+}
+html[data-native] .nv-week-cell[data-today] .nv-week-day {
+  color: var(--nv-ink);
+}
+html[data-native] .nv-week-score {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: var(--band-soft, var(--nv-tint-soft));
+  color: var(--band-ink, var(--nv-ink-3));
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+html[data-native] .nv-week-score[data-empty] {
+  background: var(--nv-tint-soft);
+  color: var(--nv-ink-3);
+}
+html[data-native] .nv-week-score[data-now] {
+  background: var(--nv-card);
+  box-shadow: inset 0 0 0 2px var(--nv-accent-500);
+  color: var(--nv-accent-700);
+}
+
+/* --- Go deeper: the premium rail, as two gradient tiles --------------------- */
+html[data-native] .nv-deep {
+  position: relative;
+  display: block;
+  padding: 16px 14px 18px;
+  border-radius: var(--nv-r-tile);
+  background: linear-gradient(160deg, var(--pop-soft, var(--nv-tint-soft)), var(--nv-bg));
+  box-shadow: 0 1px 2px rgba(23, 19, 38, 0.04);
+  transition: transform 320ms var(--nv-spring);
+}
+html[data-native] .nv-deep:active {
+  transform: scale(0.97);
+}
+html[data-native] .nv-deep-glyph {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: var(--pop-graphic, var(--nv-ink));
+  color: #fff;
+}
+html[data-native] .nv-deep-title {
+  display: block;
+  margin-top: 12px;
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: -0.04em;
+  color: var(--nv-ink);
+}
+html[data-native] .nv-deep-sub {
+  display: block;
+  margin-top: 3px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--nv-ink-2);
+}
+html[data-native] .nv-deep-lock {
+  position: absolute;
+  right: 14px;
+  top: 16px;
+  color: var(--nv-ink-3);
+}
+
+/* The HUD loses its glass band: at the top of a page whose first object is a
+   dashed spine, a blurred strip was a seam. Plain ground, and it still fades
+   what scrolls under it. */
+/* The bottom padding is the RUNWAY the fade happens in, and the mask below is
+   measured from the bottom edge in px — so shortening one without the other
+   drags the fade up into the HUD's own content and lets the climb scroll
+   visibly through the level bar. It did exactly that when this pass first
+   trimmed the padding to 18. They move together or not at all. */
+html[data-native] .nv-ladder-bar {
+  padding: calc(env(safe-area-inset-top) + 12px) var(--nv-gutter) 28px;
+}
+html[data-native] .nv-ladder-bar::before {
+  background: color-mix(in srgb, var(--nv-bg) 96%, transparent);
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 26px),
+    rgba(0, 0, 0, 0.5) calc(100% - 10px),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 26px),
+    rgba(0, 0, 0, 0.5) calc(100% - 10px),
+    transparent
+  );
+}
+html[data-native] .nv-ladder-avatar {
+  width: 38px;
+  height: 38px;
+  background: var(--nv-accent-50);
+  box-shadow: none;
+}
+html[data-native] .nv-ladder-avatar > * {
+  width: 38px;
+  height: 38px;
+}
+
+/* --- The report says three things, then the detail --------------------------
+   Six identical bars with six coaching notes under them was the report doing
+   no thinking: everything at the same weight is a data dump, and the two
+   sentences that would actually change the next take were buried at position
+   four and six. So the report now opens with WHAT MATTERS — the strongest
+   moment, the biggest gap, and the drill — and the full six retreat into a
+   compact list that opens a row at a time. */
+html[data-native] .nv-insight {
+  display: flex;
+  gap: 14px;
+  width: 100%;
+  padding: 16px;
+  text-align: left;
+  border-radius: var(--nv-r-card);
+  background: var(--nv-card);
+  box-shadow: var(--nv-lift);
+}
+html[data-native] .nv-insight-mark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 11px;
+  background: var(--band-soft, var(--nv-tint-soft));
+  color: var(--band-ink, var(--nv-ink-2));
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  font-size: 13px;
+}
+html[data-native] .nv-insight-title {
+  display: block;
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: -0.03em;
+  color: var(--nv-ink);
+}
+html[data-native] .nv-insight-body {
+  display: block;
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--nv-ink-2);
+}
+/* The drill is the one card you're meant to act on, so it is the one card in
+   ink. */
+html[data-native] .nv-insight[data-ink] {
+  background: var(--nv-stage);
+  box-shadow: 0 18px 40px -22px rgba(23, 19, 38, 0.8);
+}
+html[data-native] .nv-insight[data-ink] .nv-insight-title {
+  color: #fff;
+}
+html[data-native] .nv-insight[data-ink] .nv-insight-body {
+  color: rgba(255, 255, 255, 0.6);
+}
+html[data-native] .nv-insight[data-ink] .nv-insight-mark {
+  background: rgba(255, 90, 31, 0.2);
+  color: var(--nv-accent-light);
+}
+html[data-native][data-theme="dark"] .nv-insight[data-ink] {
+  background: var(--nv-accent-500);
+}
+html[data-native][data-theme="dark"] .nv-insight[data-ink] .nv-insight-title {
+  color: var(--nv-stage-deep);
+}
+html[data-native][data-theme="dark"] .nv-insight[data-ink] .nv-insight-body {
+  color: rgba(18, 16, 31, 0.7);
+}
+html[data-native][data-theme="dark"] .nv-insight[data-ink] .nv-insight-mark {
+  background: rgba(18, 16, 31, 0.18);
+  color: var(--nv-stage-deep);
+}
+
+/* The compact metric row: label, a 96px hairline, the number. Tapping it
+   opens that metric's coaching line — the note is still there, it is just no
+   longer shouting alongside five others. */
+html[data-native] .nv-metric-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 0;
+  text-align: left;
+}
+html[data-native] .nv-metric-row + .nv-metric-row,
+html[data-native] .nv-metric-note {
+  border-top: 1px solid var(--nv-hairline);
+}
+html[data-native] .nv-metric-row-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--nv-ink);
+}
+html[data-native] .nv-metric-row .nv-meter-track {
+  width: 84px;
+  flex: none;
+}
+html[data-native] .nv-metric-row .nv-meter-fill {
+  background: var(--band, var(--nv-ink));
+}
+html[data-native] .nv-metric-row-caret {
+  flex: none;
+  color: #cfc8d2;
+  transition: transform var(--nv-t-micro) var(--nv-ease);
+}
+html[data-native][data-theme="dark"] .nv-metric-row-caret {
+  color: var(--nv-ink-3);
+}
+html[data-native] .nv-metric-row[aria-expanded="true"] .nv-metric-row-caret {
+  transform: rotate(90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-native] .nv-metric-row-caret {
+    transition: none;
+  }
+}
+html[data-native] .nv-metric-row-num {
+  width: 30px;
+  flex: none;
+  text-align: right;
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--band-ink, var(--nv-ink));
+}
+html[data-native] .nv-metric-note {
+  padding: 0 0 12px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--nv-ink-2);
+}
+html[data-native] .nv-metric-note > span {
+  display: block;
+  padding-top: 10px;
+}
+
+/* The band chip on the stage: what the score MEANS, in one word. */
+html[data-native] .nv-verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: var(--nv-r-pill);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-family: var(--nv-font-body);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+html[data-native] .nv-verdict[data-band="high"] {
+  background: rgba(14, 124, 107, 0.32);
+  color: var(--nv-mint-light);
+}
+html[data-native] .nv-verdict[data-band="mid"],
+html[data-native] .nv-verdict[data-band="low"] {
+  background: rgba(255, 90, 31, 0.24);
+  color: var(--nv-accent-light);
+}
+
+/* The transcript's marks, on the modern ground. A highlight rather than a
+   block: the strong line gets a mint underline, the flagged word an ember
+   wash that sits BEHIND the text rather than over it. */
+html[data-native] .native-selectable .sweep-strong {
+  box-shadow: inset 0 -2px 0 var(--nv-mint);
+  background: none;
+}
+html[data-native] .native-selectable .sweep-flag {
+  background: linear-gradient(
+      rgba(255, 90, 31, 0.2),
+      rgba(255, 90, 31, 0.2)
+    )
+    bottom / 100% 42% no-repeat;
+}
+
+/* --- A screen that opens on a stage ----------------------------------------
+   `#main` carries a 16px gutter from globals while the system's own gutter has
+   been 20 since the air pass, so every `margin-inline: -20px` breakout in this
+   file has been overshooting the viewport by 4px a side. Pinning #main to the
+   token makes the breakout exact — and only then can a stage be genuinely
+   full-bleed rather than four pixels wider than the screen. */
+html[data-native] #main {
+  padding-left: var(--nv-gutter);
+  padding-right: var(--nv-gutter);
+}
+
+/* The screen-level padding above the stage. `#main > *` takes a 4px top pad
+   from globals (and page wrappers add their own `py-8`), which on a staged
+   screen leaves a strip of paper above the ink and a hairline of the status
+   bar showing through it. A stage owns the top of the document. */
+html[data-native] #main > *:has(.nv-staged) {
+  padding-top: 0 !important;
+}
+html[data-native] .nv-staged > .nv-stage:first-child {
+  margin-top: 0;
+}
+
+/* --- The Den's wardrobe, on the stage ---------------------------------------
+   Each cell is Felix WEARING the item, cropped to his head and shoulders so
+   five of them fit across a phone. The crop is why the tile clips: a whole
+   fox at 64px is a smudge, and the accessory — the only thing the cell is
+   about — is on his head or his chest. */
+html[data-native] .nv-stage .nv-wardrobe {
+  gap: 10px;
+  margin-inline: calc(var(--nv-gutter) * -1);
+  padding-inline: var(--nv-gutter);
+}
+html[data-native] .nv-wardrobe-cell {
+  width: 64px;
+}
+html[data-native] .nv-wardrobe-tile {
+  position: relative;
+  height: 64px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--nv-on-stage-fill);
+  font-size: 0;
+}
+html[data-native] .nv-wardrobe-tile > * {
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  width: 76px;
+  height: 76px;
+  margin-left: -38px;
+}
+html[data-native] .nv-wardrobe-tile[data-worn] {
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 0 0 2px var(--nv-accent-500);
+}
+/* Locked, not disabled. At 0.55 on the Den's ink stage every unearned outfit
+   read as muddy brown — and at level 1 that is the ENTIRE wardrobe, so a new
+   user's first look at the thing they are levelling towards was a row of dead
+   foxes. Seeing what you haven't earned is the point. */
+html[data-native] .nv-wardrobe-tile[data-locked] {
+  opacity: 0.72;
+}
+html[data-native] .nv-stage .nv-wardrobe-label {
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--nv-on-stage-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html[data-native] .nv-stage .nv-wardrobe-cell[data-worn] .nv-wardrobe-label {
+  color: var(--nv-accent-light);
+}
+
+/* Badges keep their emoji — an achievement is an abstraction, not a thing
+   Felix can wear — but they lose the six-hue cycle. Earned is mint; the rest
+   are quiet. */
+html[data-native] .nv-badge-tile {
+  border-radius: var(--nv-r-tile);
+  background: var(--nv-mint-soft);
+  padding: 14px 6px;
+}
+html[data-native] .nv-badge-tile[data-locked] {
+  background: var(--nv-tint-soft);
+  opacity: 0.7;
+}
+html[data-native] .nv-badge-name {
+  color: var(--nv-mint);
+}
+html[data-native] .nv-badge-tile[data-locked] .nv-badge-name {
+  color: var(--nv-ink-3);
+}
+
+/* The stage's own sparkles sit over the fox, not over a 104px avatar. */
+html[data-native] .nv-stage .nv-sparkles {
+  inset: 10px;
+}
+html[data-native] .nv-den-portrait {
+  position: relative;
+  display: block;
+  width: 146px;
+  height: 146px;
+  border-radius: var(--nv-r-pill);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.16);
+}
+
+/* --- Progress: the ink hero, the deltas, the turn-up grid ------------------- */
+html[data-native] .nv-hero-ink {
+  position: relative;
+  margin-top: 4px;
+  padding: 22px 20px;
+  border-radius: 28px;
+  overflow: hidden;
+  color: var(--nv-on-stage);
+  background:
+    radial-gradient(80% 70% at 100% 0%, rgba(255, 90, 31, 0.3), transparent 60%),
+    var(--nv-stage);
+  box-shadow: var(--nv-lift);
+  /* Same ink re-point the stage does, so a caption or a footnote written
+     inside reads without a colour override. */
+  --nv-ink: var(--nv-on-stage);
+  --nv-ink-2: var(--nv-on-stage-2);
+  --nv-ink-3: var(--nv-on-stage-3);
+  --nv-tint-soft: var(--nv-on-stage-fill);
+  --nv-mint: var(--nv-mint-light);
+  --nv-accent-700: var(--nv-accent-light);
+}
+html[data-native] .nv-hero-ink[data-band="high"] {
+  background:
+    radial-gradient(80% 70% at 100% 0%, rgba(14, 124, 107, 0.38), transparent 60%),
+    var(--nv-stage);
+}
+html[data-native] .nv-hero-num {
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  font-size: 64px;
+  letter-spacing: -0.05em;
+  line-height: 0.8;
+}
+/* The sparkline shrinks into the hero's right half rather than running
+   full-bleed under it — and drops its AREA FILL. That fill is
+   --nv-accent-50, an opaque peach tuned for the paper ground; on ink it
+   painted a solid pink rectangle under the line. On a dark hero the line is
+   the whole chart. */
+html[data-native] .nv-hero-ink svg {
+  width: 130px;
+  height: 78px;
+}
+html[data-native] .nv-hero-ink svg > path:first-of-type {
+  fill: transparent !important;
+}
+
+html[data-native] .nv-move {
+  padding: 16px 14px;
+  border-radius: var(--nv-r-tile);
+  background: var(--nv-card);
+  box-shadow: var(--nv-lift-sm);
+}
+html[data-native] .nv-move-num {
+  display: block;
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  font-size: 26px;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+html[data-native] .nv-move-label {
+  display: block;
+  margin-top: 4px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--nv-ink-2);
+}
+
+html[data-native] .nv-heat {
+  display: grid;
+  grid-template-columns: repeat(14, 1fr);
+  gap: 5px;
+}
+html[data-native] .nv-heat-cell,
+html[data-native] .nv-heat-key {
+  aspect-ratio: 1;
+  border-radius: 5px;
+  background: #f2eee9;
+}
+html[data-native][data-theme="dark"] .nv-heat-cell,
+html[data-native][data-theme="dark"] .nv-heat-key {
+  background: rgba(255, 255, 255, 0.08);
+}
+html[data-native] .nv-heat-cell[data-on] {
+  background: var(--band, var(--nv-accent-500));
+}
+/* A day that has a score but sits in the "rough" band still counts as having
+   turned up, so it takes the palest ember rather than the ink-3 that band
+   normally means. Showing up is the thing this grid measures. */
+html[data-native] .nv-heat-cell[data-on][data-band="rough"] {
+  background: var(--nv-accent-100);
+}
+html[data-native] .nv-heat-cell[data-on][data-band="low"],
+html[data-native] .nv-heat-cell[data-on][data-band="mid"] {
+  background: var(--nv-accent-500);
+}
+html[data-native] .nv-heat-cell[data-today] {
+  box-shadow: inset 0 0 0 2px var(--nv-ink);
+}
+html[data-native] .nv-heat-key {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  aspect-ratio: auto;
+  display: inline-block;
+}
+/* The legend swatches take the same three fills the cells do. They are keys,
+   not cells, so the cell rules above don't reach them. */
+html[data-native] .nv-heat-key[data-on][data-band="low"] {
+  background: var(--nv-accent-500);
+}
+html[data-native] .nv-heat-key[data-on][data-band="high"] {
+  background: var(--nv-mint);
+}
+
+/* --- The booth -------------------------------------------------------------
+   One screen, one job, and the number is the job. The timer goes from 56 to
+   88 — big enough to read at arm's length while you are looking at a room and
+   not at a phone — and the control under it becomes a pill, because the only
+   thing left to decide while the mic is hot is when to stop. */
+html[data-native] .nv-takeover {
+  background:
+    radial-gradient(90% 55% at 50% 0%, rgba(255, 90, 31, 0.24), transparent 60%),
+    radial-gradient(80% 50% at 50% 100%, rgba(110, 86, 207, 0.22), transparent 62%),
+    var(--nv-stage-deep);
+}
+html[data-native] .nv-timer {
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  font-size: 88px;
+  letter-spacing: -0.05em;
+  line-height: 0.82;
+}
+html[data-native] .nv-takeover .nv-booth-meta {
+  color: var(--nv-on-stage-3);
+}
+html[data-native] .nv-takeover .nv-bubble {
+  background: var(--nv-on-stage-fill);
+  color: rgba(255, 255, 255, 0.9);
+}
+html[data-native] .nv-takeover .nv-btn-primary {
+  box-shadow: 0 14px 36px -10px rgba(255, 90, 31, 0.5);
+}
+/* The take's stage (waveform / camera) loses the web's oxford fill and its
+   12px radius; in the booth it is the room, not a card. */
+html[data-native] .nv-takeover .practice-stage {
+  background: transparent;
+  border-radius: 20px;
+}
+
+/* --- THE LAST OF THE LIPS ---------------------------------------------------
+   Five passes put a hard bottom edge on nearly every surface in this app, and
+   the modern pass takes all of them off in one place.
+
+   Most of them read `0 3px 0 var(--nv-card-edge)`, so the token going
+   transparent retires them wherever they are, including any that get written
+   after this file is next edited. The handful that hard-coded a hex are named
+   below, once each. */
+html[data-native],
+html[data-native][data-theme="dark"] {
+  --nv-card-edge: transparent;
+}
+
+html[data-native] .nv-xp-card,
+html[data-native][data-theme="dark"] .nv-xp-card {
+  border-radius: var(--nv-r-card);
+  box-shadow: var(--nv-lift);
+}
+html[data-native] .nv-xp-card {
+  background: linear-gradient(150deg, var(--nv-accent-50), var(--nv-card));
+}
+html[data-native] .nv-xp-unlock,
+html[data-native][data-theme="dark"] .nv-xp-unlock {
+  border-radius: 18px;
+  box-shadow: none;
+  background: var(--nv-accent-50);
+}
+html[data-native] .nv-shop-btn[data-tone="buy"] {
+  background: var(--nv-accent-500);
+  color: var(--nv-stage);
+  box-shadow: 0 8px 20px -8px rgba(255, 90, 31, 0.6);
+}
+html[data-native] .nv-shop-btn[data-tone="buy"]:active {
+  transform: scale(0.97);
+  box-shadow: none;
+}
+html[data-native] .nv-shop-btn[data-tone="armed"] {
+  background: var(--nv-stage);
+  color: #fff;
+  box-shadow: var(--nv-lift-sm);
+}
+html[data-native] .nv-shop-btn[data-tone="armed"]:active {
+  transform: scale(0.97);
+  box-shadow: none;
+}
+/* The Duolingo edge under the primary button goes with everything else: it
+   was the ONE place the lip was earned (a button really is pressed), but a
+   single surface keeping a material nothing else uses reads as a leftover,
+   not as emphasis. The press is carried by the spring and the shadow
+   collapsing, which is what every other control in the pass does. */
+html[data-native] .nv-btn-primary:active {
+  transform: scale(0.97);
+}
+
+/* Whatever else in the earlier passes still draws a card edge — the podium,
+   the board's rows, the shop tiles — picks up the lift instead. */
+html[data-native] .nv-shop-stage,
+html[data-native] .nv-shop-item,
+html[data-native] .nv-board,
+html[data-native] .nv-invite,
+html[data-native] .nv-xp-card {
+  box-shadow: var(--nv-lift);
+}
+/* The inset hairline ring goes with the lip. On a warm card the ring reads as
+   a second border a millimetre inside the first — the exact "two edges"
+   fussiness the lift exists to replace. */
+html[data-native] .nv-shop-item,
+html[data-native] .nv-board {
+  border-radius: var(--nv-r-tile);
+}
+html[data-native] .nv-shop-stage {
+  border-radius: var(--nv-r-card);
+}
+
+/* THE CANVAS, NOT JUST THE BODY.
+   `body` has been `background: transparent` since the glass pass so the
+   aurora on `body::before` can show through, and `html` was never given a
+   background at all — which leaves the CANVAS (everything outside the
+   propagated background, including the overscroll band and the strip under
+   the home indicator) painting WebKit's default white.
+
+   On the bone screens nobody could see it: #fbf7f2 against white is a
+   rounding error. In the recording booth, which is nearly black, it was a
+   bright band across the bottom of the screen. `body::before` cannot fix it
+   — a fixed element covers the viewport, and this strip is outside the
+   viewport by definition.
+
+   The canvas takes the ground colour, so there is nothing left to show
+   through anywhere. */
+html[data-native] {
+  background: var(--nv-bg);
+}
+
+/* THE GROUND UNDER THE BOOTH IS THE BOOTH.
+   On device a pale strip showed along the bottom of the recording takeover,
+   in the home-indicator band. The takeover is `position: fixed; inset: 0` and
+   should own every pixel — but "should" is doing a lot of work there: a
+   transform, filter or containment on ANY ancestor silently makes that
+   ancestor the containing block instead of the viewport, and this app has
+   already been bitten by exactly that once (the screen-enter animation, which
+   put every bottom sheet thousands of pixels down the document).
+
+   Rather than depend on no ancestor ever growing a transform again, the page's
+   own ground goes dark whenever a booth is up. Then it does not matter which
+   element ends where: everything behind the takeover is already the booth's
+   colour. `:has()` is cheap here — one selector, one document-level match, and
+   the takeover mounts once per take. */
+html[data-native]:has(.nv-takeover) {
+  background: var(--nv-stage-deep);
+}
+html[data-native]:has(.nv-takeover) body::before,
+html[data-native][data-theme="dark"]:has(.nv-takeover) body::before {
+  background:
+    radial-gradient(90% 55% at 50% 0%, rgba(255, 90, 31, 0.24), transparent 60%),
+    var(--nv-stage-deep);
+}
+
+/* --- Shared web buttons join the pass --------------------------------------
+   Auth, the composer, the retry controls and every other screen the app and
+   the website genuinely share render the web's `.btn` / `.pill`, which
+   globals.css already reshapes for native — to a 14px-radius, 50pt, 600-weight
+   button, i.e. the shape this pass just retired everywhere else.
+
+   /login is the app's first screen for a signed-out user, so it is the last
+   place that should still be wearing the previous round. Same pill, same
+   display face, same lift as .nv-btn. */
+html[data-native] #main .btn,
+html[data-native] #main .pill {
+  min-height: 58px;
+  padding: 16px 24px;
+  border-radius: var(--nv-r-pill);
+  font-family: var(--nv-font-display);
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.03em;
+}
+/* The web's primary fill is `bg-accent-strong` with white on it, which the
+   token remap already points at ember-700. Give it the pass's shadow so it
+   sits on the paper like every other action. */
+html[data-native] #main .btn {
+  box-shadow: 0 12px 34px -10px rgba(255, 90, 31, 0.4);
+}
+html[data-native] #main .btn:active {
+  transform: scale(0.97);
+}
+html[data-native] #main .pill {
+  background: var(--nv-tint-soft);
+  color: var(--nv-ink);
+  box-shadow: none;
+}
+html[data-native] #main .pill:active {
+  transform: scale(0.97);
+}
+/* Sign in with Apple keeps the HIG's own black-on-white / white-on-black and
+   its own logo — those are the parts Apple actually specifies and the parts
+   review looks at. It does NOT keep a different typeface from every other
+   button on the screen, which is what pinning it to the body font did: it sat
+   directly under "Continue with Google" in Montserrat and read as a control
+   borrowed from another app. Shape and label from Apple, face from us. */
+html[data-native] #main .apple-signin-btn {
+  border-radius: var(--nv-r-pill);
+}
+
+/* --- THE SHARED HEADINGS FINALLY SPEAK THE DISPLAY FACE --------------------
+   `--font-headline` was pointed at `--nv-font` — the system stack — by the
+   very first token remap, back when the whole shell spoke SF. Two passes
+   later the display layer moved to Montserrat, but it moved via the `.nv-*`
+   classes only; nobody went back and re-pointed the web's own token.
+
+   The result: every screen built from Native* components had Montserrat
+   titles, and every screen the app SHARES with the website — log in, sign up,
+   verify email, and all the legal pages you can reach from the Den — rendered
+   its heading in SF. "Welcome back" is the first text a signed-out user ever
+   sees in this app, and it was the one heading in it not wearing the brand.
+
+   Every `.font-headline` in the codebase is on something text-lg or bigger,
+   so the display weight and tracking are right for all of them. */
+html[data-native] {
+  --font-headline: var(--nv-font-display);
+  --font-slogan: var(--nv-font-display);
+}
+html[data-native] #main .font-headline {
+  font-weight: 800;
+  letter-spacing: var(--nv-track-title);
 }

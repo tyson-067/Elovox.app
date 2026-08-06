@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useIsNative } from "@/lib/native";
 import { CountUp } from "@/components/CountUp";
 import { Felix } from "@/components/FoxLogo";
@@ -12,7 +13,6 @@ import {
   moodForScore,
   NvBadge,
   NvConfetti,
-  popFor,
 } from "@/components/native/felix";
 import { NvGroup, NvSectionHeader, NvStat } from "@/components/native/ui";
 import { LEVELS } from "@/lib/levels";
@@ -36,37 +36,135 @@ import type { Session } from "@/lib/types";
  * native-hide.
  */
 
-const DIAL_R = 62;
-const DIAL_C = 2 * Math.PI * DIAL_R;
-
-/** Label + meter + coaching line — the report's metric grammar, and the
- *  stage metrics reuse it so the two lists can never disagree. Each row
- *  takes its color from the festival cycle by position. */
+/**
+ * One metric, compact: label, a hairline, the number. The coaching line is
+ * behind a tap.
+ *
+ * This used to be a full-width bar with its note printed underneath, six of
+ * them in a column — which meant the report's own most important sentence sat
+ * at the same weight as its least, and the reader had to grade six paragraphs
+ * to find it. The three cards above this list do that grading now; a row here
+ * only has to be findable. Nothing is lost: every note is one tap away, and
+ * the row says so.
+ *
+ * Colour is by BAND, not by position. Six festival hues cycling down a list
+ * said "these six things are different from each other", which is the one
+ * thing they are not.
+ */
 function MeterRow({
   label,
   score,
   note,
-  index,
 }: {
   label: string;
   score: number;
   note: string;
-  index: number;
 }) {
+  const [open, setOpen] = useState(false);
+  const band = bandForScore(score);
   return (
-    <div className="nv-metric" data-pop={popFor(index)}>
-      <div className="flex items-baseline justify-between gap-4">
-        <span className="text-[15px] font-semibold">{label}</span>
-        <span className="nv-num nv-metric-num text-[15px] font-semibold">
-          {score}
+    <div data-band={band}>
+      <button
+        type="button"
+        className="nv-metric-row"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={note ? open : undefined}
+        disabled={!note}
+      >
+        <span className="nv-metric-row-label">{label}</span>
+        <span className="nv-meter-track">
+          <span className="nv-meter-fill block" style={{ width: `${score}%` }} />
         </span>
-      </div>
-      <div className="nv-meter-track mt-2">
-        <div className="nv-meter-fill" style={{ width: `${score}%` }} />
-      </div>
-      {note && <p className="nv-footnote mt-1.5">{note}</p>}
+        <span className="nv-metric-row-num">{score}</span>
+        {/* The affordance. Without it the row is a silent disclosure: the
+            coaching line is one tap away and nothing on screen says so, which
+            is just hiding it. Rotates to point down while open. */}
+        {note && (
+          <svg
+            className="nv-metric-row-caret"
+            width="8"
+            height="14"
+            viewBox="0 0 8 14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m1.5 1.5 5 5.5-5 5.5" />
+          </svg>
+        )}
+      </button>
+      {note && open && (
+        <p className="nv-metric-note">
+          <span>{note}</span>
+        </p>
+      )}
     </div>
   );
+}
+
+/**
+ * THE THREE THINGS.
+ *
+ * Everything here is read out of the analysis the pipeline already produced —
+ * nothing is invented, and nothing is scored a second time. The strongest
+ * moment comes from `strengths` or a transcript segment the coach marked
+ * strong; the gap is simply the lowest of the six; the drill is the first
+ * drill, or the first tip when the plan has no drills.
+ */
+function whatMatters(analysis: Session["analysis"]): {
+  keep: { title: string; body: string } | null;
+  fix: { title: string; body: string; band: string } | null;
+  next: { title: string; body: string } | null;
+} {
+  const strongSeg = analysis.transcript.find((s) => s.mark === "strong" && s.note);
+  const best = [...analysis.skills].sort((a, b) => b.score - a.score)[0];
+  /**
+   * Title and body must never be the same sentence twice, and the body must
+   * never be `analysis.summary` — that is already printed in Felix's bubble
+   * two hundred pixels above this card. So the title is the OBSERVATION (a
+   * named strength, or the moment the coach marked) and the body is the
+   * coaching line that explains it.
+   */
+  const keepTitle =
+    analysis.strengths?.[0] ??
+    (strongSeg?.time ? `Keep what you did at ${strongSeg.time}` : null) ??
+    (best ? `${best.skill} carried this take` : null);
+  const keepBody =
+    (analysis.strengths?.[0] ? (strongSeg?.note ?? best?.note) : strongSeg?.note) ??
+    best?.note ??
+    null;
+  const keep = keepTitle && keepBody ? { title: keepTitle, body: keepBody } : null;
+
+  const worst = [...analysis.skills].sort((a, b) => a.score - b.score)[0];
+  const fix = worst
+    ? {
+        title: `${worst.skill} is the one to move`,
+        body: worst.note,
+        band: bandForScore(worst.score),
+      }
+    : analysis.tips[0]
+      ? { title: "The one to move", body: analysis.tips[0], band: "mid" }
+      : null;
+
+  const drill = analysis.drills?.[0];
+  const next = drill
+    ? { title: drill.title, body: drill.how }
+    : analysis.tips[0]
+      ? { title: "Next time", body: analysis.tips[0] }
+      : null;
+
+  return { keep, fix, next };
+}
+
+/** The one word the score gets to say for itself. */
+function verdictFor(score: number): string {
+  if (score >= 85) return "Flying";
+  if (score >= 75) return "Strong";
+  if (score >= 60) return "Getting there";
+  return "Early days";
 }
 
 function NumberedTips({ tips }: { tips: string[] }) {
@@ -218,20 +316,7 @@ export function NativeReport({
   practiceLabel: string;
 }) {
   const native = useIsNative();
-  // The dial draws in via the nv-dial-arc transition: first paint holds the
-  // empty arc, then one frame later the real offset lands and the CSS eases
-  // it round. Under prefers-reduced-motion it starts at the final frame —
-  // the nv- class doesn't cover this transition, so the component does.
-  const [drawn, setDrawn] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
-  useEffect(() => {
-    if (drawn) return;
-    const raf = requestAnimationFrame(() => setDrawn(true));
-    return () => cancelAnimationFrame(raf);
-  }, [drawn]);
+  const router = useRouter();
 
   // A take you JUST finished earns a celebration; rereading an old report
   // doesn't. Confetti only for fresh, good takes — rarity is what keeps it
@@ -250,7 +335,27 @@ export function NativeReport({
   if (!native) return null;
 
   const { analysis } = session;
-  const arcOffset = DIAL_C * (1 - analysis.overall / 100);
+  const band = bandForScore(analysis.overall);
+  const matters = whatMatters(analysis);
+  /**
+   * WHAT THE THREE CARDS ALREADY SAID.
+   *
+   * "What matters" is built out of the same arrays the sections below render
+   * in full — the first strength, the first drill, sometimes the first tip —
+   * so without this the report printed the same sentence twice on one screen,
+   * once as a hero card and once as list item 1. Each list drops only the
+   * entry the cards actually took, matched on its text rather than its index,
+   * because which array `matters` reached for depends on what the analysis
+   * happened to contain.
+   */
+  const shown = new Set(
+    [matters.keep?.title, matters.fix?.title, matters.next?.title].filter(
+      Boolean
+    ) as string[]
+  );
+  const restDrills = (analysis.drills ?? []).filter((d) => !shown.has(d.title));
+  const restTips = analysis.tips.filter((t) => !shown.has(t));
+  const restStrengths = (analysis.strengths ?? []).filter((s) => !shown.has(s));
   /**
    * `isNewBest` is true on the FIRST attempt of every day, whatever the score,
    * because there was no previous best to beat (lib/daily.ts:
@@ -273,107 +378,175 @@ export function NativeReport({
   const notes = analysis.transcript.filter((s) => s.note);
 
   return (
-    <div>
+    // nv-staged: tells the screen-level rule in native-theme.css to drop the
+    // top padding, so the ink stage below runs to the top of the document.
+    <div className="nv-staged">
       {celebrate && (
         <NvConfetti count={analysis.overall >= 85 ? 40 : 26} originY={230} />
       )}
-      {/* The dial: the score is the page, so it's the h1 — drawn in the
-          color of the band it landed in. */}
+
+      {/* THE INK STAGE.
+          The score used to be a 148px dial on the paper, which put the one
+          number the screen exists for at the same elevation as the cards under
+          it. It is the whole page, so it gets the whole top of the screen: a
+          deep block bloomed in the colour of the band it landed in, the numeral
+          at 88px, and Felix delivering the verdict from inside it.
+
+          The stage carries its own back control and its own status-bar inset,
+          which is why /report asks NativeShell for no title bar. */}
       <section
-        className="flex flex-col items-center pt-6"
-        data-band={bandForScore(analysis.overall)}
+        className="nv-stage"
+        data-band={band}
+        data-bloom={band === "high" ? "mint" : undefined}
       >
-        <div className="relative h-[148px] w-[148px]" data-parallax="0.05">
-          <svg width="148" height="148" viewBox="0 0 148 148" aria-hidden="true">
-            <circle
-              className="nv-dial-track"
-              cx="74"
-              cy="74"
-              r={DIAL_R}
+        <div className="flex items-center justify-between pt-3.5">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="nv-stage-btn"
+            aria-label="Back"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
               fill="none"
-              strokeWidth="10"
-            />
-            <circle
-              className="nv-dial-arc"
-              cx="74"
-              cy="74"
-              r={DIAL_R}
-              fill="none"
-              strokeWidth="10"
+              stroke="currentColor"
+              strokeWidth="2.1"
               strokeLinecap="round"
-              strokeDasharray={DIAL_C}
-              strokeDashoffset={drawn ? arcOffset : DIAL_C}
-              transform="rotate(-90 74 74)"
-            />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <h1 className="flex flex-col items-center">
-              <span className="sr-only">
-                Report: scored {analysis.overall} out of 100
-              </span>
-              <span aria-hidden="true" className="nv-display nv-num text-[44px]">
-                {/* Rolls up in step with the arc draw — the two finish
-                    together, which is what makes the dial feel like it is
-                    LANDING on the score. */}
-                <CountUp value={analysis.overall} duration={800} />
-              </span>
-              <span aria-hidden="true" className="nv-caption mt-1">
-                of 100
-              </span>
-            </h1>
-          </div>
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m14.5 5-7 7 7 7" />
+            </svg>
+          </button>
+          <span
+            className="nv-caption min-w-0 truncate px-3"
+            style={{ color: "var(--nv-on-stage-3)" }}
+          >
+            {titleLabel}
+            {session.attempt ? ` · attempt ${session.attempt}` : ""}
+          </span>
+          <span className="w-9" />
         </div>
 
-        {/* The verdict comes FROM Felix now: him beside his summary, mood
-            matched to the band — the cheer for a flying take, the professor's
-            glasses when there's work to point at. */}
-        <div className="mt-4 flex w-full max-w-[46ch] items-start gap-3 text-left">
+        <div className="pt-3.5 text-center">
+          <h1>
+            <span className="sr-only">
+              Report: scored {analysis.overall} out of 100
+            </span>
+            <span aria-hidden="true" className="nv-stage-num block">
+              <CountUp value={analysis.overall} duration={800} />
+            </span>
+          </h1>
+          <span className="nv-verdict mt-2.5" data-band={band}>
+            {verdictFor(analysis.overall)}
+            {beatSomething ? " · your best yet" : ""}
+          </span>
+        </div>
+
+        {/* The verdict comes FROM Felix — him beside his summary, mood matched
+            to the band. */}
+        <div className="mt-5 flex items-start gap-3 text-left">
           <Felix
             mood={moodForScore(analysis.overall)}
             animate
-            className="h-14 w-14 shrink-0"
+            className="h-16 w-16 shrink-0"
           />
           <FelixBubble className="min-w-0 flex-1">
             {analysis.summary}
           </FelixBubble>
         </div>
-
-        {(session.xpEarned || beatSomething) && (
-          <div className="nv-hud mt-3 justify-center">
-            {beatSomething && <NvBadge pop="mint">Your best yet</NvBadge>}
-            {session.xpEarned ? (
-              <NvBadge pop="sun">
-                <span className="nv-num">+{session.xpEarned}</span>&nbsp;XP
-              </NvBadge>
-            ) : null}
-          </div>
-        )}
-
-        <p className="nv-footnote mt-2 max-w-[44ch] text-center">
-          {titleLabel}
-          {session.goal && <> · {session.goal}</>}
-          {session.attempt && <> · Attempt {session.attempt} of 3</>}
-          {" · "}
-          {dateLabel}
-          {durationLabel && (
-            <>
-              {" · "}
-              <span className="nv-num">{durationLabel}</span>
-            </>
-          )}
-          {" · "}
-          <Link href="/ai" className="underline">
-            AI-generated
-          </Link>
-        </p>
-
-        {analysis.isSample && (
-          <p className="nv-footnote mt-3 max-w-[44ch] text-center">
-            Sample feedback, Felix&apos;s real voice analysis arrives when the
-            backend is connected
-          </p>
-        )}
       </section>
+
+      <p className="nv-footnote mt-5 text-center">
+        {session.goal && <>{session.goal} · </>}
+        {dateLabel}
+        {durationLabel && (
+          <>
+            {" · "}
+            <span className="nv-num">{durationLabel}</span>
+          </>
+        )}
+        {" · "}
+        <Link href="/ai" className="underline">
+          AI-generated
+        </Link>
+      </p>
+
+      {analysis.isSample && (
+        <p className="nv-footnote mt-2 text-center">
+          Sample feedback, Felix&apos;s real voice analysis arrives when the
+          backend is connected
+        </p>
+      )}
+
+      {session.xpEarned || beatSomething ? (
+        <div className="nv-hud mt-3 justify-center">
+          {beatSomething && <NvBadge pop="mint">Your best yet</NvBadge>}
+          {session.xpEarned ? (
+            <NvBadge pop="sun">
+              <span className="nv-num">+{session.xpEarned}</span>&nbsp;XP
+            </NvBadge>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* --- WHAT MATTERS ----------------------------------------------------
+          Three cards, in the order you'd act on them: what to keep, what to
+          move, what to do about it tonight. */}
+      {(matters.keep || matters.fix || matters.next) && (
+        <>
+          <NvSectionHeader>What matters from this take</NvSectionHeader>
+          <div className="flex flex-col gap-2.5">
+            {matters.keep && (
+              <div className="nv-insight" data-band="high">
+                <span className="nv-insight-mark" aria-hidden="true">
+                  1
+                </span>
+                <span className="min-w-0">
+                  <span className="nv-insight-title">{matters.keep.title}</span>
+                  <span className="nv-insight-body">{matters.keep.body}</span>
+                </span>
+              </div>
+            )}
+            {matters.fix && (
+              <div className="nv-insight" data-band={matters.fix.band}>
+                <span className="nv-insight-mark" aria-hidden="true">
+                  2
+                </span>
+                <span className="min-w-0">
+                  <span className="nv-insight-title">{matters.fix.title}</span>
+                  <span className="nv-insight-body">{matters.fix.body}</span>
+                </span>
+              </div>
+            )}
+            {matters.next && (
+              <Link href={practiceHref} className="nv-insight" data-ink="">
+                <span className="nv-insight-mark" aria-hidden="true">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M5 12h14" />
+                    <path d="m12 5 7 7-7 7" />
+                  </svg>
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="nv-insight-title">{matters.next.title}</span>
+                  <span className="nv-insight-body">{matters.next.body}</span>
+                </span>
+              </Link>
+            )}
+          </div>
+        </>
+      )}
 
       {/* The receipt sits directly under the verdict: the score is what you
           did, this is what it bought. */}
@@ -384,16 +557,17 @@ export function NativeReport({
           never an empty card. */}
       {analysis.skills.length > 0 && (
         <>
-          <NvSectionHeader>How it broke down</NvSectionHeader>
+          <NvSectionHeader>
+            All {analysis.skills.length === 6 ? "six " : ""}metrics
+          </NvSectionHeader>
           <NvGroup>
-            <div className="flex flex-col gap-5 px-4 py-4">
-              {analysis.skills.map((s, i) => (
+            <div className="py-1.5">
+              {analysis.skills.map((s) => (
                 <MeterRow
                   key={s.skill}
                   label={s.skill}
                   score={s.score}
                   note={s.note}
-                  index={i}
                 />
               ))}
             </div>
@@ -411,19 +585,29 @@ export function NativeReport({
       <NvGroup>
         <Reveal className="px-4 py-4">
           <div className="native-selectable nv-body">
-            {analysis.transcript.map((seg, i) =>
-              seg.mark ? (
-                <span
-                  key={i}
-                  className={`sweep ${seg.mark === "strong" ? "sweep-strong" : "sweep-flag"}`}
-                  style={{ transitionDelay: `${400 + i * 180}ms` }}
-                >
-                  {seg.text}
-                </span>
-              ) : (
-                <span key={i}>{seg.text}</span>
-              )
-            )}
+            {/* A space BETWEEN segments, not inside them.
+                The transcript is a list of sentence-sized segments and the
+                spans were rendered flush, so the reading card said
+                "work on.We give those four hours back.It runs in the
+                background" — three sentences welded together at every
+                boundary. The separator belongs between the spans rather than
+                appended to each one's text, so a highlighted segment's mark
+                never extends past its last word. */}
+            {analysis.transcript.map((seg, i) => (
+              <Fragment key={i}>
+                {i > 0 && " "}
+                {seg.mark ? (
+                  <span
+                    className={`sweep ${seg.mark === "strong" ? "sweep-strong" : "sweep-flag"}`}
+                    style={{ transitionDelay: `${400 + i * 180}ms` }}
+                  >
+                    {seg.text}
+                  </span>
+                ) : (
+                  <span>{seg.text}</span>
+                )}
+              </Fragment>
+            ))}
           </div>
         </Reveal>
         {notes.length > 0 && (
@@ -433,15 +617,19 @@ export function NativeReport({
           >
             {notes.map((s, i) => (
               <div key={i} className="flex gap-3">
-                {/* Accent dot = keep, warning dot = cut; the sr-only text
-                    carries the distinction for everyone the hue misses. */}
+                {/* Mint dot = keep, ember dot = cut — the same two colours the
+                    highlights in the card above use, so the note and the mark
+                    it refers to are visibly the same claim. (They used to be
+                    ember for keep and amber for cut, which agreed with
+                    neither.) The sr-only text carries the distinction for
+                    everyone the hue misses. */}
                 <span
                   className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
                   style={{
                     background:
                       s.mark === "strong"
-                        ? "var(--nv-accent-500)"
-                        : "var(--nv-warning)",
+                        ? "var(--nv-mint)"
+                        : "var(--nv-accent-500)",
                   }}
                 >
                   <span className="sr-only">
@@ -500,14 +688,13 @@ export function NativeReport({
                 <span className="nv-stat-label">/ 100 presence</span>
               </div>
               <p className="nv-subhead mt-2">{analysis.stage.summary}</p>
-              <div className="mt-4 flex flex-col gap-5">
-                {analysis.stage.metrics.map((m, i) => (
+              <div className="mt-3">
+                {analysis.stage.metrics.map((m) => (
                   <MeterRow
                     key={m.metric}
                     label={m.metric}
                     score={m.score}
                     note={m.note}
-                    index={i}
                   />
                 ))}
               </div>
@@ -521,12 +708,12 @@ export function NativeReport({
         </>
       )}
 
-      {analysis.strengths && analysis.strengths.length > 0 && (
+      {restStrengths.length > 0 && (
         <>
-          <NvSectionHeader>What worked</NvSectionHeader>
+          <NvSectionHeader>What else worked</NvSectionHeader>
           <NvGroup>
             <div className="flex flex-col gap-2.5 px-4 py-4">
-              {analysis.strengths.map((s, i) => (
+              {restStrengths.map((s, i) => (
                 <div key={i} className="flex gap-3">
                   <span
                     className="mt-2 h-2 w-2 shrink-0 rounded-full"
@@ -550,25 +737,29 @@ export function NativeReport({
         </>
       )}
 
-      {analysis.tips.length > 0 && (
+      {restTips.length > 0 && (
         <>
           <NvSectionHeader>Try this next time</NvSectionHeader>
           <NvGroup>
             <div className="px-4 py-4">
-              <NumberedTips tips={analysis.tips} />
+              <NumberedTips tips={restTips} />
             </div>
           </NvGroup>
         </>
       )}
 
-      {analysis.drills && analysis.drills.length > 0 && (
+      {/* The FIRST drill is already the third card at the top of this report —
+          it is the "then what do I do about it" of the three things. Listing
+          it again down here printed the same title and the same sentence
+          twice on one screen. Only the drills the hero card didn't take. */}
+      {restDrills.length > 0 && (
         <>
-          <NvSectionHeader>Drills to run</NvSectionHeader>
+          <NvSectionHeader>More drills</NvSectionHeader>
           <p className="nv-footnote mb-2 px-1">
             Short, targeted exercises for exactly what this take needs.
           </p>
           <NvGroup>
-            {analysis.drills.map((d, i) => (
+            {restDrills.map((d, i) => (
               <div
                 key={i}
                 className="px-4 py-4"

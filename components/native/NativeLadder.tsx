@@ -1,10 +1,16 @@
 "use client";
 
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { useIsNative } from "@/lib/native";
 import { Felix, type FelixAccessory } from "@/components/FoxLogo";
 import { FelixScene } from "@/components/Biome";
-import { CoinBadge, FlameGlyph, flameTier } from "@/components/native/felix";
+import {
+  bandForScore,
+  CoinBadge,
+  FlameGlyph,
+  flameTier,
+} from "@/components/native/felix";
 import { currentOutfit, moodFor, nextOutfit } from "@/lib/quests";
 import { LEVELS } from "@/lib/levels";
 import {
@@ -42,12 +48,55 @@ import type { Session } from "@/lib/types";
 /** How many settled days sit under today before the climb runs off screen. */
 const PAST_RUNGS = 2;
 
+/**
+ * Where a score sits: mint is good, ember is working, rough is quiet ink.
+ *
+ * `bandForScore` and nothing else. This screen briefly had its own 80/60
+ * thresholds, which meant an 82 was mint on the climb and ember on its own
+ * report — the exact disagreement the shared mapping exists to prevent.
+ */
+const bandOf = bandForScore;
+
 interface PastRung {
   key: string;
   score: number;
   title: string;
   weekday: string;
   sessionId: string;
+}
+
+/**
+ * The last seven days, Sunday first, each holding the best score recorded on
+ * it. The climb shows you the last two days in detail; this shows the shape
+ * of the week, which is the thing a streak is actually made of.
+ */
+function weekStrip(
+  sessions: Session[],
+  todayBest: number | null
+): { letter: string; key: string; score: number | null; isToday: boolean }[] {
+  const best = new Map<string, number>();
+  for (const s of sessions) {
+    const score = s.analysis?.overall;
+    if (typeof score !== "number") continue;
+    const k = todayKey(new Date(s.createdAt));
+    best.set(k, Math.max(best.get(k) ?? 0, score));
+  }
+  const now = new Date();
+  const start = new Date(now);
+  start.setDate(now.getDate() - now.getDay()); // back to Sunday
+  const today = todayKey(now);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    const key = todayKey(d);
+    const isToday = key === today;
+    return {
+      key,
+      letter: ["S", "M", "T", "W", "T", "F", "S"][i],
+      score: isToday ? todayBest : (best.get(key) ?? null),
+      isToday,
+    };
+  });
 }
 
 /**
@@ -87,13 +136,52 @@ const stroke = {
   strokeLinejoin: "round" as const,
 };
 
-function MicGlyph() {
+function MicGlyph({ size = 20 }: { size?: number }) {
   return (
-    <svg width="40" height="40" viewBox="0 0 24 24" {...stroke} strokeWidth={1.9} aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 24 24" {...stroke} strokeWidth={2} aria-hidden="true">
       <rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor" stroke="none" />
       <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0" />
       <path d="M12 18v3" />
     </svg>
+  );
+}
+
+/** The score ring Felix stands inside. r=92 in a 196 box, so C = 578. */
+const RING_C = 2 * Math.PI * 92;
+
+function ScoreRing({
+  percent,
+  band,
+  children,
+}: {
+  /** 0-100, or null for "nothing to draw yet". */
+  percent: number | null;
+  band: ReturnType<typeof bandForScore>;
+  children: ReactNode;
+}) {
+  return (
+    <div className="nv-ring" data-band={band}>
+      {percent === null && <span className="nv-ring-halo" aria-hidden="true" />}
+      <svg viewBox="0 0 196 196" fill="none" aria-hidden="true">
+        <circle className="nv-dial-track" cx="98" cy="98" r="92" strokeWidth="5" />
+        {percent !== null && (
+          <circle
+            className="nv-ring-arc"
+            cx="98"
+            cy="98"
+            r="92"
+            stroke="var(--band, var(--nv-accent-500))"
+            strokeWidth="5"
+            strokeLinecap="round"
+            strokeDasharray={RING_C}
+            strokeDashoffset={RING_C * (1 - Math.max(0, Math.min(100, percent)) / 100)}
+            transform="rotate(-90 98 98)"
+          />
+        )}
+      </svg>
+      <span className="nv-ring-spot" aria-hidden="true" />
+      {children}
+    </div>
   );
 }
 
@@ -118,18 +206,23 @@ function LockGlyph() {
   );
 }
 
-/* --- Off the ladder --------------------------------------------------------
+/* --- Go deeper -------------------------------------------------------------
    The Premium modules used to be a grouped list under Today, which put four
    more rows of navigation on the one screen that is supposed to say a single
    thing. They live at the FOOT of the climb now: a rail you reach after the
-   day is dealt with, not a menu you scroll past on the way to it. */
+   day is dealt with, not a menu you scroll past on the way to it.
+
+   Four hues went in here once; three go out. `sky` and `lilac` both resolve
+   to violet in this pass, so Interviews and My material read as one family —
+   which is right, because they are the two "your own material" doors. */
 const RAIL = [
   {
     href: "/interviews",
     label: "Interviews",
+    sub: "Jobs, college, grad school",
     pop: "sky",
     glyph: (
-      <svg width="17" height="17" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
         <path d="M4 5.5h16v10H9l-5 4z" />
         <path d="M9 10h6" />
       </svg>
@@ -138,9 +231,10 @@ const RAIL = [
   {
     href: "/social",
     label: "Social skills",
+    sub: "Small talk, tough rooms",
     pop: "rose",
     glyph: (
-      <svg width="17" height="17" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
         <path d="M3.5 4.5h11v7.5H8.5l-5 3.5z" />
         <path d="M21 10h-6v6.5h2.5l3.5 3z" />
       </svg>
@@ -149,9 +243,10 @@ const RAIL = [
   {
     href: "/custom",
     label: "Felix writes it",
+    sub: "A speech for your situation",
     pop: "mint",
     glyph: (
-      <svg width="17" height="17" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
         <path d="M4 20l1-4.5L15.5 5a2.1 2.1 0 0 1 3 3L8 18.5z" />
         <path d="M13.5 7 17 10.5" />
       </svg>
@@ -160,9 +255,10 @@ const RAIL = [
   {
     href: "/own",
     label: "My material",
+    sub: "Your own pitches and talks",
     pop: "lilac",
     glyph: (
-      <svg width="17" height="17" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
         <path d="M5 4.5h8l6 6V19a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19z" />
         <path d="M13 4.5v6h6" />
       </svg>
@@ -223,6 +319,13 @@ export function NativeLadder({
   const bestAttempt = challenge?.attempts.reduce<
     { score: number; sessionId: string } | null
   >((top, a) => (top === null || a.score > top.score ? a : top), null);
+
+  const week = sessionsFailed ? [] : weekStrip(sessions, best);
+  const todayIndex = new Date().getDay();
+  const scored = week.filter((d) => d.score !== null);
+  const weekAvg = scored.length
+    ? Math.round(scored.reduce((t, d) => t + (d.score ?? 0), 0) / scored.length)
+    : null;
 
   const reward = nextOutfit(level?.level ?? 1);
   const rewardGate = reward ? LEVELS[reward.level - 1] : undefined;
@@ -314,87 +417,85 @@ export function NativeLadder({
 
       {/* --- The climb ------------------------------------------------------- */}
       <div className="nv-ladder">
-        <span className="nv-spine" aria-hidden="true" />
-
         {past.map((r, i) => (
-          <Link
-            key={r.key}
-            href={`/report/${r.sessionId}`}
-            className={`nv-rung nv-press ${i === 0 ? "" : "mt-5"}`}
-            data-side={i % 2 === 0 ? "left" : "right"}
-            style={
-              i % 2 === 0
-                ? { alignSelf: "flex-start", marginLeft: 22 }
-                : { alignSelf: "flex-end", marginRight: 18 }
-            }
-          >
-            <span className="nv-rung-disc">{r.score}</span>
-            <span className="nv-rung-caption truncate">
-              {r.weekday} · {r.title}
-            </span>
-          </Link>
+          <Fragment key={r.key}>
+            {i > 0 && <span className="nv-spine-seg" aria-hidden="true" />}
+            <Link
+              href={`/report/${r.sessionId}`}
+              className="nv-rung nv-press"
+              data-side={i % 2 === 0 ? "left" : "right"}
+              style={
+                i % 2 === 0
+                  ? { alignSelf: "flex-start", marginLeft: 22 }
+                  : { alignSelf: "flex-end", marginRight: 18 }
+              }
+            >
+              <span className="nv-rung-disc" data-band={bandOf(r.score)}>
+                {r.score}
+              </span>
+              <span className="nv-rung-caption truncate">
+                {r.weekday} · {r.title}
+              </span>
+            </Link>
+          </Fragment>
         ))}
+        {past.length > 0 && (
+          <span className="nv-spine-seg" style={{ "--seg": "40px" } as CSSProperties} aria-hidden="true" />
+        )}
 
         {/* TODAY.
             The no-past-rungs case needs MORE headroom, not less: with nothing
-            above it the rung sits straight under the sticky HUD, and Felix —
-            who stands 62px proud of the rung's top — had his ears clipped by
-            the bar on a brand-new account's very first screen. */}
-        <div className={`nv-today ${past.length ? "mt-11" : "mt-16"}`}>
-          <span className="nv-rung-felix" aria-hidden="true">
-            <Felix
-              mood={lit ? "cheer" : mood}
-              accessory={wearing}
-              animate
-              className="block h-[94px] w-[94px]"
-            />
-          </span>
+            above it the ring sits straight under the sticky HUD.
 
-          {/* NOT tappable until the attempts are known.
-              `challenge === null` is "still loading", and it collapses to the
-              same values as "nothing done yet" — so the rung showed the mic,
-              the halo and a live link to /practice for someone who had already
-              used all three attempts today, who tapped through and got turned
-              away at the other end. This is the exact failure the old Today's
-              CTA guard existed to stop; the rung inherited the state and not
-              the guard. */}
-          <Link
-            href={rungHref}
-            className="nv-rung-btn"
-            aria-label={rungLabel}
-            aria-disabled={challenge === null || undefined}
-            onClick={(e) => {
-              if (challenge === null) e.preventDefault();
-            }}
-            style={challenge === null ? { pointerEvents: "none" } : undefined}
+            The 136px orange planet this used to be is now a RING that Felix
+            stands inside, and the action has moved down into a pill — the same
+            shape every other action in the app is. The circle was the loudest
+            object in the app while carrying the least information on screen;
+            the arc it became is today's actual score. */}
+        <div className={`nv-today ${past.length ? "mt-8" : "mt-12"}`}>
+          <ScoreRing
+            percent={lit && best !== null ? best : null}
+            band={lit && best !== null ? bandOf(best) : "mid"}
           >
-            {!lit && challenge !== null && (
-              <span className="nv-rung-halo" aria-hidden="true" />
-            )}
-            <span className="nv-rung-face" data-done={lit ? "" : undefined}>
-              {lit ? (
-                <>
-                  <span className="nv-rung-score">{best}</span>
-                  <span className="nv-rung-note">
-                    {complete
-                      ? "Done today"
-                      : allTimeBest !== null && best !== null && best >= allTimeBest
-                        ? "New best"
-                        : "Best today"}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <MicGlyph />
-                  <span className="nv-rung-secs">60 sec</span>
-                </>
-              )}
+            <span className="nv-ring-felix" aria-hidden="true">
+              <Felix
+                mood={lit ? "cheer" : mood}
+                accessory={wearing}
+                animate
+                className="block h-[136px] w-[136px]"
+              />
             </span>
-          </Link>
+          </ScoreRing>
+
+          {lit && best !== null && (
+            <span
+              className="nv-badge mt-3.5"
+              data-band={bandOf(best)}
+              style={{
+                background: "var(--band-soft)",
+                color: "var(--band-ink)",
+              }}
+            >
+              <span className="nv-num" style={{ fontSize: 15 }}>
+                {best}
+              </span>
+              <span>
+                {complete
+                  ? "· done today"
+                  : allTimeBest !== null && best >= allTimeBest
+                    ? "· your best yet"
+                    : "· best today"}
+              </span>
+            </span>
+          )}
 
           {/* --band-ink flips with the theme (the score-band block defines the
               dark cut); a raw --nv-accent-700 measured 3.4:1 in the Booth. */}
-          <span className="nv-caption mt-4" data-band="mid" style={{ color: "var(--band-ink)" }}>
+          <span
+            className={`nv-caption ${lit ? "mt-3.5" : "mt-4"}`}
+            data-band="mid"
+            style={{ color: "var(--band-ink)" }}
+          >
             Today{daily?.theme ? ` · ${daily.theme}` : ""}
           </span>
           <h2
@@ -402,7 +503,7 @@ export function NativeLadder({
             style={{
               fontFamily: "var(--nv-font-display)",
               fontWeight: 800,
-              fontSize: 27,
+              fontSize: 28,
               letterSpacing: "-0.05em",
               lineHeight: 1.02,
             }}
@@ -413,13 +514,49 @@ export function NativeLadder({
             <p className="nv-subhead mt-2 px-2 text-center">{daily.topic}</p>
           )}
 
+          {/* NOT tappable until the attempts are known.
+              `challenge === null` is "still loading", and it collapses to the
+              same values as "nothing done yet" — so the control showed the mic
+              and a live link to /practice for someone who had already used all
+              three attempts today, who tapped through and got turned away at
+              the other end. */}
+          <Link
+            href={rungHref}
+            className="nv-btn nv-btn-ink mt-5"
+            aria-label={rungLabel}
+            aria-disabled={challenge === null || undefined}
+            onClick={(e) => {
+              if (challenge === null) e.preventDefault();
+            }}
+            style={
+              challenge === null
+                ? { pointerEvents: "none", opacity: 0.5 }
+                : undefined
+            }
+          >
+            {!complete && (
+              <span style={{ color: "var(--nv-accent-500)" }} aria-hidden="true">
+                <MicGlyph size={21} />
+              </span>
+            )}
+            <span>
+              {challenge === null
+                ? "Checking today…"
+                : complete
+                  ? "See your report"
+                  : lit
+                    ? `Go again · beat ${best}`
+                    : "Start · 60 seconds"}
+            </span>
+          </Link>
+
           {challenge === null ? (
-            <p className="nv-footnote mt-3.5" role="status">
+            <p className="nv-footnote mt-3" role="status">
               Checking today&apos;s attempts…
             </p>
           ) : (
             <div
-              className="mt-3.5 flex items-center gap-1.5"
+              className="mt-3 flex items-center gap-1.5"
               aria-label={
                 complete
                   ? "All attempts used"
@@ -434,20 +571,22 @@ export function NativeLadder({
                   aria-hidden="true"
                 />
               ))}
-              <span className="nv-footnote ml-1 font-semibold">
+              <span className="nv-footnote ml-1">
                 {complete
                   ? "done for today"
                   : used === 0
-                    ? `${MAX_DAILY_ATTEMPTS} attempts`
-                    : `best ${best} · ${MAX_DAILY_ATTEMPTS - used} left`}
+                    ? `${MAX_DAILY_ATTEMPTS} attempts today · best one counts`
+                    : `${MAX_DAILY_ATTEMPTS - used} left`}
               </span>
             </div>
           )}
         </div>
 
+        <span className="nv-spine-seg mt-7" style={{ "--seg": "30px" } as CSSProperties} aria-hidden="true" />
+
         {/* Tomorrow, which nobody can reach early. */}
         <div
-          className="nv-rung mt-9"
+          className="nv-rung mt-4"
           data-side="left"
           style={{ alignSelf: "flex-start", marginLeft: 16 }}
         >
@@ -457,17 +596,23 @@ export function NativeLadder({
           <span className="nv-rung-caption">New topic at midnight</span>
         </div>
 
+        {reward && <span className="nv-spine-seg mt-4" aria-hidden="true" />}
+
         {/* The reward node: levelling finally has somewhere to land. */}
         {reward && (
           <Link
             href="/shop"
-            className="nv-rung nv-press mt-7"
+            className="nv-rung nv-press mt-4"
             data-side="right"
             style={{ alignSelf: "flex-end", marginRight: 12 }}
             aria-label={`${reward.name}, unlocks at level ${reward.level}`}
           >
+            {/* Felix WEARING the reward, not an emoji standing in for it.
+                Every accessory in lib/quests.ts is a real FoxLogo part, so
+                the app was rendering 🎓 next to a fox who could simply have
+                the cap on. */}
             <span className="nv-reward-tile" aria-hidden="true">
-              {reward.emoji}
+              <Felix mood="idle" accessory={reward.id as FelixAccessory} />
             </span>
             <span className="nv-rung-caption" style={{ color: "var(--nv-ink-2)" }}>
               <span className="block font-semibold" style={{ color: "var(--nv-ink)" }}>
@@ -483,34 +628,57 @@ export function NativeLadder({
 
       </div>
 
-      {/* --- Off the ladder --------------------------------------------------
-          Deliberately OUTSIDE .nv-ladder: the spine is measured against its
-          container, and threading the dashed line down through a rail of
-          navigation would say these four are rungs. They aren't — they're
-          where you go once the day is dealt with. */}
-      <div className="mt-12">
-        <h2 className="nv-caption mb-3">Off the ladder</h2>
-        <div className="flex flex-wrap gap-2.5">
-          {RAIL.map((r) => (
-            <Link
-              key={r.href}
-              href={r.href}
-              className="nv-tile relative"
-              data-pop={r.pop}
-              style={{ flexBasis: "calc(50% - 5px)" }}
+      {/* --- The week --------------------------------------------------------
+          The climb shows the last two days in detail; this shows the shape of
+          the week, which is what a streak is actually made of. Deliberately
+          OUTSIDE .nv-ladder — the spine is measured against its container. */}
+      {/* No history read, no week: an empty seven-cell grid is a claim that
+          you did nothing, and we don't know that. */}
+      <div className="mt-11" hidden={week.length === 0}>
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="nv-caption">This week</h2>
+          {weekAvg !== null && (
+            <span className="nv-footnote nv-num">avg {weekAvg}</span>
+          )}
+        </div>
+        <div className="card nv-week" style={{ padding: "16px 12px" }}>
+          {week.map((d, i) => (
+            <div
+              key={d.key}
+              className="nv-week-cell"
+              data-today={d.isToday ? "" : undefined}
             >
-              <span className="nv-tile-glyph" aria-hidden="true">
+              <span className="nv-week-day">{d.letter}</span>
+              <span
+                className="nv-week-score"
+                data-band={d.score !== null ? bandOf(d.score) : undefined}
+                data-empty={d.score === null && !d.isToday ? "" : undefined}
+                data-now={d.isToday && d.score === null ? "" : undefined}
+              >
+                {d.score ?? (d.isToday ? "·" : i < todayIndex ? "—" : "")}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* --- Go deeper -------------------------------------------------------
+          The four Premium modules. Two up, on a gradient wash rather than a
+          white tile, so they read as a different KIND of thing from the
+          climb — places to go, not days to do. */}
+      <div className="mt-9">
+        <h2 className="nv-caption mb-3">Go deeper</h2>
+        <div className="grid grid-cols-2 gap-3">
+          {RAIL.map((r) => (
+            <Link key={r.href} href={r.href} className="nv-deep" data-pop={r.pop}>
+              <span className="nv-deep-glyph" aria-hidden="true">
                 {r.glyph}
               </span>
-              <span className="nv-tile-label">{r.label}</span>
+              <span className="nv-deep-title">{r.label}</span>
+              <span className="nv-deep-sub">{r.sub}</span>
               {plan === "free" && (
                 // A lock and nothing else — no price, no CTA (App Store rule).
-                // In the tile's corner rather than inline after the label,
-                // where it read as punctuation.
-                <span
-                  className="absolute right-3 top-3"
-                  style={{ color: "var(--nv-ink-3)" }}
-                >
+                <span className="nv-deep-lock">
                   <svg width="13" height="13" viewBox="0 0 24 24" {...stroke} strokeWidth={2.4} aria-hidden="true">
                     <rect x="5" y="10.5" width="14" height="9.5" rx="2" />
                     <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />

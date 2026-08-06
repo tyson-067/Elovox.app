@@ -140,9 +140,26 @@ const config: CapacitorConfig = {
     // redirects. Leave false unless something specifically demands otherwise.
     limitsNavigationsToAppBoundDomains: false,
 
-    // Let the web app's own safe-area handling position content, rather than
-    // having the webview inset it a second time.
-    contentInset: 'always',
+    // 'never', not 'always'. This said "let the web app's own safe-area
+    // handling position content, rather than having the webview inset it a
+    // second time" and then set the value that does exactly the second thing:
+    // 'always' maps to contentInsetAdjustmentBehavior = .always, which insets
+    // the scroll content by the safe area on top of the app's own
+    // env(safe-area-inset-*) padding — and leaves the scroll view's own
+    // background showing in the band it just vacated.
+    //
+    // On every bone screen that band is white against #fbf7f2 and nobody sees
+    // it. In the recording booth it is white against near-black: a bright
+    // strip across the bottom of the one screen that is supposed to be a dark
+    // room. It is not reachable from CSS — a `position: fixed; inset: 0`
+    // element stops at the viewport, and the band is outside it (verified by
+    // pushing the takeover 80px past the bottom on device: the strip did not
+    // move).
+    //
+    // The page already inserts every inset it needs by hand, and
+    // viewport-fit=cover is set in app/layout.tsx, so 'never' is what the
+    // comment always meant.
+    contentInset: 'never',
   },
 };
 

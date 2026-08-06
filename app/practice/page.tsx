@@ -976,6 +976,24 @@ function RecordingScreen() {
 
   const attemptNumber = (challenge?.attempts.length ?? 0) + 1;
 
+  /**
+   * What Felix says while the mic is hot.
+   *
+   * Deliberately NOT a live reading of pace or fillers. Nothing in this app
+   * measures either until the take is uploaded and scored — `liveMetrics` only
+   * arrives during analysis — so a bubble reading "you're at 182 wpm" mid-take
+   * would be a number we invented. The day's `focus` is a real field the
+   * challenge already carries, and the goal is what the speaker themselves
+   * asked to be judged on. Absent both, he listens and says nothing.
+   */
+  const boothLine = isDaily
+    ? daily?.focus
+      ? `Watching for: ${daily.focus}`
+      : null
+    : goal
+      ? `Judging this against: ${goal.label}`
+      : null;
+
   return (
     // Two columns from `lg` up.
     //
@@ -1512,7 +1530,7 @@ function RecordingScreen() {
             <span
               className={
                 native && recording
-                  ? "nv-timer nv-num"
+                  ? "nv-timer nv-num block text-center"
                   : `font-data text-2xl tabular-nums ${
                       isDaily && recording && elapsed > DAILY_LIMIT_SEC - 10
                         ? "text-accent-strong"
@@ -1538,6 +1556,15 @@ function RecordingScreen() {
                 : formatTime(elapsed)}
             </span>
 
+            {/* What the number means. At 88px the timer is the biggest thing
+                on the screen and it still doesn't say whether it is counting
+                up or down; one caption does. */}
+            {native && recording && (
+              <span className="nv-booth-meta -mt-3" aria-hidden="true">
+                {isDaily ? "left of sixty" : "elapsed"}
+              </span>
+            )}
+
             {/* The take, narrated. Mounted for the whole screen and not just
                 while recording, because a live region has to be in the DOM
                 before its text changes or the first announcement — "Recording
@@ -1550,6 +1577,42 @@ function RecordingScreen() {
               {announcement}
             </span>
 
+            {/* THE BOOTH'S CONTROL IS A PILL, not a red planet.
+                A round record button is what you press to START; while the mic
+                is already hot the only job left is finishing, and a full-width
+                ember pill saying so is both unmissable and the same shape every
+                other action in this app has. It runs the SAME `stop` handler
+                the blob did — the take is scored either way — and the discard
+                × in the header still throws the take away for free.
+
+                The web keeps its blob: that screen has a start state, and this
+                branch never renders there. */}
+            {native && recording ? (
+              <>
+                <button
+                  type="button"
+                  onClick={stop}
+                  disabled={busy}
+                  aria-label="Finish take"
+                  className="nv-btn nv-btn-primary disabled:opacity-50"
+                >
+                  <span
+                    className="block h-4 w-4 rounded-[4px]"
+                    style={{ background: "currentColor" }}
+                    aria-hidden="true"
+                  />
+                  <span>Finish take</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={discardTake}
+                  className="nv-btn nv-btn-plain"
+                  style={{ color: "var(--nv-on-stage-3)" }}
+                >
+                  Discard this one
+                </button>
+              </>
+            ) : (
             <div
               className={
                 "relative h-24 w-24" +
@@ -1602,28 +1665,23 @@ function RecordingScreen() {
                 )}
               </button>
             </div>
+            )}
 
-            <span
-              className={
-                "text-[13px] font-semibold tracking-wide text-on-surface-variant" +
-                (native && recording ? " opacity-75" : "")
-              }
-              // Same inheritance as the peek line: the variant ink is invisible
-              // on the always-dark takeover, the booth's own chalk is not.
-              style={native && recording ? { color: "inherit" } : undefined}
-            >
-              {recording
-                ? isDaily
-                  ? "Tap to finish, or it stops itself at zero"
-                  : "Tap to finish"
-                : busy
-                  ? "One moment"
-                  : state === "error"
-                    ? "Tap to record again"
-                    : isDaily
-                      ? "Tap to record. You get sixty seconds."
-                      : "Tap to record"}
-            </span>
+            {!(native && recording) && (
+              <span className="text-[13px] font-semibold tracking-wide text-on-surface-variant">
+                {recording
+                  ? isDaily
+                    ? "Tap to finish, or it stops itself at zero"
+                    : "Tap to finish"
+                  : busy
+                    ? "One moment"
+                    : state === "error"
+                      ? "Tap to record again"
+                      : isDaily
+                        ? "Tap to record. You get sixty seconds."
+                        : "Tap to record"}
+              </span>
+            )}
 
             {/* Felix, waiting on you. He steps aside while a take is being
                 analyzed: AnalyzingLoader puts him inside the ring up on the
@@ -1631,12 +1689,34 @@ function RecordingScreen() {
                 app's booth he LISTENS while you speak — eyes shut, chest bars
                 alive, tail going — the same pose the loader shows him in
                 right after. The web keeps his quiet idle. */}
-            {!busy && (
-              <Felix
-                mood={recording ? (native ? "listening" : "idle") : "coach"}
-                animate={!recording || native}
-                className="h-20 w-20 opacity-90"
-              />
+            {/* In the booth Felix moves BESIDE his line rather than standing
+                under a bare control: he is listening, and what he is listening
+                FOR is the day's focus — a real field on the challenge, not an
+                invented live measurement. Absent a focus he says nothing and
+                just listens.
+
+                Rendered above the pill in DOM order via `order`, so the
+                bubble sits where the eye already is (under the waveform)
+                without moving the control it belongs to. */}
+            {!busy && native && recording ? (
+              <div className="order-first flex w-full items-start gap-3">
+                <Felix
+                  mood="listening"
+                  animate
+                  className="h-[70px] w-[70px] shrink-0"
+                />
+                {boothLine && (
+                  <p className="nv-bubble mt-2 min-w-0 flex-1">{boothLine}</p>
+                )}
+              </div>
+            ) : (
+              !busy && (
+                <Felix
+                  mood={recording ? "idle" : "coach"}
+                  animate={!recording}
+                  className="h-20 w-20 opacity-90"
+                />
+              )
             )}
           </div>
         </div>

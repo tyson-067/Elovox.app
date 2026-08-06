@@ -128,8 +128,73 @@
     <img src="logo.png" alt="" />
     <h1>No connection</h1>
     <p>Elovox needs to be online to run your rep and score it. Check your connection and try again.</p>
-    <button type="button" onclick="location.reload()">Try again</button>
+    <button type="button" id="retry">Try again</button>
   </main>
+  <script>
+    // THIS BUTTON USED TO BE `location.reload()`, AND THAT WAS A DEAD END.
+    //
+    // When a load fails, Capacitor's WebViewDelegationHandler calls
+    // `webView.load(errorPathURL)`, and errorPathURL is built from the LOCAL
+    // url — `capacitor://localhost/index.html`, this file, out of the app
+    // bundle. So by the time anyone reads this sentence the webview's
+    // `location` is the bundled page, not elovox.app, and reloading it
+    // re-fetches this same file off disk. It always succeeds, and it always
+    // shows "No connection" again.
+    //
+    // Which means: one dropped connection — a lift, a tunnel, airplane mode
+    // toggled — and the app was stuck on this screen permanently. Force-quit
+    // was the only way out. Found by leaving a simulator running overnight
+    // against a dev server that died: the server came back, the button did
+    // nothing, forever.
+    //
+    // `window.WEBVIEW_SERVER_URL` is no help — Capacitor injects the LOCAL
+    // url there too (JSExport.swift), not the remote one.
+    //
+    // So the shipped app hard-navigates to its own origin — a FRESH network
+    // load, not a history restore.
+    //
+    // `history.back()` was tried first and rejected on the evidence: it does
+    // recover, but WebKit serves the app url out of its cache, so the retry
+    // came back on a page built before the release the user is now running.
+    // Across a deploy that is a stale document asking for chunks that no
+    // longer exist. "Get me back into the app" has to mean the app as it is
+    // now.
+    //
+    // HOME duplicates the default in capacitor.config.ts, which is the one
+    // place it could come from: Capacitor gives the page no way to read the
+    // configured server url (WEBVIEW_SERVER_URL is the LOCAL scheme, and
+    // capacitor.config.json lives outside webDir where the webview cannot
+    // fetch it). A DEBUG build must not be flung at production for this
+    // convenience, so it goes back instead — `Capacitor.DEBUG` is injected by
+    // JSExport.swift and is true only for a Debug build.
+    (function () {
+      var HOME = 'https://elovox.app';
+      var btn = document.getElementById('retry');
+      var isDebugBuild = !!(window.Capacitor && window.Capacitor.DEBUG);
+
+      function retry() {
+        btn.disabled = true;
+        var here = location.href;
+        if (isDebugBuild && history.length > 1) {
+          history.back();
+        } else {
+          location.replace(HOME);
+        }
+        // Belt and braces: if nothing moved a beat later — `back()` had
+        // nowhere to go, or WebKit restored this very page — stop being
+        // clever and load the app.
+        setTimeout(function () {
+          if (location.href === here) location.replace(HOME);
+        }, 700);
+      }
+
+      btn.addEventListener('click', retry);
+
+      // The app heals itself. Sitting on a dead screen waiting for the user to
+      // notice their signal came back is the same bug with extra steps.
+      window.addEventListener('online', retry);
+    })();
+  </script>
   <script>
     // The splash is normally taken down by components/NativeRuntime.tsx once
     // the real app has painted — code that lives on elovox.app, the one
