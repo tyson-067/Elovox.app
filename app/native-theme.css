@@ -4781,12 +4781,35 @@ html[data-native] #main .pill {
 html[data-native] #main .pill:active {
   transform: scale(0.97);
 }
-/* Sign in with Apple keeps the HIG's own black-on-white / white-on-black, and
-   its own radius: Apple specifies the button, and this pass does not get to
-   restyle it. Only the geometry the rule above forced on it comes back. */
+/* Sign in with Apple keeps the HIG's own black-on-white / white-on-black and
+   its own logo — those are the parts Apple actually specifies and the parts
+   review looks at. It does NOT keep a different typeface from every other
+   button on the screen, which is what pinning it to the body font did: it sat
+   directly under "Continue with Google" in Montserrat and read as a control
+   borrowed from another app. Shape and label from Apple, face from us. */
 html[data-native] #main .apple-signin-btn {
   border-radius: var(--nv-r-pill);
-  font-family: var(--nv-font-body);
-  font-weight: 600;
-  letter-spacing: -0.01em;
+}
+
+/* --- THE SHARED HEADINGS FINALLY SPEAK THE DISPLAY FACE --------------------
+   `--font-headline` was pointed at `--nv-font` — the system stack — by the
+   very first token remap, back when the whole shell spoke SF. Two passes
+   later the display layer moved to Montserrat, but it moved via the `.nv-*`
+   classes only; nobody went back and re-pointed the web's own token.
+
+   The result: every screen built from Native* components had Montserrat
+   titles, and every screen the app SHARES with the website — log in, sign up,
+   verify email, and all the legal pages you can reach from the Den — rendered
+   its heading in SF. "Welcome back" is the first text a signed-out user ever
+   sees in this app, and it was the one heading in it not wearing the brand.
+
+   Every `.font-headline` in the codebase is on something text-lg or bigger,
+   so the display weight and tracking are right for all of them. */
+html[data-native] {
+  --font-headline: var(--nv-font-display);
+  --font-slogan: var(--nv-font-display);
+}
+html[data-native] #main .font-headline {
+  font-weight: 800;
+  letter-spacing: var(--nv-track-title);
 }
