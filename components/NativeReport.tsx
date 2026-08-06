@@ -1,9 +1,10 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useIsNative } from "@/lib/native";
+import { useInkTopBar, useIsNative } from "@/lib/native";
+import { notifySuccess } from "@/lib/haptics";
 import { CountUp } from "@/components/CountUp";
 import { Felix } from "@/components/FoxLogo";
 import { Reveal } from "@/components/Reveal";
@@ -317,6 +318,9 @@ export function NativeReport({
 }) {
   const native = useIsNative();
   const router = useRouter();
+  // The report opens on an ink stage, so the status bar owes it light glyphs
+  // even in the light theme.
+  useInkTopBar(native);
 
   // A take you JUST finished earns a celebration; rereading an old report
   // doesn't. Confetti only for fresh, good takes — rarity is what keeps it
@@ -331,6 +335,21 @@ export function NativeReport({
       Date.now() - session.createdAt < 3 * 60 * 1000 &&
       session.analysis.overall >= 75
   );
+
+  /* The score landing is the payoff of the whole app, and until now it
+     arrived in silence. iOS has a notification haptic that means exactly
+     "that went well" — it has been exported from lib/haptics.ts and never
+     called.
+
+     Gated on the same `celebrate` the confetti uses: a take you JUST
+     finished, and a good one. Firing it on every report would spend the
+     strongest feedback the phone has on re-reading an old page, and firing
+     it on a 41 would be the device congratulating you for a take the screen
+     is about to give notes on. */
+  useEffect(() => {
+    if (!native || !celebrate) return;
+    notifySuccess();
+  }, [native, celebrate]);
 
   if (!native) return null;
 

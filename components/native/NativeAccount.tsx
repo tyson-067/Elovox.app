@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import { FelixScene } from "@/components/Biome";
 import { NvSparkles } from "@/components/native/felix";
 import { Felix, type FelixAccessory } from "@/components/FoxLogo";
-import { useIsNative, useTheme } from "@/lib/native";
+import { useInkTopBar, useIsNative, useTheme } from "@/lib/native";
 import { getUser, isFirebaseConfigured } from "@/lib/firebase";
 import { LEGAL } from "@/lib/legal";
 import { badgesFor, currentOutfit, wardrobeFor } from "@/lib/quests";
@@ -596,6 +596,22 @@ function PlanSection() {
       footnote = `Renews ${fmtDate(r.currentPeriodEnd)}.`;
     } else if (!subscribed && hasComp(r)) {
       footnote = `Premium until ${fmtDate(r.premiumUntil)}, free for your ${STREAK_REWARD_DAYS}-day streak.`;
+    } else if (!subscribed) {
+      // WHAT PREMIUM IS, and nothing about getting it.
+      //
+      // A free account saw "Plan · Free" and, everywhere else in the app, a
+      // row of padlocks with no explanation. To a user that is a wall; to an
+      // App Review tester with a fresh account it reads as a half-finished
+      // app, which is a 2.1 conversation nobody wants to have.
+      //
+      // Guideline 3.1.1 forbids a price, a purchase, or a route to one — it
+      // does not forbid saying what the tier contains, and globals.css has
+      // said so since the web-only rule was written. So: features, present
+      // tense, no price, no verb that leads anywhere. Deliberately no "manage
+      // in a browser" either; that phrasing belongs to the payment-failed case
+      // above, where the user already has a subscription to repair.
+      footnote =
+        "Free is the Daily Minute: a new topic each day, three takes, all scored. Premium adds your own pitches and talks, interview and social practice, the speech library, and camera coaching.";
     }
   }
 
@@ -1282,6 +1298,8 @@ function AccountNative({
   initialVerified: boolean;
   providerName: string;
 }) {
+  // The Den opens on a violet ink stage — light glyphs, both themes.
+  useInkTopBar(true);
   const [verified, setVerified] = useState(initialVerified);
   const [emailOpen, setEmailOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);

@@ -110,20 +110,36 @@ From CAPACITOR.md, the items only a physical device can prove:
 - [ ] Mic prompt shows the Elovox usage string; a full rep returns a score
 - [ ] Camera pass stays inline (no fullscreen hijack)
 - [ ] Airplane mode → offline shell renders, Retry works
+      (This one FAILED for the whole life of the app until 2026-08-06: Retry
+      was `location.reload()` on a page Capacitor loads from the BUNDLE, so it
+      re-served the error screen forever and force-quit was the only way out.
+      Test it properly — go offline, come back, and tap it.)
+- [ ] Status bar glyphs stay legible on the Report, the Den and the booth
+      (all three are ink-topped in light mode; `data-topbar` drives this)
 - [ ] No price or upgrade CTA anywhere
 - [ ] Change-password / change-email on a Google account doesn't hang
 - [ ] Daily reminder fires and its tap opens /practice?daily=1
 
 ## Risks worth knowing before you hit Upload
 
-- **Guideline 4.8 (Login Services).** The app offers Google sign-in. Apple's
-  current rule says apps using a third-party login must also offer one that
-  limits data collection and lets users hide their email — i.e. **Sign in
-  with Apple**. Email/password may or may not satisfy the reviewer. Many apps
-  ship Google + email/password without issue, but if the review bounces on
-  4.8, the fix is additive: Sign in with Apple via the same
-  `@capacitor-firebase/authentication` plugin, roughly an evening of work.
-  Decide whether to pre-empt it or risk one review cycle.
+- **~~Guideline 4.8 (Login Services)~~ — RETIRED.** Sign in with Apple ships:
+  the entitlement is in `App.entitlements` and the button is on both auth
+  screens. This risk is closed.
+
+- **Guideline 3.1.1, and the fact that nobody can pay on iOS.** There is no
+  StoreKit anywhere in this project, which is compliant — no purchase means no
+  IAP obligation — but it has two consequences worth deciding about ON PURPOSE
+  rather than discovering in review. An iOS-only user can never become
+  Premium; and iOS revenue is structurally zero. The Den now describes what
+  Premium contains (features only, no price, no route), so a reviewer with a
+  fresh account sees intent rather than a wall of padlocks. If review still
+  queries it, the answer is that Premium is an account-level entitlement and
+  the app sells nothing.
+
+- **A demo account is mandatory.** `RequireAuth` bounces to /login, so a
+  reviewer sees NOTHING without credentials, and it must be email/password —
+  Sign in with Apple and Google are both unusable for them. App Store Connect
+  → App Review Information → Sign-In Required.
 - **Guideline 4.2 (minimum functionality).** Already mitigated by design:
   native entry routing, native Google sign-in, haptics, local notification
   reminders, offline screen, no marketing pages. The record of this is in
