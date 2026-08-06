@@ -8,9 +8,7 @@ import { Felix } from "@/components/FoxLogo";
 import {
   bandForScore,
   FelixBubble,
-  moodForScore,
   NvBadge,
-  popFor,
   StreakStat,
 } from "@/components/native/felix";
 import {
@@ -22,9 +20,8 @@ import {
   NvSheet,
   NvStat,
 } from "@/components/native/ui";
-import { Tape } from "@/components/native/Tape";
 import Link from "next/link";
-import { MAX_DAILY_ATTEMPTS, todayKey, type UserStats } from "@/lib/daily";
+import { todayKey, type UserStats } from "@/lib/daily";
 import { deleteSession, type DeleteReason } from "@/lib/store";
 import type { Session } from "@/lib/types";
 
@@ -45,6 +42,16 @@ const METRIC_WINDOW = 10;
 const METRIC_COUNT = 6;
 /** Rows in the Recent sessions group. */
 const RECENT_ROWS = 8;
+/** Sessions per side of the "where you're moving" comparison. */
+const MOVEMENT_WINDOW = 5;
+/**
+ * Smallest change worth a card. Under two points is noise — three tiles all
+ * reading "+1" is a section that has found nothing and said something anyway.
+ */
+const MOVEMENT_FLOOR = 2;
+/** Days in the turn-up grid: ten weeks, laid out fourteen to a row
+ *  (the column count lives in .nv-heat, which owns the layout). */
+const HEAT_DAYS = 70;
 
 /* --- Sparkline geometry ------------------------------------------------- */
 const SPARK_W = 300;
@@ -321,12 +328,10 @@ function DeleteSheet({
   );
 }
 
-/** Average each delivery metric over the recent window, latest order first. */
-function metricAverages(
-  sessions: Session[]
-): { skill: string; avg: number }[] {
+/** Average each delivery metric over a slice of the history. */
+function averagesOver(sessions: Session[]): Map<string, number> {
   const byName = new Map<string, { total: number; n: number }>();
-  for (const s of sessions.slice(0, METRIC_WINDOW)) {
+  for (const s of sessions) {
     // Sessions saved before per-skill scoring existed (old localStorage,
     // early accounts) carry an overall but no skills array — iterating
     // undefined here was a whole-screen crash into Next's error page.
@@ -337,9 +342,79 @@ function metricAverages(
       byName.set(sk.skill, agg);
     }
   }
-  return [...byName.entries()]
+  return new Map(
+    [...byName.entries()].map(([skill, agg]) => [
+      skill,
+      Math.round(agg.total / agg.n),
+    ])
+  );
+}
+
+/** Average each delivery metric over the recent window, latest order first. */
+function metricAverages(
+  sessions: Session[]
+): { skill: string; avg: number }[] {
+  return [...averagesOver(sessions.slice(0, METRIC_WINDOW)).entries()]
     .slice(0, METRIC_COUNT)
-    .map(([skill, agg]) => ({ skill, avg: Math.round(agg.total / agg.n) }));
+    .map(([skill, avg]) => ({ skill, avg }));
+}
+
+/**
+ * WHERE YOU'RE MOVING — the three metrics that changed most, recent window
+ * against the window before it.
+ *
+ * A screen full of averages tells you where you stand and nothing about
+ * whether you're getting better, which is the only question anyone opens a
+ * progress screen to ask. Needs two full windows of history to say anything,
+ * and says nothing rather than guessing when it doesn't have them.
+ */
+function movements(
+  sessions: Session[]
+): { skill: string; delta: number }[] {
+  if (sessions.length < MOVEMENT_WINDOW * 2) return [];
+  const recent = averagesOver(sessions.slice(0, MOVEMENT_WINDOW));
+  const older = averagesOver(
+    sessions.slice(MOVEMENT_WINDOW, MOVEMENT_WINDOW * 2)
+  );
+  const out: { skill: string; delta: number }[] = [];
+  for (const [skill, now] of recent) {
+    const before = older.get(skill);
+    if (before === undefined) continue;
+    out.push({ skill, delta: now - before });
+  }
+  return out
+    .filter((m) => Math.abs(m.delta) >= MOVEMENT_FLOOR)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+    .slice(0, 3);
+}
+
+/**
+ * EVERY DAY YOU TURNED UP — five weeks of days, quiet to strong.
+ *
+ * Replaces the Tape's bar chart on this screen. Both answer "how often", and
+ * the grid answers it in a fifth of the height while covering five times the
+ * span: a bar chart of the last fortnight cannot show you the shape of a
+ * month, and the shape is the thing.
+ *
+ * Oldest first, ending on today. Laid out fourteen to a row rather than seven,
+ * because at seven columns the cells are 44px squares and the grid reads as a
+ * calendar you can tap; it isn't one. Fourteen makes it a texture, which is
+ * what a ten-week pattern should look like.
+ */
+function heatDays(sessions: Session[]): { key: string; best: number | null; isToday: boolean }[] {
+  const best = new Map<string, number>();
+  for (const s of sessions) {
+    const k = todayKey(new Date(s.createdAt));
+    best.set(k, Math.max(best.get(k) ?? 0, s.analysis.overall));
+  }
+  const now = new Date();
+  const today = todayKey(now);
+  return Array.from({ length: HEAT_DAYS }, (_, i) => {
+    const d = new Date(now);
+    d.setDate(now.getDate() - (HEAT_DAYS - 1 - i));
+    const key = todayKey(d);
+    return { key, best: best.get(key) ?? null, isToday: key === today };
+  });
 }
 
 export function NativeProgress({
@@ -399,6 +474,8 @@ export function NativeProgress({
         : "var(--nv-destructive)";
 
   const metrics = metricAverages(sessions);
+  const moving = movements(sessions);
+  const heat = heatDays(sessions);
 
   const streak = stats?.streakDays ?? 0;
   const thisWeek = sessionsThisWeek(sessions);
@@ -410,19 +487,15 @@ export function NativeProgress({
   // Oldest → newest, left to right — same data the web TrendChart plots.
   const scores = [...sessions].reverse().map((s) => s.analysis.overall);
 
-  // Today's bar only breathes while the day is still open. Counted from the
-  // sessions this screen already holds rather than fetching the challenge
-  // state again — a daily rep is exactly a session stamped with today's key.
-  const today = todayKey();
-  const liveToday =
-    sessions.filter((s) => s.challengeDate === today).length < MAX_DAILY_ATTEMPTS;
-
   return (
     <div className="flex flex-col pt-2">
-      {/* The score, huge and tabular, in its band's color — and Felix beside
-          it, reacting to the move: up or flying gets the cheer, a dip gets
-          the coach. He is the delta, readable from across the room. */}
+      {/* THE INK HERO.
+          The score used to sit straight on the paper beside the sparkline,
+          which put the one number the screen is named after at the same
+          elevation as the cards below it. It gets its own block of ink now —
+          the same material every other hero in the app stands on. */}
       <section
+        className="nv-hero-ink"
         data-band={bandForScore(latest)}
         aria-label={`Overall score ${latest}${
           delta === null
@@ -432,41 +505,92 @@ export function NativeProgress({
               : `, ${delta > 0 ? "up" : "down"} ${Math.abs(delta)} since last session`
         }`}
       >
-        <p className="nv-caption">Overall</p>
-        <div className="mt-1 flex items-end justify-between gap-3">
+        <div className="flex items-end justify-between gap-4">
           <div className="min-w-0">
-            <div className="flex items-baseline gap-2.5">
-              <CountUp value={latest} duration={900} className="nv-display nv-num" />
-              {delta !== null && (
-                <span
-                  className="nv-headline nv-num flex items-baseline gap-1"
-                  style={{ color: deltaColor }}
-                  aria-hidden="true"
-                >
-                  <span>{delta === 0 ? "–" : delta > 0 ? "▲" : "▼"}</span>
-                  {Math.abs(delta)}
-                </span>
-              )}
-              {delta !== null && (
-                <span className="nv-footnote" aria-hidden="true">
-                  vs last
-                </span>
-              )}
+            <p className="nv-stage-eyebrow">Latest</p>
+            <div className="nv-hero-num mt-2.5">
+              <CountUp value={latest} duration={900} className="nv-num" />
             </div>
-            {latest === best && sessions.length > 1 && (
-              <div className="mt-2.5">
+            {delta !== null && (
+              <span
+                className="nv-badge mt-3"
+                aria-hidden="true"
+                style={{ background: "rgba(255,255,255,.12)", color: deltaColor }}
+              >
+                <span>{delta === 0 ? "–" : delta > 0 ? "▲" : "▼"}</span>
+                <span className="nv-num">{Math.abs(delta)}</span>
+                <span>vs last</span>
+              </span>
+            )}
+            {latest === best && sessions.length > 1 && delta === null && (
+              <div className="mt-3">
                 <NvBadge pop="sun">Your best yet</NvBadge>
               </div>
             )}
           </div>
-          <Felix
-            mood={delta !== null && delta < 0 ? "coach" : moodForScore(latest)}
-            animate
-            className="h-16 w-16 shrink-0"
-          />
+          <div className="shrink-0" data-parallax="0.06">
+            <Sparkline scores={scores} />
+          </div>
         </div>
-        <div className="mt-5" data-parallax="0.06">
-          <Sparkline scores={scores} />
+      </section>
+
+      {/* WHERE YOU'RE MOVING — the deltas, not the levels. */}
+      {moving.length > 0 && (
+        <section>
+          <NvSectionHeader>Where you&apos;re moving</NvSectionHeader>
+          <div className="grid grid-cols-3 gap-2.5">
+            {moving.map((m) => (
+              <div key={m.skill} className="nv-move">
+                <span
+                  className="nv-move-num"
+                  style={{
+                    color:
+                      m.delta > 0
+                        ? "var(--nv-mint)"
+                        : m.delta < 0
+                          ? "var(--nv-accent-700)"
+                          : "var(--nv-ink-3)",
+                  }}
+                >
+                  {m.delta > 0 ? "+" : m.delta < 0 ? "−" : ""}
+                  {Math.abs(m.delta)}
+                </span>
+                <span className="nv-move-label">{m.skill}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* EVERY DAY YOU TURNED UP — five weeks, quiet to strong. */}
+      <section>
+        <NvSectionHeader>Every day you turned up</NvSectionHeader>
+        <div className="card p-4">
+          <div
+            className="nv-heat"
+            role="img"
+            aria-label={`Practice over the last ${HEAT_DAYS / 7} weeks`}
+          >
+            {heat.map((d) => (
+              <span
+                key={d.key}
+                className="nv-heat-cell"
+                data-band={d.best !== null ? bandForScore(d.best) : undefined}
+                data-on={d.best !== null ? "" : undefined}
+                data-today={d.isToday ? "" : undefined}
+              />
+            ))}
+          </div>
+          <div className="mt-3.5 flex items-center justify-between">
+            <span className="nv-footnote">{HEAT_DAYS / 7} weeks</span>
+            <span className="nv-footnote inline-flex items-center gap-1.5">
+              quiet
+              <span className="nv-heat-key" />
+              <span className="nv-heat-key" data-on="" data-band="low" />
+              <span className="nv-heat-key" data-on="" data-band="high" />
+              strong
+            </span>
+          </div>
         </div>
       </section>
 
@@ -475,30 +599,31 @@ export function NativeProgress({
         <section>
           <NvSectionHeader>Where the work is</NvSectionHeader>
           <NvGroup>
-            <div className="flex flex-col gap-4 p-4">
-              {/* Each skill owns a color from the festival cycle — six bars
-                  you can tell apart at a glance instead of six orange ones. */}
-              {metrics.map((m, i) => (
-                <div key={m.skill} className="nv-metric" data-pop={popFor(i)}>
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="nv-subhead truncate">{m.skill}</span>
-                    <span className="nv-headline nv-num nv-metric-num">
-                      {m.avg}
-                    </span>
-                  </div>
-                  <div
-                    className="nv-meter-track mt-1.5"
+            <div className="py-1.5">
+              {/* Colour by BAND, not by a six-hue cycle: what matters about a
+                  metric is whether the number is good, not which of six
+                  positions it happens to sit in. */}
+              {metrics.map((m) => (
+                <div
+                  key={m.skill}
+                  className="nv-metric-row"
+                  data-band={bandForScore(m.avg)}
+                >
+                  <span className="nv-metric-row-label truncate">{m.skill}</span>
+                  <span
+                    className="nv-meter-track"
                     role="meter"
                     aria-label={`${m.skill} average`}
                     aria-valuenow={m.avg}
                     aria-valuemin={0}
                     aria-valuemax={100}
                   >
-                    <div
-                      className="nv-meter-fill"
+                    <span
+                      className="nv-meter-fill block"
                       style={{ width: `${m.avg}%` }}
                     />
-                  </div>
+                  </span>
+                  <span className="nv-metric-row-num">{m.avg}</span>
                 </div>
               ))}
             </div>
@@ -509,23 +634,10 @@ export function NativeProgress({
       {/* Streak, week, best — the three numbers that only move by doing. */}
       <section aria-label="Practice stats" className="mt-8">
         <NvGroup>
-          <div className="grid grid-cols-3 items-start px-2 py-4">
+          <div className="grid grid-cols-3 items-start py-4">
             <StreakStat days={streak} />
             <NvStat value={thisWeek} label="this week" />
             <NvStat value={best} label="best" />
-          </div>
-        </NvGroup>
-      </section>
-
-      {/* THE TAPE. It opened the home screen until the Ladder answered the
-          same question better there — a rung per day, climbing. It belongs
-          here now, beside the score line, because the two measure different
-          things: the line is how WELL, the tape is how OFTEN. */}
-      <section>
-        <NvSectionHeader>Showing up</NvSectionHeader>
-        <NvGroup>
-          <div className="px-4 py-4">
-            <Tape sessions={sessions} streak={streak} liveToday={liveToday} />
           </div>
         </NvGroup>
       </section>

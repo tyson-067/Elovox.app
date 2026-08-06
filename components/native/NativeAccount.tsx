@@ -11,8 +11,8 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FelixScene } from "@/components/Biome";
-import { CoinBadge, NvSparkles, popFor } from "@/components/native/felix";
-import { type FelixAccessory } from "@/components/FoxLogo";
+import { NvSparkles } from "@/components/native/felix";
+import { Felix, type FelixAccessory } from "@/components/FoxLogo";
 import { useIsNative, useTheme } from "@/lib/native";
 import { getUser, isFirebaseConfigured } from "@/lib/firebase";
 import { LEGAL } from "@/lib/legal";
@@ -247,8 +247,13 @@ function NvSwitch({
         className={`relative block h-[31px] w-[51px] rounded-full transition-colors duration-200 motion-reduce:transition-none peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 ${
           busy ? "opacity-60" : ""
         }`}
+        // ON is INK, not ember. Ember means "act / live / yours" everywhere
+        // else in this app, and a settings toggle is none of those — a row of
+        // orange switches down a Settings list was the accent spent on the
+        // quietest thing on the screen. Off is the tint, not ink-3: at
+        // #a19aab an OFF switch was darker than most ON controls.
         style={{
-          background: checked ? "var(--nv-accent-500)" : "var(--nv-ink-3)",
+          background: checked ? "var(--nv-ink)" : "var(--nv-tint-soft)",
           outlineColor: "var(--nv-accent-700)",
         }}
       >
@@ -256,7 +261,14 @@ function NvSwitch({
           className={`absolute left-[2px] top-[2px] block h-[27px] w-[27px] rounded-full transition-transform duration-200 motion-reduce:transition-none ${
             checked ? "translate-x-5" : "translate-x-0"
           }`}
-          style={{ background: "var(--nv-knob)", boxShadow: "var(--nv-shadow)" }}
+          // NOT --nv-shadow. That token is the card LIFT now — a 40px ambient
+          // with a heavy negative spread, correct under a 300px card and
+          // absurd under a 27px knob, which grew a soft grey halo the width of
+          // the track. A knob needs a contact shadow and nothing else.
+          style={{
+            background: "var(--nv-knob)",
+            boxShadow: "0 1px 2px rgba(23,19,38,.2), 0 3px 8px -2px rgba(23,19,38,.25)",
+          }}
         />
       </span>
     </label>
@@ -329,22 +341,43 @@ function DenHeader({
     (shop?.equippedAccessory as FelixAccessory | null) ?? outfit?.id;
 
   return (
-    <div className="flex flex-col items-center pb-4 pt-2">
+    // THE DEN'S STAGE. Violet, because the Den is the one screen that is about
+    // you rather than about the work — and because a fox standing at 146px in
+    // a pool of light is a den, where a 104px avatar over a settings list was
+    // a profile picture.
+    <section className="nv-stage" data-bloom="violet">
+      <div className="flex items-center justify-between pt-3.5">
+        <h1
+          style={{
+            fontFamily: "var(--nv-font-display)",
+            fontWeight: 800,
+            fontSize: 30,
+            letterSpacing: "-0.055em",
+            lineHeight: 0.9,
+            color: "var(--nv-on-stage)",
+          }}
+        >
+          The Den
+        </h1>
+        <span className="w-9" />
+      </div>
+
       {/* Decorative for VoiceOver: the lines right below carry the identity,
           so announcing an image here would only be noise. The skeleton holds
           the slot until the shop state lands, rather than flashing a
           default-dressed fox that swaps outfits a beat later. */}
-      <div aria-hidden="true" className="relative">
+      <div aria-hidden="true" className="relative mt-1 flex justify-center">
         {shop ? (
           <>
-            <span
-              className="block h-[104px] w-[104px] overflow-hidden rounded-full"
-              style={{
-                background:
-                  "radial-gradient(circle at 50% 28%, var(--nv-accent-50), var(--nv-accent-100))",
-                boxShadow: "inset 0 0 0 2px var(--nv-accent-100)",
-              }}
-            >
+            <span className="nv-spot" />
+            {/* A CIRCLE, not the raw scene box.
+                FelixScene paints the equipped biome as a full-bleed
+                background, which on the paper header used to read as a card.
+                Dropped straight onto the ink stage it read as a hard-edged
+                screenshot pasted over the bloom. A round portrait is the one
+                shape that lets a bought biome keep showing while still
+                belonging to the stage it sits on. */}
+            <span className="nv-den-portrait">
               <FelixScene
                 biome={shop.equippedBiome}
                 mood="cheer"
@@ -354,35 +387,55 @@ function DenHeader({
               />
             </span>
             <NvSparkles />
-            {level && <span className="nv-lv-chip">{level.level}</span>}
           </>
         ) : (
           <span
-            className="nv-skeleton block h-[104px] w-[104px]"
+            className="nv-skeleton block h-[146px] w-[146px]"
             style={{ borderRadius: "9999px" }}
           />
         )}
       </div>
-      {level && (
+
+      <div className="text-center">
+        {level && (
+          <p
+            style={{
+              fontFamily: "var(--nv-font-display)",
+              fontWeight: 800,
+              fontSize: 22,
+              letterSpacing: "-0.05em",
+              color: "var(--nv-on-stage)",
+            }}
+          >
+            {level.title}
+          </p>
+        )}
+        {/* Joined by hand rather than with a template, because any part can be
+            absent — a provider account with no address, or stats still in
+            flight — and a bare leading "· 716 XP" is what a template gives
+            you. */}
         <p
-          className="mt-3.5 text-center"
-          style={{
-            fontFamily: "var(--nv-font-display)",
-            fontWeight: 800,
-            fontSize: 22,
-            letterSpacing: "-0.045em",
-          }}
+          className="mt-1 break-all text-[13.5px]"
+          style={{ color: "var(--nv-on-stage-2)" }}
         >
-          {level.title}
+          {[
+            level ? `Level ${level.level}` : null,
+            level ? `${level.xp} XP` : null,
+            shop ? `${shop.coins} coins` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
-      )}
-      {/* Joined by hand rather than with a template, because either half can
-          be absent — a provider account with no address, or stats still in
-          flight — and a bare leading "· 716 XP" is what a template gives you. */}
-      <p className="nv-footnote mt-1 break-all text-center">
-        {[email, level ? `${level.xp} XP` : null].filter(Boolean).join(" · ")}
-      </p>
-    </div>
+        <p
+          className="mt-0.5 break-all text-[12.5px]"
+          style={{ color: "var(--nv-on-stage-3)" }}
+        >
+          {email}
+        </p>
+      </div>
+
+      <Wardrobe shop={shop} stats={stats} />
+    </section>
   );
 }
 
@@ -421,11 +474,14 @@ function BadgeWall({
             </span>
           </div>
           <ul className="grid grid-cols-3 gap-2.5">
-            {badges.map((b, i) => (
+            {/* No `data-pop` cycle. Six badges in six different hues said
+                the six achievements differ in KIND, which they don't — they
+                differ in whether you have them. Earned is mint, unearned is
+                quiet; the CSS owns both. */}
+            {badges.map((b) => (
               <li
                 key={b.id}
                 className="nv-badge-tile"
-                data-pop={b.earned ? popFor(i) : undefined}
                 data-locked={b.earned ? undefined : ""}
               >
                 <span className="nv-badge-emoji" aria-hidden="true">
@@ -450,9 +506,17 @@ function BadgeWall({
 }
 
 /**
- * Felix's wardrobe: the level-gated outfits, and the balance that buys the
- * rest. Tapping anything opens the shop, which is the only screen allowed to
+ * Felix's wardrobe: the level-gated outfits, and what each one looks like ON
+ * him. Tapping anything opens the shop, which is the only screen allowed to
  * change what he's wearing.
+ *
+ * The tiles used to be the outfit's EMOJI — 🎓 standing in for a cap that the
+ * app can render Felix actually wearing, which is the whole reason the
+ * accessory exists as a FoxLogo part. Now each tile is Felix in that item,
+ * which also answers the only question the wardrobe is asked: what would I
+ * look like in this?
+ *
+ * Lives on the Den's stage, so its labels are stage ink.
  */
 function Wardrobe({
   shop,
@@ -466,50 +530,33 @@ function Wardrobe({
   const worn = (shop.equippedAccessory as FelixAccessory | null) ?? currentOutfit(level)?.id;
 
   return (
-    <>
-      <NvSectionHeader>Felix&apos;s wardrobe</NvSectionHeader>
-      <NvGroup>
-        <div className="px-4 py-4">
-          <div className="mb-3.5 flex items-baseline justify-between gap-3">
-            <span className="nv-footnote font-semibold">
-              Tap to open the shop
-            </span>
-            <CoinBadge coins={shop.coins} />
-          </div>
-          <div className="nv-wardrobe">
-            {wardrobeFor(level).map((o) => (
-              <Link
-                key={o.id}
-                href="/shop"
-                className="nv-wardrobe-cell nv-press"
-                data-worn={worn === o.id ? "" : undefined}
-                aria-label={
-                  o.unlocked
-                    ? `${o.name}${worn === o.id ? ", worn" : ", unlocked"}`
-                    : `${o.name}, unlocks at level ${o.level}`
-                }
-              >
-                <span
-                  className="nv-wardrobe-tile"
-                  data-worn={worn === o.id ? "" : undefined}
-                  data-locked={o.unlocked ? undefined : ""}
-                  aria-hidden="true"
-                >
-                  {o.emoji}
-                </span>
-                <span className="nv-wardrobe-label">
-                  {worn === o.id
-                    ? "Worn"
-                    : o.unlocked
-                      ? o.name
-                      : `Level ${o.level}`}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </NvGroup>
-    </>
+    <div className="nv-wardrobe mt-4">
+      {wardrobeFor(level).map((o) => (
+        <Link
+          key={o.id}
+          href="/shop"
+          className="nv-wardrobe-cell nv-press"
+          data-worn={worn === o.id ? "" : undefined}
+          aria-label={
+            o.unlocked
+              ? `${o.name}${worn === o.id ? ", worn" : ", unlocked"}`
+              : `${o.name}, unlocks at level ${o.level}`
+          }
+        >
+          <span
+            className="nv-wardrobe-tile"
+            data-worn={worn === o.id ? "" : undefined}
+            data-locked={o.unlocked ? undefined : ""}
+            aria-hidden="true"
+          >
+            <Felix mood="idle" accessory={o.id as FelixAccessory} />
+          </span>
+          <span className="nv-wardrobe-label">
+            {worn === o.id ? "Worn" : o.unlocked ? o.name : `Level ${o.level}`}
+          </span>
+        </Link>
+      ))}
+    </div>
   );
 }
 
@@ -1271,7 +1318,9 @@ function AccountNative({
   }, []);
 
   return (
-    <div className="pb-2">
+    // nv-staged: the Den opens on an ink stage, so the screen drops its top
+    // padding and the stage runs to the top of the document.
+    <div className="nv-staged pb-2">
       <DenHeader email={email} shop={shop} stats={stats} />
       <BadgeWall
         stats={stats}
@@ -1279,7 +1328,6 @@ function AccountNative({
         failed={sessionsFailed}
         loaded={sessionsLoaded}
       />
-      <Wardrobe shop={shop} stats={stats} />
 
       {/* The board's second door. The first is the badge at the foot of the
           Ladder; this one is here because the Den is where "who you are" lives

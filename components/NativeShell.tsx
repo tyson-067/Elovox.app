@@ -167,11 +167,20 @@ const BARE = new Set(["/login", "/signup", "/verify-email"]);
 /** Screens that supply their own header, so the shell contributes no bar at
     all — not even the inset row, which would otherwise be counted twice.
 
-    The Ladder is the only one: its sticky HUD (Felix, the level bar, the
-    streak) IS the header, and those three are the only things on that screen
-    that stay true however far you scroll. A 34pt "Ladder" floating above the
-    climb was a label on a thing that already says its own name. */
-const HEADLESS = new Set(["/dashboard"]);
+    The Ladder was the first: its sticky HUD (Felix, the level bar, the streak)
+    IS the header, and those three are the only things on that screen that stay
+    true however far you scroll. A 34pt "Ladder" floating above the climb was a
+    label on a thing that already says its own name.
+
+    The Report and the Den joined it with the modern pass, for the same reason
+    in a different shape: both open on an INK STAGE that runs to the top of the
+    document and carries its own status-bar inset, its own back control and its
+    own title. A glass bar above that would be a second header on a screen that
+    already has one — and it would cut the stage off mid-bloom. */
+const HEADLESS = new Set(["/dashboard", "/account"]);
+
+/** Sections (not exact paths) that are headless — /report/{id} and friends. */
+const HEADLESS_SECTIONS = new Set(["/report"]);
 
 /** Screens that get the dock. Auth and marketing don't; nor does /practice,
     which is a recording session and has its own single job on screen. */
@@ -349,9 +358,11 @@ export function NativeShell() {
   const signedIn = !configured || (!loading && !!user);
   const showDock = signedIn && DOCKED.has(section);
 
+  const headless = HEADLESS.has(pathname) || HEADLESS_SECTIONS.has(section);
+
   return (
     <>
-      {!HEADLESS.has(pathname) && <NativeTitleBar pathname={pathname} />}
+      {!headless && <NativeTitleBar pathname={pathname} />}
       {showDock && <NativeDock pathname={pathname} />}
     </>
   );
