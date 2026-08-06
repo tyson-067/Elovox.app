@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import { clientIp, logRejectedInput, makeRateLimiter } from "@/lib/verify";
+import { clientIp, logRejectedInput } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { applyUnsubscribe, verifyUnsubToken, PREF_LABELS } from "@/lib/email/prefs";
 import { markUnsubscribed } from "@/lib/email/audience";
 import { esc } from "@/lib/email/render";
@@ -27,8 +28,6 @@ import { LEGAL } from "@/lib/legal";
  */
 
 export const runtime = "nodejs";
-
-const rateLimited = makeRateLimiter(30, 60 * 1000);
 
 /* --- The page -------------------------------------------------------------- */
 
@@ -78,7 +77,9 @@ const BAD_LINK = page(
 /* --- GET: confirm ---------------------------------------------------------- */
 
 export async function GET(req: NextRequest) {
-  if (rateLimited(clientIp(req))) return page("<h1>One moment</h1><p>Try that again shortly.</p>", 429);
+  if (await limited(getAdminDb(), "email-unsubscribe", clientIp(req))) {
+    return page("<h1>One moment</h1><p>Try that again shortly.</p>", 429);
+  }
 
   const token = req.nextUrl.searchParams.get("t") ?? "";
   const claim = token ? verifyUnsubToken(token) : null;
@@ -103,7 +104,7 @@ export async function GET(req: NextRequest) {
 /* --- POST: act ------------------------------------------------------------- */
 
 export async function POST(req: NextRequest) {
-  if (rateLimited(clientIp(req))) {
+  if (await limited(getAdminDb(), "email-unsubscribe", clientIp(req))) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 

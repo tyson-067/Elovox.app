@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { getOpsFlags } from "@/lib/opsMetrics";
-import { clientIp, makeRateLimiter } from "@/lib/verify";
+import { clientIp } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 
 // The one PUBLIC slice of ops/flags: the announcement banner. Everything
 // else in the flags doc stays server-side — this returns exactly one string
@@ -11,14 +12,8 @@ import { clientIp, makeRateLimiter } from "@/lib/verify";
 
 export const runtime = "nodejs";
 
-// The Firestore read behind this is already capped by getOpsFlags' 60s cache,
-// so the thing worth limiting is the FUNCTION INVOCATION, which the cache does
-// not touch. Generous — every client polls this on load and it is CDN-cached,
-// so only a loop should ever meet it.
-const rateLimited = makeRateLimiter(120, 60 * 1000);
-
 export async function GET(req: NextRequest) {
-  if (rateLimited(clientIp(req))) {
+  if (await limited(getAdminDb(), "flags", clientIp(req))) {
     return new NextResponse(null, { status: 429 });
   }
   const flags = await getOpsFlags(getAdminDb());

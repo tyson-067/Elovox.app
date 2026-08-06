@@ -4,7 +4,8 @@ import { getStripe, isEntitled } from "@/lib/stripe";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
 import { cycleForPriceId } from "@/lib/pricing";
 import { refundUnusedPortion } from "@/lib/refunds";
-import { clientIp, makeRateLimiter } from "@/lib/verify";
+import { clientIp } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { isMailConfigured, siteUrl } from "@/lib/email/config";
 import { send } from "@/lib/email/send";
 import {
@@ -386,10 +387,9 @@ async function notifyPlanChange(
  * legitimate delivery can never meet it; a flood of forged bodies from one
  * source will.
  */
-const rateLimited = makeRateLimiter(600, 60 * 1000);
 
 export async function POST(req: NextRequest) {
-  if (rateLimited(clientIp(req))) {
+  if (await limited(getAdminDb(), "stripe-webhook", clientIp(req))) {
     return new NextResponse(null, { status: 429 });
   }
   const stripe = getStripe();

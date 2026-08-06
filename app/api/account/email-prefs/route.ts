@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
-import {
-  clientIp,
-  logRejectedInput,
-  makeRateLimiter,
-  verifyVerifiedUser,
-} from "@/lib/verify";
+import { clientIp, logRejectedInput, verifyVerifiedUser } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { readJsonObject } from "@/lib/requestBody";
 import { getSuppression } from "@/lib/email/suppression";
 import { markUnsubscribed, upsertContact } from "@/lib/email/audience";
@@ -37,8 +33,6 @@ import type { EmailPrefKey } from "@/lib/email/config";
  */
 
 export const runtime = "nodejs";
-
-const rateLimited = makeRateLimiter(30, 60 * 1000);
 
 interface Payload {
   prefs: PrefState;
@@ -78,7 +72,7 @@ async function payloadFor(email: string): Promise<Payload> {
 }
 
 export async function GET(req: NextRequest) {
-  if (rateLimited(clientIp(req))) {
+  if (await limited(getAdminDb(), "account-email-prefs", clientIp(req))) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
   const email = await addressFor(req);
@@ -90,7 +84,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (rateLimited(clientIp(req))) {
+  if (await limited(getAdminDb(), "account-email-prefs", clientIp(req))) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
   const email = await addressFor(req);

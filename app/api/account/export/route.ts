@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
-import { verifyUser, makeRateLimiter } from "@/lib/verify";
+import { verifyUser } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { buildAccountExport } from "@/lib/accountExport";
 
 // Data portability, the other half of the right that /api/account/delete
@@ -14,10 +15,6 @@ import { buildAccountExport } from "@/lib/accountExport";
 // their own uid — it comes from the verified token, never from the request.
 
 export const runtime = "nodejs";
-
-// Each export reads the user's whole subtree, so it is heavier than a normal
-// request. Nobody needs more than a few a day.
-const rateLimited = makeRateLimiter(10);
 
 export async function GET(req: NextRequest) {
   const app = getAdminApp();
@@ -33,7 +30,7 @@ export async function GET(req: NextRequest) {
   if (!uid || uid === "local-dev") {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
-  if (rateLimited(uid)) {
+  if (await limited(getAdminDb(), "account-export", uid)) {
     return NextResponse.json(
       { error: "Too many attempts. Please wait a moment." },
       { status: 429 }

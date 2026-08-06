@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import { verifyUser, makeRateLimiter } from "@/lib/verify";
+import { verifyUser } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 
 // Billing history for the signed-in user. Stripe generates an invoice for
 // every subscription charge (including the $0 one that opens a trial), so
@@ -15,10 +16,6 @@ import { verifyUser, makeRateLimiter } from "@/lib/verify";
 // the browser rather than proxying PDFs through our server.
 
 export const runtime = "nodejs";
-
-// Read-only, but each call hits Stripe's API, cap it so a loop on the
-// account screen can't burn through rate limits shared with checkout.
-const rateLimited = makeRateLimiter(60);
 
 export interface InvoiceRow {
   id: string;
@@ -45,7 +42,7 @@ export async function GET(req: NextRequest) {
   if (!uid || uid === "local-dev") {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
-  if (rateLimited(uid)) {
+  if (await limited(getAdminDb(), "stripe-invoices", uid)) {
     return NextResponse.json(
       { error: "Too many attempts. Please wait a moment." },
       { status: 429 }

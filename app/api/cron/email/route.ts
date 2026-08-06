@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
-import {
-  clientIp,
-  logRejectedInput,
-  makeRateLimiter,
-  timingSafeCompare,
-} from "@/lib/verify";
+import { clientIp, logRejectedInput, timingSafeCompare } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { isMailConfigured } from "@/lib/email/config";
 import {
   runStreakNudge,
@@ -50,8 +46,6 @@ export const runtime = "nodejs";
  *  cold instance. This is the ceiling Vercel allows on Hobby. */
 export const maxDuration = 60;
 
-const rateLimited = makeRateLimiter(6, 60 * 60 * 1000);
-
 type Job = "trial" | "weekly" | "streak" | "winback" | "tips" | "ops";
 
 export async function GET(req: NextRequest) {
@@ -77,7 +71,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Not available." }, { status: 503 });
     }
     console.warn("[cron] running on the platform cron header because CRON_SECRET is unset — set it.");
-  } else if (rateLimited(clientIp(req))) {
+  } else if (await limited(getAdminDb(), "cron-email", clientIp(req))) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminIdentity, clientIp, makeRateLimiter } from "@/lib/verify";
+import { adminIdentity, clientIp } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
+import { getAdminDb } from "@/lib/firebaseAdmin";
 import { render } from "@/lib/email/render";
 import * as messages from "@/lib/email/messages";
 import type { AppMessage } from "@/lib/email/send";
@@ -32,7 +34,6 @@ export const runtime = "nodejs";
  * admin-gated so the exposure is small; in development it is wide open, which
  * is exactly where a runaway script points at it.
  */
-const rateLimited = makeRateLimiter(60, 60 * 1000);
 
 const SAMPLE = "you@example.com";
 const UID = "preview-uid";
@@ -97,7 +98,7 @@ const GALLERY: Record<string, () => AppMessage> = {
 };
 
 export async function GET(req: NextRequest) {
-  if (rateLimited(clientIp(req))) {
+  if (await limited(getAdminDb(), "email-preview", clientIp(req))) {
     return new NextResponse("Slow down", { status: 429 });
   }
   const allowed =

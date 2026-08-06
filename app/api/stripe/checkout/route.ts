@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe, appBaseUrl } from "@/lib/stripe";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import {
-  verifyVerifiedUser,
-  makeRateLimiter,
-  logRejectedInput,
-} from "@/lib/verify";
+import { verifyVerifiedUser, logRejectedInput } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { getOpsFlags } from "@/lib/opsMetrics";
 import { PLANS, stripePriceIdFor, type BillingCycle } from "@/lib/pricing";
 import { readJsonObject } from "@/lib/requestBody";
@@ -25,10 +22,6 @@ const CYCLES: BillingCycle[] = ["weekly", "monthly", "annual"];
 
 // Dashboard label for this Checkout flow (Stripe API 2026-03-25.dahlia+).
 const CHECKOUT_INTEGRATION_ID = "elovox-premium-hqvbztkm";
-
-// Nobody legitimately opens Checkout 20 times an hour. Keyed by uid (the route
-// is authenticated), this stops a loop from minting endless Stripe customers.
-const rateLimited = makeRateLimiter(20);
 
 export async function POST(req: NextRequest) {
   const stripe = getStripe();
@@ -55,7 +48,7 @@ export async function POST(req: NextRequest) {
       { status: 403 }
     );
   }
-  if (rateLimited(uid)) {
+  if (await limited(getAdminDb(), "stripe-checkout", uid)) {
     return NextResponse.json(
       { error: "Too many attempts. Please wait a moment." },
       { status: 429 }

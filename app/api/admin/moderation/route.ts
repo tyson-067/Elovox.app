@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
-import {
-  adminIdentity,
-  adminEmailList,
-  makeRateLimiter,
-  clientIp,
-} from "@/lib/verify";
+import { adminIdentity, adminEmailList, clientIp } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { recordAdminDenied } from "@/lib/opsMetrics";
 import { recordAdminAction } from "@/lib/adminAudit";
 import { sanitizeText } from "@/lib/validation";
@@ -35,8 +31,6 @@ import {
 
 export const runtime = "nodejs";
 
-const rateLimited = makeRateLimiter(30);
-
 const UID_RE = /^[A-Za-z0-9]{1,128}$/;
 
 export async function POST(req: NextRequest) {
@@ -50,7 +44,7 @@ export async function POST(req: NextRequest) {
   if (!app || !db) {
     return NextResponse.json({ error: "Not available." }, { status: 503 });
   }
-  if (rateLimited(admin.uid)) {
+  if (await limited(getAdminDb(), "admin-moderation", admin.uid)) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 
@@ -199,7 +193,7 @@ export async function GET(req: NextRequest) {
   if (!db) {
     return NextResponse.json({ error: "Not available." }, { status: 503 });
   }
-  if (rateLimited(clientIp(req))) {
+  if (await limited(getAdminDb(), "admin-moderation", clientIp(req))) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 

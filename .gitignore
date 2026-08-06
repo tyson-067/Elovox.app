@@ -81,3 +81,7 @@ next-env.d.ts
 /ios/App/**/GoogleService-Info.plist
 /ios/DerivedData/
 /ios/App/.build/
+
+# App Store screenshot captures (scripts/appstore-screenshots.sh). Marketing
+# artefacts, regenerated per release, and several MB each.
+/screenshots/

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import { clientIp, makeRateLimiter } from "@/lib/verify";
+import { clientIp } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { applyEvent, parseEvent, verifySignature } from "@/lib/email/webhook";
 
 /**
@@ -27,12 +28,8 @@ import { applyEvent, parseEvent, verifySignature } from "@/lib/email/webhook";
 
 export const runtime = "nodejs";
 
-// Far above anything Resend produces (their retries are per-event, backed
-// off, from a small set of IPs), so a real delivery can never meet it.
-const rateLimited = makeRateLimiter(600, 60 * 1000);
-
 export async function POST(req: NextRequest) {
-  if (rateLimited(clientIp(req))) {
+  if (await limited(getAdminDb(), "resend-webhook", clientIp(req))) {
     return new NextResponse(null, { status: 429 });
   }
 

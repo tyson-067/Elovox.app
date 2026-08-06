@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
-import { adminIdentity, makeRateLimiter, clientIp } from "@/lib/verify";
+import { adminIdentity, clientIp } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { recordAdminDenied } from "@/lib/opsMetrics";
 import { usageDateKey } from "@/lib/quota";
 import { seedCoins } from "@/lib/coins";
@@ -24,8 +25,6 @@ import { getModerationStatus, effectiveState } from "@/lib/moderation";
 
 export const runtime = "nodejs";
 
-const rateLimited = makeRateLimiter(120);
-
 const UID_RE = /^[A-Za-z0-9]{1,128}$/;
 
 export async function GET(req: NextRequest) {
@@ -41,7 +40,7 @@ export async function GET(req: NextRequest) {
   if (!app || !db) {
     return NextResponse.json({ error: "Not available." }, { status: 503 });
   }
-  if (rateLimited(clientIp(req))) {
+  if (await limited(getAdminDb(), "admin-user", clientIp(req))) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 

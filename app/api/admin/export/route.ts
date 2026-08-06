@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
-import { adminIdentity, makeRateLimiter, clientIp } from "@/lib/verify";
+import { adminIdentity, clientIp } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { recordAdminDenied } from "@/lib/opsMetrics";
 import { recordAdminAction } from "@/lib/adminAudit";
 import { buildAccountExport } from "@/lib/accountExport";
@@ -25,9 +26,6 @@ import { buildAccountExport } from "@/lib/accountExport";
 
 export const runtime = "nodejs";
 
-// Exports read a whole subtree; a support queue needs a handful a day.
-const rateLimited = makeRateLimiter(10);
-
 const UID_RE = /^[A-Za-z0-9]{1,128}$/;
 
 export async function POST(req: NextRequest) {
@@ -41,7 +39,7 @@ export async function POST(req: NextRequest) {
   if (!app || !db) {
     return NextResponse.json({ error: "Not available." }, { status: 503 });
   }
-  if (rateLimited(admin.uid)) {
+  if (await limited(getAdminDb(), "admin-export", admin.uid)) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { validateEmail } from "@/lib/validation";
-import { makeRateLimiter, clientIp, logRejectedInput } from "@/lib/verify";
+import { clientIp, logRejectedInput } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { FieldValue } from "firebase-admin/firestore";
 import { readJsonObject } from "@/lib/requestBody";
 import { send } from "@/lib/email/send";
@@ -22,10 +23,8 @@ import { upsertContact } from "@/lib/email/audience";
 
 export const runtime = "nodejs";
 
-const rateLimited = makeRateLimiter(10, 60 * 1000); // per IP per minute
-
 export async function POST(req: NextRequest) {
-  if (rateLimited(clientIp(req))) {
+  if (await limited(getAdminDb(), "leads", clientIp(req))) {
     return NextResponse.json({ error: "Slow down a moment." }, { status: 429 });
   }
 

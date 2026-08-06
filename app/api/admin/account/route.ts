@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
-import {
-  adminIdentity,
-  adminEmailList,
-  makeRateLimiter,
-  clientIp,
-} from "@/lib/verify";
+import { adminIdentity, adminEmailList, clientIp } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { recordAdminDenied } from "@/lib/opsMetrics";
 import { recordAdminAction } from "@/lib/adminAudit";
 import { eraseAccount } from "@/lib/accountDeletion";
@@ -38,8 +34,6 @@ import { readJsonObject } from "@/lib/requestBody";
 
 export const runtime = "nodejs";
 
-const rateLimited = makeRateLimiter(10);
-
 const UID_RE = /^[A-Za-z0-9]{1,128}$/;
 
 async function readBody(req: NextRequest): Promise<Record<string, unknown>> {
@@ -61,7 +55,7 @@ export async function POST(req: NextRequest) {
   if (!app || !db) {
     return NextResponse.json({ error: "Not available." }, { status: 503 });
   }
-  if (rateLimited(admin.uid)) {
+  if (await limited(getAdminDb(), "admin-account", admin.uid)) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 
@@ -124,7 +118,7 @@ export async function DELETE(req: NextRequest) {
   if (!app || !db) {
     return NextResponse.json({ error: "Not available." }, { status: 503 });
   }
-  if (rateLimited(admin.uid)) {
+  if (await limited(getAdminDb(), "admin-account", admin.uid)) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 

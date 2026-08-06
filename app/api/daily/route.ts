@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateJson, geminiKey } from "@/lib/gemini";
-import { makeRateLimiter, clientIp, logRejectedInput } from "@/lib/verify";
+import { clientIp, logRejectedInput } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { fallbackChallengeFor } from "@/lib/dailyFallback";
 import type { DailyChallenge } from "@/lib/dailyTypes";
 import { getAdminDb } from "@/lib/firebaseAdmin";
@@ -116,7 +117,6 @@ What makes a good one:
 
 The scenario line is second person and puts them in the room ("You have sixty seconds to convince the room..."). The focus line is one specific delivery thing to watch, in the coach's voice.`;
 
-
 // Per-instance memo of days we've settled, so a burst of first-of-the-day
 // clients doesn't fan out into a burst of generations on the same warm
 // instance.
@@ -127,19 +127,6 @@ const memo = new Map<string, DailyChallenge>();
 // callers on one instance all sailed past it and each paid for a model call.
 // Sharing the promise means the second caller waits for the first instead.
 const inFlight = new Map<string, Promise<DailyChallenge>>();
-
-// This route is public (no auth token), so it's limited per-IP to stop one
-// caller from forcing generations across many distinct dates.
-const rateLimited = makeRateLimiter(30, 60 * 1000);
-
-// A second, much looser limit that applies to EVERY request including memo
-// hits. The tight limiter above exists to bound paid Gemini generation, and it
-// deliberately sits behind the cache — but a cached response is still a
-// serverless invocation, and this route is public and unauthenticated. This
-// one bounds the invocations. It is set high enough that no honest client
-// (which fetches this once per launch, per midnight rollover, and on focus)
-// can meet it.
-const floodLimited = makeRateLimiter(300, 60 * 1000);
 
 // The bank itself now lives in lib/dailyFallback.ts, because /api/analyze has
 // to be able to recognise a fallback day too — see the note at the top of that
@@ -198,7 +185,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "bad date" }, { status: 400 });
   }
 
-  if (floodLimited(clientIp(req))) {
+  if (await limited(getAdminDb(), "daily-flood", clientIp(req))) {
     return NextResponse.json({ error: "rate limited" }, { status: 429 });
   }
 
@@ -208,7 +195,7 @@ export async function GET(req: NextRequest) {
   const cached = memo.get(date);
   if (cached) return NextResponse.json(cached);
 
-  if (rateLimited(clientIp(req))) {
+  if (await limited(getAdminDb(), "daily", clientIp(req))) {
     return NextResponse.json({ error: "rate limited" }, { status: 429 });
   }
 

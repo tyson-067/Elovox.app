@@ -7,7 +7,9 @@
     "dev:demo": "NEXT_PUBLIC_FIREBASE_API_KEY= NEXT_PUBLIC_FIREBASE_PROJECT_ID= NEXT_PUBLIC_FIREBASE_APP_ID= next dev -p 3001",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "audit:limits": "node audit-rate-limits.mjs",
+    "test:limits": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON test-rate-limits.mjs"
   },
   "dependencies": {
     "@capacitor-firebase/authentication": "^8.3.0",

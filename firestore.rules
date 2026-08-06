@@ -173,6 +173,19 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // The durable rate-limit counters (lib/rateLimit.ts), one document per
+    // key per window for every route in the app. Deny-all in BOTH directions
+    // for the same two reasons as the login ledgers: a client that could
+    // write these could reset its own limit, which is the entire control, and
+    // a client that could read them could probe which hashed uid or IP has hit
+    // which feature and when — an abuse ledger is not a usage log and must not
+    // become one. Written only through the Admin SDK, which bypasses these
+    // rules. Carries `expiresAt`; the daily cron sweeps it, and a Firestore
+    // TTL policy on that field is complementary if one is ever added.
+    match /rateLimits/{key} {
+      allow read, write: if false;
+    }
+
     // The email system's four collections. All Admin-SDK only, and all
     // covered by the catch-all below — spelled out anyway because "denied by
     // omission" and "denied on purpose" look identical in a rules file, and

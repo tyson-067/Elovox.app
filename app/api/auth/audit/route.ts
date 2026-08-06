@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { makeRateLimiter, clientIp } from "@/lib/verify";
+import { clientIp } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
+import { getAdminDb } from "@/lib/firebaseAdmin";
 import { readJsonObject } from "@/lib/requestBody";
 
 // Server-side sink for client-reported auth validation failures, so they are
@@ -10,9 +12,6 @@ import { readJsonObject } from "@/lib/requestBody";
 // budget-drain vector.
 
 export const runtime = "nodejs";
-
-// 10 requests per IP per minute, the same ceiling we'd want on a login route.
-const rateLimited = makeRateLimiter(10, 60 * 1000);
 
 // Only known, non-sensitive reason codes are accepted; anything else is
 // dropped so an attacker can't stuff arbitrary strings into the logs.
@@ -30,7 +29,7 @@ const KNOWN_REASONS = new Set([
 
 export async function POST(req: NextRequest) {
   const ip = clientIp(req);
-  if (rateLimited(ip)) {
+  if (await limited(getAdminDb(), "auth-audit", ip)) {
     return new NextResponse(null, { status: 429 });
   }
 

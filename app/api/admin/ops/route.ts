@@ -3,12 +3,8 @@ import { sanitizeText } from "@/lib/validation";
 import { after } from "next/server";
 import { FieldPath } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import {
-  adminIdentity,
-  adminEmailList,
-  makeRateLimiter,
-  clientIp,
-} from "@/lib/verify";
+import { adminIdentity, adminEmailList, clientIp } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import {
   recordAdminDenied,
   recordOpsEvent,
@@ -34,8 +30,6 @@ import { recordAdminAction } from "@/lib/adminAudit";
 
 export const runtime = "nodejs";
 
-const rateLimited = makeRateLimiter(60);
-
 export async function GET(req: NextRequest) {
   const admin = await adminIdentity(req);
   if (!admin) {
@@ -46,7 +40,7 @@ export async function GET(req: NextRequest) {
   if (!db) {
     return NextResponse.json({ error: "Not available." }, { status: 503 });
   }
-  if (rateLimited(clientIp(req))) {
+  if (await limited(getAdminDb(), "admin-ops", clientIp(req))) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 
@@ -140,7 +134,7 @@ export async function POST(req: NextRequest) {
   if (!db) {
     return NextResponse.json({ error: "Not available." }, { status: 503 });
   }
-  if (rateLimited(admin.uid)) {
+  if (await limited(getAdminDb(), "admin-ops", admin.uid)) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 

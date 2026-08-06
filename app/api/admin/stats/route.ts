@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
-import { isAdmin, makeRateLimiter, clientIp } from "@/lib/verify";
+import { isAdmin, clientIp } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { recordAdminDenied } from "@/lib/opsMetrics";
 import { PLANS, perMonth, type BillingCycle } from "@/lib/pricing";
 import { seedCoins } from "@/lib/coins";
@@ -21,8 +22,6 @@ import { seedCoins } from "@/lib/coins";
 
 export const runtime = "nodejs";
 
-const rateLimited = makeRateLimiter(60);
-
 const DAY = 24 * 60 * 60 * 1000;
 
 export async function GET(req: NextRequest) {
@@ -40,7 +39,7 @@ export async function GET(req: NextRequest) {
   if (!app || !db) {
     return NextResponse.json({ error: "Not available." }, { status: 503 });
   }
-  if (rateLimited(clientIp(req))) {
+  if (await limited(getAdminDb(), "admin-stats", clientIp(req))) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 

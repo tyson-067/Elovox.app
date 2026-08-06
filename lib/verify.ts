@@ -374,10 +374,23 @@ export function logRejectedInput(route: string, reason: string): void {
 }
 
 /**
- * Best-effort per-instance rate limiting. Not a security boundary, it's a
- * budget guard that stops one signed-in user (or one IP) from looping a route.
- * The key is caller-supplied: pass a uid for per-user limits, or an IP for
- * per-IP limits on unauthenticated routes.
+ * Per-instance request counting. NOT A RATE LIMIT — do not use it as one.
+ *
+ * The counts live in a Map inside a single serverless instance, so the ceiling
+ * this appears to set is really (instances x limit), and every cold start hands
+ * the caller a fresh empty bucket. Under the one condition a limit exists for,
+ * a burst, Vercel scales out and the limit dissolves exactly when it is needed.
+ * Every route in the app once relied on this, and a scripted caller drove the
+ * paid Gemini pipeline straight through it.
+ *
+ * Use `limited` / `limitOr429` from lib/rateLimit.ts, which enforce a durable
+ * cross-instance ceiling and already fold a memory layer in front of it.
+ *
+ * The one sanctioned use left is /api/auth/login, as a cheap prefilter in
+ * FRONT of the durable per-IP limiter in lib/loginGuard.ts, so a flood costs a
+ * Map lookup instead of a Firestore transaction. That is the only shape in
+ * which this function is safe: in front of a real limit, never instead of one.
+ * audit-rate-limits.mjs fails the build on any other use.
  */
 export function makeRateLimiter(limit: number, windowMs = 60 * 60 * 1000) {
   const buckets = new Map<string, number[]>();

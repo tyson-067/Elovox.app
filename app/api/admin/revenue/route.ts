@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import { isAdmin, makeRateLimiter, clientIp } from "@/lib/verify";
+import { isAdmin, clientIp } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { recordAdminDenied } from "@/lib/opsMetrics";
 import { getStripe } from "@/lib/stripe";
 import {
@@ -36,8 +37,6 @@ export const runtime = "nodejs";
 // enough for a 12-month window.
 export const maxDuration = 60;
 
-const rateLimited = makeRateLimiter(30);
-
 /**
  * A small server-side cache, because each call can page through thousands of
  * balance transactions and Stripe's rate limit is per-account, not per-admin.
@@ -55,7 +54,7 @@ export async function GET(req: NextRequest) {
     await recordAdminDenied(getAdminDb(), "admin/revenue", clientIp(req));
     return new NextResponse("Not found", { status: 404 });
   }
-  if (rateLimited(clientIp(req))) {
+  if (await limited(getAdminDb(), "admin-revenue", clientIp(req))) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 

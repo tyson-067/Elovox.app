@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import { adminIdentity, makeRateLimiter, clientIp } from "@/lib/verify";
+import { adminIdentity, clientIp } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { recordAdminDenied } from "@/lib/opsMetrics";
 import { recordAdminAction } from "@/lib/adminAudit";
 import { readJsonObject } from "@/lib/requestBody";
@@ -20,8 +21,6 @@ import { readJsonObject } from "@/lib/requestBody";
 // flat 404 for everyone else, like every /api/admin route.
 
 export const runtime = "nodejs";
-
-const rateLimited = makeRateLimiter(30);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_COMP_DAYS = 90;
@@ -45,7 +44,7 @@ export async function POST(req: NextRequest) {
   if (!db) {
     return NextResponse.json({ error: "Not available." }, { status: 503 });
   }
-  if (rateLimited(admin.uid)) {
+  if (await limited(getAdminDb(), "admin-comp", admin.uid)) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 
@@ -121,7 +120,7 @@ export async function DELETE(req: NextRequest) {
   if (!db) {
     return NextResponse.json({ error: "Not available." }, { status: 503 });
   }
-  if (rateLimited(admin.uid)) {
+  if (await limited(getAdminDb(), "admin-comp", admin.uid)) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 

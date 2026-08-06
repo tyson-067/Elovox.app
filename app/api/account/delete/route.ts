@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
-import { makeRateLimiter } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { eraseAccount, type EraseFailure } from "@/lib/accountDeletion";
 
 // Account erasure, the self-serve half of the deletion right promised in
@@ -25,11 +25,6 @@ export const runtime = "nodejs";
 // reauthenticate() + getIdToken(true) mints a token whose auth_time is now,
 // so an honest deletion always clears this; a replayed old token does not.
 const MAX_AUTH_AGE_S = 5 * 60;
-
-// Deletion is irreversible and cancels a subscription on the way out, so a
-// handful of attempts per hour is generous. A retry after a transient failure
-// still works; a loop does not.
-const rateLimited = makeRateLimiter(5);
 
 // The same user-facing wording each failure step has always had. Every step
 // is a 503 that says nothing (or how much) was deleted, so the user retries
@@ -68,7 +63,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
   const uid = decoded.uid;
-  if (rateLimited(uid)) {
+  if (await limited(getAdminDb(), "account-delete", uid)) {
     return NextResponse.json(
       { error: "Too many attempts. Please wait a moment." },
       { status: 429 }

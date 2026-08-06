@@ -7,11 +7,12 @@ import { generateSampleAnalysis } from "@/lib/sample";
 import { generateJson } from "@/lib/gemini";
 import {
   verifyVerifiedUser,
-  makeRateLimiter,
   isPremiumServer,
   enforceAppCheck,
   logRejectedInput,
+  clientIp,
 } from "@/lib/verify";
+import { limitOr429 } from "@/lib/rateLimit";
 import { sanitizeText } from "@/lib/validation";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { getOpsFlags, recordAnalyzeOutcome } from "@/lib/opsMetrics";
@@ -71,7 +72,6 @@ const MAX_FRAME_BYTES = 400 * 1024;
 // anything: the audio, every frame part, and a megabyte of multipart framing.
 const MAX_REQUEST_BYTES =
   MAX_AUDIO_BYTES + MAX_FRAMES * MAX_FRAME_BYTES + 1024 * 1024;
-const rateLimited = makeRateLimiter(12); // analyses per user per hour
 
 interface AaiWord {
   text: string;
@@ -805,9 +805,27 @@ export async function POST(req: NextRequest) {
   if (uid === "unverified") {
     return NextResponse.json({ error: "verify your email first" }, { status: 403 });
   }
-  if (rateLimited(uid)) {
-    return NextResponse.json({ error: "rate limited" }, { status: 429 });
-  }
+  // The hourly ceiling. This used to be a per-instance Map, which meant the
+  // real limit was (instances x 12) and every cold start reset it — see the
+  // header note in lib/rateLimit.ts. This is the most expensive route in the
+  // app (AssemblyAI + Gemini per call), so it fails CLOSED: if we can't prove
+  // the caller is under their limit, they don't get a paid pipeline run.
+  // Checked before formData() so a rejection never buffers a 25MB body.
+  const analyzeCapped = await limitOr429(getAdminDb(), {
+    scope: "analyze",
+    key: uid,
+    message: "You're going quickly. Give it a minute.",
+  });
+  if (analyzeCapped) return analyzeCapped;
+
+  // Also per-IP. The per-user limit bounds a compromised account; this bounds
+  // one person holding several accounts, which is the shape the spike took.
+  const analyzeIpCapped = await limitOr429(getAdminDb(), {
+    scope: "analyze-ip",
+    key: clientIp(req),
+    message: "You're going quickly. Give it a minute.",
+  });
+  if (analyzeIpCapped) return analyzeIpCapped;
 
   // Attest the request came from our real web client, not a script wielding a
   // signed-in user's ID token. Placed before formData() so an enforced reject

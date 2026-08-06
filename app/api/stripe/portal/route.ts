@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe, appBaseUrl } from "@/lib/stripe";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import { verifyUser, makeRateLimiter } from "@/lib/verify";
+import { verifyUser } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 
 // Opens the Stripe Customer Portal for the signed-in user, the one place
 // they cancel, switch plans (with proration), update their card, and pull
@@ -9,10 +10,6 @@ import { verifyUser, makeRateLimiter } from "@/lib/verify";
 // settings in the Stripe dashboard, not here (see lib/pricing.ts).
 
 export const runtime = "nodejs";
-
-// Each call mints a Stripe Portal session; 20/hour per user is far above
-// normal use and well below anything that could be used to hammer Stripe.
-const rateLimited = makeRateLimiter(20);
 
 export async function POST(req: NextRequest) {
   const stripe = getStripe();
@@ -28,7 +25,7 @@ export async function POST(req: NextRequest) {
   if (!uid || uid === "local-dev") {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
-  if (rateLimited(uid)) {
+  if (await limited(getAdminDb(), "stripe-portal", uid)) {
     return NextResponse.json(
       { error: "Too many attempts. Please wait a moment." },
       { status: 429 }

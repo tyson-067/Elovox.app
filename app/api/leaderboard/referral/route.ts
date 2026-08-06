@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import { verifyUser, makeRateLimiter, logRejectedInput } from "@/lib/verify";
+import { verifyUser, logRejectedInput } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { normalizeCode, redeemInvite } from "@/lib/referral";
 import { readJsonObject } from "@/lib/requestBody";
 
@@ -10,12 +11,6 @@ import { readJsonObject } from "@/lib/requestBody";
 // the client can't reach it.
 
 export const runtime = "nodejs";
-
-// A tight limit: this is the endpoint someone would point a script at to
-// guess codes. Eight characters from a 31-letter alphabet is ~8.5e11
-// combinations, so guessing is hopeless anyway, but there's no reason to
-// serve the attempt.
-const rateLimited = makeRateLimiter(10);
 
 export async function POST(req: NextRequest) {
   const db = getAdminDb();
@@ -27,7 +22,7 @@ export async function POST(req: NextRequest) {
   if (!uid || uid === "local-dev") {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
-  if (rateLimited(uid)) {
+  if (await limited(getAdminDb(), "leaderboard-referral", uid)) {
     return NextResponse.json({ error: "Slow down a moment." }, { status: 429 });
   }
 

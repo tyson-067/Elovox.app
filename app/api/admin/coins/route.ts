@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import { adminIdentity, makeRateLimiter, clientIp } from "@/lib/verify";
+import { adminIdentity, clientIp } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { recordAdminDenied } from "@/lib/opsMetrics";
 import { recordAdminAction } from "@/lib/adminAudit";
 import { seedCoins } from "@/lib/coins";
@@ -22,8 +23,6 @@ import { seedCoins } from "@/lib/coins";
 
 export const runtime = "nodejs";
 
-const rateLimited = makeRateLimiter(30);
-
 const UID_RE = /^[A-Za-z0-9]{1,128}$/;
 const MAX_ABS_DELTA = 100_000;
 
@@ -37,7 +36,7 @@ export async function POST(req: NextRequest) {
   if (!db) {
     return NextResponse.json({ error: "Not available." }, { status: 503 });
   }
-  if (rateLimited(admin.uid)) {
+  if (await limited(getAdminDb(), "admin-coins", admin.uid)) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import { verifyUser, makeRateLimiter, logRejectedInput } from "@/lib/verify";
+import { verifyUser, logRejectedInput } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { isRestricted } from "@/lib/moderation";
 import { equip, purchase } from "@/lib/coinsServer";
 import { readJsonObject } from "@/lib/requestBody";
@@ -16,10 +17,6 @@ import { readJsonObject } from "@/lib/requestBody";
 
 export const runtime = "nodejs";
 
-// Generous — the shop is a few taps, and someone trying on outfits is not an
-// attack. It's here so a script can't hammer a transaction on a hot doc.
-const rateLimited = makeRateLimiter(120);
-
 export async function POST(req: NextRequest) {
   const db = getAdminDb();
   if (!db) {
@@ -30,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (!uid || uid === "local-dev") {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
-  if (rateLimited(uid)) {
+  if (await limited(getAdminDb(), "shop", uid)) {
     return NextResponse.json({ error: "Slow down a moment." }, { status: 429 });
   }
 

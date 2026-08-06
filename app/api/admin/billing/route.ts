@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { getStripe } from "@/lib/stripe";
-import { adminIdentity, makeRateLimiter, clientIp } from "@/lib/verify";
+import { adminIdentity, clientIp } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { recordAdminDenied } from "@/lib/opsMetrics";
 import { recordAdminAction } from "@/lib/adminAudit";
 import { refundUnusedPortion } from "@/lib/refunds";
@@ -26,8 +27,6 @@ import { refundUnusedPortion } from "@/lib/refunds";
 
 export const runtime = "nodejs";
 
-const rateLimited = makeRateLimiter(60);
-
 // Doc ids here are subscription-derived ("unused-refund-sub_x", "sub_x") but
 // validate like the leads route does before handing anything to db.doc():
 // no path separators, no reserved __id__ forms.
@@ -43,7 +42,7 @@ export async function GET(req: NextRequest) {
   if (!db) {
     return NextResponse.json({ error: "Not available." }, { status: 503 });
   }
-  if (rateLimited(clientIp(req))) {
+  if (await limited(getAdminDb(), "admin-billing", clientIp(req))) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 
@@ -97,7 +96,7 @@ export async function POST(req: NextRequest) {
   if (!db) {
     return NextResponse.json({ error: "Not available." }, { status: 503 });
   }
-  if (rateLimited(admin.uid)) {
+  if (await limited(getAdminDb(), "admin-billing", admin.uid)) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 

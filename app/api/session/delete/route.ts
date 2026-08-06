@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import {
-  verifyUser,
-  makeRateLimiter,
-  isPremiumServer,
-  logRejectedInput,
-} from "@/lib/verify";
+import { verifyUser, isPremiumServer, logRejectedInput } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { usageDateKey, reserveMeteredUse, refundMeteredUse } from "@/lib/quota";
 import { readJsonObject } from "@/lib/requestBody";
 
@@ -30,8 +26,6 @@ import { readJsonObject } from "@/lib/requestBody";
 
 export const runtime = "nodejs";
 
-const rateLimited = makeRateLimiter(20); // per user per hour, above any cap
-
 const REASONS = new Set([
   "mic-test",
   "interrupted",
@@ -48,7 +42,7 @@ export async function POST(req: NextRequest) {
   if (!uid || uid === "local-dev") {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
-  if (rateLimited(uid)) {
+  if (await limited(getAdminDb(), "session-delete", uid)) {
     return NextResponse.json(
       { error: "Too many requests. Give it a moment." },
       { status: 429 }

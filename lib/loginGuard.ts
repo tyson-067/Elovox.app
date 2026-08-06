@@ -362,10 +362,15 @@ export async function clearLoginFailures(
 /**
  * A cross-instance sliding-window counter for one IP.
  *
- * `makeRateLimiter` in lib/verify.ts is per-serverless-instance by design — it
- * is a budget guard. A login limit has to hold across instances or it isn't a
- * limit at all, so this one lives in Firestore. It costs one transaction per
- * login attempt, which is the right trade on the app's lowest-volume endpoint.
+ * A login limit has to hold across instances or it isn't a limit at all, so
+ * this one lives in Firestore. It costs one transaction per login attempt,
+ * which is the right trade on the app's lowest-volume endpoint.
+ *
+ * This predates lib/rateLimit.ts, which now does the same job generically for
+ * every other route, and it stays separate on purpose: a login refusal has to
+ * be indistinguishable from a wrong password, so it can carry neither the
+ * Retry-After header nor the distinct body that `limitOr429` returns. Either
+ * would re-open the enumeration oracle this whole file exists to close.
  */
 export async function rateLimitIp(
   db: Firestore,

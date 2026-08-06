@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminApp, getAdminDb } from "@/lib/firebaseAdmin";
-import { clientIp, makeRateLimiter, verifyVerifiedUser } from "@/lib/verify";
+import { clientIp, verifyVerifiedUser } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { isMailConfigured } from "@/lib/email/config";
 import { send } from "@/lib/email/send";
 import { welcome } from "@/lib/email/messages";
@@ -27,10 +28,8 @@ import { claimOnce, confirmOnce, releaseOnce } from "@/lib/email/once";
 
 export const runtime = "nodejs";
 
-const rateLimited = makeRateLimiter(10, 60 * 1000);
-
 export async function POST(req: NextRequest) {
-  if (rateLimited(clientIp(req))) {
+  if (await limited(getAdminDb(), "account-welcome", clientIp(req))) {
     return NextResponse.json({ ok: false }, { status: 429 });
   }
 

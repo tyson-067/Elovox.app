@@ -2,22 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateJson, geminiKey } from "@/lib/gemini";
 import {
   verifyVerifiedUser,
-  makeRateLimiter,
   isPremiumServer,
   enforceAppCheck,
   logRejectedInput,
+  clientIp,
 } from "@/lib/verify";
+import { limitOr429 } from "@/lib/rateLimit";
 import { sanitizeText } from "@/lib/validation";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { isRestricted } from "@/lib/moderation";
 import { usageDateKey, reserveMeteredUse } from "@/lib/quota";
 import { readJsonObject } from "@/lib/requestBody";
 
-// Durable per-user daily ceiling on Gemini speech generation, on the same
-// Admin-SDK-only usage doc as the analysis meter. The in-memory limiter above
-// is per-instance and resets on cold start, so this is the real backstop
-// against a scripted premium account minting unbounded paid generations. Set
-// well above any honest day. No refund path: a failed generation costs little.
+// Durable per-user DAILY ceiling on Gemini speech generation, on the same
+// Admin-SDK-only usage doc as the analysis meter. This is a second, longer
+// window than the hourly limit in lib/rateLimit.ts, not a replacement for it:
+// the hourly one stops a burst, this one stops a patient script spreading the
+// same volume across a day. Set well above any honest day. No refund path: a
+// failed generation costs little.
 const SPEECH_GENS_PER_DAY = 100;
 
 // Premium speech writing. Two jobs, one route:
@@ -33,8 +35,6 @@ const SPEECH_GENS_PER_DAY = 100;
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-const rateLimited = makeRateLimiter(30); // per user per hour
 
 export interface GeneratedSpeech {
   id: string;
@@ -138,9 +138,29 @@ export async function POST(req: NextRequest) {
   if (uid === "unverified") {
     return NextResponse.json({ error: "verify your email first" }, { status: 403 });
   }
-  if (rateLimited(uid)) {
-    return NextResponse.json({ error: "rate limited" }, { status: 429 });
-  }
+  // The hourly ceiling. This is the route that got spiked, and the hole it
+  // went through was that this check used to be a per-instance Map: the real
+  // limit was (instances x 30), reset on every cold start. See the header note
+  // in lib/rateLimit.ts. Fails CLOSED — a paid Gemini generation is not
+  // something to hand out when we can't prove the caller is under their limit.
+  const db = getAdminDb();
+  const capped = await limitOr429(db, {
+    scope: "speech",
+    key: uid,
+    message: "Felix needs a breather. Try again shortly.",
+  });
+  if (capped) return capped;
+
+  // Also per-IP. The per-user limit is the one that matters for a compromised
+  // account, but the spike that prompted all this came from one person, and
+  // one person can hold several accounts. This bounds the source as well as
+  // the account, at a ceiling a shared network of honest users won't reach.
+  const ipCapped = await limitOr429(db, {
+    scope: "speech-ip",
+    key: clientIp(req),
+    message: "Felix needs a breather. Try again shortly.",
+  });
+  if (ipCapped) return ipCapped;
 
   // Same App Check attestation gate as /api/analyze: a valid ID token alone
   // must not let a script drive paid Gemini speech-writing from curl.
@@ -211,7 +231,6 @@ export async function POST(req: NextRequest) {
   // GEMINI_API_KEY burned a unit on every 503. There is deliberately no
   // refund path (see the note on SPEECH_GENS_PER_DAY), which is only honest
   // if a charge really does imply a generation attempt.
-  const db = getAdminDb();
   const meteredUid = uid;
   async function chargeGeneration(): Promise<NextResponse | null> {
     // Fail closed in production: without the Admin SDK the durable speech meter

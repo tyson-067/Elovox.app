@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import { adminIdentity, makeRateLimiter, clientIp } from "@/lib/verify";
+import { adminIdentity, clientIp } from "@/lib/verify";
+import { limited } from "@/lib/rateLimit";
 import { recordAdminDenied } from "@/lib/opsMetrics";
 import { recordAdminAction } from "@/lib/adminAudit";
 import { sanitizeText } from "@/lib/validation";
@@ -25,8 +26,6 @@ import { sanitizeText } from "@/lib/validation";
 // DELETE → clear a FUTURE day's doc so auto-generation runs after all.
 
 export const runtime = "nodejs";
-
-const rateLimited = makeRateLimiter(30);
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -54,7 +53,7 @@ export async function GET(req: NextRequest) {
   if (!db) {
     return NextResponse.json({ error: "Not available." }, { status: 503 });
   }
-  if (rateLimited(clientIp(req))) {
+  if (await limited(getAdminDb(), "admin-daily", clientIp(req))) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 
@@ -96,7 +95,7 @@ export async function POST(req: NextRequest) {
   if (!db) {
     return NextResponse.json({ error: "Not available." }, { status: 503 });
   }
-  if (rateLimited(admin.uid)) {
+  if (await limited(getAdminDb(), "admin-daily", admin.uid)) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 
@@ -178,7 +177,7 @@ export async function DELETE(req: NextRequest) {
   if (!db) {
     return NextResponse.json({ error: "Not available." }, { status: 503 });
   }
-  if (rateLimited(admin.uid)) {
+  if (await limited(getAdminDb(), "admin-daily", admin.uid)) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 

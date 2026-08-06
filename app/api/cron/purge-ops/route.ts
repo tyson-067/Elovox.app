@@ -3,7 +3,8 @@ import { getAdminDb } from "@/lib/firebaseAdmin";
 import { purgeExpiredOpsEvents } from "@/lib/opsMetrics";
 import { purgeExpiredLoginRows } from "@/lib/loginGuard";
 import { purgeExpiredEmailLog } from "@/lib/email/retention";
-import { makeRateLimiter, clientIp, timingSafeCompare } from "@/lib/verify";
+import { clientIp, timingSafeCompare } from "@/lib/verify";
+import { limited, purgeExpiredRateLimits } from "@/lib/rateLimit";
 
 // The scheduled sweep of expired opsEvents — the backstop that makes the
 // "short operational window" in /privacy true without anyone having to open
@@ -24,10 +25,6 @@ import { makeRateLimiter, clientIp, timingSafeCompare } from "@/lib/verify";
 // now" rather than against what happened last time.
 
 export const runtime = "nodejs";
-
-// Bounded work per invocation; the purge itself caps its batch. This only
-// matters for the unauthenticated case below.
-const rateLimited = makeRateLimiter(6, 60 * 60 * 1000); // per IP per hour
 
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -68,7 +65,7 @@ export async function GET(req: NextRequest) {
     console.warn(
       "[cron] running on the platform cron header because CRON_SECRET is unset — set it."
     );
-  } else if (rateLimited(clientIp(req))) {
+  } else if (await limited(getAdminDb(), "cron-purge", clientIp(req))) {
     // Development only: usable without a secret so the sweep can be exercised
     // locally, still rate-limited so a loop can't hammer the emulator.
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
@@ -83,18 +80,22 @@ export async function GET(req: NextRequest) {
   // opsEvents is: a Firestore TTL policy is the natural home for this and
   // creating one needs an IAM grant the console currently answers 403 to.
   // Retention should not wait on that.
-  // Three sweeps, independently. The email delivery log joins them for the
+  // Four sweeps, independently. The email delivery log joins them for the
   // same reason the other two are here: it holds addresses, so it lives under
   // the privacy policy's "short operational window", and a Firestore TTL
-  // policy — the natural home for all three — needs an IAM grant the console
-  // still answers 403 to.
-  const [deleted, logins, mail] = await Promise.all([
+  // policy — the natural home for all four — needs an IAM grant the console
+  // still answers 403 to. The rate-limit counters are the highest-volume of
+  // the set (one document per key per window across every route), so they are
+  // given a larger batch: left unswept they would outgrow the other three
+  // combined.
+  const [deleted, logins, mail, rates] = await Promise.all([
     purgeExpiredOpsEvents(db, 500),
     purgeExpiredLoginRows(db, 500),
     purgeExpiredEmailLog(db, 500),
+    purgeExpiredRateLimits(db, 2000),
   ]);
   console.info(
-    `[cron] purged ${deleted} expired opsEvents, ${logins} expired login rows, ${mail} expired email log rows`
+    `[cron] purged ${deleted} expired opsEvents, ${logins} expired login rows, ${mail} expired email log rows, ${rates} expired rate rows`
   );
-  return NextResponse.json({ ok: true, deleted, logins, mail });
+  return NextResponse.json({ ok: true, deleted, logins, mail, rates });
 }
