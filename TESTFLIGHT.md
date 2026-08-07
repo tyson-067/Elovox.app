@@ -21,6 +21,47 @@ and **no distribution certificate** yet. Both fix themselves in the flow below.
 
 ## 0. Confirm the paid Developer Program
 
+**As of 2026-08-06 this is the ONLY thing standing between the app and a
+device.** The signing identity on this Mac is a PERSONAL team
+(`MZM9V2B5KN`, "Tyson Youm"), and a Release build for `generic/platform=iOS`
+fails on it like this:
+
+```
+error: Cannot create a iOS App Development provisioning profile for
+"app.elovox.ios". Personal development teams, including "Tyson Youm", do not
+support the Sign In with Apple capability.
+```
+
+That is not a new problem and nothing in the app caused it: Sign in with
+Apple has been in `App/App.entitlements` since it was added for Guideline
+4.8, and a personal team has never been able to sign it. TestFlight, a real
+device, and the App Store are all gated on the $99/yr programme.
+
+The simulator is unaffected and always has been — every feature in this app,
+including the Dynamic Island and the Home Screen widget, has been verified
+there.
+
+### The moment enrolment completes, in order
+
+1. Xcode → Settings → Accounts → add the Apple ID, pick the new **paid** team
+   in Signing & Capabilities for BOTH targets (App and ElovoxWidgets).
+2. Register the two identifiers. With automatic signing, Xcode creates App
+   IDs on demand, so in practice this means opening Signing & Capabilities
+   and letting it:
+   - `app.elovox.ios` — needs **Sign in with Apple** and **App Groups**
+   - `app.elovox.ios.widgets` — needs **App Groups**
+3. Create App Group `group.app.elovox.ios` and tick it on both. This is the
+   one thing that is genuinely paid-only and genuinely manual.
+4. Rebuild. `ElovoxNativePlugin.capabilities()` returns
+   `sharedStorage: true` once the group resolves — that flag exists precisely
+   so "the widget is blank" and "the widget is broken" are distinguishable.
+
+Until step 3, the Home Screen widget renders its placeholder rather than the
+real streak and topic. Everything else — the Dynamic Island, the Siri
+shortcut, the share sheet — needs no App Group and works the moment the app
+runs on a device.
+
+
 TestFlight requires the $99/yr Apple Developer Program, not just an Apple ID.
 Check at https://developer.apple.com/account — if the page shows "Membership"
 with an expiry date, you're in. If it offers to enroll you, enroll now;
