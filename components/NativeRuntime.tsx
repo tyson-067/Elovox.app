@@ -246,6 +246,54 @@ export function NativeRuntime() {
     };
   }, [native, router]);
 
+  /* --- Deep links -------------------------------------------------------
+     `elovox://practice?daily=1` and friends. The scheme is registered in
+     Info.plist and today it has exactly one caller — the Siri shortcut in
+     ElovoxAppIntents.swift, which posts the URL through Capacitor's own
+     ApplicationDelegateProxy so it arrives here as an ordinary `appUrlOpen`.
+     Anything else that ever wants to jump into a screen (a widget tap, a
+     universal link, an email) gets the same door for free.
+
+     Only the path and query survive, and only when the host is empty and the
+     path is a single leading slash: `router.push` with an absolute URL is a
+     full navigation, so a crafted `elovox:///\/evil.example` must not be able
+     to sail through. Same reasoning, and the same shape, as the reminder
+     handler above. */
+  useEffect(() => {
+    if (!native) return;
+    let disposed = false;
+    let remove: (() => void) | undefined;
+
+    void import("@capacitor/app")
+      .then(({ App }) =>
+        App.addListener("appUrlOpen", ({ url }) => {
+          let route: string;
+          try {
+            const parsed = new URL(url);
+            if (parsed.protocol !== "elovox:") return;
+            // Belt and braces: a URL whose host is set ("elovox://evil/x")
+            // must not become "//evil/x".
+            if (parsed.hostname) return;
+            route = `${parsed.pathname}${parsed.search}`;
+          } catch {
+            return;
+          }
+          if (!route.startsWith("/") || route.startsWith("//")) return;
+          router.push(route);
+        })
+      )
+      .then((handle) => {
+        if (disposed) void handle.remove();
+        else remove = () => void handle.remove();
+      })
+      .catch(() => {});
+
+    return () => {
+      disposed = true;
+      remove?.();
+    };
+  }, [native, router]);
+
   /* --- The tick under every tap ------------------------------------------
      One delegated listener rather than a haptic call added to a few hundred
      controls. pointerdown, not click: the feedback has to land when the

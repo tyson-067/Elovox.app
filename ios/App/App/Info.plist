@@ -30,21 +30,25 @@
 				<string>com.googleusercontent.apps.804674022330-7fco2v2c6gn71tdtcpbu4n7aqbt647k8</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>app.elovox.ios.deeplink</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>elovox</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
-	<!-- HTTPS only — the standard exempt answer. Declared here so every
-	     TestFlight upload skips the export-compliance questionnaire. -->
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<!-- Permits cleartext HTTP to local hosts only, so the shell can be
-		     pointed at a dev server (see CAP_SERVER_URL in capacitor.config.ts)
-		     without an arbitrary-loads exception. Connections to elovox.app and
-		     every other internet host stay under full ATS. -->
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
@@ -52,6 +56,8 @@
 	<string>Elovox watches your posture, gestures, and eye contact during a rep to coach your body language.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Elovox records your voice so it can analyse your delivery and score your rep.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
