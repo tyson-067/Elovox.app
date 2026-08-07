@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useEffect, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { useIsNative } from "@/lib/native";
 import { Felix, type FelixAccessory } from "@/components/FoxLogo";
@@ -21,6 +21,7 @@ import {
   type UserStats,
 } from "@/lib/daily";
 import { usePlan } from "@/lib/plan";
+import { publishWidgetState } from "@/lib/nativeExtras";
 import type { ShopState } from "@/lib/shop";
 import type { Session } from "@/lib/types";
 
@@ -284,6 +285,33 @@ export function NativeLadder({
 }) {
   const native = useIsNative();
   const { plan } = usePlan();
+
+  /* --- The Home Screen widget ------------------------------------------
+     Pushed from here because the Ladder is the one screen that already holds
+     every number the widget draws — the streak, the day's topic, the attempts
+     left, today's best. Publishing from the screen that displays them means
+     the widget can never disagree with what the user just looked at, and it
+     never runs on a timer.
+
+     Above the `!native` return, because hooks are not conditional. The helper
+     itself no-ops off-device. */
+  const widgetStreak = stats?.streakDays ?? 0;
+  const widgetTopic = daily?.title ?? "";
+  const widgetUsed = challenge?.attempts.length ?? 0;
+  const widgetBest = challenge?.bestScore ?? null;
+  useEffect(() => {
+    // `challenge === null` is "still loading", and it collapses to the same
+    // values as "nothing done yet" — publishing then would tell the widget
+    // three takes are left on a day that is already finished.
+    if (!widgetTopic || challenge === null) return;
+    void publishWidgetState({
+      streak: widgetStreak,
+      topic: widgetTopic,
+      attemptsLeft: Math.max(0, MAX_DAILY_ATTEMPTS - widgetUsed),
+      bestToday: widgetBest,
+    });
+  }, [challenge, widgetStreak, widgetTopic, widgetUsed, widgetBest]);
+
   if (!native) return null;
 
   const level = stats?.level;

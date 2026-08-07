@@ -7,6 +7,7 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { Felix } from "@/components/FoxLogo";
 import { useInkTopBar, useIsNative } from "@/lib/native";
 import { notifyError } from "@/lib/haptics";
+import { endTakeActivity, startTakeActivity } from "@/lib/nativeExtras";
 import { NvChip } from "@/components/native/ui";
 import { AnalyzingLoader } from "@/components/AnalyzingLoader";
 import { getCategory, pickPrompt } from "@/lib/categories";
@@ -896,6 +897,30 @@ function RecordingScreen() {
     if (!native || state !== "error") return;
     notifyError();
   }, [native, state]);
+
+  /* --- The Dynamic Island ------------------------------------------------
+     A sixty-second countdown is the one thing in this app that genuinely
+     belongs there: it is time-critical, it is short, and the phone is very
+     likely in a hand or face-down while it runs.
+
+     The cleanup is the important half. A recording screen has three ways out
+     — finish, discard, and navigating away — and a Live Activity still
+     counting down after the last of them is the most annoying thing this
+     feature could do to anyone. Returning the teardown from the effect covers
+     all three with one line, because every one of them either flips
+     `recording` or unmounts the screen. */
+  useEffect(() => {
+    if (!native || !recording) return;
+    void startTakeActivity({
+      seconds: limitSec,
+      topic: daily?.title ?? goal?.label ?? "Your take",
+      attempt: (challenge?.attempts.length ?? 0) + 1,
+      totalAttempts: MAX_DAILY_ATTEMPTS,
+    });
+    return () => {
+      void endTakeActivity();
+    };
+  }, [native, recording, limitSec, daily, goal, challenge]);
   // The booth is a dark room in both themes, so the status bar owes it light
   // glyphs while the takeover is up — and dark ones again the moment it isn't.
   useInkTopBar(native && recording);

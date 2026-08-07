@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useInkTopBar, useIsNative } from "@/lib/native";
 import { notifySuccess } from "@/lib/haptics";
+import { canShare, shareTake } from "@/lib/share";
 import { CountUp } from "@/components/CountUp";
 import { Felix } from "@/components/FoxLogo";
 import { Reveal } from "@/components/Reveal";
@@ -446,7 +447,34 @@ export function NativeReport({
             {titleLabel}
             {session.attempt ? ` · attempt ${session.attempt}` : ""}
           </span>
-          <span className="w-9" />
+          {canShare() ? (
+            <button
+              type="button"
+              onClick={() =>
+                void shareTake({ score: analysis.overall, title: titleLabel })
+              }
+              className="nv-stage-btn"
+              aria-label="Share this take"
+            >
+              <svg
+                width="19"
+                height="19"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 15V4" />
+                <path d="m8 8 4-4 4 4" />
+                <path d="M5 14v5h14v-5" />
+              </svg>
+            </button>
+          ) : (
+            <span className="w-9" />
+          )}
         </div>
 
         <div className="pt-3.5 text-center">
