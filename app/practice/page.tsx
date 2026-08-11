@@ -1074,7 +1074,11 @@ function RecordingScreen() {
             )}
           </div>
 
-          {scenario && (
+          {/* The Daily Minute renders the topic itself at title size, and the
+              scenario was a second, longer paragraph saying the same thing
+              slower — read once, skipped forever after. Every other mode still
+              needs it, because there the scenario IS the setup. */}
+          {scenario && !isDaily && (
             <p
               className={
                 "mt-3 text-base leading-6 text-on-surface-variant max-w-[60ch]" +
@@ -1089,30 +1093,26 @@ function RecordingScreen() {
             <div className="mt-3 max-w-[60ch]">
               <p
                 className={
-                  "font-headline text-[26px] leading-9 text-primary" +
-                  (native ? " nv-title" : "")
+                  "font-headline text-[30px] leading-10 text-primary" +
+                  (native ? " nv-daily-topic" : "")
                 }
               >
                 {daily.topic}
               </p>
-              <p
-                className={
-                  "mt-2 text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant" +
-                  (native ? " nv-caption" : "")
-                }
-              >
-                Improvise. Hit these three, in your own words.
-              </p>
-              <ul className="mt-2 space-y-2">
+              {/* The three points, straight under the topic. The "Improvise,
+                  hit these three" caption is gone: a numbered list of exactly
+                  three things below a topic already says it, and on a phone
+                  that line was one more thing between reading and recording. */}
+              <ul className="mt-4 space-y-3">
                 {(daily.bullets ?? []).map((b, i) => (
                   <li
                     key={i}
                     className={
-                      "flex gap-3 text-lg leading-7 text-on-surface" +
-                      (native ? " nv-body" : "")
+                      "flex gap-3 text-xl leading-8 text-on-surface" +
+                      (native ? " nv-daily-point" : "")
                     }
                   >
-                    <span className="font-data text-sm text-accent-strong mt-1">{i + 1}</span>
+                    <span className="font-data text-base text-accent-strong mt-1">{i + 1}</span>
                     <span>{b}</span>
                   </li>
                 ))}
@@ -1174,11 +1174,12 @@ function RecordingScreen() {
             </p>
           )}
 
-          {isDaily && daily?.focus && (
-            <p className="mt-3 text-base leading-6 text-accent-strong max-w-[60ch]">
-              Felix is watching for: {daily.focus}
-            </p>
-          )}
+          {/* "Felix is watching for: <a sentence about sprinting through the
+              finish line>" used to sit here. It was the longest line on the
+              screen, and it told you how to speak before you had spoken. The
+              day's focus is not lost: Felix still says "Watching for: …" in
+              the booth (`boothLine`), where it is a live cue rather than
+              another paragraph to read on the way to the button. */}
 
           {mode === "social" && (
             <div className="mt-3">
@@ -1338,20 +1339,38 @@ function RecordingScreen() {
             </div>
           )}
 
-          {/* Coaching goal: what should this delivery do to the audience? */}
-          <div className="mt-5">
+          {/* IMPACT MODES — the coaching goal, and the thing this product has
+              that a recorder and a stopwatch don't: you name the effect you
+              want on the room, and the score is against THAT.
+
+              It spent its life as "What do you want this to do?" in 13px grey,
+              phrased as a question rather than named as a feature, which made
+              the one differentiating control on the screen read like a caption.
+              It now has a name.
+
+              On the app it also gets an accent-tinted surface: the only tinted
+              card in the shell, so the eye finds it between the brief and the
+              record button. Tint and hairline only — the system's one-accent
+              rule means a saturated FILL here would compete with the record
+              button, which is the one thing on this screen that must win. */}
+          <div className={"mt-6 p-4" + (native ? " nv-impact-card" : " card-warm")}>
             <span
               className={
-                "text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant" +
-                (native ? " nv-caption" : "")
+                "block font-headline text-[19px] font-bold tracking-tight text-primary" +
+                (native ? " nv-impact-title" : "")
               }
             >
-              What do you want this to do?{" "}
-              <span className="normal-case font-medium tracking-normal">
-                (Felix judges against it)
-              </span>
+              Impact Modes
             </span>
-            <div className={"mt-2 flex flex-wrap gap-2" + (native ? " nv-grid-2" : "")}>
+            <span
+              className={
+                "mt-1 block text-[14px] text-on-surface-variant" +
+                (native ? " nv-impact-sub" : "")
+              }
+            >
+              Pick the effect you want. Felix scores you against it.
+            </span>
+            <div className={"mt-3 flex flex-wrap gap-2" + (native ? " nv-grid-2" : "")}>
               {GOALS.map((g) => {
                 const active = goalId === g.id;
                 if (native) {
@@ -1374,7 +1393,7 @@ function RecordingScreen() {
                     disabled={state !== "idle" && state !== "error"}
                     onClick={() => setGoalId(active ? null : g.id)}
                     aria-pressed={active}
-                    className={`pill rounded-full border px-3.5 py-1.5 text-[13px] font-semibold tracking-wide disabled:opacity-50 ${
+                    className={`pill rounded-full border px-4 py-2 text-[14px] font-semibold tracking-wide disabled:opacity-50 ${
                       active
                         ? "border-accent bg-accent-strong text-white"
                         : "border-primary/20 text-primary hover:border-accent/60"

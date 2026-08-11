@@ -4813,3 +4813,87 @@ html[data-native] #main .font-headline {
   font-weight: 800;
   letter-spacing: var(--nv-track-title);
 }
+
+/* --- THE DAILY MINUTE BRIEF, AT READING SIZE -------------------------------
+   The daily brief is the only text on the phone you have to hold in your head
+   while you speak, and it was rendering at the shared scale: nv-title (22px)
+   for the topic, nv-body (17px) for the three points, both sized for text you
+   read once and scroll past. Under the topic sat a scenario paragraph, an
+   "Improvise, hit these three" caption and a "Felix is watching for…" line —
+   four blocks of prose around the four words that actually matter.
+
+   Those are gone. What remains gets the room they were taking: the topic goes
+   up a step, the points go up a step and gain leading. Same scale, one rung
+   higher; nothing here invents a size the rest of the shell doesn't already
+   use. (The goal picker below them got its own treatment — see IMPACT MODES.) */
+html[data-native] .nv-daily-topic {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: var(--nv-track-title, -0.02em);
+  line-height: 1.25;
+  color: var(--nv-ink);
+}
+html[data-native] .nv-daily-point {
+  font-size: 19px;
+  line-height: 1.5;
+  color: var(--nv-ink);
+}
+/* --- IMPACT MODES ----------------------------------------------------------
+   The one control on the practice screen that is a product feature rather
+   than a form field: you name the effect you want on the room, and the score
+   is against that. It was rendering as a plain white card identical to the
+   two above it, which is how a differentiator ends up looking like a setting.
+
+   So it gets the only tinted surface in the shell: accent-50 ground, an
+   accent hairline, and a title in accent-700 — the AA-verified accent, 5.2:1
+   on white and better on the 50 tint, so a colored heading here is still
+   readable rather than decorative.
+
+   What it deliberately does NOT get is a saturated FILL. The one-accent rule
+   exists because the record button is the only thing on this screen that must
+   win the eye, and a solid orange panel directly above it would take that.
+   Tint plus hairline reads as "this is different" at a glance and stops. */
+html[data-native] .nv-impact-card {
+  background: var(--nv-accent-50);
+  border: 1px solid color-mix(in srgb, var(--nv-accent-500) 24%, transparent);
+  border-radius: var(--nv-r-card);
+  /* No --nv-shadow: the tint already lifts it off the ground, and a shadow on
+     top read as a second, competing elevation next to the white cards. */
+  box-shadow: none;
+}
+html[data-native] .nv-impact-title {
+  font-size: var(--nv-title-size);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--nv-accent-700);
+  text-transform: none;
+}
+html[data-native] .nv-impact-sub {
+  font-size: var(--nv-subhead-size);
+  line-height: 1.4;
+  color: var(--nv-ink-2);
+}
+
+/* Dark needs its own tint, not the same token. accent-50 in dark resolves to
+   a saturated brown, which on the near-black navy ground stops being a tint
+   and becomes a slab — the one thing this was asked not to be. So dark mixes
+   a little accent INTO the card color instead: the surface still reads warm
+   against the cold ground, at the same visual weight the #fff4ee tint has in
+   light. accent-700 also goes mud on it, so the title takes accent-500, which
+   is what every other accent-on-dark surface in the shell uses. */
+html[data-native][data-theme="dark"] .nv-impact-card {
+  background: color-mix(in srgb, var(--nv-accent-500) 12%, var(--nv-card));
+  border-color: color-mix(in srgb, var(--nv-accent-500) 28%, transparent);
+}
+html[data-native][data-theme="dark"] .nv-impact-title {
+  color: var(--nv-accent-500);
+}
+
+/* The chips sit ON the tint now, so their default --nv-card white is the
+   contrast that makes them read as pressable. Only the unselected state
+   needs saying; selected still fills accent-700 from the base rule. */
+html[data-native] .nv-impact-card .nv-chip:not([data-selected]) {
+  background: var(--nv-card);
+  border-color: color-mix(in srgb, var(--nv-accent-500) 18%, transparent);
+}
