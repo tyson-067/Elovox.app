@@ -29,6 +29,14 @@
      waveform, Felix. */
   --color-accent-strong: #c2410c;
   --color-violet: #7663c4; /* Premium / focus. The logo's purple lives on. */
+  /* The SAME violet, deepened, for type that sits on a violet TINT. Exactly
+     the accent/accent-strong situation one hue over: #7663c4 is 4.83:1 on
+     white and clears AA there, but the moment it sits on a violet/10 pill the
+     ground lifts and it drops to 4.24:1. Deepening --color-violet itself would
+     dull the premium badge, the focus ring and Felix's logo purple everywhere
+     they are NOT behind text, so this is a second token rather than an edit.
+     5.67:1 on white, 4.98:1 on the tint. */
+  --color-violet-strong: #6a57bc;
   --color-slate: #8fa0d8; /* Vista Bleu */
   --color-amber: #ff8400; /* Orange, for "watch this" states */
 

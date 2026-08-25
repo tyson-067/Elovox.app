@@ -197,6 +197,42 @@ Bounce is reserved for motion the user's own gesture put momentum into.
 
 ---
 
+## What the tests actually protect
+
+```bash
+npm run verify    # typecheck + lint + unit + build — the pre-push gate
+npm run test:e2e  # builds, serves, and runs the browser gates
+```
+
+CI runs both on every push and pull request (`.github/workflows/ci.yml`).
+
+**Unit (`tests/unit/`, Vitest).** Not coverage for its own sake — each file
+pins a fact that has already been got wrong here:
+
+| File | The bug it prevents |
+|---|---|
+| `contrast.test.ts` | Walks the real `.tsx` source, re-measures every `text-{token}/{opacity}` and fails under 4.5:1. It caught a live 3.91:1 the moment it was written. |
+| `stylesheet-invariants.test.ts` | Fails if a reduced-motion block names a class nothing renders — the exact `.nv-rung-*` → `.nv-ring-*` drift that left two animations looping forever on the app's home screen. Also pins the final accessibility block to the bottom of the file. |
+| `practice-catalog.test.tsx` | The `plan === null` third state. Renders the locked card during it and every subscriber sees a paywall flash on each cold load. |
+| `spring.test.ts` | That the springs are analytic — the same settle at 60Hz and 120Hz — and that `stop()` returns live value *and* velocity, which is what makes interruption not jump. |
+| `levels.test.ts`, `scoring.test.ts` | Threshold and monotonicity facts the report's bars and the XP receipt both depend on. |
+
+**E2E (`tests/e2e/`, Playwright, against a PRODUCTION build).** Dev serves
+unminified CSS in a different order, and at least one bug here only appeared
+once Tailwind had tree-shaken.
+
+- **`app-store-gate.spec.ts`** — stamps `data-native` and asserts no price is
+  reachable. This is the one that costs a rejected binary.
+- **`reduced-motion.spec.ts`** — asserts nothing *disappears*. Note it calls
+  `page.emulateMedia({ reducedMotion: "reduce" })` and then **checks the
+  emulation took hold**: `test.use({ reducedMotion })` silently did nothing
+  here, so the suite briefly asserted reduced-motion behaviour against a
+  browser with motion on.
+- **`responsive.spec.ts`** — 9 widths × 5 routes, plus a check that `<main>` is
+  capped and centred rather than stretching.
+
+**If you are adding a test, make it pin a fact somebody actually got wrong.**
+
 ## The rules that keep this from rotting
 
 1. **Reduced motion simplifies; it never hides.** Put `opacity: 0` in a `from`

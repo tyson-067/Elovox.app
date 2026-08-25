@@ -57,6 +57,12 @@ const ABOUT_SCHEMA = {
 // a public page is where spam crawlers harvest them. The footer's Contact link
 // (LEGAL.contactEmail) is the single way in, and it can be redirected or
 // retired without touching anyone's inbox.
+// Everyone here is a co-founder as well as running their own area, so the card
+// carries both: the shared standing as a badge, the individual remit as the
+// line under it. Rendering "Co-Founder & Head of Marketing" as one string would
+// make the shared half compete with the part that differs, and on a four-card
+// grid the eye would read the same three words four times before finding the
+// one that matters.
 const TEAM = [
   { name: "Tyson Youm", role: "Head of Product Development" },
   { name: "Aanya Iyer", role: "Head of Marketing" },
@@ -142,13 +148,24 @@ export default function AboutPage() {
           </h2>
         </Reveal>
         <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+          {/* h-full on the Reveal, not just the card: Reveal is the grid ITEM,
+              so without it the card has nothing full-height to fill and a
+              longer role wraps one card taller than its neighbour. */}
           {TEAM.map((member, i) => (
-            <Reveal key={member.name} delay={i * 80}>
-              <div className="card p-5 md:p-6">
-                <p className="font-headline text-xl font-semibold text-primary">
+            <Reveal key={member.name} delay={i * 80} className="h-full">
+              <div className="card h-full p-5 md:p-6">
+                <p className="font-headline text-h3 font-bold text-primary">
                   {member.name}
                 </p>
-                <p className="mt-1 text-label font-semibold tracking-[0.06em] uppercase text-violet">
+                {/* text-violet-strong, not text-violet: on the violet/10 tint
+                    the plain violet measures 4.24:1, just under AA. See the
+                    token's note in globals.css. */}
+                <p className="mt-2.5">
+                  <span className="inline-block rounded-full bg-violet/10 px-3 py-1 text-micro font-bold uppercase tracking-[0.1em] text-violet-strong">
+                    Co-Founder
+                  </span>
+                </p>
+                <p className="mt-2.5 text-label font-bold uppercase tracking-[0.08em] text-violet-strong">
                   {member.role}
                 </p>
               </div>

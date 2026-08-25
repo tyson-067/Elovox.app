@@ -85,3 +85,9 @@ next-env.d.ts
 # App Store screenshot captures (scripts/appstore-screenshots.sh). Marketing
 # artefacts, regenerated per release, and several MB each.
 /screenshots/
+
+# Test output
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

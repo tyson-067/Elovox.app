@@ -2591,16 +2591,22 @@ html[data-native] #main[data-screen-enter] .nv-rung:nth-of-type(2) { animation-d
 html[data-native] #main[data-screen-enter] .nv-today { animation-delay: 120ms; }
 
 @media (prefers-reduced-motion: reduce) {
-  html[data-native] .nv-rung-halo,
-  html[data-native] .nv-rung-felix,
+  /* .nv-rung-halo, .nv-rung-felix, .nv-rung-face and .nv-tile used to be
+     listed here. The LADDER PASS renamed the first two to .nv-ring-* and
+     retired the other two, and nobody updated this block — so for several
+     passes these lines silenced nothing at all while the live .nv-ring-halo
+     and .nv-ring-felix looped forever on the app's HOME SCREEN for anyone
+     with Reduce Motion on. The live names are handled in THE LAST WORD ON
+     ACCESSIBILITY at the bottom of this file.
+
+     tests/unit/stylesheet-invariants.test.ts now fails the build if a
+     reduced-motion block names a class no component renders, which is the
+     only way this class of bug is visible before a user finds it. */
   html[data-native] .nv-booth-live::before,
   html[data-native] #main[data-screen-enter] .nv-rung,
-  html[data-native] #main[data-screen-enter] .nv-today,
-  html[data-native] #main[data-screen-enter] .nv-tile {
+  html[data-native] #main[data-screen-enter] .nv-today {
     animation: none;
   }
-  html[data-native] .nv-rung-face,
-  html[data-native] .nv-tile,
   html[data-native] .nv-xp-fill {
     transition: none;
   }

@@ -9,7 +9,12 @@
     "start": "next start",
     "lint": "eslint",
     "audit:limits": "node audit-rate-limits.mjs",
-    "test:limits": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON test-rate-limits.mjs"
+    "test:limits": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON test-rate-limits.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "dependencies": {
     "@capacitor-firebase/authentication": "^8.3.0",
@@ -35,13 +40,19 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.4.2",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "jsdom": "^30.0.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.11"
   }
 }

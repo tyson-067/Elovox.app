@@ -144,7 +144,12 @@ export function InfoTip({
         onBlur={() => setOpen(false)}
         className={`inline-flex h-5 w-5 items-center justify-center rounded-full border text-micro font-semibold leading-none transition-colors ${
           dark
-            ? "border-white/40 text-white/70 hover:border-white hover:text-white"
+            // /85, not /70. This is a text glyph at 11px on the navy
+            // gradient, where /70 measures 3.91:1 — under AA. It was
+            // exempted by hand once on the assumption it sat on the darker
+            // Oxford tooltip; it does not, it sits on the trigger surface.
+            // tests/unit/contrast.test.ts now measures it instead of asking.
+            ? "border-white/40 text-white/85 hover:border-white hover:text-white"
             : "border-outline-variant text-on-surface-variant hover:border-accent hover:text-accent-strong"
         }`}
       >
