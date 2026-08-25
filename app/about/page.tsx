@@ -72,7 +72,7 @@ const TEAM = [
 
 export default function AboutPage() {
   return (
-    <div className="pb-20">
+    <div>
       <script
         type="application/ld+json"
         // Not executable script, a data block crawlers parse.

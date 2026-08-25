@@ -206,7 +206,7 @@ export default function PricingPage() {
     // the price grid exists in the HTML the webview receives and would be
     // painted for the frame or two before hydration runs the replace(). The
     // CSS rule is already in effect at first paint, the effect is not.
-    <div className="pb-24 web-only">
+    <div className="web-only">
       {/* Hero */}
       {/* Left-aligned, like every other page here. This hero was the only
           centred one on the site, which made /pricing read as a different

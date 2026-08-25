@@ -43,3 +43,54 @@ test("content is capped, not stretched, on a large display", async ({ page }) =>
   expect(box!.width).toBeLessThan(1920);
   expect(Math.abs(box!.x - (1920 - box!.width) / 2)).toBeLessThan(2); // centred
 });
+
+test.describe("page bottom", () => {
+  /* Every page used to add its own trailing pb-20/pb-24 on top of the footer's
+     own top margin, stacking 144-160px of dead space at the bottom of the site.
+     It read as a rendering fault, not as spacing — which is exactly how it was
+     reported. The footer owns that gap now; pages must not add bottom padding. */
+  for (const route of ["/", "/about", "/pricing", "/for/students"]) {
+    for (const width of [390, 1280]) {
+      test(`no dead space above the footer on ${route} @${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(route);
+        await page.evaluate(async () => {
+          for (let y = 0; y < document.body.scrollHeight; y += 600) {
+            window.scrollTo(0, y);
+            await new Promise(requestAnimationFrame);
+          }
+          window.scrollTo(0, 0);
+        });
+
+        const gap = await page.evaluate(() => {
+          const main = document.querySelector("#main")!;
+          const footer = document.querySelector("footer")!;
+          const footerTop = footer.getBoundingClientRect().top + window.scrollY;
+          let deepest = 0;
+          main.querySelectorAll("*").forEach((el) => {
+            const r = el.getBoundingClientRect();
+            if (r.height > 0 && r.width > 0 && (el.textContent || "").trim()) {
+              deepest = Math.max(deepest, r.bottom + window.scrollY);
+            }
+          });
+          return Math.round(footerTop - deepest);
+        });
+
+        // One --space-section beat, not two stacked ones. 96 leaves room for the
+        // token's fluid ceiling without tolerating a second helping of padding.
+        expect(gap, `${gap}px between the last content and the footer`).toBeLessThanOrEqual(96);
+        expect(gap, "the footer should not be flush against the content").toBeGreaterThan(8);
+      });
+    }
+  }
+
+  test("nothing renders below the footer", async ({ page }) => {
+    await page.goto("/");
+    const below = await page.evaluate(() => {
+      const footer = document.querySelector("footer")!;
+      const fb = footer.getBoundingClientRect().bottom + window.scrollY;
+      return document.documentElement.scrollHeight - fb;
+    });
+    expect(below).toBeLessThanOrEqual(2);
+  });
+});

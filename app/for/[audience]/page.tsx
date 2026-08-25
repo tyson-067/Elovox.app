@@ -74,7 +74,7 @@ export default async function AudiencePage({
   };
 
   return (
-    <div className="native-hide pb-20">
+    <div className="native-hide">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(pageGraph(WEBAPP, pageSchema)) }}

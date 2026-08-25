@@ -77,8 +77,11 @@ export function AuthNav() {
   // they already own. Subscribers manage billing from /account, which still
   // links through to /pricing as "Compare plans" for the rare case they want
   // to see the grid.
+  // `md` and up only. Below that the Explore panel carries Pricing (and About),
+  // which is what pays for the menu trigger's width — the 375px budget measured
+  // below is real, and this keeps the mobile header spending LESS than it did.
   const pricingLink = (
-    <Link href="/pricing" className="nav-link hover:text-primary web-only">
+    <Link href="/pricing" className="nav-link hidden md:block hover:text-primary web-only">
       Pricing
     </Link>
   );
@@ -112,10 +115,13 @@ export function AuthNav() {
     </Link>
   );
 
-  // Depth without more top-level items: at `md` and up the Explore menu
-  // carries the three /for/* audience pages (which otherwise had one route
-  // in, a card partway down the homepage) and the page's own sections.
-  // About is deliberately NOT in it — see the note on aboutLink.
+  // Depth without more top-level items: the Explore menu carries the three
+  // /for/* audience pages (which otherwise had one route in, a card partway
+  // down the homepage) and the page's own sections. It now renders at EVERY
+  // width — below md as an icon and a full-width panel — because a route diff
+  // against an iPhone 13 found seven destinations a phone simply could not
+  // reach from an inner page. About stays out of it above md (see aboutLink)
+  // and is inside it below md, where it is otherwise unreachable.
   const exploreMenu = <NavMenu />;
 
   if (!configured) {

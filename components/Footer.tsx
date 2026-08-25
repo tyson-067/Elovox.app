@@ -11,9 +11,13 @@ import { FooterAboutLink } from "@/components/FooterAboutLink";
 // WCAG 2.5.8 target and genuinely fiddly to hit with a thumb.
 const linkClass = "py-2 -my-2 transition-opacity hover:opacity-70";
 
+// The footer owns the gap above itself. Every page used to add its own trailing
+// pb-20/pb-24 on top of this margin, so the bottom of the site carried 144-160px
+// of stacked dead space and read as a rendering fault rather than as spacing.
+// One owner, one token. Pages must NOT add bottom padding — there is a test.
 export function Footer() {
   return (
-    <footer className="mt-16 border-t border-primary/8 bg-surface-warm/70">
+    <footer className="mt-[var(--space-section)] border-t border-primary/8 bg-surface-warm/70">
       <div className="w-full px-4 md:px-10 xl:px-16 2xl:px-24 py-8">
         <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
           <div>

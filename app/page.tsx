@@ -258,7 +258,7 @@ export default function LandingPage() {
   return (
     // native-hide: inside the app this page is a redirect, not a screen.
     // See components/NativeEntry.
-    <div className="native-hide pb-20">
+    <div className="native-hide">
       <script
         type="application/ld+json"
         // Not executable script, a data block crawlers and reviewers parse.
