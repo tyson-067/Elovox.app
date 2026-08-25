@@ -2,7 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
-import { BackdropScene, backdropTone } from "@/components/Backdrop";
+import dynamic from "next/dynamic";
+import { backdropTone } from "@/components/Backdrop";
+
+// Backdrop.tsx is ~550 lines of ten hand-drawn full-page SVG scenes, and it
+// shipped to every signed-in visitor even though at most ONE is equipped —
+// and none at all in the native shell, where this component returns null.
+// Only the drawing is deferred; backdropTone is a lookup table and stays
+// static because the tone has to be stamped on <html> before paint or the
+// ink flashes the wrong colour.
+//
+// ssr: false because a purchased backdrop is per-user state read from
+// Firestore after mount; there is nothing to prerender.
+const BackdropScene = dynamic(
+  () => import("@/components/Backdrop").then((m) => m.BackdropScene),
+  { ssr: false }
+);
 import { isBackdropId } from "@/lib/coins";
 import { fetchShopState } from "@/lib/shop";
 import { useIsNative } from "@/lib/native";

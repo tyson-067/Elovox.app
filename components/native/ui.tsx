@@ -1,8 +1,26 @@
 "use client";
 
-import { useEffect, type ReactNode, type ButtonHTMLAttributes } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  type ButtonHTMLAttributes,
+} from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import {
+  spring,
+  project,
+  rubberband,
+  VelocityTracker,
+  prefersReducedMotion,
+  type SpringHandle,
+} from "@/lib/spring";
+import { tapLight, selection } from "@/lib/haptics";
 
 /**
  * The native primitive set. Every native screen is composed from these —
@@ -242,39 +260,287 @@ export function NvSheet({
   title?: ReactNode;
   children: ReactNode;
 }) {
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const backdropRef = useRef<HTMLDivElement | null>(null);
+  const springRef = useRef<SpringHandle | null>(null);
+  const tracker = useRef(new VelocityTracker()).current;
+  const drag = useRef<{ id: number; startY: number; startOffset: number; active: boolean } | null>(null);
+  const titleId = useId();
+
+  // `open` is the caller's intent; `mounted` is ours. They differ for exactly
+  // as long as the exit animation lasts, which is the entire reason this state
+  // exists: the old sheet did `if (!open) return null`, so every dismissal was
+  // a hard cut. A sheet that slides up and then vanishes is not a sheet.
+  //
+  // Opening is synced DURING RENDER, not in an effect. React's rule against
+  // setState-in-effect is not a style preference here — an effect would paint
+  // one frame with the sheet absent before mounting it, which is a flash on
+  // every open. This is the documented "adjusting state when a prop changes"
+  // pattern; React re-renders immediately and nothing else sees the stale value.
+  const [mounted, setMounted] = useState(open);
+  if (open && !mounted) setMounted(true);
+
+  const height = () => sheetRef.current?.offsetHeight ?? 400;
+
+  /** Paint a drag offset. 0 = fully open, height = fully dismissed. */
+  const paint = useCallback((y: number) => {
+    const el = sheetRef.current;
+    if (el) el.style.transform = `translate3d(0, ${y}px, 0)`;
+    const bd = backdropRef.current;
+    // The scrim tracks the drag rather than fading on a timer, so the room
+    // behind the sheet lightens exactly as fast as you pull it away.
+    if (bd) bd.style.opacity = String(Math.max(0, 1 - y / Math.max(height(), 1)));
+  }, []);
+
+  const settle = useCallback(
+    (to: number, velocity: number, then?: () => void) => {
+      springRef.current?.stop();
+      const from = currentOffset(sheetRef.current);
+      springRef.current = spring({
+        from,
+        to,
+        velocity,
+        // 0.8/0.3 is Apple's own drawer pairing. The slight overshoot only
+        // ever shows on a release the user put speed into, which is the one
+        // place a bounce reads as physics rather than decoration.
+        damping: 0.8,
+        response: 0.3,
+        onFrame: paint,
+        onRest: then,
+      });
+    },
+    [paint]
+  );
+
+  // Only ever called from an event handler (gesture, backdrop tap, Escape),
+  // never from an effect. It animates out and then tells the parent, which
+  // flips `open` and lets the effect above no-op.
+  const dismiss = useCallback(
+    (velocity = 0) => {
+      if (prefersReducedMotion()) {
+        setMounted(false);
+        onClose();
+        return;
+      }
+      settle(height(), velocity, () => {
+        setMounted(false);
+        onClose();
+      });
+    },
+    [onClose, settle]
+  );
+
+  /* --- closing from the outside ------------------------------------------- */
+  // A save handler that flips `open` to false still deserves the exit
+  // animation. No setState in this effect body: the spring owns the unmount,
+  // and it happens in a rAF callback once the sheet has actually left.
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    if (open || !mounted) return;
+    if (prefersReducedMotion()) {
+      // Unmount on the next frame rather than synchronously here. Same visible
+      // result — reduced motion pins transform to none in CSS, so there is
+      // nothing to travel — but it keeps the state change out of the effect
+      // body, which is what React 19 is asking for.
+      const id = requestAnimationFrame(() => setMounted(false));
+      return () => cancelAnimationFrame(id);
+    }
+    springRef.current?.stop();
+    const h = spring({
+      from: currentOffset(sheetRef.current),
+      to: sheetRef.current?.offsetHeight ?? 400,
+      damping: 0.9,
+      response: 0.3,
+      onFrame: paint,
+      onRest: () => setMounted(false),
+    });
+    springRef.current = h;
+    return () => {
+      h.stop();
     };
+  }, [open, mounted, paint]);
+
+  // Entrance. Deliberately NOT a CSS keyframe: the same spring that runs the
+  // entrance is the one a finger can interrupt 80ms in, and a keyframe cannot
+  // be grabbed.
+  useEffect(() => {
+    if (!mounted) return;
+    const el = sheetRef.current;
+    if (!el) return;
+    if (prefersReducedMotion()) {
+      paint(0);
+      return;
+    }
+    paint(el.offsetHeight);
+    const h = spring({
+      from: el.offsetHeight,
+      to: 0,
+      damping: 1, // arriving under its own power: no overshoot
+      response: 0.4,
+      onFrame: paint,
+    });
+    springRef.current = h;
+    return () => {
+      h.stop();
+    };
+  }, [mounted, paint]);
+
+  /* --- escape, scroll lock, focus trap ------------------------------------ */
+  useEffect(() => {
+    if (!mounted) return;
+    const sheet = sheetRef.current;
+    const prevFocus = document.activeElement as HTMLElement | null;
+
+    const focusables = () =>
+      Array.from(
+        sheet?.querySelectorAll<HTMLElement>(
+          'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+        ) ?? []
+      ).filter((el) => el.offsetParent !== null);
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        dismiss(0);
+        return;
+      }
+      // Without this, Tab walks straight out of a dialog marked aria-modal
+      // and starts operating the screen behind it, which for the delete-account
+      // sheet means tabbing from a confirmation into the thing it confirms.
+      if (e.key !== "Tab") return;
+      const list = focusables();
+      if (list.length === 0) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
     document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
+    const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+
+    // Move focus in, but to the sheet itself rather than the first control:
+    // landing on "Delete" the instant a destructive sheet opens is how a
+    // keyboard user confirms something they never read.
+    const t = window.setTimeout(() => sheet?.focus({ preventScroll: true }), 0);
+
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
+      document.body.style.overflow = prevOverflow;
+      window.clearTimeout(t);
+      prevFocus?.focus?.({ preventScroll: true });
     };
-  }, [open, onClose]);
+  }, [mounted, dismiss]);
 
-  // A portal needs a DOM target, which prerendering has none of. There is no
-  // hydration risk in reading `document` here rather than gating on a mounted
-  // flag: `open` only ever becomes true from a tap, which is necessarily after
-  // hydration, so the server and the first client paint both render null.
-  if (!open || typeof document === "undefined") return null;
+  /* --- the gesture --------------------------------------------------------- */
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const el = sheetRef.current;
+    if (!el) return;
+    // Content that is scrolled down owns the gesture — dragging the sheet from
+    // the middle of a scrolled list is how you lose your place in it. Only a
+    // list already at the top hands the drag up to the sheet.
+    const fromGrabber = (e.target as HTMLElement)?.closest?.(".nv-grabber, .nv-sheet-head");
+    if (!fromGrabber && el.scrollTop > 0) return;
+
+    // Interrupt whatever is in flight and inherit its position, so grabbing a
+    // closing sheet catches it exactly where it is rather than snapping.
+    const live = springRef.current?.stop();
+    const startOffset = live ? live.value : currentOffset(el);
+
+    drag.current = { id: e.pointerId, startY: e.clientY, startOffset, active: false };
+    tracker.reset();
+    tracker.add(e.clientY);
+    el.setPointerCapture(e.pointerId);
+  };
+
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    const dy = e.clientY - d.startY;
+
+    // ~10px of hysteresis before we commit to "this is a drag", so a tap that
+    // wobbles two pixels still reads as a tap.
+    if (!d.active) {
+      if (Math.abs(dy) < 10) return;
+      d.active = true;
+      selection();
+    }
+    tracker.add(e.clientY);
+
+    let next = d.startOffset + dy;
+    // Upward past the open position resists instead of stopping dead.
+    if (next < 0) next = -rubberband(-next, height());
+    paint(next);
+  };
+
+  const endDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    drag.current = null;
+    sheetRef.current?.releasePointerCapture?.(e.pointerId);
+    if (!d.active) return;
+
+    const v = tracker.velocity;
+    const offset = currentOffset(sheetRef.current);
+    // Decide on where the flick was HEADING, not where the finger stopped.
+    // A fast short flick dismisses; a slow long drag that stalled does not.
+    const projected = offset + project(v);
+    if (projected > height() * 0.4) {
+      tapLight();
+      dismiss(v);
+    } else {
+      settle(0, v);
+    }
+  };
+
+  if (!mounted || typeof document === "undefined") return null;
+
   return createPortal(
     <>
-      <button
-        type="button"
-        aria-label="Close"
+      <div
+        ref={backdropRef}
         className="nv-sheet-backdrop"
-        onClick={onClose}
+        onClick={() => dismiss(0)}
+        aria-hidden="true"
       />
-      <div role="dialog" aria-modal="true" className="nv-sheet">
-        <div className="nv-grabber" aria-hidden="true" />
-        {title && <h2 className="nv-headline mb-3 text-center">{title}</h2>}
+      <div
+        ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        aria-label={title ? undefined : "Sheet"}
+        tabIndex={-1}
+        className="nv-sheet"
+        data-gesture="1"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+      >
+        <div className="nv-sheet-head">
+          <div className="nv-grabber" aria-hidden="true" />
+          {title && (
+            <h2 id={titleId} className="nv-headline mb-3 text-center">
+              {title}
+            </h2>
+          )}
+        </div>
         {children}
       </div>
     </>,
     document.body
   );
+}
+
+/** Read the offset actually on screen right now, not the one we last set. */
+function currentOffset(el: HTMLElement | null): number {
+  if (!el) return 0;
+  const t = el.style.transform;
+  const m = /translate3d\(0(?:px)?,\s*(-?[\d.]+)px/.exec(t);
+  return m ? parseFloat(m[1]) : 0;
 }

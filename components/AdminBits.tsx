@@ -19,7 +19,7 @@ export function Section({
   return (
     <section className="mt-8">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[13px] font-semibold uppercase tracking-[0.04em] text-on-surface-variant">
+        <h2 className="text-kicker uppercase text-on-surface-variant">
           {title}
         </h2>
         {aside}
@@ -44,7 +44,7 @@ export function Stat({
 }) {
   return (
     <div className="card p-4">
-      <p className="text-[13px] font-semibold uppercase tracking-[0.04em] text-on-surface-variant">
+      <p className="text-kicker uppercase text-on-surface-variant">
         {label}
       </p>
       <p className="font-data mt-1 text-3xl font-bold">{value}</p>
@@ -114,7 +114,7 @@ export function TwoStepButton({
         type="button"
         onClick={arm}
         disabled={disabled || busy}
-        className={`pill rounded-full border px-3.5 py-1.5 text-[13px] font-semibold disabled:opacity-40 ${
+        className={`pill rounded-full border px-3.5 py-1.5 text-label font-semibold disabled:opacity-40 ${
           danger
             ? "border-accent-strong/40 text-accent-strong hover:border-accent-strong"
             : "border-primary/20 text-primary hover:border-accent/60"
@@ -134,7 +134,7 @@ export function TwoStepButton({
           onConfirm();
         }}
         disabled={busy}
-        className={`pill rounded-full border px-3.5 py-1.5 text-[13px] font-semibold text-white disabled:opacity-40 ${
+        className={`pill rounded-full border px-3.5 py-1.5 text-label font-semibold text-white disabled:opacity-40 ${
           danger
             ? "border-accent-strong bg-accent-strong"
             : "border-accent bg-accent-strong"
@@ -145,7 +145,7 @@ export function TwoStepButton({
       <button
         type="button"
         onClick={() => setArmed(false)}
-        className="pill rounded-full border border-primary/20 px-3 py-1.5 text-[13px] font-semibold text-primary"
+        className="pill rounded-full border border-primary/20 px-3 py-1.5 text-label font-semibold text-primary"
       >
         Cancel
       </button>
@@ -167,7 +167,7 @@ export function AdminTable({
     <div className="card mt-3 overflow-x-auto">
       <table className="w-full text-left text-sm" style={{ minWidth }}>
         <thead>
-          <tr className="border-b border-primary/10 text-[13px] uppercase tracking-[0.04em] text-on-surface-variant">
+          <tr className="border-b border-primary/10 text-kicker uppercase text-on-surface-variant">
             {headers.map((h) => (
               <th key={h} className="px-4 py-2.5 font-semibold">
                 {h}

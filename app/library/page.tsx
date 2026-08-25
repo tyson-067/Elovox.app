@@ -85,7 +85,7 @@ function SpeechCard({
         <span className="mt-1.5 block text-base leading-6 text-on-surface-variant">
           {speech.scenario}
         </span>
-        <span className="mt-3 inline-block text-[13px] font-semibold text-on-surface-variant">
+        <span className="mt-3 inline-block text-label font-semibold text-on-surface-variant">
           Unlocks with Premium
         </span>
       </div>
@@ -122,7 +122,7 @@ function SpeechCard({
           {speech.scenario}
         </span>
         {replacement && (
-          <span className="mt-3 inline-block rounded-full bg-accent/12 text-accent-strong text-[11px] font-semibold tracking-[0.06em] uppercase px-2.5 py-1">
+          <span className="mt-3 inline-block rounded-full bg-accent/12 text-accent-strong text-micro font-semibold tracking-[0.06em] uppercase px-2.5 py-1">
             New
           </span>
         )}
@@ -133,7 +133,7 @@ function SpeechCard({
         onClick={() => setConfirming(true)}
         aria-label={`Remove ${speech.title}`}
         title="Swap this one out"
-        className="absolute top-3 right-3 grid h-8 w-8 place-items-center rounded-full text-on-surface-variant/70 hover:bg-on-surface-variant/10 hover:text-on-surface-variant"
+        className="absolute top-3 right-3 grid h-8 w-8 place-items-center rounded-full text-on-surface-variant/80 hover:bg-on-surface-variant/10 hover:text-on-surface-variant"
       >
         <svg viewBox="0 0 16 16" className="h-4 w-4" aria-hidden="true">
           <path
@@ -153,13 +153,13 @@ function SpeechCard({
                 ? "Felix is writing a new one…"
                 : "Swap this out for a new scenario?"}
             </p>
-            {error && <p role="alert" className="mt-2 text-[13px] text-amber">{error}</p>}
+            {error && <p role="alert" className="mt-2 text-label text-amber">{error}</p>}
             <div className="mt-4 flex items-center justify-center gap-2">
               <button
                 type="button"
                 disabled={working}
                 onClick={replace}
-                className="pill rounded-full bg-accent-strong px-5 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
+                className="pill rounded-full bg-accent-strong px-5 py-2 text-label font-semibold text-white disabled:opacity-50"
               >
                 Yes, swap it
               </button>
@@ -170,7 +170,7 @@ function SpeechCard({
                   setConfirming(false);
                   setError("");
                 }}
-                className="pill rounded-full border border-on-surface-variant/30 px-5 py-2 text-[13px] font-semibold text-on-surface-variant disabled:opacity-50"
+                className="pill rounded-full border border-on-surface-variant/30 px-5 py-2 text-label font-semibold text-on-surface-variant disabled:opacity-50"
               >
                 Keep it
               </button>

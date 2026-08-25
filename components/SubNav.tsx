@@ -92,7 +92,7 @@ export function SubNav() {
                 <Link
                   href={item.href}
                   aria-current={active ? "page" : undefined}
-                  className={`relative flex items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-[13px] font-semibold tracking-wide transition-colors ${
+                  className={`relative flex items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-label font-semibold tracking-wide transition-colors ${
                     active
                       ? "text-primary"
                       : // /55 measured 2.82:1 on the surface, well under the

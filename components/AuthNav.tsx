@@ -208,11 +208,11 @@ export function AuthNav() {
             className="h-6 w-6 rounded-full"
           />
         ) : (
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-accent to-orange text-[11px] font-bold text-white">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-accent to-orange text-micro font-bold text-white">
             {initial}
           </span>
         )}
-        <span className="hidden sm:block max-w-[14ch] truncate text-primary/70">
+        <span className="hidden sm:block max-w-[14ch] truncate text-primary/80">
           {label}
         </span>
         {needsAttention && (

@@ -57,6 +57,166 @@
   --radius-card: 0.75rem;
 }
 
+/* `static`, not a plain @theme: Tailwind v4 tree-shakes theme variables it
+   cannot see used as a utility, and most of what follows is read with var()
+   from hand-written CSS instead — the durations, the containers, the shadow
+   stack. Without `static` they simply never reach :root, and every rule that
+   references one silently falls back to nothing. Verified: the block below
+   emitted zero custom properties until this keyword was added. */
+@theme static {
+
+  /* ===================================================================
+     TYPE SCALE
+     ===================================================================
+     Replaces 265 arbitrary `text-[Npx]` values across 15 distinct sizes.
+     `text-[13px]` alone appeared 160 times: a de-facto token that was
+     never made one.
+
+     Leading is chosen per ROLE, not per size, but the four highest-traffic
+     UI sizes deliberately keep 1.5 — which is exactly what Tailwind v4
+     already computes for an arbitrary `text-[Npx]` (13px -> 19.5px).
+     That makes the migration of those 236 call sites visually neutral, so
+     any change you see on screen after it is a real regression and not a
+     rounding difference. Heading leading IS tightened, because those sizes
+     had ~11 call sites between them and loose leading at 28px reads as an
+     accident rather than a choice. */
+
+  /* Display — fluid, hero only. Unchanged values from the old .text-* classes. */
+  --text-display: clamp(2.75rem, 5.5vw + 1rem, 4.5rem);
+  --text-display--line-height: 1.05;
+  --text-display--letter-spacing: -0.02em;
+  --text-display-sm: clamp(2.125rem, 3.2vw + 0.9rem, 3rem);
+  --text-display-sm--line-height: 1.1;
+  --text-display-sm--letter-spacing: -0.02em;
+  --text-title: clamp(1.9rem, 2.6vw + 0.9rem, 3rem);
+  --text-title--line-height: 1.1;
+  --text-title--letter-spacing: -0.01em;
+
+  /* Headings — fixed. Tracking tightens as size grows, which is what keeps
+     Montserrat 700+ from looking gappy above ~20px. */
+  --text-h1: 2.25rem;
+  --text-h1--line-height: 1.15;
+  --text-h1--letter-spacing: -0.02em;
+  --text-h2: 1.75rem;
+  --text-h2--line-height: 1.2;
+  --text-h2--letter-spacing: -0.015em;
+  --text-h3: 1.375rem;
+  --text-h3--line-height: 1.3;
+  --text-h3--letter-spacing: -0.01em;
+  --text-h4: 1.1875rem;
+  --text-h4--line-height: 1.35;
+  --text-h4--letter-spacing: -0.005em;
+
+  /* Body — 1.6 is the reading measure; prose only. */
+  --text-body-lg: 1.125rem;
+  --text-body-lg--line-height: 1.6;
+  --text-body: 1rem;
+  --text-body--line-height: 1.6;
+  --text-body-sm: 0.9375rem;
+  --text-body-sm--line-height: 1.5; /* 1.5, not 1.55: keeps the text-[15px] migration exactly neutral */
+
+  /* UI — 1.5 on purpose (see note above): migration-neutral. */
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.5;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.5;
+  --text-micro: 0.6875rem;
+  --text-micro--line-height: 1.5;
+
+  /* Kicker — the uppercase section eyebrow that is hand-inlined ~24 times
+     as `text-[13px] uppercase tracking-[0.03em]`. One token, one meaning. */
+  --text-kicker: 0.8125rem;
+  --text-kicker--line-height: 1.4;
+  --text-kicker--letter-spacing: 0.03em;
+  --text-kicker--font-weight: 600;
+
+  /* ===================================================================
+     SHAPE
+     ===================================================================
+     Additive on purpose. Tailwind's own --radius-sm/md/lg/xl are left
+     alone because `rounded-lg` already carries 80 call sites; silently
+     re-pointing it would restyle the whole product in one line. These are
+     named for what they wrap. */
+  --radius-field: 0.625rem;
+  --radius-chip: 0.5rem;
+  --radius-panel: 1rem;
+  --radius-pill: 999px;
+
+  /* ===================================================================
+     ELEVATION
+     ===================================================================
+     A card in this product lifts on a hairline, not on a value step (see
+     .card). These four replace the 4 one-off arbitrary shadow values.
+     Shadow colour is Bleu Oxford, not black — a neutral-black shadow over
+     a warm ground reads as dirt. */
+  --shadow-hairline: 0 0 0 1px rgb(0 78 137 / 0.13);
+  --shadow-lift-sm: 0 2px 6px -2px rgb(11 8 41 / 0.10), 0 6px 16px -8px rgb(11 8 41 / 0.14);
+  --shadow-lift: 0 4px 10px -3px rgb(11 8 41 / 0.12), 0 12px 28px -12px rgb(11 8 41 / 0.20);
+  --shadow-lift-lg: 0 8px 18px -6px rgb(11 8 41 / 0.14), 0 24px 56px -20px rgb(11 8 41 / 0.28);
+
+  /* ===================================================================
+     MOTION
+     ===================================================================
+     The single biggest gap on the web side: it had no motion tokens at
+     all, which is how 64 distinct durations and 54 uses of bare `ease`
+     accumulated. The philosophy was already written down — in a comment,
+     in the native stylesheet, applying only to the app:
+
+       "everyday motion answers in under 300ms ... exits are faster than
+        entrances"
+
+     These make it enforceable on both sides.
+
+     --ease-standard is the house curve. It was already the most-used
+     bezier in the codebase (20 sites) before it had a name. */
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-emphasized: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-overshoot: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Durations. Not a Tailwind namespace, so these generate no utility —
+     they are read with var() in hand-written CSS and duration-[var(...)].
+     Exits use --dur-exit, which is deliberately shorter than --dur-base:
+     leaving should feel like getting out of the way. */
+  --dur-instant: 90ms;  /* press feedback; below this reads as no feedback */
+  --dur-fast: 120ms;    /* hover, colour */
+  --dur-micro: 160ms;   /* == --nv-t-micro in the native sheet */
+  --dur-base: 200ms;    /* the most-used value in this codebase, by 2x */
+  --dur-ui: 260ms;      /* == --nv-t-ui: sheets, screens, disclosure */
+  --dur-slow: 400ms;    /* meters and progress fills */
+  --dur-reveal: 700ms;  /* scroll reveals — the one place slow is right */
+  --dur-exit: 140ms;    /* exits are faster than entrances, always */
+
+  /* ===================================================================
+     LAYOUT
+     ===================================================================
+     <main> was full-bleed at every width, so on a 2560px display the hero
+     grid, every card grid and the story deck stretched edge to edge with
+     nothing capping them. --container-page is the fix; the rest name the
+     ten ad-hoc max-w-[NNNpx] measures that grew in its absence. */
+  --container-page: 90rem;
+  --container-wide: 75rem;
+  --container-prose: 42rem;
+  --container-narrow: 35rem;
+  --container-form: 26.25rem;
+
+  /* --- Section rhythm ---------------------------------------------------
+     The landing page ran 112,112,112,80,80,80,80,80 — not a rhythm, just a
+     value that decayed once and never recovered. Two named beats instead,
+     and the choice between them carries meaning:
+
+       --space-section     between sections of the SAME kind. Related things
+                           sitting closer is what makes them read as a group.
+       --space-section-lg  before a change of KIND — before the story, before
+                           the price. A bigger pause is how a page says
+                           "different thing now" without a divider.
+
+     Fluid, so the rhythm survives the jump from a phone to a 1440 display
+     instead of being two fixed numbers that are right at one width. */
+  --space-section: clamp(3.5rem, 5vw + 1rem, 5.5rem);
+  --space-section-lg: clamp(5rem, 8vw + 1rem, 8.5rem);
+}
+
 /* Clip horizontal overflow at the root so ambient decoration (the hero's
    blurred orbs, positioned with negative offsets) never spills into a
    horizontal scrollbar on narrow viewports. `clip` — not `hidden` — so it
@@ -285,9 +445,9 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
   position: relative;
   overflow: hidden;
   transition:
-    transform 160ms ease,
-    box-shadow 160ms ease,
-    filter 160ms ease;
+    transform var(--dur-micro) var(--ease-standard),
+    box-shadow var(--dur-micro) var(--ease-standard),
+    filter var(--dur-micro) var(--ease-standard);
 }
 .btn::after {
   content: "";
@@ -307,7 +467,7 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
   filter: brightness(1.06);
 }
 .btn:hover::after {
-  transition: transform 650ms ease;
+  transition: transform var(--dur-reveal) var(--ease-standard);
   transform: translateX(120%);
 }
 .btn:active {
@@ -392,7 +552,7 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
 .deck-card {
   transition:
     transform 550ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 450ms ease;
+    opacity 450ms var(--ease-standard);
   /* Deliberately NO `will-change: transform`. It used to be unconditional,
      which kept four always-mounted landing-page cards pinned to their own
      compositor layers for the entire session. Browsers already promote an
@@ -510,9 +670,9 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
 .card-glow {
   position: relative;
   transition:
-    transform 220ms ease,
-    box-shadow 220ms ease,
-    border-color 220ms ease;
+    transform var(--dur-base) var(--ease-standard),
+    box-shadow var(--dur-base) var(--ease-standard),
+    border-color var(--dur-base) var(--ease-standard);
 }
 .card-glow::before {
   content: "";
@@ -521,7 +681,7 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
   border-radius: inherit;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 300ms ease;
+  transition: opacity var(--dur-slow) var(--ease-standard);
   background: radial-gradient(
     260px circle at var(--mx, 50%) var(--my, 50%),
     rgba(255, 132, 0, 0.13),
@@ -565,10 +725,10 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
 /* Goal pills: gentle lift to match the cards. */
 .pill {
   transition:
-    transform 200ms ease,
-    box-shadow 200ms ease,
-    border-color 200ms ease,
-    color 200ms ease;
+    transform var(--dur-base) var(--ease-standard),
+    box-shadow var(--dur-base) var(--ease-standard),
+    border-color var(--dur-base) var(--ease-standard),
+    color var(--dur-base) var(--ease-standard);
 }
 .pill:hover {
   transform: translateY(-2px);
@@ -791,7 +951,7 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
   font-size: 14px;
   padding: 10px 18px;
   border-radius: 999px;
-  transition: transform 200ms ease;
+  transition: transform var(--dur-base) var(--ease-standard);
 }
 .skip-link:focus-visible {
   transform: translateY(0);
@@ -800,7 +960,7 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
 /* Header nav links: underline slides in from the left on hover. */
 .nav-link {
   position: relative;
-  transition: color 200ms ease;
+  transition: color var(--dur-base) var(--ease-standard);
 }
 .nav-link::after {
   content: "";
@@ -847,8 +1007,8 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
 /* Form inputs: soft violet focus ring instead of the default outline. */
 .input-glow {
   transition:
-    border-color 200ms ease,
-    box-shadow 200ms ease;
+    border-color var(--dur-base) var(--ease-standard),
+    box-shadow var(--dur-base) var(--ease-standard);
 }
 .input-glow:focus {
   border-color: rgba(118, 99, 196, 0.5);
@@ -893,9 +1053,18 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
   .btn::after {
     display: none;
   }
-  .wr .wr-word > span {
+  /* BOTH selectors, and the second is not redundant. The gradient headline
+     variant is `.wr-visible.text-gradient .wr-word > span` — specificity
+     (0,4,1) — while this kill rule is (0,3,1). A media query contributes no
+     specificity of its own, so the lower one lost and the hero slogan on /
+     kept scatter-assembling out of a 10px blur for a reader who had asked
+     for no motion. WCAG 2.3.3. Match the specificity or the rule is decoration. */
+  .wr .wr-word > span,
+  .wr-visible.text-gradient .wr-word > span {
     opacity: 1;
     animation: none;
+    transform: none;
+    filter: none;
   }
   .text-gradient,
   .orb-float,
@@ -1058,7 +1227,7 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
 /* Locked Fox Den rewards sit behind this: readable, clearly not yours yet. */
 .locked-reward {
   filter: grayscale(0.85) opacity(0.55);
-  transition: filter 250ms ease;
+  transition: filter var(--dur-ui) var(--ease-standard);
 }
 .locked-reward:hover {
   filter: grayscale(0.5) opacity(0.8);
@@ -1067,7 +1236,7 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
 /* The one indulgent element: slightly imperfect record button */
 .record-blob {
   border-radius: 47% 53% 52% 48% / 51% 49% 52% 48%;
-  transition: transform 120ms ease;
+  transition: transform var(--dur-fast) var(--ease-standard);
 }
 .record-blob:active {
   transform: scale(0.97);
@@ -1186,7 +1355,7 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
   height: 5px;
   border-radius: 9999px;
   background: rgba(118, 99, 196, 0.25);
-  transition: background-color 400ms ease, width 400ms ease;
+  transition: background-color var(--dur-slow) var(--ease-standard), width var(--dur-slow) var(--ease-standard);
 }
 .loader-step-on {
   background: var(--color-accent);
@@ -1493,7 +1662,7 @@ html[data-native] #main {
   padding-top: env(safe-area-inset-top);
   background: transparent;
   border-bottom: 1px solid transparent;
-  transition: border-color 200ms ease;
+  transition: border-color var(--dur-base) var(--ease-standard);
 }
 /* The bar's glass lives on a pseudo-layer that exists from FIRST PAINT and
    only ever animates opacity (compositor-only). It used to be created by the
@@ -1508,7 +1677,7 @@ html[data-native] #main {
   inset: 0;
   z-index: -1;
   opacity: 0;
-  transition: opacity 200ms ease;
+  transition: opacity var(--dur-base) var(--ease-standard);
   background: color-mix(in oklab, var(--color-surface) 90%, transparent);
   backdrop-filter: saturate(1.6) blur(12px);
   -webkit-backdrop-filter: saturate(1.6) blur(12px);
@@ -1540,7 +1709,7 @@ html[data-native] #main {
   padding: 0 16px 10px;
   transform-origin: left bottom;
   transition:
-    opacity 180ms ease,
+    opacity var(--dur-micro) var(--ease-standard),
     transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .native-bar-scrolled .native-title-lg {
@@ -1587,7 +1756,7 @@ html[data-native] #main {
   gap: 2px;
   color: var(--color-primary);
   border-radius: 12px;
-  transition: opacity 120ms ease, transform 120ms ease;
+  transition: opacity var(--dur-fast) var(--ease-standard), transform var(--dur-fast) var(--ease-standard);
 }
 .native-bar-btn:active {
   opacity: 0.5;
@@ -1636,7 +1805,7 @@ html[data-native] #main {
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.01em;
-  transition: color 160ms ease, transform 120ms ease;
+  transition: color var(--dur-micro) var(--ease-standard), transform var(--dur-fast) var(--ease-standard);
 }
 .native-tab:active {
   transform: scale(0.92);
@@ -1808,7 +1977,8 @@ html[data-native] .stagger-in > * {
   opacity: 1;
   transform: none;
 }
-html[data-native] .wr .wr-word > span {
+html[data-native] .wr .wr-word > span,
+html[data-native] .wr-visible.text-gradient .wr-word > span {
   opacity: 1;
   transform: none;
   transition: none;

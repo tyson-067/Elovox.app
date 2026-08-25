@@ -131,7 +131,41 @@ export function useInkTopBar(active: boolean): void {
   useEffect(() => {
     if (!active || typeof document === "undefined") return;
     const el = document.documentElement;
-    el.setAttribute("data-topbar", "ink");
-    return () => el.removeAttribute("data-topbar");
+
+    // The flag used to be set once and held for the whole screen, which is
+    // right only while the ink surface is actually UNDER the status bar. The
+    // Den and the report both open on a dark stage and then scroll onto bone
+    // paper — and the status bar kept its light glyphs the whole way down, so
+    // the clock and the battery went white-on-cream and disappeared. Same on
+    // the report. It is a two-line bug that makes the app look broken in
+    // screenshots, which is where most people meet it.
+    //
+    // A takeover is exempt: it covers the viewport and never scrolls away.
+    let raf = 0;
+    const apply = () => {
+      raf = 0;
+      const stage = document.querySelector<HTMLElement>(".nv-takeover, .nv-stage");
+      let ink = true;
+      if (stage && !stage.classList.contains("nv-takeover")) {
+        // Real inset rather than a guessed constant — a Dynamic Island phone
+        // and a notch phone differ by more than a rounding error.
+        const inset =
+          parseFloat(getComputedStyle(el).getPropertyValue("--safe-top")) || 47;
+        ink = stage.getBoundingClientRect().bottom > inset;
+      }
+      if (ink) el.setAttribute("data-topbar", "ink");
+      else el.removeAttribute("data-topbar");
+    };
+
+    apply();
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(apply);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+      el.removeAttribute("data-topbar");
+    };
   }, [active]);
 }

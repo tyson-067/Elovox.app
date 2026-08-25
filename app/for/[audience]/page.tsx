@@ -83,7 +83,7 @@ export default async function AudiencePage({
       {/* Hero */}
       <section className="pt-16 md:pt-24">
         <Reveal>
-          <span className="inline-flex items-center gap-2 text-[13px] font-semibold tracking-[0.08em] uppercase text-violet">
+          <span className="inline-flex items-center gap-2 text-label font-semibold tracking-[0.08em] uppercase text-violet">
             {a.eyebrow}
           </span>
           <h1 className="hero-slogan mt-4 font-headline font-bold text-primary">
@@ -133,7 +133,7 @@ export default async function AudiencePage({
       {/* The modes that matter to this person */}
       <section className="mt-16 md:mt-20">
         <Reveal>
-          <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
+          <h2 className="text-kicker uppercase text-on-surface-variant">
             What you&apos;d use
             <span className="grow-line" aria-hidden="true" />
           </h2>

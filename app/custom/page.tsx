@@ -197,7 +197,7 @@ function CustomScreen() {
         <div className={native ? "card p-4" : undefined}>
           <label
             htmlFor="need"
-            className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant"
+            className="text-kicker uppercase text-on-surface-variant"
           >
             The situation
           </label>
@@ -213,7 +213,7 @@ function CustomScreen() {
             style={native ? { background: "var(--nv-tint-soft)" } : undefined}
           />
           <p
-            className={`mt-1 text-[12px] text-on-surface-variant${native ? " nv-num" : ""}`}
+            className={`mt-1 text-caption text-on-surface-variant${native ? " nv-num" : ""}`}
           >
             {need.length} / 600
           </p>
@@ -225,7 +225,7 @@ function CustomScreen() {
           <div>
             <label
               htmlFor="audience"
-              className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant"
+              className="text-kicker uppercase text-on-surface-variant"
             >
               Who&apos;s listening
             </label>
@@ -242,7 +242,7 @@ function CustomScreen() {
           <div>
             <label
               htmlFor="occasion"
-              className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant"
+              className="text-kicker uppercase text-on-surface-variant"
             >
               Occasion
             </label>
@@ -259,7 +259,7 @@ function CustomScreen() {
         </div>
 
         <div className={native ? "card p-4" : undefined}>
-          <span className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+          <span className="text-kicker uppercase text-on-surface-variant">
             Tone
           </span>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -273,7 +273,7 @@ function CustomScreen() {
                 className={
                   native
                     ? "nv-chip"
-                    : `pill rounded-full border px-3.5 py-1.5 text-[13px] font-semibold tracking-wide ${
+                    : `pill rounded-full border px-3.5 py-1.5 text-label font-semibold tracking-wide ${
                         tone === t
                           ? "border-accent bg-accent-strong text-white"
                           : "border-primary/20 text-primary hover:border-accent/60"
@@ -287,7 +287,7 @@ function CustomScreen() {
         </div>
 
         <div className={native ? "card p-4" : undefined}>
-          <span className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+          <span className="text-kicker uppercase text-on-surface-variant">
             How long
           </span>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -301,7 +301,7 @@ function CustomScreen() {
                 className={
                   native
                     ? "nv-chip"
-                    : `pill rounded-full border px-3.5 py-1.5 text-[13px] font-semibold tracking-wide ${
+                    : `pill rounded-full border px-3.5 py-1.5 text-label font-semibold tracking-wide ${
                         durationSec === l.value
                           ? "border-violet bg-violet text-white"
                           : "border-primary/20 text-primary hover:border-violet/60"

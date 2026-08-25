@@ -37,7 +37,7 @@ export function SiteBanner() {
   return (
     <p
       role="status"
-      className="border-b border-primary/10 bg-surface-container px-4 py-2 text-center text-[13px] font-medium text-primary"
+      className="border-b border-primary/10 bg-surface-container px-4 py-2 text-center text-label font-medium text-primary"
     >
       {banner}
     </p>

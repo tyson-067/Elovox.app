@@ -214,7 +214,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
             </p>
           </div>
         </div>
-        <div className="pb-2 text-[13px] font-semibold tracking-wide text-on-surface-variant">
+        <div className="pb-2 text-label font-semibold tracking-wide text-on-surface-variant">
           <span className="text-violet">
             {session.speechTitle ?? cat.name}
           </span>
@@ -256,7 +256,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
       </div>
 
       {analysis.isSample && (
-        <div className="native-hide mt-5 inline-flex items-center gap-2 rounded-full bg-surface-container px-3 py-1.5 text-[13px] font-semibold tracking-wide text-on-surface-variant">
+        <div className="native-hide mt-5 inline-flex items-center gap-2 rounded-full bg-surface-container px-3 py-1.5 text-label font-semibold tracking-wide text-on-surface-variant">
           Sample feedback, Felix&apos;s real voice analysis arrives when the
           backend is connected
         </div>
@@ -266,7 +266,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
       <div className="native-hide mt-10 grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10">
         <section className="md:col-span-5">
           <Reveal>
-            <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+            <h2 className="text-kicker uppercase text-on-surface-variant">
               How it broke down
               <span className="grow-line" aria-hidden="true" />
             </h2>
@@ -305,7 +305,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
               ].map(([n, label]) => (
                 <div key={label}>
                   <div className="font-data text-lg text-primary">{n}</div>
-                  <div className="text-[12px] text-on-surface-variant">{label}</div>
+                  <div className="text-caption text-on-surface-variant">{label}</div>
                 </div>
               ))}
             </GlowCard>
@@ -314,7 +314,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
 
         <section className="md:col-span-7">
           <Reveal>
-            <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+            <h2 className="text-kicker uppercase text-on-surface-variant">
               What you said
               <span className="grow-line" aria-hidden="true" />
             </h2>
@@ -390,7 +390,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
         <section className="native-hide mt-12">
           <Reveal>
             <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-              <h2 className="font-headline text-[28px] leading-9 font-medium text-primary">
+              <h2 className="font-headline text-h2 leading-9 font-medium text-primary">
                 How you looked
               </h2>
               <span className="font-data text-lg text-violet">
@@ -444,7 +444,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
       {analysis.strengths && analysis.strengths.length > 0 && (
         <section className="native-hide mt-12">
           <Reveal>
-            <h2 className="font-headline text-[28px] leading-9 font-medium text-primary">
+            <h2 className="font-headline text-h2 leading-9 font-medium text-primary">
               What worked
             </h2>
           </Reveal>
@@ -466,7 +466,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
       {analysis.audienceImpact && (
         <section className="native-hide mt-12">
           <Reveal>
-            <h2 className="font-headline text-[28px] leading-9 font-medium text-primary">
+            <h2 className="font-headline text-h2 leading-9 font-medium text-primary">
               How the audience heard it
             </h2>
             <p className="mt-3 text-lg leading-7 text-on-surface">
@@ -478,7 +478,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
 
       <section className="native-hide mt-12">
         <Reveal>
-          <h2 className="font-headline text-[28px] leading-9 font-medium text-primary">
+          <h2 className="font-headline text-h2 leading-9 font-medium text-primary">
             Try this next time
           </h2>
         </Reveal>
@@ -499,7 +499,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
       {analysis.drills && analysis.drills.length > 0 && (
         <section className="native-hide mt-12">
           <Reveal>
-            <h2 className="font-headline text-[28px] leading-9 font-medium text-primary">
+            <h2 className="font-headline text-h2 leading-9 font-medium text-primary">
               Drills to run
             </h2>
             <p className="mt-2 text-base leading-6 text-on-surface-variant">

@@ -182,7 +182,7 @@ export function AdminRevenueSection({
             setPeriod(p);
           }}
           aria-pressed={period === p}
-          className={`rounded-full px-3 py-1 text-[12px] font-semibold transition-colors ${
+          className={`rounded-full px-3 py-1 text-caption font-semibold transition-colors ${
             period === p
               ? "bg-primary text-white"
               : "bg-surface-container text-on-surface-variant hover:text-primary"
@@ -199,7 +199,7 @@ export function AdminRevenueSection({
           setRefreshing(false);
         }}
         disabled={busy}
-        className="ml-1 rounded-full px-3 py-1 text-[12px] font-semibold text-on-surface-variant hover:text-primary disabled:opacity-50"
+        className="ml-1 rounded-full px-3 py-1 text-caption font-semibold text-on-surface-variant hover:text-primary disabled:opacity-50"
       >
         {busy ? "…" : "Refresh"}
       </button>
@@ -210,7 +210,7 @@ export function AdminRevenueSection({
     return (
       <Section title="Revenue (Stripe)" aside={periodPicker}>
         <div className="card p-4">
-          <p className="text-[15px] font-semibold text-error">{error}</p>
+          <p className="text-body-sm font-semibold text-error">{error}</p>
           <p className="mt-1 text-sm text-on-surface-variant">
             Nothing here is a guess — if Stripe won&apos;t answer, this section
             shows no numbers rather than zeros. The list-price estimate is $
@@ -357,7 +357,7 @@ export function AdminRevenueSection({
           </p>
         )}
 
-        <p className="mt-2 text-[13px]">
+        <p className="mt-2 text-label">
           {new Date(data.from).toLocaleDateString()} –{" "}
           {new Date(data.to).toLocaleDateString()} · read{" "}
           {new Date(data.generatedAt).toLocaleTimeString()} ·{" "}
@@ -411,7 +411,7 @@ function Breakdown({
 
   return (
     <div className="card mt-3 p-4">
-      <h3 className="text-[13px] font-semibold uppercase tracking-[0.04em] text-on-surface-variant">
+      <h3 className="text-kicker uppercase text-on-surface-variant">
         What made up the volume
       </h3>
 
@@ -419,7 +419,7 @@ function Breakdown({
         {b.byReason.map((r) => (
           <span
             key={r.reason}
-            className="rounded-full bg-surface-container px-3 py-1.5 text-[13px]"
+            className="rounded-full bg-surface-container px-3 py-1.5 text-label"
           >
             <span className="font-semibold text-primary">
               {REASON_LABELS[r.reason]}
@@ -431,7 +431,7 @@ function Breakdown({
           </span>
         ))}
         {tax > 0 && (
-          <span className="rounded-full bg-surface-container px-3 py-1.5 text-[13px]">
+          <span className="rounded-full bg-surface-container px-3 py-1.5 text-label">
             <span className="font-semibold text-primary">Tax collected</span> ·{" "}
             <span className="font-data font-semibold">
               {formatMoney(tax, currency)}
@@ -443,7 +443,7 @@ function Breakdown({
       {tax > 0 && (
         // The single most confusing thing about a gross figure: it includes
         // tax, so it will never add up to a whole number of list prices.
-        <p className="mt-2 text-[13px] text-on-surface-variant">
+        <p className="mt-2 text-label text-on-surface-variant">
           Gross includes tax. Net of tax, the subscriptions themselves came to{" "}
           <span className="font-data font-semibold text-primary">
             {formatMoney(itemised - tax, currency)}
@@ -454,7 +454,7 @@ function Breakdown({
 
       {/* The two reads of the same window, reconciled out loud. */}
       {!data.reconciliation.matches && (
-        <p className="mt-2 text-[13px] font-semibold text-amber">
+        <p className="mt-2 text-label font-semibold text-amber">
           Itemised total is{" "}
           {formatMoney(Math.abs(data.reconciliation.difference), currency)}{" "}
           {data.reconciliation.difference > 0 ? "short of" : "above"} the gross
@@ -466,7 +466,7 @@ function Breakdown({
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[34rem] text-left text-[14px]">
           <thead>
-            <tr className="text-[12px] uppercase tracking-[0.04em] text-on-surface-variant">
+            <tr className="text-caption uppercase tracking-[0.04em] text-on-surface-variant">
               <th className="py-1.5 pr-3 font-semibold">Date</th>
               <th className="py-1.5 pr-3 text-right font-semibold">Amount</th>
               <th className="py-1.5 pr-3 font-semibold">What</th>
@@ -482,7 +482,7 @@ function Breakdown({
                 <td className="font-data py-2 pr-3 text-right font-semibold whitespace-nowrap">
                   {formatMoney(l.amount, l.currency)}
                   {l.tax > 0 && (
-                    <span className="block text-[12px] font-normal text-on-surface-variant">
+                    <span className="block text-caption font-normal text-on-surface-variant">
                       incl. {formatMoney(l.tax, l.currency)} tax
                     </span>
                   )}
@@ -492,7 +492,7 @@ function Breakdown({
                     {REASON_LABELS[l.reason]}
                   </span>
                   {l.description && (
-                    <span className="block text-[13px] text-on-surface-variant">
+                    <span className="block text-label text-on-surface-variant">
                       {l.description}
                     </span>
                   )}
@@ -500,7 +500,7 @@ function Breakdown({
                 <td className="py-2 text-on-surface-variant">
                   {l.customerEmail ?? "—"}
                   {l.number && (
-                    <span className="font-data block text-[12px]">{l.number}</span>
+                    <span className="font-data block text-caption">{l.number}</span>
                   )}
                 </td>
               </tr>
@@ -513,13 +513,13 @@ function Breakdown({
         <button
           type="button"
           onClick={onShowAll}
-          className="mt-3 text-[13px] font-semibold text-accent-strong"
+          className="mt-3 text-label font-semibold text-accent-strong"
         >
           Show all {b.lines.length} payments
         </button>
       )}
       {b.listTruncated && (
-        <p className="mt-2 text-[13px] font-semibold text-amber">
+        <p className="mt-2 text-label font-semibold text-amber">
           More payments exist than are listed — the totals above still count
           them all.
         </p>

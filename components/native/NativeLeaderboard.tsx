@@ -241,6 +241,7 @@ export function NativeLeaderboard({
   failed,
   handle,
   onHandleSaved,
+  onRetry,
 }: {
   scope: Scope;
   onScope: (s: Scope) => void;
@@ -249,6 +250,7 @@ export function NativeLeaderboard({
   failed: boolean;
   handle: string | null;
   onHandleSaved: (h: string) => void;
+  onRetry: () => void;
 }) {
   const native = useIsNative();
   const [naming, setNaming] = useState(false);
@@ -301,16 +303,40 @@ export function NativeLeaderboard({
 
       {scope === "friends" && <Invite />}
 
+      {/* A skeleton in the SHAPE of the board, not a sentence about it. Rows
+          of the right height in the right places mean the screen does not
+          jump when the data lands, and the wait reads as loading rather than
+          as nothing having happened. The sentence stays for screen readers,
+          which cannot see a skeleton. */}
       {board === null && !failed && (
-        <p className="nv-footnote mt-8 text-center" role="status">
+        <div className="mt-6" aria-hidden="true">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="nv-board-skeleton">
+              <span className="nv-skeleton nv-board-skeleton-rank" />
+              <span className="nv-skeleton nv-board-skeleton-name" />
+              <span className="nv-skeleton nv-board-skeleton-xp" />
+            </div>
+          ))}
+        </div>
+      )}
+      {board === null && !failed && (
+        <p className="sr-only" role="status">
           Counting everyone up…
         </p>
       )}
 
       {failed && (
-        <p className="nv-footnote mt-8 text-center" role="status">
-          Couldn&apos;t load the board just now. Try again in a moment.
-        </p>
+        <div className="mt-8">
+          <NvEmpty
+            icon={<Felix mood="idle" className="h-16 w-16" />}
+            line="Couldn't load the board just now."
+            action={
+              <NvButton variant="secondary" onClick={onRetry}>
+                Try again
+              </NvButton>
+            }
+          />
+        </div>
       )}
 
       {board && rows.length === 0 && (

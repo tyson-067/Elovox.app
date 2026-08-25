@@ -221,7 +221,7 @@ export function AdminStatsScreen({ onDenied }: { onDenied?: () => void }) {
       <Section title="Last 30 days">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="card p-4">
-            <p className="text-[13px] font-semibold uppercase tracking-[0.04em] text-on-surface-variant">
+            <p className="text-kicker uppercase text-on-surface-variant">
               Signups per day
             </p>
             <p className="font-data mt-1 text-3xl font-bold">{signups30}</p>
@@ -231,7 +231,7 @@ export function AdminStatsScreen({ onDenied }: { onDenied?: () => void }) {
             />
           </div>
           <div className="card p-4">
-            <p className="text-[13px] font-semibold uppercase tracking-[0.04em] text-on-surface-variant">
+            <p className="text-kicker uppercase text-on-surface-variant">
               Practice sessions per day
             </p>
             <p className="font-data mt-1 text-3xl font-bold">{sessions30}</p>
@@ -272,7 +272,7 @@ export function AdminStatsScreen({ onDenied }: { onDenied?: () => void }) {
         <div className="card p-4">
           {funnel.map((step) => (
             <div key={step.label} className="flex items-center gap-3 py-1">
-              <span className="w-32 shrink-0 text-[13px] text-on-surface-variant">
+              <span className="w-32 shrink-0 text-label text-on-surface-variant">
                 {step.label}
               </span>
               <span

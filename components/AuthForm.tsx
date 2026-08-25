@@ -68,7 +68,7 @@ function formatDob(iso: string): string {
 const DOB_PROMPT = "Please enter your date of birth.";
 
 const inputClass =
-  "card input-glow w-full px-4 py-3 text-base text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none";
+  "card input-glow w-full px-4 py-3 text-base text-on-surface placeholder:text-on-surface-variant/80 focus:outline-none";
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
@@ -414,7 +414,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           </p>
         )}
         {!underAge && age !== null && age < 18 && (
-          <p className="mt-3 text-[13px] leading-5 text-on-surface-variant">
+          <p className="mt-3 text-label leading-5 text-on-surface-variant">
             {MINOR_NOTICE}
           </p>
         )}
@@ -540,7 +540,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             </div>
             <p
               id="dob-note"
-              className="mt-1.5 text-[13px] leading-5 text-on-surface-variant"
+              className="mt-1.5 text-label leading-5 text-on-surface-variant"
             >
               We use this once to check your age, and don&apos;t store it.
             </p>
@@ -575,7 +575,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             onClick={() => setShowPassword((s) => !s)}
             aria-pressed={showPassword}
             aria-label={showPassword ? "Hide password" : "Show password"}
-            className="absolute inset-y-0 right-0 px-4 text-[13px] font-semibold text-primary/60 transition-colors hover:text-primary"
+            className="absolute inset-y-0 right-0 px-4 text-label font-semibold text-primary/80 transition-colors hover:text-primary"
           >
             {showPassword ? "Hide" : "Show"}
           </button>
@@ -599,7 +599,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               className={`${inputClass} ${mismatch ? "border-error!" : ""}`}
             />
             {mismatch && (
-              <p className="mt-1.5 text-[13px] leading-5 text-error">
+              <p className="mt-1.5 text-label leading-5 text-error">
                 Those passwords don&apos;t match.
               </p>
             )}
@@ -623,7 +623,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               type="button"
               onClick={forgotPassword}
               disabled={busy}
-              className="text-[13px] font-semibold text-primary/70 transition-colors hover:text-primary disabled:opacity-50"
+              className="text-label font-semibold text-primary/80 transition-colors hover:text-primary disabled:opacity-50"
             >
               Forgot password?
             </button>
@@ -644,7 +644,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         </button>
       </form>
 
-      <div className="mt-4 flex items-center gap-3 text-[13px] font-semibold tracking-wide text-on-surface-variant">
+      <div className="mt-4 flex items-center gap-3 text-label font-semibold tracking-wide text-on-surface-variant">
         <span className="h-px flex-1 bg-outline-variant/60" aria-hidden="true" />
         or
         <span className="h-px flex-1 bg-outline-variant/60" aria-hidden="true" />
@@ -683,7 +683,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           This is what turns the Terms from something nobody saw into something a
           user agreed to — every protective clause in them leans on it. */}
       {isSignup && (
-        <p className="mt-5 text-[13px] leading-5 text-on-surface-variant">
+        <p className="mt-5 text-label leading-5 text-on-surface-variant">
           By creating an account you agree to our{" "}
           <Link href="/terms" className="font-semibold text-primary underline">
             Terms

@@ -80,7 +80,7 @@ function InterviewsScreen() {
                 <span className="mt-1.5 block text-base leading-6 text-on-surface-variant">
                   {t.description}
                 </span>
-                <span className="mt-3 inline-block text-[13px] font-semibold text-on-surface-variant">
+                <span className="mt-3 inline-block text-label font-semibold text-on-surface-variant">
                   Unlocks with Premium
                 </span>
               </div>

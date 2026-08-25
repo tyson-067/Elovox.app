@@ -230,8 +230,13 @@ export function FelixPeek({ mood = "idle" }: { mood?: FelixMood }) {
    Three tiny stars twinkling out of phase around an avatar. Decorative,
    absolute; the parent needs position:relative. */
 export function NvSparkles() {
+  // nv-sparkles is load-bearing on this class list: native-theme.css insets
+  // the sparkle field by 10px inside an .nv-stage so the sparks ring the fox
+  // portrait rather than the whole header. The rule was written for this
+  // component and the class was simply never added, so the Den has been
+  // scattering sparks across the entire violet stage instead.
   return (
-    <span aria-hidden="true" className="pointer-events-none absolute inset-0">
+    <span aria-hidden="true" className="nv-sparkles pointer-events-none absolute inset-0">
       <span
         className="nv-spark"
         style={{ top: -4, right: 2, "--d": "0s" } as React.CSSProperties}

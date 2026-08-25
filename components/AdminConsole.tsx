@@ -1,13 +1,48 @@
 "use client";
 
 import { useState } from "react";
-import { AdminStatsScreen } from "@/components/AdminStatsScreen";
-import { AdminUsersScreen } from "@/components/AdminUsersScreen";
-import { AdminBillingScreen } from "@/components/AdminBillingScreen";
-import { AdminOpsScreen } from "@/components/AdminOpsScreen";
-import { AdminCommunityScreen } from "@/components/AdminCommunityScreen";
-import { AdminAuditScreen } from "@/components/AdminAuditScreen";
-import { AdminEmailScreen } from "@/components/AdminEmailScreen";
+import dynamic from "next/dynamic";
+
+// The seven screens were MOUNT-gated but not IMPORT-gated: only the active tab
+// rendered, yet all ~3,000 lines of all seven — plus AdminUserDrawer at 850 —
+// were in the graph and shipped to whoever opened /admin. Worse, they were
+// reachable from the shared chunk, so ordinary users paid for an operator
+// console they can never open (every /api/admin route 404s outside
+// ADMIN_EMAILS).
+//
+// ssr: false is correct rather than incidental. Every one of these fetches on
+// mount and renders nothing meaningful server-side, and /admin is noindex in
+// robots.ts — there is no crawler and no first paint worth prerendering.
+const loading = () => <p className="text-label text-on-surface-variant">Loading…</p>;
+
+const AdminStatsScreen = dynamic(
+  () => import("@/components/AdminStatsScreen").then((m) => m.AdminStatsScreen),
+  { ssr: false, loading }
+);
+const AdminUsersScreen = dynamic(
+  () => import("@/components/AdminUsersScreen").then((m) => m.AdminUsersScreen),
+  { ssr: false, loading }
+);
+const AdminBillingScreen = dynamic(
+  () => import("@/components/AdminBillingScreen").then((m) => m.AdminBillingScreen),
+  { ssr: false, loading }
+);
+const AdminOpsScreen = dynamic(
+  () => import("@/components/AdminOpsScreen").then((m) => m.AdminOpsScreen),
+  { ssr: false, loading }
+);
+const AdminCommunityScreen = dynamic(
+  () => import("@/components/AdminCommunityScreen").then((m) => m.AdminCommunityScreen),
+  { ssr: false, loading }
+);
+const AdminAuditScreen = dynamic(
+  () => import("@/components/AdminAuditScreen").then((m) => m.AdminAuditScreen),
+  { ssr: false, loading }
+);
+const AdminEmailScreen = dynamic(
+  () => import("@/components/AdminEmailScreen").then((m) => m.AdminEmailScreen),
+  { ssr: false, loading }
+);
 
 // The /admin shell: one page, seven tabs, each screen owning its own data.
 // Only the active tab is mounted, so switching refetches — for an operator
@@ -58,7 +93,7 @@ export function AdminConsole() {
             type="button"
             onClick={() => setTab(t.id)}
             aria-pressed={tab === t.id}
-            className={`pill rounded-full border px-3.5 py-1.5 text-[13px] font-semibold ${
+            className={`pill rounded-full border px-3.5 py-1.5 text-label font-semibold ${
               tab === t.id
                 ? "border-accent bg-accent-strong text-white"
                 : "border-primary/20 text-primary hover:border-accent/60"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { tapMedium, notifySuccess } from "@/lib/haptics";
 import { useIsNative } from "@/lib/native";
 import { FelixScene, Biome } from "@/components/Biome";
 import { Felix, type FelixAccessory } from "@/components/FoxLogo";
@@ -140,10 +141,15 @@ function ShopTile({
               type="button"
               onClick={() => {
                 if (needsConfirm && !armed) {
+                  // Arming is a warning, so it gets a heavier tick than the
+                  // blanket one every control gets. The hand should notice
+                  // that this tap did something different from the last one.
+                  tapMedium();
                   setArmed(true);
                   return;
                 }
                 setArmed(false);
+                notifySuccess();
                 onBuy();
               }}
               disabled={busy || !afford}

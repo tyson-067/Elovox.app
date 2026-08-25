@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useIsNative } from "@/lib/native";
 import { selection, tapLight } from "@/lib/haptics";
+import { spring, project, rubberband, VelocityTracker, prefersReducedMotion } from "@/lib/spring";
 import { syncReminders } from "@/lib/reminders";
 
 /**
@@ -352,29 +353,63 @@ export function NativeRuntime() {
     let tracking = false;
     let decided = false; // Has this drag committed to horizontal?
     let width = 1;
+    let handle: { stop: () => { value: number; velocity: number }; running: boolean } | null = null;
+    const tracker = new VelocityTracker();
 
-    const reset = (animate: boolean) => {
-      surface.style.transition = animate ? "transform 220ms ease-out" : "";
-      surface.style.transform = "";
-      if (animate) {
-        window.setTimeout(() => {
-          surface.style.transition = "";
-        }, 240);
-      }
+    const paint = (x: number) => {
+      surface.style.transform = x === 0 ? "" : `translate3d(${x}px,0,0)`;
+      // The screen lifting off what is behind it. There is no previous view to
+      // parallax in — this is one webview, not a UIKit stack — so the leading
+      // edge carries the depth cue on its own.
+      surface.style.boxShadow = x > 0 ? "-10px 0 30px rgba(11,8,41,0.22)" : "";
     };
+
+    const settle = (to: number, velocity: number, then?: () => void) => {
+      handle?.stop();
+      const from = currentX();
+      handle = spring({
+        from,
+        to,
+        velocity,
+        // No overshoot on a snap-back: the screen returning to where it was is
+        // a correction, not a flourish. A bounce here reads as a bug.
+        damping: 1,
+        response: 0.35,
+        onFrame: paint,
+        onRest: then,
+      });
+    };
+
+    const currentX = () => {
+      const m = /translate3d\((-?[\d.]+)px/.exec(surface.style.transform);
+      return m ? parseFloat(m[1]) : 0;
+    };
+
+    const canGoBack = () =>
+      // Match on the ARIA contract, not the class. The shell's chevron is
+      // .native-bar-btn but the report's is .nv-stage-btn, and keying the
+      // gesture to the former meant edge-swipe silently did nothing on
+      // /report — the one screen users reach most often and most want to
+      // leave. What makes a screen backable is that it OFFERS a way back,
+      // whatever that control happens to be styled as.
+      Boolean(document.querySelector('[aria-label="Back"]'));
 
     const onStart = (event: TouchEvent) => {
       if (event.touches.length !== 1) return;
       const touch = event.touches[0];
       if (touch.clientX > EDGE) return;
-      // Nothing to go back to, and no chevron on screen either — the roots
-      // and the auth screens both sit at the bottom of the stack.
-      if (!document.querySelector('.native-bar-btn[aria-label="Back"]')) return;
-      startX = touch.clientX;
+      if (!canGoBack()) return;
+      // Grab an in-flight snap-back and inherit its position rather than
+      // restarting from zero, so a second swipe during the first one's return
+      // continues instead of jumping.
+      const live = handle?.stop();
+      startX = touch.clientX - (live ? live.value : currentX());
       startY = touch.clientY;
       width = window.innerWidth || 1;
       tracking = true;
       decided = false;
+      tracker.reset();
+      tracker.add(touch.clientX);
     };
 
     const onMove = (event: TouchEvent) => {
@@ -393,29 +428,42 @@ export function NativeRuntime() {
         if (Math.abs(dx) < 8) return;
         decided = true;
       }
+      tracker.add(touch.clientX);
 
       if (dx <= 0) {
-        surface.style.transform = "";
+        paint(0);
         return;
       }
-      // Damped past the commit point: the page keeps answering the finger but
-      // stops promising more than it will deliver.
-      const eased = dx < width * COMMIT ? dx : width * COMMIT + (dx - width * COMMIT) * 0.35;
-      surface.style.transform = `translate3d(${eased}px,0,0)`;
+      // Past the commit point the page keeps answering the finger but stops
+      // promising more than it will deliver. Rubber-band rather than the old
+      // flat 0.35 multiplier: resistance that grows reads as a real edge,
+      // a constant fraction reads as lag.
+      const eased =
+        dx < width * COMMIT ? dx : width * COMMIT + rubberband(dx - width * COMMIT, width);
+      paint(eased);
       if (event.cancelable) event.preventDefault();
     };
 
-    const onEnd = (event: TouchEvent) => {
+    const onEnd = () => {
       if (!tracking) return;
-      const touch = event.changedTouches[0];
-      const dx = touch.clientX - startX;
       tracking = false;
-      if (decided && dx > width * COMMIT) {
+      if (!decided) return;
+
+      const v = tracker.velocity;
+      const x = currentX();
+      // Decide on where the gesture was GOING. The old test was position
+      // alone, so a fast flick that had only travelled a quarter of the width
+      // snapped back — the interface arguing with an unambiguous instruction.
+      const projected = x + project(v);
+      if (projected > width * 0.5 || x > width * COMMIT) {
         tapLight();
-        reset(false);
+        // Carry it off-screen rather than cutting to the new route mid-slide.
+        // router.back() fires immediately so the next screen is already
+        // painting underneath while this one finishes leaving.
         router.back();
+        settle(0, 0);
       } else {
-        reset(true);
+        settle(0, prefersReducedMotion() ? 0 : v);
       }
     };
 
@@ -432,7 +480,8 @@ export function NativeRuntime() {
       surface.removeEventListener("touchmove", onMove);
       surface.removeEventListener("touchend", onEnd);
       surface.removeEventListener("touchcancel", onEnd);
-      reset(false);
+      handle?.stop();
+      paint(0);
     };
   }, [native, router]);
 

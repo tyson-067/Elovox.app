@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Montserrat, Jost, Geist_Mono, Playfair_Display } from "next/font/google";
 import Link from "next/link";
-import Image from "next/image";
+import { FelixMark } from "@/components/FoxLogo";
 import { AuthProvider } from "@/components/AuthProvider";
 import { AuthNav } from "@/components/AuthNav";
 import { SubNav } from "@/components/SubNav";
@@ -98,10 +98,14 @@ export const viewport: Viewport = {
   // those insets are all 0 and the layout sits in a letterboxed safe box,
   // which is the single most obvious "this is a webview" tell there is.
   viewportFit: "cover",
-  // Browsers keep the pale Vista wash. The native app paints its own
-  // background behind the status bar, so the dark entry matches the booth.
+  // #ffffff, not the old #f4f7fc. The light value was a leftover from when
+  // the page ground was a pale Vista wash; that wash was deliberately retired
+  // (see the note on `body` in globals.css — the ground is the thing the shop
+  // sells, so the default has to be the plainest state there is). The browser
+  // chrome kept painting the old colour, so on iOS Safari the address bar sat
+  // a visibly different shade from the page under it.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f4f7fc" },
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
     { media: "(prefers-color-scheme: dark)", color: "#0d0a20" },
   ],
 };
@@ -219,17 +223,19 @@ export default function RootLayout({
                 className="group flex items-center gap-2.5 text-primary"
                 aria-label="Elovox home"
               >
-                {/* unoptimized: a 36px static asset gains nothing from the
-                    /_next/image optimizer, and serving it directly avoids
-                    the optimizer's cache going stale across dev restarts */}
-                <Image
-                  src="/logo.png"
-                  alt=""
-                  width={36}
-                  height={36}
-                  unoptimized
+                {/* Was a 46 KB, 184x182 PNG served `unoptimized` into a 36px
+                    box: a network request and ~45 KB for a mark we already
+                    draw in vector, downscaled 5x so it never landed on a
+                    pixel boundary and softened on every non-Retina display.
+                    FelixMark is the same fox, inline, crisp at any size, and
+                    it costs nothing extra — FoxLogo.tsx is already in this
+                    bundle for the rest of the site.
+
+                    Keep the fixed gradient ids inside FoxLogo as they are:
+                    two instances of the same mark must emit byte-identical
+                    defs or hydration desyncs. */}
+                <FelixMark
                   className="h-9 w-9 rounded-[10px] transition-transform duration-300 ease-out group-hover:scale-110 group-hover:-rotate-6"
-                  priority
                 />
                 {/* Hidden under 360px, where the wordmark is the difference
                     between a header that fits and one that wraps: at 320px
@@ -251,7 +257,7 @@ export default function RootLayout({
               {/* /80 rather than /70: at 70% these 13px links measured 4.07:1
                   on the white page, just under AA. 80% is 5.21:1 and still
                   reads as chrome rather than content. */}
-              <nav className="flex items-center gap-3 sm:gap-5 text-[13px] font-semibold tracking-wide text-primary/80">
+              <nav className="flex items-center gap-3 sm:gap-5 text-label font-semibold tracking-wide text-primary/80">
                 <AuthNav />
               </nav>
             </div>
@@ -265,7 +271,18 @@ export default function RootLayout({
               then: effects run after the whole tree has committed, so source
               order here is only about reading in the order things happen. */}
           <NativeRuntime />
-          <main id="main" className="flex-1 w-full px-4 md:px-10 xl:px-16 2xl:px-24">
+          {/* max-w + mx-auto: <main> used to be full-bleed at every width, so on
+              anything past ~1600px the hero grid, every card grid and the story
+              deck simply kept stretching and the site read as a browser window
+              rather than a page. --container-page caps it; the gutters below stay
+              because they are what does the work on phones. The cap is deliberately
+              on #main and not on an inner wrapper, so a section that WANTS to go
+              full-bleed opts out with its own negative margin rather than every
+              other section opting in. */}
+          <main
+            id="main"
+            className="flex-1 w-full mx-auto max-w-[var(--container-page)] px-4 md:px-10 xl:px-16 2xl:px-24"
+          >
             {children}
           </main>
           {/* No app has a footer. Pricing / Terms / Privacy / About stacked at

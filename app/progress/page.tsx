@@ -147,7 +147,7 @@ function LevelPanel({
               row on the right is bottom-aligned, so a corner tip lands on
               top of the numbers on narrow screens. */}
           <span className="flex items-center gap-2">
-            <span className="text-[13px] font-semibold tracking-[0.06em] uppercase text-white/70">
+            <span className="text-label font-semibold tracking-[0.06em] uppercase text-white/85">
               Level {level.level}
             </span>
             <InfoTip label="Where do levels and XP come from?" tone="dark">
@@ -161,15 +161,15 @@ function LevelPanel({
         <div className="flex items-center gap-8">
           <div>
             <div className="font-data text-2xl">{stats.streakDays}</div>
-            <div className="text-[12px] text-white/70">day streak</div>
+            <div className="text-caption text-white/85">day streak</div>
           </div>
           <div>
             <div className="font-data text-2xl">{minutesPracticed}</div>
-            <div className="text-[12px] text-white/70">minutes practiced</div>
+            <div className="text-caption text-white/85">minutes practiced</div>
           </div>
           <div>
             <div className="font-data text-2xl">{level.xp}</div>
-            <div className="text-[12px] text-white/70">total XP</div>
+            <div className="text-caption text-white/85">total XP</div>
           </div>
         </div>
       </div>
@@ -180,7 +180,7 @@ function LevelPanel({
           style={{ width: `${level.percent}%` }}
         />
       </div>
-      <p className="mt-2 text-[13px] text-white/75">
+      <p className="mt-2 text-label text-white/85">
         {level.isMax
           ? "Top level. The work now is keeping it."
           : `${level.xpForNextLevel} XP to Level ${level.level + 1}, ${nextTitle}`}
@@ -210,18 +210,18 @@ function BiomeProgress({ shop }: { shop: ShopState | null }) {
   return (
     <div className="card p-5 md:p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-[15px] text-on-surface">
+        <p className="text-body-sm text-on-surface">
           <span className="font-semibold text-primary">
             {owned.length} of {BIOMES.length}
           </span>{" "}
           places unlocked
         </p>
-        <span className="font-data text-[13px] text-on-surface-variant">
+        <span className="font-data text-label text-on-surface-variant">
           🪙 {shop.coins.toLocaleString()}
         </span>
       </div>
 
-      <ul className="mt-4 grid grid-cols-5 gap-2">
+      <ul className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5">
         {BIOMES.map((b) => {
           const has = shop.owned.includes(b.id);
           const here = shop.equippedBiome === b.id;
@@ -233,7 +233,7 @@ function BiomeProgress({ shop }: { shop: ShopState | null }) {
                   has ? "" : "opacity-30 grayscale"
                 } ${here ? "ring-2 ring-accent ring-offset-2" : ""}`}
               />
-              <span className="mt-1.5 block truncate text-[11px] font-semibold text-primary">
+              <span className="mt-1.5 block truncate text-micro font-semibold text-primary">
                 {has ? b.name : `🪙 ${b.price}`}
               </span>
             </li>
@@ -241,7 +241,7 @@ function BiomeProgress({ shop }: { shop: ShopState | null }) {
         })}
       </ul>
 
-      <p className="mt-4 text-[13px] leading-5 text-on-surface-variant">
+      <p className="mt-4 text-label leading-5 text-on-surface-variant">
         {next ? (
           <>
             Next up is{" "}
@@ -318,7 +318,7 @@ function SessionRow({
                     key={r.code}
                     type="button"
                     onClick={() => void remove(r.code)}
-                    className="pill rounded-full border border-primary/20 px-3.5 py-1.5 text-[13px] font-semibold text-primary hover:border-error hover:text-error"
+                    className="pill rounded-full border border-primary/20 px-3.5 py-1.5 text-label font-semibold text-primary hover:border-error hover:text-error"
                   >
                     {r.label}
                   </button>
@@ -327,12 +327,12 @@ function SessionRow({
               <button
                 type="button"
                 onClick={() => setConfirming(false)}
-                className="mt-3 text-[13px] font-semibold text-on-surface-variant underline underline-offset-2 hover:text-primary"
+                className="mt-3 text-label font-semibold text-on-surface-variant underline underline-offset-2 hover:text-primary"
               >
                 Keep it
               </button>
               {error && (
-                <p role="alert" className="mt-2 text-[13px] font-medium text-error">
+                <p role="alert" className="mt-2 text-label font-medium text-error">
                   {error}
                 </p>
               )}
@@ -371,7 +371,7 @@ function SessionRow({
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-base text-on-surface">{s.prompt}</span>
-          <span className="mt-0.5 block text-[13px] font-semibold tracking-wide text-on-surface-variant">
+          <span className="mt-0.5 block text-label font-semibold tracking-wide text-on-surface-variant">
             <span className="text-violet">
               {s.speechTitle ?? getCategory(s.category).name}
             </span>
@@ -590,7 +590,7 @@ function ProgressScreen() {
       <section className="native-hide mt-10">
         <Reveal>
           <div className="flex items-center gap-2">
-            <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+            <h2 className="text-kicker uppercase text-on-surface-variant">
               Overall score, session by session
               <span className="grow-line" aria-hidden="true" />
             </h2>
@@ -614,7 +614,7 @@ function ProgressScreen() {
       <section className="native-hide mt-12">
         <Reveal>
           <div className="flex items-center gap-2">
-            <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+            <h2 className="text-kicker uppercase text-on-surface-variant">
               Where the work is
               <span className="grow-line" aria-hidden="true" />
             </h2>
@@ -656,7 +656,7 @@ function ProgressScreen() {
         <section className="native-hide mt-12">
           <Reveal>
             <div className="flex items-center gap-2">
-              <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+              <h2 className="text-kicker uppercase text-on-surface-variant">
                 On camera
                 <span className="grow-line" aria-hidden="true" />
               </h2>
@@ -701,7 +701,7 @@ function ProgressScreen() {
       {shop && (
         <section className="native-hide mt-12">
           <Reveal>
-            <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+            <h2 className="text-kicker uppercase text-on-surface-variant">
               Felix&apos;s world
               <span className="grow-line" aria-hidden="true" />
             </h2>
@@ -715,7 +715,7 @@ function ProgressScreen() {
       {/* 7. Session list last */}
       <section className="native-hide mt-12 mb-10">
         <Reveal>
-          <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+          <h2 className="text-kicker uppercase text-on-surface-variant">
             Past sessions
             <span className="grow-line" aria-hidden="true" />
           </h2>

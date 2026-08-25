@@ -114,7 +114,7 @@ export function NavMenu() {
         >
           <div className="grid grid-cols-2 gap-1">
             <div>
-              <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-on-surface-variant">
+              <p className="px-3 pb-1 pt-2 text-micro font-semibold uppercase tracking-[0.08em] text-on-surface-variant">
                 The product
               </p>
               {SECTIONS.map((s) => (
@@ -127,7 +127,7 @@ export function NavMenu() {
                   <span className="block text-[14px] font-semibold text-primary">
                     {s.label}
                   </span>
-                  <span className="block text-[12px] leading-4 text-on-surface-variant">
+                  <span className="block text-caption leading-4 text-on-surface-variant">
                     {s.hint}
                   </span>
                 </Link>
@@ -135,7 +135,7 @@ export function NavMenu() {
             </div>
 
             <div>
-              <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-on-surface-variant">
+              <p className="px-3 pb-1 pt-2 text-micro font-semibold uppercase tracking-[0.08em] text-on-surface-variant">
                 Who it&apos;s for
               </p>
               {AUDIENCES.map((a) => (
@@ -148,7 +148,7 @@ export function NavMenu() {
                   <span className="block text-[14px] font-semibold text-primary">
                     {a.who}
                   </span>
-                  <span className="block text-[12px] leading-4 text-on-surface-variant">
+                  <span className="block text-caption leading-4 text-on-surface-variant">
                     {a.payoff}
                   </span>
                 </Link>

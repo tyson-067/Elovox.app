@@ -142,7 +142,7 @@ export function InfoTip({
           if (e.currentTarget.matches(":focus-visible")) setOpen(true);
         }}
         onBlur={() => setOpen(false)}
-        className={`inline-flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-semibold leading-none transition-colors ${
+        className={`inline-flex h-5 w-5 items-center justify-center rounded-full border text-micro font-semibold leading-none transition-colors ${
           dark
             ? "border-white/40 text-white/70 hover:border-white hover:text-white"
             : "border-outline-variant text-on-surface-variant hover:border-accent hover:text-accent-strong"
@@ -169,7 +169,7 @@ export function InfoTip({
               left: pos.left,
               transform: pos.above ? "translateY(-100%)" : undefined,
             }}
-            className="card fixed z-[60] w-60 p-3 text-left text-[13px] leading-5 font-normal normal-case tracking-normal text-on-surface-variant shadow-[0_10px_28px_rgba(11,8,41,0.18)]"
+            className="card fixed z-[60] w-60 p-3 text-left text-label leading-5 font-normal normal-case tracking-normal text-on-surface-variant shadow-[0_10px_28px_rgba(11,8,41,0.18)]"
           >
             {children}
           </span>,

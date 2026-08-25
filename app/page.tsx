@@ -301,7 +301,7 @@ export default function LandingPage() {
                 animation, so an automated reader (Google's OAuth review, link
                 previews, any scraper) finds no brand name at the top of the
                 page. That mismatch is what got the consent screen rejected. */}
-            <span className="inline-flex items-center gap-2 text-[13px] font-semibold tracking-[0.08em] uppercase text-violet">
+            <span className="inline-flex items-center gap-2 text-label font-semibold tracking-[0.08em] uppercase text-violet">
               Elovox, your speaking practice partner
             </span>
             {/* The slogan, single line: "Speak with" in the geometric sans,
@@ -357,7 +357,7 @@ export default function LandingPage() {
                 style={{ animationDelay: "250ms" }}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2 text-[13px] font-semibold tracking-wide text-white/80">
+                  <span className="flex items-center gap-2 text-label font-semibold tracking-wide text-white/80">
                     <span className="rec-dot h-2.5 w-2.5 rounded-full bg-accent" aria-hidden="true" />
                     Recording
                   </span>
@@ -390,7 +390,7 @@ export default function LandingPage() {
                   ahead of schedule.
                 </p>
                 <p
-                  className="pop-in mt-3 text-[15px] leading-6 text-white/75"
+                  className="pop-in mt-3 text-body-sm leading-6 text-white/85"
                   style={{ animationDelay: "2400ms" }}
                 >
                   Cut &ldquo;um, basically&rdquo; at 0:27, it undercuts the win
@@ -400,7 +400,7 @@ export default function LandingPage() {
                   className="pop-in mt-4 flex flex-wrap items-center gap-2.5"
                   style={{ animationDelay: "2900ms" }}
                 >
-                  <span className="rounded-full bg-white/15 px-3 py-1 text-[13px] font-semibold">
+                  <span className="rounded-full bg-white/15 px-3 py-1 text-label font-semibold">
                     {/* Rolls 0→86 as its chip pops in (the 2900ms cue above),
                         landing the score rather than stating it. */}
                     <CountUp
@@ -410,7 +410,7 @@ export default function LandingPage() {
                     />{" "}
                     / 100
                   </span>
-                  <span className="text-[13px] font-semibold text-white/80">
+                  <span className="text-label font-semibold text-white/80">
                     Strong close. Lose the hedge.
                   </span>
                 </div>
@@ -431,9 +431,9 @@ export default function LandingPage() {
 
       {/* Who it's for. Directly under the hero so a stranger can find
           themself on the page before a single feature is explained. */}
-      <section id="who" className="scroll-mt-24 mt-20 md:mt-28">
+      <section id="who" className="scroll-mt-24 mt-[var(--space-section-lg)]">
         <Reveal>
-          <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
+          <h2 className="text-kicker uppercase text-on-surface-variant">
             Who it&apos;s for
             <span className="grow-line" aria-hidden="true" />
           </h2>
@@ -449,7 +449,7 @@ export default function LandingPage() {
                   <p className="mt-1.5 text-base leading-6 text-on-surface-variant">
                     {a.body}
                   </p>
-                  <p className="mt-3 text-[13px] font-semibold tracking-wide text-violet">
+                  <p className="mt-3 text-label font-semibold tracking-wide text-violet">
                     {a.via} <span aria-hidden="true">→</span>
                   </p>
                 </Link>
@@ -464,9 +464,9 @@ export default function LandingPage() {
           what the product does. Also the target of the hero's "See a sample
           report" anchor, hence the id and the scroll margin for the sticky
           header. */}
-      <section id="report" className="scroll-mt-24 mt-20 md:mt-28">
+      <section id="report" className="scroll-mt-24 mt-[var(--space-section)]">
         <Reveal>
-          <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
+          <h2 className="text-kicker uppercase text-on-surface-variant">
             What comes back
             <span className="grow-line" aria-hidden="true" />
           </h2>
@@ -492,7 +492,7 @@ export default function LandingPage() {
         <div className="mt-4 flex flex-wrap gap-2.5">
           {VOICE_DIMENSIONS.map((d, i) => (
             <Reveal key={d} delay={i * 60}>
-              <span className="pill inline-block rounded-full border border-primary/20 px-4 py-2 text-[15px] font-medium text-primary">
+              <span className="pill inline-block rounded-full border border-primary/20 px-4 py-2 text-body-sm font-medium text-primary">
                 {d}
               </span>
             </Reveal>
@@ -501,9 +501,9 @@ export default function LandingPage() {
       </section>
 
       {/* How it works */}
-      <section id="how" className="scroll-mt-24 mt-20 md:mt-28">
+      <section id="how" className="scroll-mt-24 mt-[var(--space-section)]">
         <Reveal>
-          <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+          <h2 className="text-kicker uppercase text-on-surface-variant">
             How it works
             <span className="grow-line" aria-hidden="true" />
           </h2>
@@ -526,9 +526,9 @@ export default function LandingPage() {
       </section>
 
       {/* Goals */}
-      <section className="mt-16 md:mt-20">
+      <section className="mt-[var(--space-section)]">
         <Reveal>
-          <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+          <h2 className="text-kicker uppercase text-on-surface-variant">
             Tell Felix what you&apos;re going for
             <span className="grow-line" aria-hidden="true" />
           </h2>
@@ -540,7 +540,7 @@ export default function LandingPage() {
         <div className="mt-5 flex flex-wrap gap-2.5">
           {GOALS.map((g, i) => (
             <Reveal key={g.id} delay={i * 60}>
-              <span className="pill inline-block rounded-full border border-primary/20 text-primary text-[15px] font-medium px-4 py-2 hover:border-accent-strong hover:text-accent-strong">
+              <span className="pill inline-block rounded-full border border-primary/20 text-primary text-body-sm font-medium px-4 py-2 hover:border-accent-strong hover:text-accent-strong">
                 {g.label}
               </span>
             </Reveal>
@@ -549,9 +549,9 @@ export default function LandingPage() {
       </section>
 
       {/* The modes */}
-      <section id="modes" className="scroll-mt-24 mt-16 md:mt-20">
+      <section id="modes" className="scroll-mt-24 mt-[var(--space-section)]">
         <Reveal>
-          <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+          <h2 className="text-kicker uppercase text-on-surface-variant">
             Six ways to practice
             <span className="grow-line" aria-hidden="true" />
           </h2>
@@ -570,7 +570,7 @@ export default function LandingPage() {
                     {m.glyph}
                   </span>
                   <span
-                    className={`text-[11px] font-semibold uppercase tracking-[0.08em] ${
+                    className={`text-micro font-semibold uppercase tracking-[0.08em] ${
                       m.tag === "Free" ? "text-accent-strong" : "text-violet"
                     }`}
                   >
@@ -595,9 +595,9 @@ export default function LandingPage() {
       <StoryDeck beats={STORY} />
 
       {/* Levels */}
-      <section className="mt-16 md:mt-20">
+      <section className="mt-[var(--space-section)]">
         <Reveal>
-          <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+          <h2 className="text-kicker uppercase text-on-surface-variant">
             Twelve levels, earned out loud
             <span className="grow-line" aria-hidden="true" />
           </h2>
@@ -609,8 +609,8 @@ export default function LandingPage() {
         <div className="mt-5 flex flex-wrap gap-2.5">
           {LEVELS.map((l, i) => (
             <Reveal key={l.level} delay={i * 40}>
-              <span className="pill inline-flex items-center gap-2 rounded-full border border-primary/20 px-4 py-2 text-[15px] hover:border-violet">
-                <span className="font-data text-[13px] text-violet">{l.level}</span>
+              <span className="pill inline-flex items-center gap-2 rounded-full border border-primary/20 px-4 py-2 text-body-sm hover:border-violet">
+                <span className="font-data text-label text-violet">{l.level}</span>
                 <span className="font-medium text-primary">{l.title}</span>
               </span>
             </Reveal>
@@ -628,9 +628,9 @@ export default function LandingPage() {
           win stars in search results is exactly the kind of thing Google
           hands out manual actions for. */}
       {TESTIMONIALS.length > 0 && (
-        <section className="mt-16 md:mt-20">
+        <section className="mt-[var(--space-section)]">
           <Reveal>
-            <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+            <h2 className="text-kicker uppercase text-on-surface-variant">
               What people say
               <span className="grow-line" aria-hidden="true" />
             </h2>
@@ -642,7 +642,7 @@ export default function LandingPage() {
                   <blockquote className="font-headline text-lg leading-7 text-primary">
                     &ldquo;{t.quote}&rdquo;
                   </blockquote>
-                  <p className="mt-3 text-[15px] text-on-surface-variant">
+                  <p className="mt-3 text-body-sm text-on-surface-variant">
                     <span className="font-semibold text-primary">{t.name}</span>
                     {t.context && <span> · {t.context}</span>}
                   </p>
@@ -654,9 +654,9 @@ export default function LandingPage() {
       )}
 
       {/* Pricing */}
-      <section className="mt-16 md:mt-20">
+      <section className="mt-[var(--space-section-lg)]">
         <Reveal>
-          <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+          <h2 className="text-kicker uppercase text-on-surface-variant">
             Pricing
             <span className="grow-line" aria-hidden="true" />
           </h2>
@@ -696,7 +696,7 @@ export default function LandingPage() {
                   visible trouble to qualify both; the homepage inverted the
                   emphasis on the page more people see. Figures come from
                   lib/pricing.ts so they can never drift from checkout. */}
-              <p className="mt-1 font-data text-sm text-white/70">
+              <p className="mt-1 font-data text-sm text-white/85">
                 {formatUSD(planFor("annual").price)}/year (
                 {formatUSD(planFor("annual").perWeek)}/week) · {TRIAL_DAYS}-day
                 free trial on monthly and annual
@@ -733,7 +733,7 @@ export default function LandingPage() {
           this far and still isn't ready for an account — the feedback said as
           much, in those words. Sits between pricing and the closing CTA so it
           reads as the alternative to buying, not a competitor to it. */}
-      <section className="mt-16 md:mt-20">
+      <section className="mt-[var(--space-section)]">
         <Reveal>
           <div className="card p-6 md:p-7">
             <h2 className="font-headline text-2xl font-semibold text-primary">
@@ -752,7 +752,7 @@ export default function LandingPage() {
       </section>
 
       {/* Closing CTA */}
-      <section className="relative mt-20 md:mt-28">
+      <section className="relative mt-[var(--space-section-lg)]">
         <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
           <Parallax speed={0.2} className="absolute -top-10 right-0">
             <div className="orb-float h-36 w-36 rounded-full bg-orange/15 blur-xl" />

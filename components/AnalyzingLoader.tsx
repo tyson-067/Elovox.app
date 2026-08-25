@@ -115,7 +115,7 @@ export function AnalyzingLoader({
             <Stat value={metrics.pauses} label="pauses" />
           </div>
         ) : (
-          <p className="text-[13px] leading-5 text-white/55 max-w-[34ch]">
+          <p className="text-label leading-5 text-white/80 max-w-[34ch]">
             This takes a few seconds. Stay on this page, your report opens by
             itself.
           </p>
@@ -140,9 +140,9 @@ function Stat({
     <div className="flex min-w-[64px] flex-col items-center rounded-lg bg-white/10 px-3 py-2">
       <span className="font-data text-lg font-bold leading-none text-white">
         {value}
-        {unit ? <span className="ml-0.5 text-xs font-medium text-white/70">{unit}</span> : null}
+        {unit ? <span className="ml-0.5 text-xs font-medium text-white/85">{unit}</span> : null}
       </span>
-      <span className="mt-1 text-[11px] uppercase tracking-wide text-white/55">
+      <span className="mt-1 text-micro uppercase tracking-wide text-white/80">
         {label}
       </span>
     </div>

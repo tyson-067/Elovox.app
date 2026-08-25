@@ -63,7 +63,7 @@ export function EmailCapture() {
         onChange={(e) => setEmail(e.target.value)}
         placeholder="you@example.com"
         autoComplete="email"
-        className="input-glow min-w-0 flex-1 rounded-lg border border-primary/20 bg-surface-lowest px-4 py-2.5 text-base text-on-surface placeholder:text-on-surface-variant/60"
+        className="input-glow min-w-0 flex-1 rounded-lg border border-primary/20 bg-surface-lowest px-4 py-2.5 text-base text-on-surface placeholder:text-on-surface-variant/80"
       />
       {/* Honeypot: hidden from people, filled by bots. */}
       <input

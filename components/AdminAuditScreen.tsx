@@ -84,21 +84,21 @@ export function AdminAuditScreen({ onDenied }: { onDenied?: () => void }) {
             </td>
             <td className="px-4 py-2.5">{e.actor ?? "—"}</td>
             <td className="px-4 py-2.5">
-              <span className="font-data text-[12px] font-semibold">
+              <span className="font-data text-caption font-semibold">
                 {e.action ?? "—"}
               </span>
               {!e.ok && (
-                <span className="ml-1.5 rounded-full border border-accent-strong/40 px-1.5 text-[11px] font-semibold text-accent-strong">
+                <span className="ml-1.5 rounded-full border border-accent-strong/40 px-1.5 text-micro font-semibold text-accent-strong">
                   failed
                 </span>
               )}
             </td>
             <td className="px-4 py-2.5">
               {e.targetEmail ?? (
-                <span className="font-data text-[12px]">{e.targetUid ?? "—"}</span>
+                <span className="font-data text-caption">{e.targetUid ?? "—"}</span>
               )}
             </td>
-            <td className="px-4 py-2.5 text-[12px] text-on-surface-variant">
+            <td className="px-4 py-2.5 text-caption text-on-surface-variant">
               {detailLine(e.detail)}
             </td>
           </tr>

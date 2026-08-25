@@ -88,7 +88,7 @@ export default function AboutPage() {
         </div>
 
         <Reveal>
-          <span className="inline-flex items-center gap-2 text-[13px] font-semibold tracking-[0.08em] uppercase text-violet">
+          <span className="inline-flex items-center gap-2 text-label font-semibold tracking-[0.08em] uppercase text-violet">
             About us
           </span>
           <h1 className="mt-4 text-display-sm font-headline font-bold text-primary">
@@ -109,7 +109,7 @@ export default function AboutPage() {
           underneath said the same thing at four times the length. */}
       <section className="mt-16 md:mt-24">
         <Reveal>
-          <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+          <h2 className="text-kicker uppercase text-on-surface-variant">
             Our mission
             <span className="grow-line" aria-hidden="true" />
           </h2>
@@ -136,7 +136,7 @@ export default function AboutPage() {
       {/* Team */}
       <section className="mt-16 md:mt-24">
         <Reveal>
-          <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+          <h2 className="text-kicker uppercase text-on-surface-variant">
             The team
             <span className="grow-line" aria-hidden="true" />
           </h2>
@@ -148,7 +148,7 @@ export default function AboutPage() {
                 <p className="font-headline text-xl font-semibold text-primary">
                   {member.name}
                 </p>
-                <p className="mt-1 text-[13px] font-semibold tracking-[0.06em] uppercase text-violet">
+                <p className="mt-1 text-label font-semibold tracking-[0.06em] uppercase text-violet">
                   {member.role}
                 </p>
               </div>

@@ -147,19 +147,19 @@ export function AdminBillingScreen({ onDenied }: { onDenied?: () => void }) {
                 {KIND_LABEL[al.kind] ?? al.kind}
               </p>
               {al.context && (
-                <p className="text-[12px] text-on-surface-variant">{al.context}</p>
+                <p className="text-caption text-on-surface-variant">{al.context}</p>
               )}
               {al.error && (
-                <p className="mt-0.5 max-w-[260px] text-[12px] text-accent-strong">
+                <p className="mt-0.5 max-w-[260px] text-caption text-accent-strong">
                   {al.error}
                 </p>
               )}
             </td>
             <td className="px-4 py-2.5">
-              <p className="font-data text-[12px]">{al.uid ?? "—"}</p>
+              <p className="font-data text-caption">{al.uid ?? "—"}</p>
               {al.subscriptionId && (
                 <a
-                  className="font-data text-[12px] underline decoration-primary/30 underline-offset-2"
+                  className="font-data text-caption underline decoration-primary/30 underline-offset-2"
                   href={`https://dashboard.stripe.com/subscriptions/${al.subscriptionId}`}
                   target="_blank"
                   rel="noreferrer"

@@ -181,7 +181,7 @@ export function AdminUsersScreen({ onDenied }: { onDenied?: () => void }) {
             type="button"
             onClick={() => setFilter(f.id)}
             aria-pressed={filter === f.id}
-            className={`pill rounded-full border px-3.5 py-1.5 text-[13px] font-semibold ${
+            className={`pill rounded-full border px-3.5 py-1.5 text-label font-semibold ${
               filter === f.id
                 ? "border-accent bg-accent-strong text-white"
                 : "border-primary/20 text-primary hover:border-accent/60"
@@ -201,7 +201,7 @@ export function AdminUsersScreen({ onDenied }: { onDenied?: () => void }) {
         <button
           type="button"
           onClick={download}
-          className="btn rounded-lg bg-primary px-3.5 py-1.5 text-[13px] font-semibold text-on-primary"
+          className="btn rounded-lg bg-primary px-3.5 py-1.5 text-label font-semibold text-on-primary"
         >
           Download CSV
         </button>
@@ -218,7 +218,7 @@ export function AdminUsersScreen({ onDenied }: { onDenied?: () => void }) {
       <div className="card mt-3 overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead>
-            <tr className="border-b border-primary/10 text-[13px] uppercase tracking-[0.04em] text-on-surface-variant">
+            <tr className="border-b border-primary/10 text-kicker uppercase text-on-surface-variant">
               <th className="px-4 py-2.5 font-semibold">Name</th>
               <th className="px-4 py-2.5 font-semibold">Email</th>
               <th className="px-4 py-2.5 font-semibold">Plan</th>
@@ -240,12 +240,12 @@ export function AdminUsersScreen({ onDenied }: { onDenied?: () => void }) {
                 <td className="px-4 py-2.5">
                   {r.email ?? "—"}
                   {!r.verified && (
-                    <span className="ml-1.5 text-[12px] text-on-surface-variant">
+                    <span className="ml-1.5 text-caption text-on-surface-variant">
                       (unverified)
                     </span>
                   )}
                   {r.disabled && (
-                    <span className="ml-1.5 rounded-full border border-accent-strong/40 px-1.5 text-[11px] font-semibold text-accent-strong">
+                    <span className="ml-1.5 rounded-full border border-accent-strong/40 px-1.5 text-micro font-semibold text-accent-strong">
                       disabled
                     </span>
                   )}

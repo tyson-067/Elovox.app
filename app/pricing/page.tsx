@@ -222,7 +222,7 @@ export default function PricingPage() {
           {/* Says WHICH plans the free week applies to. Unqualified, this sat
               directly above a cycle toggle whose Weekly option has no trial
               at all and bills from day one. */}
-          <span className="inline-flex items-center gap-2 text-[13px] font-semibold tracking-[0.08em] uppercase text-violet">
+          <span className="inline-flex items-center gap-2 text-label font-semibold tracking-[0.08em] uppercase text-violet">
             {TRIAL_DAYS} days free on monthly and annual
           </span>
           <h1 className="text-title font-headline font-bold text-primary mt-4">
@@ -326,7 +326,7 @@ export default function PricingPage() {
             <div className="flex items-center justify-between gap-3">
               <h2 className="font-headline text-2xl font-semibold">Premium</h2>
               {plan.badge && (
-                <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-white">
+                <span className="rounded-full bg-white/15 px-2.5 py-1 text-micro font-semibold uppercase tracking-[0.06em] text-white">
                   {plan.badge}
                 </span>
               )}
@@ -336,7 +336,7 @@ export default function PricingPage() {
               <span className="font-headline text-4xl font-bold">
                 {formatUSD(plan.price)}
               </span>
-              <span className="font-data text-sm text-white/70">
+              <span className="font-data text-sm text-white/85">
                 / {plan.unit}
               </span>
             </p>
@@ -432,11 +432,11 @@ export default function PricingPage() {
                 : buyLabel}
             </button>
             {error && (
-              <p role="alert" className="mt-2 text-center text-[13px] text-amber">
+              <p role="alert" className="mt-2 text-center text-label text-amber">
                 {error}
               </p>
             )}
-            <p className="mt-2.5 text-center text-[13px] text-white/70">
+            <p className="mt-2.5 text-center text-label text-white/85">
               {subscribed ? (
                 <>Switch plans or cancel any time, no email, no phone call.</>
               ) : trialOn ? (
@@ -454,7 +454,7 @@ export default function PricingPage() {
             {/* Renewal + refund terms, discoverable at the point of purchase.
                 Subscriptions auto-renew, so say so plainly and link the policy
                 that spells out how to stop it. */}
-            <p className="mt-2 text-center text-[12px] text-white/50">
+            <p className="mt-2 text-center text-caption text-white/80">
               Auto-renews until you cancel ·{" "}
               <Link href="/refunds" className="underline hover:text-white/80">
                 Refunds &amp; cancellation
@@ -471,7 +471,7 @@ export default function PricingPage() {
       {/* Plan comparison at a glance */}
       <section className="mx-auto mt-14 max-w-4xl">
         <Reveal>
-          <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+          <h2 className="text-kicker uppercase text-on-surface-variant">
             Every Premium plan compared
             <span className="grow-line" aria-hidden="true" />
           </h2>
@@ -516,7 +516,7 @@ export default function PricingPage() {
                   <p className="mt-1 text-sm text-on-surface-variant">
                     {formatUSD(Number(p.perWeek.toFixed(2)))} per week
                   </p>
-                  <p className="mt-3 text-[13px] font-semibold text-accent-strong">
+                  <p className="mt-3 text-label font-semibold text-accent-strong">
                     {s > 0 ? `Save ${s}% vs weekly` : "Pay as you go"}
                   </p>
                 </button>
@@ -529,7 +529,7 @@ export default function PricingPage() {
       {/* FAQ */}
       <section className="mx-auto mt-16 max-w-3xl">
         <Reveal>
-          <h2 className="text-[13px] font-semibold tracking-[0.03em] uppercase text-on-surface-variant">
+          <h2 className="text-kicker uppercase text-on-surface-variant">
             Questions
             <span className="grow-line" aria-hidden="true" />
           </h2>

@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { selection } from "@/lib/haptics";
+import { prefersReducedMotion } from "@/lib/spring";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
@@ -220,14 +222,48 @@ function titleFor(pathname: string): string {
 function NativeTitleBar({ pathname }: { pathname: string }) {
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
+  const barRef = useRef<HTMLDivElement | null>(null);
 
-  // The large title collapses into the 44px row once the page moves. 12px,
-  // not 0, so a one-pixel scroll jitter doesn't flicker the bar.
+  // iOS does not switch a large title off at a threshold — it interpolates it
+  // away continuously as the content moves, which is most of why an iOS nav
+  // bar feels attached to the scroll rather than triggered by it. This used to
+  // be `setScrolled(window.scrollY > 12)`: one boolean, one hard cut.
+  //
+  // Two channels now, on purpose:
+  //
+  //   --nv-collapse (0..1) drives OPACITY and TRANSFORM on the large title.
+  //   Both are compositor-only, so this runs per-frame without touching layout.
+  //
+  //   `scrolled` still gates the two things that must stay discrete: mounting
+  //   the small centred title, and collapsing the large title's BOX. The box
+  //   collapse is a real layout change, so it is deliberately deferred until
+  //   the title has already faded to nothing — the reflow happens where there
+  //   is nothing on screen to see it happen to.
+  //
+  // The mount gate is also load-bearing beyond taste; see the note on the
+  // collapsed title below for the WebKit layer bug that made hiding it with
+  // opacity paint two titles at once.
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
-    onScroll();
+    let raf = 0;
+    const COLLAPSE_OVER = 44; // px of scroll that fully retires the large title
+    const apply = () => {
+      raf = 0;
+      const y = window.scrollY;
+      const p = Math.min(Math.max(y / COLLAPSE_OVER, 0), 1);
+      barRef.current?.style.setProperty("--nv-collapse", p.toFixed(3));
+      // 0.98, not 1: the box collapse and the small title arrive together,
+      // once the large title is already invisible.
+      setScrolled(p >= 0.98);
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(apply);
+    };
+    apply();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, [pathname]);
 
   const title = titleFor(pathname);
@@ -237,7 +273,7 @@ function NativeTitleBar({ pathname }: { pathname: string }) {
   const canGoBack = !ROOTS.has(pathname) && pathname !== "/" && pathname !== "/login";
 
   return (
-    <div className={`native-bar ${scrolled && !bare ? "native-bar-scrolled" : ""}`}>
+    <div ref={barRef} className={`native-bar ${scrolled && !bare ? "native-bar-scrolled" : ""}`}>
       <div className="native-bar-row">
         {canGoBack ? (
           <button
@@ -312,6 +348,25 @@ function NativeDock({ pathname }: { pathname: string }) {
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
 
+  // Tapping the tab you are already on scrolls that tab back to the top. It is
+  // one of the oldest iOS conventions and the app did not have it: the dock
+  // rendered four plain <Link>s with no click handler, so the only way out of
+  // a long Den or a long report was to drag all the way back up.
+  //
+  // Only on the ACTIVE tab, and preventDefault so Next does not also push a
+  // duplicate history entry for a route we are already on — that entry is what
+  // turns a later back-swipe into a no-op that looks broken.
+  const onTabClick = (e: React.MouseEvent, href: string) => {
+    if (!isActive(href)) return;
+    e.preventDefault();
+    if (window.scrollY < 4) return;
+    selection();
+    window.scrollTo({
+      top: 0,
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+    });
+  };
+
   const tab = (t: Tab) => {
     const Icon = t.icon;
     const active = isActive(t.href);
@@ -320,6 +375,7 @@ function NativeDock({ pathname }: { pathname: string }) {
         key={t.href}
         href={t.href}
         className="native-tab"
+        onClick={(e) => onTabClick(e, t.href)}
         aria-current={active ? "page" : undefined}
       >
         <Icon />

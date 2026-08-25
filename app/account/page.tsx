@@ -34,7 +34,7 @@ import {
 // changes are confirmed at the NEW address before they take effect.
 
 const inputClass =
-  "card input-glow w-full px-4 py-3 text-base text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none";
+  "card input-glow w-full px-4 py-3 text-base text-on-surface placeholder:text-on-surface-variant/80 focus:outline-none";
 const btnClass =
   "btn rounded-lg bg-accent-strong text-white font-semibold px-6 py-3 disabled:opacity-50";
 const cardClass = "card p-5 md:p-6";
@@ -273,14 +273,14 @@ function BillingSection() {
         <>
           <div className="mt-3 flex items-center gap-2">
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-semibold ${
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label font-semibold ${
                 isPremium ? "bg-violet/12 text-violet" : "bg-surface-container text-on-surface-variant"
               }`}
             >
               {isPremium ? "Premium" : "Free"}
             </span>
             {(r.status === "past_due" || r.status === "unpaid") && (
-              <span className="inline-flex items-center rounded-full bg-error/10 px-2.5 py-1 text-[13px] font-semibold text-error">
+              <span className="inline-flex items-center rounded-full bg-error/10 px-2.5 py-1 text-label font-semibold text-error">
                 Action needed
               </span>
             )}
@@ -448,7 +448,7 @@ function AccountScreen() {
         <p className="mt-1 text-base text-on-surface break-all">{user?.email}</p>
         <div className="mt-3 flex items-center gap-2">
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-semibold ${
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label font-semibold ${
               verified
                 ? "bg-accent/10 text-accent-strong"
                 : "bg-error/10 text-error"

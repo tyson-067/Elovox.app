@@ -113,7 +113,7 @@ function FelixHero({
         </Link>
 
         <div className="min-w-0 flex-1 text-center sm:text-left">
-          <span className="text-[13px] font-semibold uppercase tracking-[0.06em] text-oxford/60">
+          <span className="text-label font-semibold uppercase tracking-[0.06em] text-oxford/60">
             Felix says
           </span>
           <p className="mt-1 font-headline text-xl leading-7 text-oxford md:text-2xl md:leading-8">
@@ -127,7 +127,7 @@ function FelixHero({
                   Level {level.level}
                 </span>
                 <span className="text-lg text-oxford/75">{level.title}</span>
-                <span className="font-data text-[13px] text-oxford/60">
+                <span className="font-data text-label text-oxford/60">
                   {level.xp} XP
                 </span>
               </div>
@@ -137,7 +137,7 @@ function FelixHero({
                   style={{ width: `${level.percent}%` }}
                 />
               </div>
-              <p className="mt-1.5 text-[13px] text-oxford/70">
+              <p className="mt-1.5 text-label text-oxford/70">
                 {level.isMax
                   ? "Top of the ladder. Now hold it."
                   : `${level.xpForNextLevel} XP to Level ${level.level + 1}`}
@@ -155,7 +155,7 @@ function FelixHero({
           <div className="mt-1 font-data text-2xl text-oxford">
             {stats?.streakDays ?? 0}
           </div>
-          <div className="text-[12px] font-semibold uppercase tracking-[0.06em] text-oxford/60">
+          <div className="text-caption font-semibold uppercase tracking-[0.06em] text-oxford/60">
             day streak
           </div>
         </div>
@@ -187,11 +187,11 @@ function DailyCard({
       </InfoTip>
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-white">
+        <span className="rounded-full bg-white/15 px-2.5 py-1 text-micro font-semibold uppercase tracking-[0.06em] text-white">
           The Daily Minute · 60 seconds
         </span>
         {challenge?.theme && (
-          <span className="text-[13px] font-semibold tracking-wide text-white/70">
+          <span className="text-label font-semibold tracking-wide text-white/85">
             {challenge.theme}
           </span>
         )}
@@ -206,7 +206,7 @@ function DailyCard({
         </p>
       )}
       {challenge && (
-        <p className="mt-1 text-[13px] font-semibold tracking-wide text-white/60">
+        <p className="mt-1 text-label font-semibold tracking-wide text-white/80">
           Improvise for a minute, three points, your own words.
         </p>
       )}
@@ -218,7 +218,7 @@ function DailyCard({
           today, who then tapped through to /practice only to be turned away.
           The title above already had a loading state; these didn't. */}
       {state === null ? (
-        <p className="mt-5 text-[13px] font-semibold tracking-wide text-white/60" role="status">
+        <p className="mt-5 text-label font-semibold tracking-wide text-white/80" role="status">
           Checking today&apos;s attempts…
         </p>
       ) : (
@@ -233,14 +233,14 @@ function DailyCard({
                   ? "bg-accent-strong text-white"
                   : i === used
                     ? "border border-white/50 text-white"
-                    : "border border-white/20 text-white/40"
+                    : "border border-white/20 text-white/80"
               }`}
             >
               {attempt ? attempt.score : i + 1}
             </span>
           );
         })}
-        <span className="text-[13px] font-semibold tracking-wide text-white/70">
+        <span className="text-label font-semibold tracking-wide text-white/85">
           {done
             ? `Best today: ${state?.bestScore}, new topic tomorrow`
             : `${MAX_DAILY_ATTEMPTS - used} of ${MAX_DAILY_ATTEMPTS} attempts left`}
@@ -273,7 +273,7 @@ function QuestCard({ quest, index }: { quest: Quest; index: number }) {
           {quest.title}
         </span>
         <span
-          className={`shrink-0 rounded-full px-2.5 py-1 font-data text-[11px] font-semibold ${
+          className={`shrink-0 rounded-full px-2.5 py-1 font-data text-micro font-semibold ${
             quest.done
               ? "bg-accent-strong text-white"
               : "bg-surface-container text-on-surface-variant"
@@ -283,7 +283,7 @@ function QuestCard({ quest, index }: { quest: Quest; index: number }) {
         </span>
       </div>
 
-      <p className="mt-1.5 text-[15px] leading-6 text-on-surface-variant">
+      <p className="mt-1.5 text-body-sm leading-6 text-on-surface-variant">
         {quest.detail}
       </p>
 
@@ -294,9 +294,9 @@ function QuestCard({ quest, index }: { quest: Quest; index: number }) {
         />
       </div>
 
-      <p className="mt-2 text-[13px] font-semibold text-accent-strong">
+      <p className="mt-2 text-label font-semibold text-accent-strong">
         {quest.done ? (
-          <span className="text-primary/70">✓ {quest.doneLabel}</span>
+          <span className="text-primary/80">✓ {quest.doneLabel}</span>
         ) : (
           <Link href={quest.href}>Take it on →</Link>
         )}
@@ -336,7 +336,7 @@ function DenWidget({
           The Fox Den
         </h2>
         <span className="flex items-center gap-2">
-          <span className="font-data text-[13px] text-on-surface-variant">
+          <span className="font-data text-label text-on-surface-variant">
             {sessionsFailed ? "badges unavailable" : `${earned} / ${badges.length} badges`}
           </span>
           <InfoTip label="What is the Fox Den?">
@@ -354,12 +354,22 @@ function DenWidget({
           reachable without a mouse — a hover-only hint is invisible on a
           phone and to anyone tabbing. */}
       {sessionsFailed && (
-        <p className="mt-4 text-[13px] text-on-surface-variant" role="status">
+        <p className="mt-4 text-label text-on-surface-variant" role="status">
           Couldn&apos;t check your badges just now. Nothing has been lost —
           reload to try again.
         </p>
       )}
-      <ul className="mt-4 grid grid-cols-3 gap-2.5" aria-hidden={sessionsFailed}>
+      {/* inert alongside aria-hidden, not instead of it. Each badge below is a
+          tabIndex={0} focus stop, so aria-hidden on its own produced the worst
+          combination there is: six stops still in the tab order, every one of
+          them announcing nothing. inert takes them out of the tab order and the
+          accessibility tree together, which is what was meant. aria-hidden stays
+          as the fallback for engines that do not implement inert. */}
+      <ul
+        className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3"
+        aria-hidden={sessionsFailed}
+        inert={sessionsFailed || undefined}
+      >
         {badges.map((b) => (
           <li key={b.id} className="group relative">
             {/* aria-describedby ties the tooltip to its badge: these are six
@@ -377,7 +387,7 @@ function DenWidget({
               <span className="block text-xl leading-none" aria-hidden="true">
                 {b.emoji}
               </span>
-              <span className="mt-1.5 block text-[11px] font-semibold leading-tight text-primary">
+              <span className="mt-1.5 block text-micro font-semibold leading-tight text-primary">
                 {b.name}
               </span>
               <span className="sr-only">{b.earned ? " — earned" : " — not earned yet"}</span>
@@ -385,7 +395,7 @@ function DenWidget({
             <span
               id={`badge-tip-${b.id}`}
               role="tooltip"
-              className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1.5 w-max max-w-[min(11rem,calc(100vw-2rem))] -translate-x-1/2 rounded-lg bg-oxford px-2.5 py-1.5 text-[11px] leading-4 text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+              className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1.5 w-max max-w-[min(11rem,calc(100vw-2rem))] -translate-x-1/2 rounded-lg bg-oxford px-2.5 py-1.5 text-micro leading-4 text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
             >
               {b.earned ? `Earned: ${b.hint.toLowerCase()}` : b.hint}
             </span>
@@ -406,7 +416,7 @@ function DenWidget({
           accessory={bought ?? worn?.id}
           className="h-16 w-16 shrink-0 rounded-lg"
         />
-        <span className="min-w-0 text-[13px] leading-5 text-on-surface-variant">
+        <span className="min-w-0 text-label leading-5 text-on-surface-variant">
           {bought ? (
             <>Felix is out in his new gear.</>
           ) : worn ? (
@@ -422,7 +432,7 @@ function DenWidget({
       </Link>
 
       {next && (
-        <p className="mt-3 text-[13px] leading-5 text-on-surface-variant">
+        <p className="mt-3 text-label leading-5 text-on-surface-variant">
           <span aria-hidden="true">{next.emoji}</span>{" "}
           <span className="font-semibold text-primary">{next.name}</span> at{" "}
           {/* The level is the link: it's a number about your progress, and
@@ -436,7 +446,7 @@ function DenWidget({
 
       <Link
         href="/progress"
-        className="mt-3 inline-block text-[13px] font-semibold text-accent-strong"
+        className="mt-3 inline-block text-label font-semibold text-accent-strong"
       >
         See the whole run →
       </Link>
@@ -646,12 +656,12 @@ function TodayScreen() {
       <section className="native-hide mt-12">
         <Reveal>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
+            <h2 className="text-kicker uppercase text-on-surface-variant">
               Today&apos;s fox quests
               <span className="grow-line" aria-hidden="true" />
             </h2>
             <span className="flex items-center gap-2">
-              <span className="font-data text-[13px] text-on-surface-variant">
+              <span className="font-data text-label text-on-surface-variant">
                 {questsDone} of {quests.length} cleared
               </span>
               <InfoTip label="What are fox quests?">

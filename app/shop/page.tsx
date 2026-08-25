@@ -121,16 +121,16 @@ function ItemCard({
       </div>
 
       <div className="flex flex-1 flex-col p-3.5">
-        <h3 className="font-headline text-[15px] font-semibold text-primary">
+        <h3 className="font-headline text-body-sm font-semibold text-primary">
           {item.name}
         </h3>
-        <p className="mt-0.5 flex-1 text-[13px] leading-5 text-on-surface-variant">
+        <p className="mt-0.5 flex-1 text-label leading-5 text-on-surface-variant">
           {item.detail}
         </p>
 
         <div className="mt-3">
           {worn ? (
-            <span className="block rounded-lg bg-shrimp/60 py-2 text-center text-[13px] font-semibold text-primary">
+            <span className="block rounded-lg bg-shrimp/60 py-2 text-center text-label font-semibold text-primary">
               {item.kind === "backdrop" ? "Behind the site" : "Wearing this"}
             </span>
           ) : owned ? (
@@ -138,7 +138,7 @@ function ItemCard({
               type="button"
               onClick={onEquip}
               disabled={busy}
-              className="btn w-full rounded-lg bg-primary py-2 text-[13px] font-semibold text-white disabled:opacity-60"
+              className="btn w-full rounded-lg bg-primary py-2 text-label font-semibold text-white disabled:opacity-60"
             >
               {item.kind === "biome"
                 ? "Move here"
@@ -167,7 +167,7 @@ function ItemCard({
                     ? `Confirm: spend ${item.price} coins on ${item.name}`
                     : `Buy ${item.name} for ${item.price} coins`
                 }
-                className={`btn w-full rounded-lg py-2 text-[13px] font-semibold disabled:opacity-60 ${
+                className={`btn w-full rounded-lg py-2 text-label font-semibold disabled:opacity-60 ${
                   afford
                     ? "bg-accent-strong text-white"
                     : "bg-shrimp/50 text-on-surface-variant"
@@ -189,7 +189,7 @@ function ItemCard({
                 <button
                   type="button"
                   onClick={() => setArmed(false)}
-                  className="mt-1.5 block w-full text-center text-[13px] font-semibold text-on-surface-variant"
+                  className="mt-1.5 block w-full text-center text-label font-semibold text-on-surface-variant"
                 >
                   Never mind
                 </button>
@@ -384,7 +384,7 @@ function ShopScreen() {
                   void act("bare", () => equipItem(null, "accessory"))
                 }
                 disabled={busy !== null}
-                className="mt-3 text-[13px] font-semibold text-accent-strong disabled:opacity-60"
+                className="mt-3 text-label font-semibold text-accent-strong disabled:opacity-60"
               >
                 Take it off
               </button>
@@ -469,7 +469,7 @@ function ShopScreen() {
                   })
                 }
                 disabled={busy !== null}
-                className="mt-2 text-[13px] font-semibold text-accent-strong disabled:opacity-60"
+                className="mt-2 text-label font-semibold text-accent-strong disabled:opacity-60"
               >
                 Back to plain
               </button>

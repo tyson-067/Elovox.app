@@ -1306,13 +1306,13 @@ html[data-native] .native-bar-scrolled .native-title-lg {
 }
 html[data-native] .native-title-lg {
   transition:
-    opacity 180ms ease,
+    opacity var(--dur-micro) var(--ease-standard),
     transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
     visibility 0s linear 180ms;
 }
 html[data-native] .native-bar-scrolled .native-title-lg {
   transition:
-    opacity 180ms ease,
+    opacity var(--dur-micro) var(--ease-standard),
     transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
     visibility 0s linear 180ms;
 }
@@ -2280,7 +2280,7 @@ html[data-native] .nv-rung-btn:active .nv-rung-face[data-done] {
     inset 0 2px 0 rgba(255, 255, 255, 0.3);
 }
 html[data-native] .nv-rung-face {
-  transition: transform 320ms var(--nv-spring), box-shadow 200ms ease;
+  transition: transform 320ms var(--nv-spring), box-shadow var(--dur-base) var(--ease-standard);
 }
 html[data-native] .nv-rung-score {
   font-family: var(--nv-font-display);
@@ -2357,7 +2357,7 @@ html[data-native] .nv-tile {
   box-shadow:
     0 2px 0 var(--nv-card-edge),
     inset 0 0 0 1px var(--nv-card-line);
-  transition: transform 320ms var(--nv-spring), box-shadow 200ms ease;
+  transition: transform 320ms var(--nv-spring), box-shadow var(--dur-base) var(--ease-standard);
 }
 html[data-native] .nv-tile:active {
   transform: translateY(2px);
@@ -4896,4 +4896,320 @@ html[data-native][data-theme="dark"] .nv-impact-title {
 html[data-native] .nv-impact-card .nv-chip:not([data-selected]) {
   background: var(--nv-card);
   border-color: color-mix(in srgb, var(--nv-accent-500) 18%, transparent);
+}
+
+/* ===========================================================================
+   THE SHEET, AS A SHEET
+   ===========================================================================
+   The sheet is now driven by a spring in JS (components/native/ui.tsx +
+   lib/spring.ts) rather than by a keyframe, because a keyframe cannot be
+   grabbed mid-flight. Everything here exists to get out of that code's way.
+   =========================================================================== */
+
+/* data-gesture marks a sheet whose transform belongs to JS. The entrance
+   keyframe has to stand down or it fights the spring for the first 260ms and
+   the sheet visibly stutters on open. */
+html[data-native] .nv-sheet[data-gesture] {
+  animation: none;
+  will-change: transform;
+  /* A sheet at scrollTop 0 that keeps being dragged down used to hand the
+     leftover scroll to the PAGE behind it, so the screen underneath crept
+     while the sheet was open. */
+  overscroll-behavior: contain;
+}
+html[data-native] .nv-sheet[data-gesture]:focus-visible {
+  /* It takes focus programmatically on open so screen readers land inside the
+     dialog, but it is a container, not a control — a focus ring around the
+     whole sheet reads as a bug. Controls inside it still get rings. */
+  outline: none;
+}
+
+/* The drag handle region. touch-action: none is the load-bearing line: without
+   it WebKit claims the vertical gesture for scrolling before pointermove ever
+   fires, and the sheet simply refuses to be dragged. */
+html[data-native] .nv-sheet-head {
+  touch-action: none;
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+}
+html[data-native] .nv-sheet-head:active {
+  cursor: grabbing;
+}
+/* A bigger grab target than the 5px bar suggests — the visible grabber is a
+   sign, not the control. */
+html[data-native] .nv-sheet[data-gesture] .nv-grabber {
+  position: relative;
+  padding: 0;
+}
+html[data-native] .nv-sheet[data-gesture] .nv-grabber::after {
+  content: "";
+  position: absolute;
+  inset: -14px -60px;
+}
+
+/* The backdrop's opacity is written by the drag, so its own fade-in keyframe
+   would overwrite the first frames of it. */
+html[data-native] .nv-sheet-backdrop {
+  animation: none;
+  opacity: 0;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Reduced motion still gets a sheet — it arrives instead of travelling. */
+  html[data-native] .nv-sheet-backdrop {
+    opacity: 1 !important;
+    transition: opacity 120ms linear;
+  }
+  html[data-native] .nv-sheet[data-gesture] {
+    transform: none !important;
+  }
+}
+
+/* ===========================================================================
+   THE NAV BAR, INTERPOLATED
+   =========================================================================== */
+
+/* Exposes the safe-area inset to JS. env() cannot be read from script, and
+   lib/native.ts needs the real number to decide when the ink stage has left
+   the status bar — a guessed constant is wrong by ~12pt between a notch phone
+   and a Dynamic Island one, which is the whole margin this decision has. */
+html[data-native] {
+  --safe-top: env(safe-area-inset-top);
+  --nv-collapse: 0;
+}
+
+/* The large title now retires CONTINUOUSLY with the scroll instead of being
+   switched off at a 12px threshold. NativeShell writes --nv-collapse (0..1)
+   from a rAF-throttled scroll listener; only opacity and transform read it,
+   so this runs entirely on the compositor.
+   transition: none is required, not tidy — a transition on a property already
+   being updated every frame makes the title lag the finger by the transition's
+   own duration, which reads as the bar being slow. */
+html[data-native] .native-title-lg {
+  opacity: calc(1 - var(--nv-collapse));
+  transform: translateY(calc(var(--nv-collapse) * -10px))
+    scale(calc(1 - var(--nv-collapse) * 0.1));
+  transform-origin: left center;
+  transition: none;
+}
+
+/* The BOX collapse stays discrete and stays late. Height and padding are
+   layout, not compositor, so animating them per frame would give up
+   everything the two properties above just bought. NativeShell only adds
+   .native-bar-scrolled at collapse >= 0.98, i.e. once the title has already
+   faded out — the reflow lands where there is nothing on screen to see it. */
+html[data-native] .native-bar-scrolled .native-title-lg {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Scroll-linked movement is the user's own finger, not autonomous motion,
+     so the fade stays. The scale and the lift are decoration and go. */
+  html[data-native] .native-title-lg {
+    transform: none;
+  }
+}
+
+/* ===========================================================================
+   SCROLL EDGE UNDER THE STATUS BAR
+   ===========================================================================
+   The headless screens — the Den and the report — have no shell bar, so their
+   content runs straight up under the clock and the battery and collides with
+   them. Scrolled halfway down the Den, "PLAN" sat directly behind the time.
+   The status bar glyphs are the platform's, we cannot move them, and giving
+   these screens a solid bar back would undo the point of a headless screen.
+
+   So the content dissolves instead. A short blurred strip pinned to the safe
+   area, masked so it fades to nothing rather than ending on a line: iOS's own
+   scroll edge effect, which is a material, not a divider.
+
+   pointer-events: none is load-bearing — this sits over the top of every
+   screen, and without it the first 59pt of every page stops accepting taps.
+   =========================================================================== */
+html[data-native] body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(env(safe-area-inset-top) + 6px);
+  z-index: 55; /* under the bar and dock, over page content */
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent);
+  mask-image: linear-gradient(to bottom, #000 62%, transparent);
+}
+
+/* Inside a takeover the booth IS the status bar's background — already a
+   solid dark room, and blurring it just muddies the top of the frame. */
+html[data-native]:has(.nv-takeover) body::after {
+  display: none;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  html[data-native] body::after {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: var(--nv-bg);
+  }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-native] body::after {
+    background: color-mix(in srgb, var(--nv-bg) 88%, transparent);
+  }
+}
+
+/* --- Board skeleton ---------------------------------------------------------
+   .nv-skeleton has existed since the first pass and was used in exactly two
+   places; everywhere else a loading state was a centred sentence. A sentence
+   is not a loading state — it occupies a different amount of space than the
+   thing it stands in for, so the screen jumps when data lands, and it tells
+   you the app is busy rather than showing you what is coming. */
+html[data-native] .nv-board-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 4px;
+  border-bottom: 1px solid var(--nv-hairline);
+}
+html[data-native] .nv-board-skeleton:last-child {
+  border-bottom: 0;
+}
+html[data-native] .nv-board-skeleton-rank {
+  width: 22px;
+  height: 14px;
+  border-radius: 5px;
+  flex: none;
+}
+html[data-native] .nv-board-skeleton-name {
+  height: 14px;
+  border-radius: 5px;
+  flex: 1;
+  /* Uneven widths, because a column of identical bars reads as a graphic and
+     a ragged one reads as names. Cheap, and it is the whole difference
+     between a placeholder and a pattern. */
+  max-width: 62%;
+}
+html[data-native] .nv-board-skeleton:nth-child(2n) .nv-board-skeleton-name {
+  max-width: 44%;
+}
+html[data-native] .nv-board-skeleton:nth-child(3n) .nv-board-skeleton-name {
+  max-width: 54%;
+}
+html[data-native] .nv-board-skeleton-xp {
+  width: 40px;
+  height: 14px;
+  border-radius: 5px;
+  flex: none;
+  margin-left: auto;
+}
+
+/* ===========================================================================
+   THE LAST WORD ON ACCESSIBILITY
+   ===========================================================================
+   This block is at the BOTTOM OF THE FILE on purpose, and it must stay there.
+
+   There is an earlier "ACCESSIBILITY, RE-ASSERTED" block (~line 2609) that
+   already learned this lesson once and wrote it down: nothing here uses
+   !important, so every accommodation in this stylesheet is won on source
+   order, and any later pass that re-declares a translucent or animated
+   surface silently takes it back out. That comment ended with an instruction
+   to future passes — "anything that re-declares a translucent surface below
+   here has to come back and add itself to this block" — and then the MODERN
+   PASS re-declared four of them and did not come back.
+
+   So the accommodation moved to where it cannot lose. Two rules for whoever
+   edits this file next:
+
+     1. Append new passes ABOVE this block, never below it.
+     2. Reduced motion SIMPLIFIES, it never HIDES. If a rule you kill here is
+        the only thing bringing an element to opacity 1, you have just deleted
+        content for the readers who most needed it kept. Every entrance
+        animation in this file puts its opacity:0 in the `from` keyframe with
+        a `backwards` fill precisely so `animation: none` restores visibility
+        on its own — keep doing that.
+   =========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  /* The LADDER PASS renamed .nv-rung-halo to .nv-ring-halo and .nv-rung-felix
+     to .nv-ring-felix, but the reduced-motion block that silenced them kept
+     the OLD names. Both are rendered by NativeLadder on /dashboard — the
+     app's HOME SCREEN — and both loop forever: a ring pulsing on a 3s cycle
+     and Felix bobbing on a 3.4s one, for a reader who switched Reduce Motion
+     on. Naming the live classes is the whole fix.
+
+     Safe to stop rather than freeze: .nv-ring-halo is a decorative pulse at
+     base opacity 0 and is aria-hidden, so "no animation" correctly means "no
+     ring", not "missing content". .nv-ring-felix only translates. */
+  html[data-native] .nv-ring-halo,
+  html[data-native] .nv-ring-felix,
+  html[data-native] .nv-ring-spot {
+    animation: none;
+  }
+
+  /* Press and state transitions the Modern Pass added after the last
+     reduced-motion block. Transitions, not animations, so killing them
+     changes timing only — the end state is identical. */
+  html[data-native] .nv-deep,
+  html[data-native] .nv-handle,
+  html[data-native] .nv-shop-btn,
+  html[data-native] .nv-stage-btn,
+  html[data-native] .nv-ring-arc,
+  html[data-native] .nv-press {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  /* The four surfaces the MODERN PASS re-declared at equal specificity after
+     the earlier block ended, which put every one of them back to translucent
+     and blurred. Listed here, where nothing follows to undo it again. */
+  html[data-native] body::before,
+  html[data-native][data-theme="dark"] body::before {
+    background: var(--nv-bg);
+  }
+  html[data-native] .native-bar::before,
+  html[data-native][data-theme="dark"] .native-bar::before,
+  html[data-native] .native-dock,
+  html[data-native][data-theme="dark"] .native-dock,
+  html[data-native] .nv-ladder-bar::before,
+  html[data-native][data-theme="dark"] .nv-ladder-bar::before {
+    background: var(--nv-bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* --- Touch targets under 44pt ----------------------------------------------
+   .nv-tap44 already exists in this file and grows a control's touch area with
+   a centred pseudo-element without moving anything on screen. It was used in
+   exactly three places. These are the controls that still measured under the
+   platform minimum, and one of them is the discard button INSIDE THE
+   RECORDING BOOTH — a 34pt target, on the screen where the user is mid-take
+   and least able to aim carefully.
+
+   Growing the hit area rather than the box keeps all of them looking exactly
+   as designed. */
+html[data-native] .nv-booth-btn,
+html[data-native] .nv-shop-cancel {
+  position: relative;
+}
+html[data-native] .nv-booth-btn::after,
+html[data-native] .nv-shop-cancel::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+}
+
+/* .nv-metric-row is a <button> at padding: 11px 0, which computes to roughly
+   42pt. It is a full-width row, so it can simply BE 44 rather than fake it. */
+html[data-native] .nv-metric-row {
+  min-height: 44px;
 }

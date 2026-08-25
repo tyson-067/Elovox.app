@@ -126,7 +126,7 @@ export function AdminDailyPanel() {
     max: number
   ) => (
     <label className="mt-2 block">
-      <span className="text-[12px] font-semibold text-on-surface-variant">
+      <span className="text-caption font-semibold text-on-surface-variant">
         {label}
       </span>
       <input
@@ -152,11 +152,11 @@ export function AdminDailyPanel() {
         {days.map((d) => (
           <div key={d.date} className="px-4 py-2.5">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-data text-[13px] font-semibold">
+              <span className="font-data text-label font-semibold">
                 {d.date}
               </span>
               {!d.editable && (
-                <span className="rounded-full border border-primary/20 px-1.5 text-[11px] text-on-surface-variant">
+                <span className="rounded-full border border-primary/20 px-1.5 text-micro text-on-surface-variant">
                   locked
                 </span>
               )}
@@ -165,7 +165,7 @@ export function AdminDailyPanel() {
                   <span className="font-medium">{d.title ?? "Untitled"}</span>
                   <span className="text-on-surface-variant"> — {d.topic}</span>
                   {d.theme === "Operator pick" && (
-                    <span className="ml-1.5 rounded-full border border-violet/40 px-1.5 text-[11px] font-semibold text-violet">
+                    <span className="ml-1.5 rounded-full border border-violet/40 px-1.5 text-micro font-semibold text-violet">
                       operator pick
                     </span>
                   )}
@@ -182,7 +182,7 @@ export function AdminDailyPanel() {
                     onClick={() =>
                       editing === d.date ? setEditing(null) : openEditor(d)
                     }
-                    className="pill rounded-full border border-primary/20 px-3 py-1 text-[13px] font-semibold text-primary hover:border-accent/60"
+                    className="pill rounded-full border border-primary/20 px-3 py-1 text-label font-semibold text-primary hover:border-accent/60"
                   >
                     {editing === d.date ? "Close" : d.exists ? "Edit" : "Set"}
                   </button>

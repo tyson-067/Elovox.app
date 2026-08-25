@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Felix } from "@/components/FoxLogo";
 import { useInkTopBar, useIsNative } from "@/lib/native";
-import { notifyError } from "@/lib/haptics";
+import { notifyError, tapMedium } from "@/lib/haptics";
 import { endTakeActivity, startTakeActivity } from "@/lib/nativeExtras";
 import { NvChip } from "@/components/native/ui";
 import { AnalyzingLoader } from "@/components/AnalyzingLoader";
@@ -805,6 +805,12 @@ function RecordingScreen() {
       }, limitSec * 1000);
       warnedRef.current = null;
       stopReasonRef.current = "user";
+      // The mic going live is the single most consequential state change in
+      // the product, and until now it was silent to the hand — it got the
+      // same generic tapLight the delegated listener gives every button in
+      // the app. Medium, because the weight of the feedback should match the
+      // weight of what just happened.
+      tapMedium();
       setState("recording");
       // The mic is live from here. Sighted users get a pulsing ring, a moving
       // waveform and a running clock; without this the only signal was a
@@ -853,6 +859,9 @@ function RecordingScreen() {
     if (recorderRef.current && recorderRef.current.state !== "inactive") {
       try {
         recorderRef.current.stop();
+        // Take ended. Same weight as starting it — the two halves of one
+        // action should answer the hand the same way.
+        tapMedium();
       } catch {
         /* it finished between the check and the call */
       }
@@ -1057,16 +1066,16 @@ function RecordingScreen() {
               nowhere, on the one screen where knowing what you're about to
               record actually matters. */}
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="inline-block rounded-full bg-violet/10 text-violet text-[13px] font-semibold tracking-wide px-3 py-1">
+            <h1 className="inline-block rounded-full bg-violet/10 text-violet text-label font-semibold tracking-wide px-3 py-1">
               {heading}
             </h1>
             {isDaily && (
               <>
-                <span className="inline-block rounded-full bg-accent/12 text-accent-strong text-[13px] font-semibold tracking-wide px-3 py-1">
+                <span className="inline-block rounded-full bg-accent/12 text-accent-strong text-label font-semibold tracking-wide px-3 py-1">
                   Attempt {attemptNumber} of {MAX_DAILY_ATTEMPTS}
                 </span>
                 {challenge?.bestScore !== null && challenge?.bestScore !== undefined && (
-                  <span className="text-[13px] font-semibold tracking-wide text-on-surface-variant">
+                  <span className="text-label font-semibold tracking-wide text-on-surface-variant">
                     Best today: <span className="font-data text-primary">{challenge.bestScore}</span>, beat it
                   </span>
                 )}
@@ -1131,7 +1140,7 @@ function RecordingScreen() {
               <div className="card-warm mt-5 p-4">
                 <p
                   className={
-                    "text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant" +
+                    "text-kicker uppercase text-on-surface-variant" +
                     (native ? " nv-caption" : "")
                   }
                 >
@@ -1139,7 +1148,7 @@ function RecordingScreen() {
                 </p>
                 <ol
                   className={
-                    "mt-2.5 space-y-2 text-[15px] leading-6 text-on-surface-variant" +
+                    "mt-2.5 space-y-2 text-body-sm leading-6 text-on-surface-variant" +
                     (native ? " nv-subhead" : "")
                   }
                 >
@@ -1187,7 +1196,7 @@ function RecordingScreen() {
                 type="button"
                 disabled={locked}
                 onClick={rerollQuestion}
-                className="text-[13px] font-semibold text-accent-strong underline underline-offset-4 disabled:opacity-50"
+                className="text-label font-semibold text-accent-strong underline underline-offset-4 disabled:opacity-50"
               >
                 Give me a different one
               </button>
@@ -1201,7 +1210,7 @@ function RecordingScreen() {
                   type="button"
                   disabled={locked}
                   onClick={rerollQuestion}
-                  className="text-[13px] font-semibold text-accent-strong underline underline-offset-4 disabled:opacity-50"
+                  className="text-label font-semibold text-accent-strong underline underline-offset-4 disabled:opacity-50"
                 >
                   Ask me a different one
                 </button>
@@ -1213,7 +1222,7 @@ function RecordingScreen() {
                     setOwnQuestion("");
                   }}
                   aria-expanded={composer === "own"}
-                  className="text-[13px] font-semibold text-primary/70 underline underline-offset-4 hover:text-primary disabled:opacity-50"
+                  className="text-label font-semibold text-primary/80 underline underline-offset-4 hover:text-primary disabled:opacity-50"
                 >
                   {composer === "own" ? "Never mind" : "Write my own question"}
                 </button>
@@ -1225,7 +1234,7 @@ function RecordingScreen() {
                     setBankError("");
                   }}
                   aria-expanded={composer === "felix"}
-                  className="text-[13px] font-semibold text-primary/70 underline underline-offset-4 hover:text-primary disabled:opacity-50"
+                  className="text-label font-semibold text-primary/80 underline underline-offset-4 hover:text-primary disabled:opacity-50"
                 >
                   {composer === "felix"
                     ? "Never mind"
@@ -1234,7 +1243,7 @@ function RecordingScreen() {
               </div>
 
               {felixBank && (
-                <p className="mt-2 text-[13px] text-on-surface-variant">
+                <p className="mt-2 text-label text-on-surface-variant">
                   Asking from {felixBank.length} questions Felix wrote for your
                   situation.{" "}
                   <button
@@ -1259,7 +1268,7 @@ function RecordingScreen() {
                 <div className="mt-3 max-w-[60ch]">
                   <label
                     htmlFor="own-question"
-                    className="block text-[13px] font-semibold tracking-wide text-on-surface-variant"
+                    className="block text-label font-semibold tracking-wide text-on-surface-variant"
                   >
                     The question you are actually dreading
                   </label>
@@ -1270,7 +1279,7 @@ function RecordingScreen() {
                     value={ownQuestion}
                     onChange={(e) => setOwnQuestion(e.target.value)}
                     placeholder="Why did you leave your last role after only seven months?"
-                    className="card input-glow mt-1.5 w-full px-4 py-3 text-base text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none"
+                    className="card input-glow mt-1.5 w-full px-4 py-3 text-base text-on-surface placeholder:text-on-surface-variant/80 focus:outline-none"
                   />
                   <div className="mt-2 flex flex-wrap items-center gap-3">
                     <button
@@ -1282,11 +1291,11 @@ function RecordingScreen() {
                         setQuestion(clean);
                         setComposer(null);
                       }}
-                      className="btn rounded-lg bg-accent-strong px-5 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
+                      className="btn rounded-lg bg-accent-strong px-5 py-2 text-label font-semibold text-white disabled:opacity-50"
                     >
                       Ask me this
                     </button>
-                    <span className="text-[13px] text-on-surface-variant">
+                    <span className="text-label text-on-surface-variant">
                       Felix scores your answer exactly as he would any other
                       question for this panel.
                     </span>
@@ -1298,11 +1307,11 @@ function RecordingScreen() {
                 <div className="mt-3 max-w-[60ch]">
                   <label
                     htmlFor="situation"
-                    className="block text-[13px] font-semibold tracking-wide text-on-surface-variant"
+                    className="block text-label font-semibold tracking-wide text-on-surface-variant"
                   >
                     What are you interviewing for?
                   </label>
-                  <p className="mt-1 text-[13px] leading-5 text-on-surface-variant">
+                  <p className="mt-1 text-label leading-5 text-on-surface-variant">
                     The role, the place, and anything you think they will push
                     on. The more specific you are, the less generic the questions.
                   </p>
@@ -1313,10 +1322,10 @@ function RecordingScreen() {
                     value={situation}
                     onChange={(e) => setSituation(e.target.value)}
                     placeholder="Second-round interview for a junior data analyst role at a hospital. I'm switching from retail, I have a certificate but no degree in it, and there's an eight-month gap on my resume."
-                    className="card input-glow mt-2 w-full px-4 py-3 text-base text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none"
+                    className="card input-glow mt-2 w-full px-4 py-3 text-base text-on-surface placeholder:text-on-surface-variant/80 focus:outline-none"
                   />
                   {bankError && (
-                    <p role="alert" className="mt-2 text-[13px] leading-5 text-error">
+                    <p role="alert" className="mt-2 text-label leading-5 text-error">
                       {bankError}
                     </p>
                   )}
@@ -1325,11 +1334,11 @@ function RecordingScreen() {
                       type="button"
                       disabled={locked || bankBusy || !sanitizeText(situation)}
                       onClick={generateBank}
-                      className="btn rounded-lg bg-accent-strong px-5 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
+                      className="btn rounded-lg bg-accent-strong px-5 py-2 text-label font-semibold text-white disabled:opacity-50"
                     >
                       {bankBusy ? "Felix is writing…" : "Write my questions"}
                     </button>
-                    <span className="text-[13px] text-on-surface-variant">
+                    <span className="text-label text-on-surface-variant">
                       You will get a set to work through, and you can reroll
                       within it.
                     </span>
@@ -1356,7 +1365,7 @@ function RecordingScreen() {
           <div className={"mt-6 p-4" + (native ? " nv-impact-card" : " card-warm")}>
             <span
               className={
-                "block font-headline text-[19px] font-bold tracking-tight text-primary" +
+                "block font-headline text-h4 font-bold tracking-tight text-primary" +
                 (native ? " nv-impact-title" : "")
               }
             >
@@ -1436,16 +1445,16 @@ function RecordingScreen() {
                   }`}
                 />
               </span>
-              <span className="text-[13px] font-semibold tracking-wide text-primary">
+              <span className="text-label font-semibold tracking-wide text-primary">
                 Practice with camera
               </span>
             </button>
             {isPremium ? (
-              <span className="text-[13px] text-on-surface-variant">
+              <span className="text-label text-on-surface-variant">
                 Felix reads posture, gestures, eye contact, expression and sway.
               </span>
             ) : (
-              <span className="text-[13px] text-on-surface-variant">
+              <span className="text-label text-on-surface-variant">
                 <span className="font-semibold text-violet">Premium</span>, add
                 body-language coaching: posture, gestures, eye contact, sway.
               </span>
@@ -1730,7 +1739,7 @@ function RecordingScreen() {
             )}
 
             {!(native && recording) && (
-              <span className="text-[13px] font-semibold tracking-wide text-on-surface-variant">
+              <span className="text-label font-semibold tracking-wide text-on-surface-variant">
                 {recording
                   ? isDaily
                     ? "Tap to finish, or it stops itself at zero"

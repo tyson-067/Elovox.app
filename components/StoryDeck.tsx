@@ -78,7 +78,7 @@ export function StoryDeck({ beats }: { beats: StoryBeat[] }) {
   // media query forces scaleX(1), which made it easy to miss.)
   const heading = (
     <Reveal>
-      <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-on-surface-variant">
+      <h2 className="text-kicker uppercase text-on-surface-variant">
         How a nervous fox got his voice
         <span className="grow-line" aria-hidden="true" />
       </h2>
@@ -96,7 +96,7 @@ export function StoryDeck({ beats }: { beats: StoryBeat[] }) {
               <h3 className="mt-3 font-headline text-lg font-semibold text-primary">
                 {beat.title}
               </h3>
-              <p className="mt-1.5 text-[15px] leading-6 text-on-surface-variant">
+              <p className="mt-1.5 text-body-sm leading-6 text-on-surface-variant">
                 {beat.body}
               </p>
             </div>
@@ -171,7 +171,7 @@ export function StoryDeck({ beats }: { beats: StoryBeat[] }) {
         </div>
         <p
           aria-hidden="true"
-          className={`mt-3 text-center text-[12px] font-semibold uppercase tracking-[0.08em] text-on-surface-variant/80 transition-opacity duration-300 ${
+          className={`mt-3 text-center text-caption font-semibold uppercase tracking-[0.08em] text-on-surface-variant/80 transition-opacity duration-300 ${
             idx === beats.length - 1 ? "opacity-0" : "opacity-100"
           }`}
         >
