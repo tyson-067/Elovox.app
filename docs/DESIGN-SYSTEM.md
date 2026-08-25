@@ -217,6 +217,21 @@ pins a fact that has already been got wrong here:
 | `spring.test.ts` | That the springs are analytic — the same settle at 60Hz and 120Hz — and that `stop()` returns live value *and* velocity, which is what makes interruption not jump. |
 | `levels.test.ts`, `scoring.test.ts` | Threshold and monotonicity facts the report's bars and the XP receipt both depend on. |
 
+**Billing and API guards.** The money path and the shared route guards, which
+had no tests at all:
+
+| File | The bug it prevents |
+|---|---|
+| `stripe-webhook.test.ts` | The two-phase idempotency claim. Chiefly that an **in-flight** claim returns **409, not 200** — a 200 tells Stripe to stop retrying, so an attempt that died on a function timeout is never retried, `done` is never set, and for `checkout.session.completed` that is a paying customer left on the free tier. Also: entitlement derived from the *customer* not the event's subscription, superseded subscriptions cancelled (a real subscriber was billed for two), the claim released when a handler throws, and that the signing secret never reaches a log line on a publicly-reachable branch. |
+| `stripe-checkout.test.ts` | Unverified emails cannot subscribe; a customer holding any live subscription gets 409 rather than a second charge; the operator kill switch **fails closed**. |
+| `billing-entitlement.test.ts` | That `isEntitled` (what the webhook writes) and `pastDueLapsed` (what the client trusts) agree — they take the same grace window in **different units**, seconds vs milliseconds, and the test pins both that and the 1ms boundary instant where they legitimately differ. |
+| `api-guards.test.ts` | `clientIp` reads the **rightmost** `x-forwarded-for` entry. The leftmost is attacker-controlled, and reading it lets a caller rotate a header to defeat per-IP limiting — which is how a scripted caller once drove the paid Gemini pipeline. Also the daily-quota date clamp (a forged date must not mean infinite free attempts) and the body-size cap holding when `Content-Length` lies. |
+
+`tests/helpers/firestore-fake.ts` is deliberately *not* a general emulator. It
+models buffered transaction writes specifically, because a fake that applied
+writes immediately would let the two-phase claim pass even if the route wrote
+outside the transaction — which is the property under test.
+
 **E2E (`tests/e2e/`, Playwright, against a PRODUCTION build).** Dev serves
 unminified CSS in a different order, and at least one bug here only appeared
 once Tailwind had tree-shaken.
