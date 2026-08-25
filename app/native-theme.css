@@ -57,14 +57,21 @@ html[data-native] {
   --nv-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
     Roboto, "Helvetica Neue", sans-serif;
   /* Scale (size/weight/leading). largeTitle lives on the bar; title opens a
-     screen; headline heads a card; body is 17 the way iOS body is 17. */
-  --nv-large-title-size: 34px;
-  --nv-title-size: 22px;
-  --nv-headline-size: 17px;
-  --nv-body-size: 17px;
-  --nv-subhead-size: 15px;
-  --nv-footnote-size: 13px;
-  --nv-caption-size: 11px;
+     screen; headline heads a card; body is 17 the way iOS body is 17.
+     
+     rem, not px. The whole ramp used to be absolute — 420 px values in this
+     file against 20 rem — so the app ignored the system text size completely.
+     Someone who had turned text up because they need it up got the same 11px
+     captions as everyone else, in an app whose entire purpose is spoken
+     communication. These are the same numbers over a 16px root: 2.125rem is
+     34px, 1.0625rem is 17px. Nothing moves until the root does. */
+  --nv-large-title-size: 2.125rem; /* 34 */
+  --nv-title-size: 1.375rem; /* 22 */
+  --nv-headline-size: 1.0625rem; /* 17 */
+  --nv-body-size: 1.0625rem; /* 17 */
+  --nv-subhead-size: 0.9375rem; /* 15 */
+  --nv-footnote-size: 0.8125rem; /* 13 */
+  --nv-caption-size: 0.6875rem; /* 11 */
 
   /* --- Space & shape ------------------------------------------------------ */
   --nv-gutter: 16px; /* screen edge */
@@ -213,9 +220,6 @@ html[data-native] .nv-num {
    --------------------------------------------------------------------------- */
 
 /* Screen: gutters + room for the bar above and the dock below. */
-html[data-native] .nv-screen {
-  padding: 0 var(--nv-gutter);
-}
 
 /* Inset grouped list. Rows divide with hairlines that start after the
    leading icon, the way Settings does. */
@@ -237,12 +241,10 @@ html[data-native] .nv-row {
   color: var(--nv-ink);
   text-align: left;
 }
-html[data-native] .nv-row + .nv-row,
-html[data-native] .nv-row-divide {
+html[data-native] .nv-row + .nv-row {
   position: relative;
 }
-html[data-native] .nv-row + .nv-row::before,
-html[data-native] .nv-row-divide::before {
+html[data-native] .nv-row + .nv-row::before {
   content: "";
   position: absolute;
   top: 0;
@@ -370,14 +372,6 @@ html[data-native] .nv-stat-label {
 
 /* Liquid glass: the material of every floating surface. The specular edge
    is what sells it — one bright hairline where light would catch. */
-html[data-native] .nv-glass {
-  background: var(--nv-glass);
-  /* 14px is the system-wide blur ceiling: cost grows superlinearly with
-     radius, and every glass surface re-samples its backdrop during scroll. */
-  -webkit-backdrop-filter: blur(14px) saturate(1.8);
-  backdrop-filter: blur(14px) saturate(1.8);
-  box-shadow: inset 0 1px 0 var(--nv-glass-edge);
-}
 
 /* Sheet: detent-style card rising from the bottom, grabber on top. */
 html[data-native] .nv-sheet-backdrop {
@@ -716,13 +710,6 @@ html[data-native] .nv-takeover {
 
 /* The Whoop-style hero numeral (Progress's score). Same geometry the timer
    uses, named for what it is. */
-html[data-native] .nv-display {
-  font-size: 56px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.1;
-}
 
 /* Rows without a leading icon divide from the text edge, not 57px in. */
 html[data-native] .nv-row[data-noicon] + .nv-row::before {
@@ -730,11 +717,6 @@ html[data-native] .nv-row[data-noicon] + .nv-row::before {
 }
 
 /* Full-bleed hairline inside a card/group (transcript notes, drills). */
-html[data-native] .nv-divider {
-  border: 0;
-  border-top: 1px solid var(--nv-hairline);
-  margin: 12px 0;
-}
 
 /* Native form field: 50pt tint-soft cell. */
 html[data-native] .nv-input {
@@ -825,12 +807,6 @@ html[data-native] .nv-headline {
 
 /* Display numerals: the Progress score, stats, the report dial. Digits
    collide before letters do, so they take a gentler cut of the tracking. */
-html[data-native] .nv-display {
-  font-family: var(--nv-font-display);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 0.8;
-}
 html[data-native] .nv-stat-value {
   font-family: var(--nv-font-display);
   font-weight: 800;
@@ -1582,25 +1558,6 @@ html[data-native] [data-tier="5"] .nv-flame { --flame-a: var(--nv-pop-sky); --fl
    (The ring these two used to sit inside went with the Ladder pass — see the
    note where XpAvatar was in components/native/felix.tsx. The chip stayed:
    the Den's identity header still wears it.) */
-html[data-native] .nv-lv-chip {
-  position: absolute;
-  bottom: -3px;
-  right: -3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 5px;
-  border-radius: var(--nv-r-pill);
-  border: 2px solid var(--nv-card);
-  background: var(--nv-pop-sun);
-  color: #5b3a00;
-  font-family: var(--nv-font-display);
-  font-size: 11px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
 
 /* --- The coin --------------------------------------------------------------
    Felix's currency, wearing the voice bars. It lands with one flip on
@@ -1732,9 +1689,6 @@ html[data-native] [data-band] .nv-dial-arc {
 }
 html[data-native][data-theme="dark"] [data-band] .nv-dial-arc {
   stroke: var(--band);
-}
-html[data-native] [data-band] .nv-display {
-  color: var(--band-ink);
 }
 
 /* --- Meters join the palette -----------------------------------------------
@@ -1981,8 +1935,7 @@ html[data-native][data-theme="dark"] .nv-group {
     inset 0 0 0 1px var(--nv-card-line);
 }
 /* Rows inside a group divide on the warm hairline. */
-html[data-native] .nv-row + .nv-row::before,
-html[data-native] .nv-row-divide::before {
+html[data-native] .nv-row + .nv-row::before {
   background: var(--nv-hairline);
 }
 
@@ -2201,17 +2154,6 @@ html[data-native] .nv-today {
   align-items: center;
   width: 100%;
 }
-html[data-native] .nv-rung-btn {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 136px;
-  height: 136px;
-  border: none;
-  padding: 0;
-  background: none;
-}
 html[data-native] .nv-rung-halo {
   position: absolute;
   inset: 2px;
@@ -2224,89 +2166,7 @@ html[data-native] .nv-rung-halo {
   70% { opacity: 0; }
   100% { transform: scale(1.44); opacity: 0; }
 }
-html[data-native] .nv-rung-face {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  width: 132px;
-  height: 132px;
-  border-radius: var(--nv-r-pill);
-  color: #fff;
-  /* The SHEEN recipe, not a two-orange ramp. This ran #ff8f4d -> #e8500f, and
-     white on #ff8f4d is about 2.1:1 — so "60 SEC" and the score, the two
-     pieces of text on the biggest control in the app, sat under every
-     threshold on the upper half of the button. --nv-accent-700 is the surface
-     this system already verified for white (5.2:1); a white gradient laid
-     over it keeps the dimensional read without moving the ink onto anything
-     lighter. Identical to .nv-btn-primary, deliberately. */
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 46%),
-    var(--nv-accent-700);
-  box-shadow:
-    0 8px 0 #a83409,
-    0 18px 34px rgba(194, 65, 12, 0.34),
-    inset 0 2px 0 rgba(255, 255, 255, 0.34);
-}
 /* Done for the day: the rung goes mint and wears the score instead. */
-html[data-native] .nv-rung-face[data-done] {
-  /* A FIXED deep mint, not --nv-pop-mint-ink.
-     That token flips with the theme by design — it is the ink for mint TEXT,
-     so in dark mode it lightens to #56e0cf. Used as a FILL under white text
-     that is exactly backwards: the lit rung came out pale green with white
-     numerals on it. A surface that always carries white text needs a value
-     that is dark in both rooms, the same reasoning as the coin's engraving. */
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 46%),
-    #0b7568;
-  box-shadow:
-    0 8px 0 #0a6a5f,
-    0 18px 34px rgba(15, 149, 133, 0.3),
-    inset 0 2px 0 rgba(255, 255, 255, 0.3);
-}
-html[data-native] .nv-rung-btn:active .nv-rung-face {
-  transform: translateY(4px);
-  box-shadow:
-    0 4px 0 #a83409,
-    0 8px 18px rgba(194, 65, 12, 0.28),
-    inset 0 2px 0 rgba(255, 255, 255, 0.34);
-}
-html[data-native] .nv-rung-btn:active .nv-rung-face[data-done] {
-  box-shadow:
-    0 4px 0 #0a6a5f,
-    0 8px 18px rgba(15, 149, 133, 0.26),
-    inset 0 2px 0 rgba(255, 255, 255, 0.3);
-}
-html[data-native] .nv-rung-face {
-  transition: transform 320ms var(--nv-spring), box-shadow var(--dur-base) var(--ease-standard);
-}
-html[data-native] .nv-rung-score {
-  font-family: var(--nv-font-display);
-  font-weight: 800;
-  font-size: 46px;
-  letter-spacing: -0.05em;
-  line-height: 0.8;
-  font-variant-numeric: tabular-nums;
-}
-html[data-native] .nv-rung-note {
-  margin-top: 8px;
-  font-family: var(--nv-font-display);
-  font-weight: 800;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  opacity: 0.88;
-}
-html[data-native] .nv-rung-secs {
-  font-family: var(--nv-font-display);
-  font-weight: 800;
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  opacity: 0.9;
-}
 
 /* Felix stands ON the rung you're meant to climb. */
 html[data-native] .nv-rung-felix {
@@ -2346,42 +2206,6 @@ html[data-native] .nv-reward-tile[data-unlocked] {
 }
 
 /* --- Off the ladder: the rail at the foot of the climb -------------------- */
-html[data-native] .nv-tile {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  text-align: left;
-  padding: 14px 12px;
-  border-radius: 16px;
-  background: var(--nv-card);
-  box-shadow:
-    0 2px 0 var(--nv-card-edge),
-    inset 0 0 0 1px var(--nv-card-line);
-  transition: transform 320ms var(--nv-spring), box-shadow var(--dur-base) var(--ease-standard);
-}
-html[data-native] .nv-tile:active {
-  transform: translateY(2px);
-  box-shadow: inset 0 0 0 1px var(--nv-card-line);
-}
-html[data-native] .nv-tile-glyph {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  margin-bottom: 8px;
-  background: var(--pop-soft, var(--nv-tint-soft));
-  color: var(--pop-ink, var(--nv-ink-2));
-}
-html[data-native] .nv-tile-label {
-  display: block;
-  font-family: var(--nv-font-display);
-  font-weight: 700;
-  font-size: 13px;
-  letter-spacing: -0.02em;
-  color: var(--nv-ink);
-}
 
 /* --- Scores as squares (Progress' recent list, the Library's chips) -------- */
 html[data-native] .nv-score-sq {
@@ -2583,8 +2407,7 @@ html[data-native] .nv-booth-meta {
   from { opacity: 0; transform: translateY(14px) scale(0.94); }
 }
 html[data-native] #main[data-screen-enter] .nv-rung,
-html[data-native] #main[data-screen-enter] .nv-today,
-html[data-native] #main[data-screen-enter] .nv-tile {
+html[data-native] #main[data-screen-enter] .nv-today {
   animation: nv-rung-in 480ms var(--nv-spring-soft) backwards;
 }
 html[data-native] #main[data-screen-enter] .nv-rung:nth-of-type(2) { animation-delay: 60ms; }
@@ -3183,10 +3006,11 @@ html[data-native] {
   --nv-r-row: 16px;
   --nv-r-btn: 999px; /* every action in this pass is a pill */
 
-  /* Type sizes the pass actually sets. */
-  --nv-body-size: 16px;
-  --nv-subhead-size: 14.5px;
-  --nv-footnote-size: 12.5px;
+  /* Type sizes the pass actually sets. rem for the same reason as the base
+     ramp — see the note there. 1rem = 16, 0.90625rem = 14.5, 0.78125rem = 12.5. */
+  --nv-body-size: 1rem;
+  --nv-subhead-size: 0.90625rem;
+  --nv-footnote-size: 0.78125rem;
 }
 
 /* The Booth: the same room at night. The stage IS the ground here, which is
@@ -3328,14 +3152,6 @@ html[data-native][data-theme="dark"] .nv-group {
   border-radius: var(--nv-r-card);
   box-shadow: var(--nv-lift);
 }
-html[data-native] .nv-tile {
-  border-radius: var(--nv-r-tile);
-  box-shadow: var(--nv-lift-sm);
-}
-html[data-native] .nv-tile:active {
-  transform: scale(0.97);
-  box-shadow: var(--nv-lift-sm);
-}
 
 /* --- The ink stage ----------------------------------------------------------
    A screen's hero, full-bleed to the top of the document and rounded off the
@@ -3397,15 +3213,6 @@ html[data-native] .nv-stage[data-bloom="violet"] .nv-stage-eyebrow {
   color: var(--nv-violet-light);
 }
 /* The stage's title, and the giant numeral a report or a hero puts on it. */
-html[data-native] .nv-stage-title {
-  margin: 8px 0 0;
-  font-family: var(--nv-font-display);
-  font-weight: 800;
-  font-size: 29px;
-  letter-spacing: -0.05em;
-  line-height: 1.02;
-  color: var(--nv-on-stage);
-}
 html[data-native] .nv-stage-num {
   font-family: var(--nv-font-display);
   font-weight: 800;
@@ -3669,8 +3476,7 @@ html[data-native] .nv-row-destructive .nv-icon-square {
 }
 /* Dividers start after the glyph's column, which is now 22 + 14 rather than
    29 + 12. */
-html[data-native] .nv-row + .nv-row::before,
-html[data-native] .nv-row-divide::before {
+html[data-native] .nv-row + .nv-row::before {
   left: calc(var(--nv-gutter) + 36px);
   background: var(--nv-hairline);
 }
@@ -3703,8 +3509,7 @@ html[data-native] .nv-group .nv-row {
   padding-right: 0;
   border-radius: 0;
 }
-html[data-native] .nv-group .nv-row + .nv-row::before,
-html[data-native] .nv-group .nv-row-divide::before {
+html[data-native] .nv-group .nv-row + .nv-row::before {
   left: 36px;
   right: 0;
 }
@@ -5112,6 +4917,95 @@ html[data-native] .nv-board-skeleton-xp {
   flex: none;
   margin-left: auto;
 }
+
+/* --- Pull to refresh --------------------------------------------------------
+   Behind #main, revealed as the gesture translates it down. Fixed rather than
+   absolute: #main is the thing moving, so an indicator inside it would travel
+   with the content and never be revealed by it. */
+html[data-native] .nv-ptr {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 6px);
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  color: var(--nv-ink-3);
+  pointer-events: none;
+  z-index: 1;
+}
+html[data-native] .nv-ptr-spin {
+  animation: nv-ptr-rotate 0.9s linear infinite;
+}
+@keyframes nv-ptr-rotate {
+  to { transform: rotate(360deg); }
+}
+
+/* ===========================================================================
+   DYNAMIC TYPE
+   ===========================================================================
+   iOS does not hand a WKWebView the user's text size. The one thing that does
+   reflect it is the `-apple-system-body` font shorthand: ask for it and the
+   computed font-size comes back as whatever the content size category says
+   body should be — 17px at the default, up past 50 at the accessibility sizes.
+
+   So NativeRuntime measures that once at launch and again whenever the app
+   comes back to the foreground (the setting can change while backgrounded),
+   and writes the ratio here as --nv-type-scale. Everything else is rem, so the
+   whole app follows from one number.
+
+   CLAMPED, and deliberately. Unclamped, the largest accessibility size is
+   ~3x, which does not produce a readable app — it produces a two-word-per-line
+   column with the dock over the top of it. 1.35 keeps the layout intact while
+   still being a real, visible increase for the people who asked for one.
+   Honest is better than nominal: an app that claims full Dynamic Type and
+   becomes unusable at the top of the range has not supported it.
+
+   text-size-adjust: 100% stops WebKit ALSO auto-inflating text on top of this,
+   which would double-apply the increase.
+   =========================================================================== */
+html[data-native] {
+  font-size: calc(16px * var(--nv-type-scale, 1));
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* ===========================================================================
+   RETIRED RULES, RETAINED LESSONS
+   ===========================================================================
+   Sixteen nv-* classes were deleted from this file — the 136px "rung planet",
+   the "off the ladder" tile rail, .nv-glass, and a handful of one-off
+   utilities. All of them were defined here and rendered by nothing; several
+   had survived three redesign passes purely because nobody could prove they
+   were unused.
+
+   Three of the comments that went with them were not about those rules. They
+   were measurements, and they still apply to whatever gets built next.
+
+   1. THE BLUR CEILING IS 14px.
+      Cost grows superlinearly with radius, and every glass surface re-samples
+      its backdrop during scroll. The bar and dock sit at 16-18px because they
+      are two surfaces that exist from first paint and never composite mid-
+      gesture; anything that appears DURING a scroll stays at or under 14.
+
+   2. A TOKEN THAT FLIPS WITH THE THEME CANNOT BE A FILL UNDER WHITE TEXT.
+      --nv-pop-mint-ink is the ink for mint TEXT, so in dark it lightens to
+      #56e0cf. Used as a fill under white numerals that is exactly backwards,
+      and the lit rung came out pale green with white text on it. A surface
+      that always carries white needs a value that is dark in BOTH rooms —
+      the same reasoning as the coin's engraving.
+
+   3. A GRADIENT UNDER TEXT IS ONLY AS GOOD AS ITS LIGHTEST STOP.
+      The record button ran #ff8f4d -> #e8500f. White on #ff8f4d is about
+      2.1:1, so "60 SEC" and the score — the two pieces of text on the biggest
+      control in the app — sat under every threshold across the upper half of
+      it. The fix was to put the verified surface underneath (--nv-accent-700,
+      5.2:1) and lay a WHITE gradient over it: same dimensional read, ink never
+      moves onto anything unverified.
+
+   tests/unit/stylesheet-invariants.test.ts fails the build if a reduced-motion
+   block ever again names a class nothing renders, which is how two of these
+   stayed alive long enough to be forgotten.
+   =========================================================================== */
 
 /* ===========================================================================
    THE LAST WORD ON ACCESSIBILITY

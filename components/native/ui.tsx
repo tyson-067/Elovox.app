@@ -544,3 +544,35 @@ function currentOffset(el: HTMLElement | null): number {
   const m = /translate3d\(0(?:px)?,\s*(-?[\d.]+)px/.exec(t);
   return m ? parseFloat(m[1]) : 0;
 }
+
+/* --- Pull to refresh indicator --------------------------------------------
+   Sits behind the screen, revealed by the translate the gesture applies to
+   #main. Not a spinner until it IS one: below the commit point it is an arc
+   that fills with the pull, which is the only honest signal — a spinner that
+   spins before you have committed says work is happening when none is. */
+export function NvRefresh({
+  progress,
+  refreshing,
+}: {
+  progress: number;
+  refreshing: boolean;
+}) {
+  const C = 2 * Math.PI * 9;
+  return (
+    <div className="nv-ptr" aria-hidden={!refreshing}>
+      <svg width="22" height="22" viewBox="0 0 22 22" className={refreshing ? "nv-ptr-spin" : ""}>
+        <circle cx="11" cy="11" r="9" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.16" />
+        <circle
+          cx="11" cy="11" r="9" fill="none" stroke="currentColor" strokeWidth="2"
+          strokeLinecap="round" strokeDasharray={C}
+          strokeDashoffset={refreshing ? C * 0.7 : C * (1 - progress)}
+          transform="rotate(-90 11 11)"
+        />
+      </svg>
+      {/* Screen readers get the state, not the arc. */}
+      <span className="sr-only" role="status">
+        {refreshing ? "Refreshing" : ""}
+      </span>
+    </div>
+  );
+}

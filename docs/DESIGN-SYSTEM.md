@@ -233,6 +233,35 @@ once Tailwind had tree-shaken.
 
 **If you are adding a test, make it pin a fact somebody actually got wrong.**
 
+## The iOS layer
+
+**Dynamic Type.** iOS does not hand a WKWebView the user's text size. The one
+thing that reflects it is the `-apple-system-body` shorthand — ask for it and
+the computed `font-size` comes back as whatever the content size category says
+body should be. `NativeRuntime` measures that at launch and on every resume
+(the setting can change while backgrounded) and writes the ratio as
+`--nv-type-scale`; the whole ramp in `native-theme.css` is `rem`, so one number
+moves everything.
+
+Clamped to 1.35, deliberately. The top accessibility sizes are ~3×, which does
+not produce a readable app — it produces two words per line under the dock.
+An app that claims full Dynamic Type and becomes unusable at the top of the
+range has not supported it.
+
+**Pull to refresh** (`lib/usePullToRefresh.ts`) reads `window.scrollY` and
+translates `#main`, because these screens scroll the *document* — `#main` has no
+overflow of its own, and attaching to a child that never scrolls is why a first
+attempt appeared to do nothing. Everything mutable is a ref: putting
+`refreshing` in the effect deps tore the listeners down mid-gesture.
+
+**Dead CSS.** Sixteen `nv-*` classes were removed with a real PostCSS parse, not
+string splicing — an earlier attempt spliced on character indices, clipped into
+preceding comments and left stray fragments through the file. The three comments
+that were genuinely lost are preserved under **RETIRED RULES, RETAINED LESSONS**
+in `native-theme.css`: the 14px blur ceiling, why a theme-flipping token cannot
+be a fill under white text, and why a gradient is only as good as its lightest
+stop.
+
 ## The rules that keep this from rotting
 
 1. **Reduced motion simplifies; it never hides.** Put `opacity: 0` in a `from`

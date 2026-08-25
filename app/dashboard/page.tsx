@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { RequireAuth } from "@/components/RequireAuth";
 import { NativeLadder } from "@/components/native/NativeLadder";
@@ -477,6 +477,14 @@ function TodayScreen() {
   // "today" and a cleared quest carried over into the new day.
   const [day, setDay] = useState<string>(() => todayKey());
   const loadedDayRef = useRef<string>("");
+  // Bumped by pull-to-refresh. A nonce rather than hoisting `load` out of the
+  // effect: that closure owns a `cancelled` flag and a midnight timer whose
+  // teardown is exactly right, and re-running the whole effect re-establishes
+  // both instead of leaving one of them behind.
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const refresh = useCallback(() => {
+    setReloadNonce((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -561,7 +569,7 @@ function TodayScreen() {
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", refreshIfNewDay);
     };
-  }, []);
+  }, [reloadNonce]);
 
   const today = useMemo(() => sessionsFromDay(sessions, day), [sessions, day]);
   const quests = useMemo(
@@ -595,6 +603,7 @@ function TodayScreen() {
         shop={shop}
         sessions={sessions}
         sessionsFailed={sessionsFailed}
+        onRefresh={refresh}
       />
 
       {reward?.granted && (

@@ -485,6 +485,59 @@ export function NativeRuntime() {
     };
   }, [native, router]);
 
+  /* --- Dynamic Type -------------------------------------------------------
+     iOS never tells a webview the user's text size directly, but it does
+     answer honestly if you ask for `-apple-system-body`: the computed
+     font-size of that shorthand IS the current content size category's body
+     size. 17px at the default, larger all the way up.
+
+     Measured off-screen, converted to a ratio, written to the root as
+     --nv-type-scale. app/native-theme.css puts the whole type ramp in rem, so
+     this one number moves everything at once.
+
+     Re-measured on resume because the setting can be changed while the app is
+     backgrounded — which is exactly when someone would go and change it. */
+  useEffect(() => {
+    if (!native) return;
+
+    const measure = () => {
+      const probe = document.createElement("span");
+      // `font` shorthand, not font-family: the size only comes back if the
+      // whole shorthand is used. Off-screen rather than display:none, because
+      // a display:none element has no computed font-size to read.
+      probe.style.cssText =
+        "font: -apple-system-body; position: absolute; visibility: hidden; pointer-events: none;";
+      probe.textContent = "M";
+      document.body.appendChild(probe);
+      const size = parseFloat(getComputedStyle(probe).fontSize);
+      probe.remove();
+      if (!size || Number.isNaN(size)) return;
+
+      // 17 is what body measures at the default size, so the ratio is 1 there.
+      // Clamped at 1.35: see the note in native-theme.css — the top
+      // accessibility sizes are ~3x, which does not make the app readable, it
+      // makes it two words per line under the dock.
+      const scale = Math.min(1.35, Math.max(0.9, size / 17));
+      document.documentElement.style.setProperty("--nv-type-scale", scale.toFixed(3));
+    };
+
+    measure();
+
+    let dispose: (() => void) | undefined;
+    void (async () => {
+      const { App } = await import("@capacitor/app");
+      const handle = await App.addListener("appStateChange", ({ isActive }) => {
+        if (isActive) measure();
+      });
+      dispose = () => void handle.remove();
+    })();
+
+    return () => {
+      dispose?.();
+      document.documentElement.style.removeProperty("--nv-type-scale");
+    };
+  }, [native]);
+
   /* --- Per-navigation reset ----------------------------------------------
      Two jobs, both keyed on the pathname because both are "a new screen just
      arrived".

@@ -1,6 +1,8 @@
 "use client";
 
 import { Fragment, useEffect, type CSSProperties, type ReactNode } from "react";
+import { usePullToRefresh } from "@/lib/usePullToRefresh";
+import { NvRefresh } from "@/components/native/ui";
 import Link from "next/link";
 import { useIsNative } from "@/lib/native";
 import { Felix, type FelixAccessory } from "@/components/FoxLogo";
@@ -274,6 +276,7 @@ export function NativeLadder({
   shop,
   sessions,
   sessionsFailed,
+  onRefresh,
 }: {
   stats: UserStats | null;
   daily: DailyChallenge | null;
@@ -282,9 +285,16 @@ export function NativeLadder({
   sessions: Session[];
   /** History could not be read — show no past rungs rather than a fake blank climb. */
   sessionsFailed: boolean;
+  /**
+   * Re-reads everything this screen shows. The streak, the topic and today's
+   * attempt count only updated on remount before this, so the obvious move
+   * when a screen looks stale — drag it down — did nothing.
+   */
+  onRefresh?: () => void | Promise<void>;
 }) {
   const native = useIsNative();
   const { plan } = usePlan();
+  const { progress, refreshing } = usePullToRefresh(native ? onRefresh : undefined);
 
   /* --- The Home Screen widget ------------------------------------------
      Pushed from here because the Ladder is the one screen that already holds
@@ -376,6 +386,11 @@ export function NativeLadder({
 
   return (
     <div className="-mt-3.5">
+      {/* Behind the screen, revealed by the translate the gesture puts on
+          #main. Rendered unconditionally: it is invisible at progress 0, and
+          mounting it only mid-gesture would cost a frame at exactly the moment
+          the user is watching for a response. */}
+      <NvRefresh progress={progress} refreshing={refreshing} />
       {/* --- The HUD ---------------------------------------------------------
           Felix is the door to the Den, the bar is the climb, the flame is the
           run. Sticky, because these three are the only things on this screen
