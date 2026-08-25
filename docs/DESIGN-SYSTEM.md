@@ -116,7 +116,21 @@ ground reads as dirt.
 --container-prose  42rem
 --container-narrow 35rem
 --container-form   26.25rem
+
+--space-page-y     clamp(2.5rem, 4vw, 4rem)      top/bottom of a page
+--space-section    clamp(3.5rem, 5vw+1rem, 5.5rem)   between sections of the SAME kind
+--space-section-lg clamp(5rem, 8vw+1rem, 8.5rem)     before a change of KIND
 ```
+
+**The two section beats carry meaning, and picking between them is the whole
+point.** Related sections sitting closer is what makes them read as a group; a
+bigger pause before the story or the price is how a page says "different thing
+now" without drawing a line. The landing page previously ran
+112,112,112,80,80,80,80,80 — not a rhythm, a value that decayed once and never
+recovered.
+
+`--space-page-y` replaced six competing rhythms across thirteen sites
+(`py-8/10/12` × `md:py-12/14/16`), each picked by feel.
 
 `<main>` was full-bleed at every width, so past ~1600px the hero grid, every
 card grid and the story deck kept stretching and the site read as a browser
@@ -214,6 +228,19 @@ Bounce is reserved for motion the user's own gesture put momentum into.
    hydration desyncs.
 
 ---
+
+## Shared page shells
+
+`components/PracticeCatalogPage.tsx` backs `/interviews`, `/social` and `/own`.
+Those were three copies of one page; the three-state card (premium / locked /
+`plan === null` still-loading) was copied into each, which is three chances to
+get the loading state wrong and one place it can now be wrong.
+
+`/library` deliberately stays separate. It has an external store, per-item
+replacement routing and an intro line, and a shell that served both would be
+worse than two files. It passes its own card through `renderCard`.
+
+**If you add a fourth catalog page, add props — not a copy.**
 
 ## Pulling components from a registry
 
