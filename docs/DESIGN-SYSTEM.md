@@ -227,6 +227,17 @@ had no tests at all:
 | `billing-entitlement.test.ts` | That `isEntitled` (what the webhook writes) and `pastDueLapsed` (what the client trusts) agree — they take the same grace window in **different units**, seconds vs milliseconds, and the test pins both that and the 1ms boundary instant where they legitimately differ. |
 | `api-guards.test.ts` | `clientIp` reads the **rightmost** `x-forwarded-for` entry. The leftmost is attacker-controlled, and reading it lets a caller rotate a header to defeat per-IP limiting — which is how a scripted caller once drove the paid Gemini pipeline. Also the daily-quota date clamp (a forged date must not mean infinite free attempts) and the body-size cap holding when `Content-Length` lies. |
 
+**The analysis pipeline.** `lib/analyzeCore.ts` holds the pure core that used
+to be module-private inside the 1,446-line route — a Next route file rejects
+arbitrary exports, so those functions could not be exported in place and were
+therefore untestable. They were moved **verbatim**, comments included, and the
+extraction was verified byte-identical.
+
+| File | The bug it prevents |
+|---|---|
+| `analyze-core.test.ts` | The numbers on the report. WPM over the real duration; the filler regex anchored at both ends (unanchored, "sold" and "somewhere" get reported to the user as filler); pauses measured word-gap not start-to-start (a drawn-out syllable is not a pause); and the transcript staying **verbatim** — the report promises the actual words spoken, never a paraphrase. Plus `calibrate` turning a non-finite score into 0: `Math.round(NaN)` is NaN and both `Math.max` and `Math.min` pass it through, so one bad dimension made `overall` NaN, which `awardXp` then added to the durable XP total — pinning the account to level 1 forever. And `fenced`, which neutralises a run of three-or-more double quotes so a speech topic cannot close the prompt fence and address the model directly. |
+| `analyze-guards.test.ts` | Cost control. Every accepted request spends real money at AssemblyAI and Gemini. A missing `Content-Length` must 413 rather than reach `formData()` unbounded (Next route handlers have no default body limit — `bodySizeLimit` is Server-Actions-only), and the duration grace must hold: the client stops itself at exactly `MAX_RECORDING_SEC` and measures with `performance.now()`, so a full-length take reports 600.2 and a strict `> 600` refused it, losing ten minutes of recording. |
+
 `tests/helpers/firestore-fake.ts` is deliberately *not* a general emulator. It
 models buffered transaction writes specifically, because a fake that applied
 writes immediately would let the two-phase claim pass even if the route wrote
