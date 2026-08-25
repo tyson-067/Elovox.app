@@ -389,7 +389,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   // still has everything they typed, since none of it was cleared.
   if (pending) {
     return (
-      <div className="stagger-in py-12 md:py-16 max-w-[420px] mx-auto">
+      <div className="stagger-in py-[var(--space-page-y)] max-w-[420px] mx-auto">
         <h1 className="text-title font-headline font-semibold text-primary">
           Confirm your age
         </h1>
@@ -468,7 +468,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   }
 
   return (
-    <div className="stagger-in py-12 md:py-16 max-w-[420px] mx-auto">
+    <div className="stagger-in py-[var(--space-page-y)] max-w-[420px] mx-auto">
       <h1 className="text-title font-headline font-semibold text-primary">
         {isSignup ? "Create your account" : "Welcome back"}
       </h1>

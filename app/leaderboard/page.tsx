@@ -377,7 +377,7 @@ function LeaderboardScreen() {
         onHandleSaved={onHandleSaved}
       />
 
-      <div className="native-hide py-10 md:py-14">
+      <div className="native-hide py-[var(--space-page-y)]">
       <Reveal>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-title font-headline font-semibold text-primary">

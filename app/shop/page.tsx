@@ -328,7 +328,7 @@ function ShopScreen() {
         onUnequip={() => void act("bare", () => equipItem(null, "accessory"))}
       />
 
-      <div className="native-hide mx-auto w-full max-w-5xl px-4 py-8 md:py-12">
+      <div className="native-hide mx-auto w-full max-w-5xl px-4 py-[var(--space-page-y)]">
       <Reveal>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>

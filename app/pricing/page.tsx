@@ -208,7 +208,13 @@ export default function PricingPage() {
     // CSS rule is already in effect at first paint, the effect is not.
     <div className="pb-24 web-only">
       {/* Hero */}
-      <section className="relative pt-16 md:pt-24 text-center">
+      {/* Left-aligned, like every other page here. This hero was the only
+          centred one on the site, which made /pricing read as a different
+          template rather than the same product's pricing page — the left
+          rag and the .grow-line kicker are most of what the rest of the
+          site's voice IS. The plan cards below stay centred: a symmetric
+          comparison should be symmetric. */}
+      <section className="relative pt-16 md:pt-24">
         <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
           <div className="dot-grid absolute -inset-x-10 -top-16 bottom-0" />
           <Parallax speed={0.24} className="absolute -top-6 right-[14%]">
@@ -222,14 +228,15 @@ export default function PricingPage() {
           {/* Says WHICH plans the free week applies to. Unqualified, this sat
               directly above a cycle toggle whose Weekly option has no trial
               at all and bills from day one. */}
-          <span className="inline-flex items-center gap-2 text-label font-semibold tracking-[0.08em] uppercase text-violet">
+          <h2 className="text-kicker uppercase text-violet">
             {TRIAL_DAYS} days free on monthly and annual
-          </span>
+            <span className="grow-line" aria-hidden="true" />
+          </h2>
           <h1 className="text-title font-headline font-bold text-primary mt-4">
             Start free. Speak with{" "}
             <span className="slogan-serif text-gradient">impact.</span>
           </h1>
-          <p className="mx-auto mt-5 max-w-[54ch] text-lg leading-8 text-on-surface-variant">
+          <p className="mt-5 max-w-[54ch] text-lg leading-8 text-on-surface-variant">
             Try every Premium feature free for {TRIAL_DAYS} days on the monthly
             and annual plans. Keep the free plan forever, or unlock all the
             coaching modes with no three-a-day limit. The longer you commit,
@@ -469,7 +476,7 @@ export default function PricingPage() {
       </section>
 
       {/* Plan comparison at a glance */}
-      <section className="mx-auto mt-14 max-w-4xl">
+      <section className="mx-auto mt-[var(--space-section)] max-w-4xl">
         <Reveal>
           <h2 className="text-kicker uppercase text-on-surface-variant">
             Every Premium plan compared
@@ -527,7 +534,7 @@ export default function PricingPage() {
       </section>
 
       {/* FAQ */}
-      <section className="mx-auto mt-16 max-w-3xl">
+      <section className="mx-auto mt-[var(--space-section)] max-w-3xl">
         <Reveal>
           <h2 className="text-kicker uppercase text-on-surface-variant">
             Questions
@@ -554,7 +561,7 @@ export default function PricingPage() {
       </section>
 
       {/* Closing CTA */}
-      <section className="mx-auto mt-16 max-w-2xl text-center">
+      <section className="mx-auto mt-[var(--space-section-lg)] max-w-2xl text-center">
         <Reveal>
           {/* This headline used to say "Your first week's on us" to every
               non-subscriber, including with the Weekly cycle selected. Weekly

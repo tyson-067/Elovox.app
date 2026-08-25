@@ -163,7 +163,7 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
       : "Run it again";
 
   return (
-    <div className="py-8 md:py-12">
+    <div className="py-[var(--space-page-y)]">
       {/* The app-scale report. Same session, same derived values; the web
           pieces it replaces carry native-hide. Renders nothing in a
           browser. */}

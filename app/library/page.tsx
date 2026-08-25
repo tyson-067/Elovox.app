@@ -74,10 +74,13 @@ function SpeechCard({
   }
 
   if (locked === true) {
+    // flex-col + mt-auto below: the scenarios run one to three lines, so this
+    // card's footer used to sit at a different height in every card, and a row
+    // of nine read as ragged.
     return (
-      <div className="card h-full p-5 opacity-70">
+      <div className="card flex h-full flex-col p-5 opacity-70">
         <div className="flex items-start justify-between gap-2">
-          <span className="font-headline text-xl font-medium text-primary block">
+          <span className="font-headline text-h4 font-medium text-primary block">
             {speech.title}
           </span>
           <PremiumBadge />
@@ -85,7 +88,7 @@ function SpeechCard({
         <span className="mt-1.5 block text-base leading-6 text-on-surface-variant">
           {speech.scenario}
         </span>
-        <span className="mt-3 inline-block text-label font-semibold text-on-surface-variant">
+        <span className="mt-auto pt-3 inline-block text-label font-semibold text-on-surface-variant">
           Unlocks with Premium
         </span>
       </div>
@@ -192,7 +195,7 @@ function LibraryScreen() {
   );
 
   return (
-    <div className="py-10 md:py-16">
+    <div className="py-[var(--space-page-y)]">
       {/* App shape: one calm grouped list — same slots, same replacements,
           same lock rule as the cards below. Renders nothing in a browser. */}
       <NativeLibraryList
@@ -240,14 +243,14 @@ function LibraryScreen() {
             scenario Felix writes.
           </InfoTip>
         </div>
-        <p className="mt-3 text-lg leading-7 text-on-surface-variant max-w-[58ch]">
+        <p className="mt-3 text-body-lg text-on-surface-variant max-w-[58ch]">
           {plan === "free"
             ? "Nine speeches, about thirty seconds each. Practice them as much as you like, and swap any of them out. Part of Premium."
             : "Nine speeches, about thirty seconds each. Run any of them as often as you want, and swap out the ones you're bored of."}
         </p>
       </Reveal>
 
-      <div className="native-hide mt-8 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+      <div className="native-hide mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-3">
         {SPEECHES.map((s, i) => {
           const replacement = replacements[s.id];
           return (
@@ -265,8 +268,8 @@ function LibraryScreen() {
 
       {plan === "free" && (
         <Reveal className="native-hide">
-          <div className="card mt-10 p-6 navy-gradient border-none! text-white">
-            <h2 className="font-headline text-2xl font-semibold">
+          <div className="navy-gradient mt-10 rounded-card p-6 text-white md:p-7">
+            <h2 className="font-headline text-h3 font-semibold">
               Free practice never stops
             </h2>
             <p className="mt-2 text-base leading-6 text-white/85 max-w-[56ch]">

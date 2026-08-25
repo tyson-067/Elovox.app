@@ -97,7 +97,7 @@ export default function LegalHubPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(pageGraph(PAGE_SCHEMA)) }}
       />
-      <article className="mx-auto max-w-2xl py-12 md:py-16">
+      <article className="mx-auto max-w-2xl py-[var(--space-page-y)]">
         <h1 className="font-headline text-3xl font-bold tracking-tight text-primary md:text-4xl">
           Legal
         </h1>

@@ -575,7 +575,7 @@ function TodayScreen() {
   const reward = useStreakReward(stats?.streakDays ?? null);
 
   return (
-    <div className="py-10 md:py-14">
+    <div className="py-[var(--space-page-y)]">
       {/* native-hide: inside the app the navigation bar's large title already
           says "Today", and a second display-size heading under it is the two
           headings fighting that NativeShell's docs warn about. */}

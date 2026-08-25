@@ -555,7 +555,7 @@ function ProgressScreen() {
   }
 
   return (
-    <div className="py-8 md:py-12">
+    <div className="py-[var(--space-page-y)]">
       <h1 className="native-hide text-title font-headline font-semibold text-primary">
         <WordReveal text="Your progress" delay={80} />
       </h1>

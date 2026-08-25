@@ -508,21 +508,50 @@ export default function LandingPage() {
             <span className="grow-line" aria-hidden="true" />
           </h2>
         </Reveal>
-        <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+        {/* A numbered SEQUENCE, not three cards in a row.
+            Three equal cards is the shape every SaaS page uses for "how it
+            works", and it says these are three features rather than three
+            steps that happen in order. Dropping the card chrome and letting a
+            large tabular numeral carry each step turns it back into a process:
+            the eye reads 01 -> 02 -> 03 down a rule instead of scanning three
+            boxes and choosing one.
+
+            The numeral is font-data and tabular so the three digits sit on the
+            same optical left edge; a proportional face would stagger them and
+            the rule would look bent. */}
+        <ol className="mt-7 border-l border-primary/15 pl-6 md:pl-8">
           {STEPS.map((s, i) => (
-            <Reveal key={s.n} delay={i * 120} className="h-full">
-              <GlowCard className="card h-full p-5 md:p-6">
-                <span className="font-data text-sm text-violet">{s.n}</span>
-                <h3 className="mt-2 font-headline text-xl font-semibold text-primary">
-                  {s.title}
-                </h3>
-                <p className="mt-1.5 text-base leading-6 text-on-surface-variant">
-                  {s.body}
-                </p>
-              </GlowCard>
-            </Reveal>
+            <li key={s.n} className={i > 0 ? "mt-9 md:mt-11" : ""}>
+              <Reveal delay={i * 120}>
+                <div className="relative md:grid md:grid-cols-[minmax(0,7fr)_minmax(0,9fr)] md:gap-x-10">
+                  {/* Pulled into the rule so the marker straddles it. */}
+                  <span
+                    aria-hidden="true"
+                    className="absolute -left-[calc(1.5rem+1px)] top-1 h-2 w-2 -translate-x-1/2 rounded-full bg-accent-strong md:-left-[calc(2rem+1px)]"
+                  />
+                  {/* Two columns from md up. Single-column with a 62ch measure
+                      left the right half of a 1280px row empty, which reads as
+                      an unfinished section rather than a controlled one — the
+                      measure was right and the layout was not using the space
+                      it had. Title and body side by side fills the row, keeps
+                      the reading measure honest, and gives the sequence the
+                      spec-sheet register that suits a numbered process. */}
+                  <div>
+                    <span className="font-data text-label font-medium tabular-nums text-violet">
+                      {s.n}
+                    </span>
+                    <h3 className="mt-1 font-headline text-h3 font-semibold text-primary">
+                      {s.title}
+                    </h3>
+                  </div>
+                  <p className="mt-2 max-w-[62ch] text-base leading-7 text-on-surface-variant md:mt-0 md:pt-6">
+                    {s.body}
+                  </p>
+                </div>
+              </Reveal>
+            </li>
           ))}
-        </div>
+        </ol>
       </section>
 
       {/* Goals */}
@@ -606,16 +635,45 @@ export default function LandingPage() {
             being naturally good. Streaks multiply it, up to double.
           </p>
         </Reveal>
-        <div className="mt-5 flex flex-wrap gap-2.5">
+        {/* A LADDER, not another pill cloud.
+            This section and the goals section above it were both a wrap of
+            bordered pills — same shape, same size, same rhythm — so the page
+            said the same visual thing twice about two different ideas. Twelve
+            levels are a PROGRESSION: they have an order, and you climb them.
+            Pills say "here is a set, pick one", which is exactly wrong.
+
+            It is also the app's own grammar — the iOS home screen is called
+            the Ladder — so the marketing page and the product now describe
+            levelling the same way.
+
+            Scrolls horizontally under ~md rather than wrapping: a ladder that
+            wraps onto three lines stops reading as one continuous climb. The
+            negative margin lets the rail bleed to the screen edge on a phone
+            so it is obvious there is more to the right. */}
+        <ol className="no-scrollbar relative -mx-4 mt-7 flex gap-0 overflow-x-auto px-4 pb-2 md:mx-0 md:px-0">
+          {/* The rail the rungs sit on. Drawn once, behind everything, so the
+              line is continuous instead of twelve abutting segments that show
+              their seams at fractional widths. */}
+          <span
+            aria-hidden="true"
+            className="absolute left-4 right-4 top-[15px] h-px bg-primary/15 md:left-0 md:right-0"
+          />
           {LEVELS.map((l, i) => (
-            <Reveal key={l.level} delay={i * 40}>
-              <span className="pill inline-flex items-center gap-2 rounded-full border border-primary/20 px-4 py-2 text-body-sm hover:border-violet">
-                <span className="font-data text-label text-violet">{l.level}</span>
-                <span className="font-medium text-primary">{l.title}</span>
-              </span>
-            </Reveal>
+            <li
+              key={l.level}
+              className="relative flex min-w-[92px] flex-1 flex-col items-center text-center"
+            >
+              <Reveal delay={i * 40}>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/20 bg-surface font-data text-caption font-medium text-violet">
+                  {l.level}
+                </span>
+                <span className="mt-2 block px-1 text-caption font-medium leading-4 text-primary">
+                  {l.title}
+                </span>
+              </Reveal>
+            </li>
           ))}
-        </div>
+        </ol>
       </section>
 
       {/* What people say. Hidden entirely until there is something real to

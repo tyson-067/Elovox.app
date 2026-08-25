@@ -213,6 +213,12 @@
 
      Fluid, so the rhythm survives the jump from a phone to a 1440 display
      instead of being two fixed numbers that are right at one width. */
+  /* Vertical breathing room at the top and bottom of a signed-in page. The
+     app had six competing rhythms for this — py-8/10/12/16 md:py-12/14/16 —
+     picked per page with no rule. This is the old py-10 md:py-16 made fluid,
+     so it is the same at both ends and continuous in between. */
+  --space-page-y: clamp(2.5rem, 4vw, 4rem);
+
   --space-section: clamp(3.5rem, 5vw + 1rem, 5.5rem);
   --space-section-lg: clamp(5rem, 8vw + 1rem, 8.5rem);
 }

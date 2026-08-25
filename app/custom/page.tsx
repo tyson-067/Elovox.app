@@ -113,7 +113,7 @@ function CustomScreen() {
 
   if (speech) {
     return (
-      <div className="py-10 md:py-16">
+      <div className="py-[var(--space-page-y)]">
         <Reveal>
           <div className="flex items-start gap-3">
             <Felix className="h-12 w-12 shrink-0" />
@@ -174,7 +174,7 @@ function CustomScreen() {
   }
 
   return (
-    <div className="py-10 md:py-16">
+    <div className="py-[var(--space-page-y)]">
       <Reveal>
         <div className="flex flex-wrap items-center gap-3">
           <Felix mood="coach" animate className="h-14 w-14 shrink-0" />

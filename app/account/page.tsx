@@ -415,7 +415,7 @@ function AccountScreen() {
   };
 
   return (
-    <div className="stagger-in py-12 md:py-16 max-w-[560px] mx-auto space-y-6">
+    <div className="stagger-in py-[var(--space-page-y)] max-w-[560px] mx-auto space-y-6">
       {/* native-hide: inside the app the title bar already says "Account",
           and a page repeating its own name under a nav bar is the giveaway
           that a screen was designed for a browser tab. */}

@@ -72,7 +72,7 @@ export function AdminConsole() {
 
   if (denied) {
     return (
-      <div className="mx-auto max-w-5xl px-5 py-16">
+      <div className="mx-auto max-w-[var(--container-wide)] px-5 py-[var(--space-page-y)]">
         <h1 className="font-headline text-2xl font-semibold">Nothing here</h1>
         <p className="mt-2 text-on-surface-variant">
           This page doesn&apos;t exist, or your account can&apos;t see it.
@@ -84,7 +84,7 @@ export function AdminConsole() {
   const onDenied = () => setDenied(true);
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-10">
+    <div className="mx-auto max-w-[var(--container-wide)] px-5 py-[var(--space-page-y)]">
       <h1 className="font-headline text-3xl font-bold">Elovox admin</h1>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {TABS.map((t) => (

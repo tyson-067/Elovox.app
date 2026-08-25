@@ -1057,7 +1057,7 @@ function RecordingScreen() {
     // once, and the stage sticks so the button stays reachable however long
     // the brief runs. Below `lg` it stacks back to the original order:
     // brief, stage, button.
-    <div className="py-8 md:py-12">
+    <div className="py-[var(--space-page-y)]">
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:items-start lg:gap-10">
         <div className="stagger-in min-w-0 lg:col-span-7">
           {/* An <h1>, not a styled <span>. In its primary state this screen
