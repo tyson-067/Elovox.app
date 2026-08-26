@@ -178,10 +178,13 @@ export async function estimateAndReserve(
   const recipients = contacts.filter((c) => !c.unsubscribed).length;
   if (recipients === 0) return { ok: false, recipients: 0, granted: 0 };
 
-  const budget = await reserve(db, "marketing", recipients);
+  // See the note in send.ts: release() must credit the day the reservation was
+  // made, not the day the failure happened to land on.
+  const reservedAt = Date.now();
+  const budget = await reserve(db, "marketing", recipients, reservedAt);
   if (budget.granted < recipients) {
     const { release } = await import("./budget");
-    await release(db, "marketing", budget.granted);
+    await release(db, "marketing", budget.granted, reservedAt);
     return { ok: false, recipients, granted: budget.granted };
   }
   return { ok: true, recipients, granted: budget.granted };

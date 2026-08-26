@@ -1,0 +1,284 @@
+{
+  "id": "tr_fixture_0000000000",
+  "status": "completed",
+  "audio_url": "https://cdn.assemblyai.com/upload/1f0c8a52-fake-fixture-0000-not-a-real-upload",
+  "language_code": "en_us",
+  "language_model": "assemblyai_default",
+  "acoustic_model": "assemblyai_default",
+  "audio_duration": 30,
+  "confidence": 0.934,
+  "punctuate": true,
+  "format_text": true,
+  "disfluencies": true,
+  "text": "Um, the thing I keep coming back to is that nobody clapped when Marta stayed late. She just did it, every single week. And that quiet, stubborn steadiness is what actually held our whole team together last winter.",
+  "words": [
+    {
+      "text": "Um,",
+      "start": 640,
+      "end": 866,
+      "confidence": 0.88,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start": 1086,
+      "end": 1312,
+      "confidence": 0.95,
+      "speaker": null
+    },
+    {
+      "text": "thing",
+      "start": 1402,
+      "end": 1732,
+      "confidence": 0.91,
+      "speaker": null
+    },
+    {
+      "text": "I",
+      "start": 1822,
+      "end": 1962,
+      "confidence": 0.98,
+      "speaker": null
+    },
+    {
+      "text": "keep",
+      "start": 2052,
+      "end": 2330,
+      "confidence": 0.94,
+      "speaker": null
+    },
+    {
+      "text": "coming",
+      "start": 2420,
+      "end": 2802,
+      "confidence": 0.9,
+      "speaker": null
+    },
+    {
+      "text": "back",
+      "start": 2892,
+      "end": 3170,
+      "confidence": 0.97,
+      "speaker": null
+    },
+    {
+      "text": "to",
+      "start": 3260,
+      "end": 3434,
+      "confidence": 0.93,
+      "speaker": null
+    },
+    {
+      "text": "is",
+      "start": 3524,
+      "end": 3698,
+      "confidence": 0.89,
+      "speaker": null
+    },
+    {
+      "text": "that",
+      "start": 3788,
+      "end": 4066,
+      "confidence": 0.96,
+      "speaker": null
+    },
+    {
+      "text": "nobody",
+      "start": 4156,
+      "end": 4538,
+      "confidence": 0.92,
+      "speaker": null
+    },
+    {
+      "text": "clapped",
+      "start": 4628,
+      "end": 5062,
+      "confidence": 0.88,
+      "speaker": null
+    },
+    {
+      "text": "when",
+      "start": 5152,
+      "end": 5430,
+      "confidence": 0.95,
+      "speaker": null
+    },
+    {
+      "text": "Marta",
+      "start": 5520,
+      "end": 5850,
+      "confidence": 0.91,
+      "speaker": null
+    },
+    {
+      "text": "stayed",
+      "start": 5940,
+      "end": 6322,
+      "confidence": 0.98,
+      "speaker": null
+    },
+    {
+      "text": "late.",
+      "start": 6412,
+      "end": 6742,
+      "confidence": 0.94,
+      "speaker": null
+    },
+    {
+      "text": "She",
+      "start": 8422,
+      "end": 8648,
+      "confidence": 0.9,
+      "speaker": null
+    },
+    {
+      "text": "just",
+      "start": 8738,
+      "end": 9016,
+      "confidence": 0.97,
+      "speaker": null
+    },
+    {
+      "text": "did",
+      "start": 9106,
+      "end": 9332,
+      "confidence": 0.93,
+      "speaker": null
+    },
+    {
+      "text": "it,",
+      "start": 9422,
+      "end": 9648,
+      "confidence": 0.89,
+      "speaker": null
+    },
+    {
+      "text": "every",
+      "start": 9868,
+      "end": 10198,
+      "confidence": 0.96,
+      "speaker": null
+    },
+    {
+      "text": "single",
+      "start": 10288,
+      "end": 10670,
+      "confidence": 0.92,
+      "speaker": null
+    },
+    {
+      "text": "week.",
+      "start": 10760,
+      "end": 11090,
+      "confidence": 0.88,
+      "speaker": null
+    },
+    {
+      "text": "And",
+      "start": 11180,
+      "end": 11406,
+      "confidence": 0.95,
+      "speaker": null
+    },
+    {
+      "text": "that",
+      "start": 11496,
+      "end": 11774,
+      "confidence": 0.91,
+      "speaker": null
+    },
+    {
+      "text": "quiet,",
+      "start": 11864,
+      "end": 12246,
+      "confidence": 0.98,
+      "speaker": null
+    },
+    {
+      "text": "stubborn",
+      "start": 12466,
+      "end": 12952,
+      "confidence": 0.94,
+      "speaker": null
+    },
+    {
+      "text": "steadiness",
+      "start": 13042,
+      "end": 13562,
+      "confidence": 0.9,
+      "speaker": null
+    },
+    {
+      "text": "is",
+      "start": 13652,
+      "end": 13826,
+      "confidence": 0.97,
+      "speaker": null
+    },
+    {
+      "text": "what",
+      "start": 13916,
+      "end": 14194,
+      "confidence": 0.93,
+      "speaker": null
+    },
+    {
+      "text": "actually",
+      "start": 14284,
+      "end": 14770,
+      "confidence": 0.89,
+      "speaker": null
+    },
+    {
+      "text": "held",
+      "start": 14860,
+      "end": 15138,
+      "confidence": 0.96,
+      "speaker": null
+    },
+    {
+      "text": "our",
+      "start": 15228,
+      "end": 15454,
+      "confidence": 0.92,
+      "speaker": null
+    },
+    {
+      "text": "whole",
+      "start": 15544,
+      "end": 15874,
+      "confidence": 0.88,
+      "speaker": null
+    },
+    {
+      "text": "team",
+      "start": 15964,
+      "end": 16242,
+      "confidence": 0.95,
+      "speaker": null
+    },
+    {
+      "text": "together",
+      "start": 16332,
+      "end": 16818,
+      "confidence": 0.91,
+      "speaker": null
+    },
+    {
+      "text": "last",
+      "start": 16908,
+      "end": 17186,
+      "confidence": 0.98,
+      "speaker": null
+    },
+    {
+      "text": "winter.",
+      "start": 17276,
+      "end": 17710,
+      "confidence": 0.94,
+      "speaker": null
+    }
+  ],
+  "utterances": null,
+  "error": null
+}

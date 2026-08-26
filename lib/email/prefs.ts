@@ -239,6 +239,22 @@ export async function applyUnsubscribe(
   claim: UnsubClaim
 ): Promise<PrefState> {
   if (!claim.key) {
+    // The same guard writePrefs has, and for the same reason. suppress()
+    // merges, so writing reason:"unsubscribe" over an existing record
+    // DOWNGRADES it — a `complaint` or `hard-bounce` becomes a plain
+    // unsubscribe, which only blocks OPTIONAL mail. The effect is that
+    // somebody who pressed the spam button starts receiving security and
+    // billing mail again, which lib/email/suppression.ts says is never ours
+    // to undo and which `unsuppress` explicitly refuses to do.
+    //
+    // Reachable from any claim with no key — and note verifyUnsubToken
+    // returns key: undefined for any `k` outside PREF_KEYS, so retiring a
+    // preference key turns every already-delivered link for that stream into
+    // this path.
+    const record = await getSuppression(db, claim.email);
+    if (record && record.reason !== "unsubscribe") {
+      return { progress: false, streak: false, product: false, tips: false };
+    }
     await suppress(db, claim.email, "unsubscribe", {});
     return { progress: false, streak: false, product: false, tips: false };
   }

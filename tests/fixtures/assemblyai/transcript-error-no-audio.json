@@ -1,0 +1,9 @@
+{
+  "id": "tr_fixture_0000000002",
+  "status": "error",
+  "audio_url": "https://cdn.assemblyai.com/upload/1f0c8a52-fake-fixture-0002-not-a-real-upload",
+  "text": null,
+  "words": null,
+  "audio_duration": null,
+  "error": "Audio file does not appear to contain audio"
+}

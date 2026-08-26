@@ -1,0 +1,9 @@
+{
+  "id": "tr_fixture_0000000003",
+  "status": "error",
+  "audio_url": "https://cdn.assemblyai.com/upload/1f0c8a52-fake-fixture-0003-not-a-real-upload",
+  "text": null,
+  "words": null,
+  "audio_duration": null,
+  "error": "Transcoding failed. The file uploaded is either corrupt or not a supported media format."
+}

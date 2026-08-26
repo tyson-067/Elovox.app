@@ -1,0 +1,18 @@
+{
+  "candidates": [
+    {
+      "finishReason": "MAX_TOKENS",
+      "index": 0,
+      "content": {
+        "role": "model"
+      }
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 1287,
+    "thoughtsTokenCount": 8000,
+    "totalTokenCount": 9287
+  },
+  "modelVersion": "gemini-3.5-flash",
+  "responseId": "fixture-response-id-0001"
+}

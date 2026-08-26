@@ -1,0 +1,25 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\"overall_score\":81,\"feedback\":\"Strong opening image, flat middle, good close.\",\"scores\":{\"clarity\":84,\"confidence\":79,\"pacing\":88},\"transcript\":\"Um, the thing I keep coming back to is that nobody clapped...\"}"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0,
+      "avgLogprobs": -0.2841
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 1287,
+    "candidatesTokenCount": 604,
+    "thoughtsTokenCount": 96,
+    "totalTokenCount": 1987
+  },
+  "modelVersion": "gemini-3.5-flash",
+  "responseId": "fixture-response-id-0000"
+}

@@ -1,0 +1,25 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "```json\n{\n  \"summary\": \"You opened with a real image and stayed with it, which is the hard part; the middle drifted a little before the close pulled it back.\",\n  \"dimensions\": [\n    {\n      \"name\": \"Clarity\",\n      \"score\": 84,\n      \"note\": \"Every sentence landed cleanly, though the second one leaned on \\\"just\\\" twice.\"\n    },\n    {\n      \"name\": \"Confidence\",\n      \"score\": 79,\n      \"note\": \"The opening filler cost you the first beat; from \\\"nobody clapped\\\" onward you sounded settled.\"\n    },\n    {\n      \"name\": \"Pacing\",\n      \"score\": 88,\n      \"note\": \"Around 130 words a minute, and the pause after \\\"stayed late\\\" did real work.\"\n    },\n    {\n      \"name\": \"Vocal variety\",\n      \"score\": 71,\n      \"note\": \"The pitch flattened through the middle stretch where the detail was densest.\"\n    },\n    {\n      \"name\": \"Organization\",\n      \"score\": 86,\n      \"note\": \"Image, evidence, meaning, in that order, with nothing doubling back.\"\n    },\n    {\n      \"name\": \"Audience engagement\",\n      \"score\": 82,\n      \"note\": \"The specific name gave listeners someone to picture instead of a category.\"\n    }\n  ],\n  \"tips\": [\n    \"Cut the opening \\\"um\\\" by taking the breath first and starting on the image.\",\n    \"Let the pitch move on the list of details; it flattened there.\",\n    \"Land the last word and stop, rather than trailing off into the silence.\"\n  ],\n  \"audienceImpact\": \"A listener comes away with one person they can see, which is more than most tributes manage in thirty seconds.\",\n  \"annotations\": [\n    {\n      \"index\": 0,\n      \"mark\": \"strong\",\n      \"note\": \"Concrete and unhurried; this is the line the whole piece rests on.\"\n    },\n    {\n      \"index\": 1,\n      \"mark\": \"flag\",\n      \"note\": \"Two short sentences in a row flattens the rhythm right where it should build.\"\n    }\n  ],\n  \"strengths\": [\n    \"A specific person instead of an abstraction\",\n    \"A pause used deliberately, not filled\"\n  ],\n  \"drills\": [\n    {\n      \"title\": \"Cold open\",\n      \"how\": \"Record the first sentence ten times with no run-up until it starts on the image.\"\n    }\n  ]\n}\n```"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0,
+      "avgLogprobs": -0.2841
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 1287,
+    "candidatesTokenCount": 604,
+    "thoughtsTokenCount": 96,
+    "totalTokenCount": 1987
+  },
+  "modelVersion": "gemini-3.5-flash",
+  "responseId": "fixture-response-id-0000"
+}

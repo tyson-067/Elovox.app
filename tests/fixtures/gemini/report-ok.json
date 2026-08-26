@@ -1,0 +1,25 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\"summary\":\"You opened with a real image and stayed with it, which is the hard part; the middle drifted a little before the close pulled it back.\",\"dimensions\":[{\"name\":\"Clarity\",\"score\":84,\"note\":\"Every sentence landed cleanly, though the second one leaned on \\\"just\\\" twice.\"},{\"name\":\"Confidence\",\"score\":79,\"note\":\"The opening filler cost you the first beat; from \\\"nobody clapped\\\" onward you sounded settled.\"},{\"name\":\"Pacing\",\"score\":88,\"note\":\"Around 130 words a minute, and the pause after \\\"stayed late\\\" did real work.\"},{\"name\":\"Vocal variety\",\"score\":71,\"note\":\"The pitch flattened through the middle stretch where the detail was densest.\"},{\"name\":\"Organization\",\"score\":86,\"note\":\"Image, evidence, meaning, in that order, with nothing doubling back.\"},{\"name\":\"Audience engagement\",\"score\":82,\"note\":\"The specific name gave listeners someone to picture instead of a category.\"}],\"tips\":[\"Cut the opening \\\"um\\\" by taking the breath first and starting on the image.\",\"Let the pitch move on the list of details; it flattened there.\",\"Land the last word and stop, rather than trailing off into the silence.\"],\"audienceImpact\":\"A listener comes away with one person they can see, which is more than most tributes manage in thirty seconds.\",\"annotations\":[{\"index\":0,\"mark\":\"strong\",\"note\":\"Concrete and unhurried; this is the line the whole piece rests on.\"},{\"index\":1,\"mark\":\"flag\",\"note\":\"Two short sentences in a row flattens the rhythm right where it should build.\"}],\"strengths\":[\"A specific person instead of an abstraction\",\"A pause used deliberately, not filled\"],\"drills\":[{\"title\":\"Cold open\",\"how\":\"Record the first sentence ten times with no run-up until it starts on the image.\"}]}"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0,
+      "avgLogprobs": -0.2841
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 1287,
+    "candidatesTokenCount": 604,
+    "thoughtsTokenCount": 96,
+    "totalTokenCount": 1987
+  },
+  "modelVersion": "gemini-3.5-flash",
+  "responseId": "fixture-response-id-0000"
+}

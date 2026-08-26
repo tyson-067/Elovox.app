@@ -1,0 +1,15 @@
+{
+  "id": "tr_fixture_0000000001",
+  "status": "completed",
+  "audio_url": "https://cdn.assemblyai.com/upload/1f0c8a52-fake-fixture-0001-not-a-real-upload",
+  "language_code": "en_us",
+  "audio_duration": 34,
+  "confidence": null,
+  "punctuate": true,
+  "format_text": true,
+  "disfluencies": true,
+  "text": "",
+  "words": [],
+  "utterances": null,
+  "error": null
+}

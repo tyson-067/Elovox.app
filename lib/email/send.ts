@@ -106,7 +106,14 @@ export async function send(
     return { sent: false, outcome: "suppressed", detail: blocked };
   }
 
-  const budget = await reserve(db, message.category, 1);
+  // The reservation's own timestamp, threaded through to release().
+  // release() defaults `now` to Date.now(), so a send that reserved at
+  // 23:59 UTC and failed at 00:00 credited the NEXT day: the day that
+  // actually spent the message stayed burned, and the new day started
+  // with a message of phantom headroom. Small, but it is a counter whose
+  // whole job is to be exact.
+  const reservedAt = Date.now();
+  const budget = await reserve(db, message.category, 1, reservedAt);
   if (budget.granted < 1) {
     // Loud, because this is the failure mode the whole budget system exists
     // to make visible rather than mysterious. Someone reading the log should
@@ -138,7 +145,7 @@ export async function send(
   );
 
   if (!res.ok) {
-    await release(db, message.category, 1);
+    await release(db, message.category, 1, reservedAt);
     return { sent: false, outcome: "failed", detail: res.reason };
   }
 
@@ -206,7 +213,14 @@ export async function sendBulk(
   let queue = messages.filter((m) => allowedSet.has(m.to.trim().toLowerCase()));
   const suppressed = messages.length - queue.length;
 
-  const budget = await reserve(db, category, queue.length);
+  // The reservation's own timestamp, threaded through to release().
+  // release() defaults `now` to Date.now(), so a send that reserved at
+  // 23:59 UTC and failed at 00:00 credited the NEXT day: the day that
+  // actually spent the message stayed burned, and the new day started
+  // with a message of phantom headroom. Small, but it is a counter whose
+  // whole job is to be exact.
+  const reservedAt = Date.now();
+  const budget = await reserve(db, category, queue.length, reservedAt);
   const overBudget = queue.length - budget.granted;
   if (overBudget > 0) {
     console.warn(
@@ -251,7 +265,7 @@ export async function sendBulk(
 
     if (!res.ok) {
       failed += chunk.length;
-      await release(db, category, chunk.length);
+      await release(db, category, chunk.length, reservedAt);
       continue;
     }
     sent += chunk.length;
