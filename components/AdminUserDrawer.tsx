@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   adminGet,
   adminSend,
@@ -109,6 +109,8 @@ export function AdminUserDrawer({
   const [detail, setDetail] = useState<Detail | null>(null);
   const [error, setError] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const titleId = useId();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [compDays, setCompDays] = useState("7");
   const [coinDelta, setCoinDelta] = useState("100");
@@ -140,9 +142,53 @@ export function AdminUserDrawer({
   }, [uid, nonce]);
 
   // Escape closes, and the page behind doesn't scroll while the drawer is up.
+  //
+  // Focus is moved IN on open and put back where it came from on close, and
+  // Tab is kept inside for as long as the drawer is up. `aria-modal="true"`
+  // below already hides the rest of the page from a screen reader — but it
+  // does nothing to the tab order, so without this a keyboard user tabbed
+  // straight out of the dialog and into a page their reader had been told
+  // was not there, with no way back except Escape. The two have to agree.
   useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+    // The panel itself, not its first control: opening a dialog on the close
+    // button reads as "you probably want to leave", and the heading is what
+    // the user actually wants announced.
+    panel?.focus();
+
+    const focusable = () =>
+      [
+        ...(panel?.querySelectorAll<HTMLElement>(
+          'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+        ) ?? []),
+      ].filter((el) => el.offsetParent !== null);
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = focusable();
+      if (!items.length) {
+        e.preventDefault();
+        panel?.focus();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === panel)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (active && panel && !panel.contains(active)) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
@@ -150,6 +196,9 @@ export function AdminUserDrawer({
     return () => {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
+      // Back to the row that opened it, so a keyboard user does not restart
+      // at the top of the user table after every drawer.
+      opener?.focus?.();
     };
   }, [onClose]);
 
@@ -186,17 +235,30 @@ export function AdminUserDrawer({
     !!subId && detail?.plan.status !== "canceled" && detail?.plan.status !== null;
 
   return (
-    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-50">
       <button
         type="button"
         aria-label="Close"
         onClick={onClose}
         className="absolute inset-0 h-full w-full cursor-default bg-black/40"
       />
-      <aside className="absolute right-0 top-0 h-full w-full max-w-md overflow-y-auto bg-surface p-5 shadow-2xl">
+      {/* role/aria-modal live on the PANEL, not on the full-screen wrapper:
+          the wrapper also contains the backdrop button, and a dialog that
+          claims its own dismiss-target as content is a dialog whose bounds
+          nothing agrees on. `aria-labelledby` gives it the name it had none
+          of. h-dvh rather than h-full so the scrollable panel ends where the
+          screen does on a phone rather than under the browser chrome. */}
+      <aside
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="absolute right-0 top-0 h-dvh w-full max-w-md overflow-y-auto bg-surface p-5 shadow-2xl outline-none"
+      >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="truncate font-headline text-xl font-bold">
+            <h2 id={titleId} className="truncate font-headline text-xl font-bold">
               {a?.name ?? a?.email ?? uid}
             </h2>
             <p className="truncate text-sm text-on-surface-variant">

@@ -446,7 +446,7 @@ function DenWidget({
 
       <Link
         href="/progress"
-        className="mt-3 inline-block text-label font-semibold text-accent-strong"
+        className="tap-grow mt-3 inline-block text-label font-semibold text-accent-strong"
       >
         See the whole run →
       </Link>

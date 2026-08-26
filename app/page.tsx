@@ -9,12 +9,12 @@ import { CountUp } from "@/components/CountUp";
 import { TiltCard } from "@/components/TiltCard";
 import { GOALS } from "@/lib/goals";
 import { TRIAL_DAYS, formatUSD, planFor } from "@/lib/pricing";
-import { LEVELS } from "@/lib/levels";
 import { TESTIMONIALS } from "@/lib/testimonials";
 import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
 import { NativeEntry } from "@/components/NativeEntry";
 import { EmailCapture } from "@/components/EmailCapture";
 import { StoryDeck } from "@/components/StoryDeck";
+import { LevelLadder } from "@/components/LevelLadder";
 import { pageGraph, WEBAPP } from "@/lib/schema";
 
 // Marketing landing page. The app itself lives behind /dashboard.
@@ -623,58 +623,11 @@ export default function LandingPage() {
           as you scroll, holding you until the story is told. */}
       <StoryDeck beats={STORY} />
 
-      {/* Levels */}
-      <section className="mt-[var(--space-section)]">
-        <Reveal>
-          <h2 className="text-kicker uppercase text-on-surface-variant">
-            Twelve levels, earned out loud
-            <span className="grow-line" aria-hidden="true" />
-          </h2>
-          <p className="mt-3 text-lg leading-7 text-on-surface-variant max-w-[56ch]">
-            XP comes from showing up and from beating your own best, not from
-            being naturally good. Streaks multiply it, up to double.
-          </p>
-        </Reveal>
-        {/* A LADDER, not another pill cloud.
-            This section and the goals section above it were both a wrap of
-            bordered pills — same shape, same size, same rhythm — so the page
-            said the same visual thing twice about two different ideas. Twelve
-            levels are a PROGRESSION: they have an order, and you climb them.
-            Pills say "here is a set, pick one", which is exactly wrong.
-
-            It is also the app's own grammar — the iOS home screen is called
-            the Ladder — so the marketing page and the product now describe
-            levelling the same way.
-
-            Scrolls horizontally under ~md rather than wrapping: a ladder that
-            wraps onto three lines stops reading as one continuous climb. The
-            negative margin lets the rail bleed to the screen edge on a phone
-            so it is obvious there is more to the right. */}
-        <ol className="no-scrollbar relative -mx-4 mt-7 flex gap-0 overflow-x-auto px-4 pb-2 md:mx-0 md:px-0">
-          {/* The rail the rungs sit on. Drawn once, behind everything, so the
-              line is continuous instead of twelve abutting segments that show
-              their seams at fractional widths. */}
-          <span
-            aria-hidden="true"
-            className="absolute left-4 right-4 top-[15px] h-px bg-primary/15 md:left-0 md:right-0"
-          />
-          {LEVELS.map((l, i) => (
-            <li
-              key={l.level}
-              className="relative flex min-w-[92px] flex-1 flex-col items-center text-center"
-            >
-              <Reveal delay={i * 40}>
-                <span className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/20 bg-surface font-data text-caption font-medium text-violet">
-                  {l.level}
-                </span>
-                <span className="mt-2 block px-1 text-caption font-medium leading-4 text-primary">
-                  {l.title}
-                </span>
-              </Reveal>
-            </li>
-          ))}
-        </ol>
-      </section>
+      {/* Levels. A scroll-driven climb, not a wrap of pills: see the long
+          note at the top of components/LevelLadder.tsx for why the previous
+          Reveal-per-rung version left eight of the twelve invisible on a
+          phone. */}
+      <LevelLadder />
 
       {/* What people say. Hidden entirely until there is something real to
           put here — an empty "Loved by speakers everywhere" heading over

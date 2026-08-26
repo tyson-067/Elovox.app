@@ -124,14 +124,28 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
     );
   }
 
+  // A real dead end deserves a real screen. This was a bare paragraph and an
+  // underlined link, which gave the route NO heading element at all — so
+  // "skip to the heading", the way most screen-reader users orient on a new
+  // page, landed nowhere, and the one state where a user has lost something
+  // was also the one state that looked unfinished. It now matches the
+  // fetching state directly above it: Felix, a title, the reason, the way on.
   if (session === null) {
     return (
-      <div className="py-16">
-        <p className="text-lg text-on-surface-variant">
-          Couldn&apos;t find that session. It may have been recorded on another
-          device.
+      <div className="py-16 flex flex-col items-center gap-4 text-center">
+        <Felix mood="sleepy" className="h-16 w-16" />
+        <h1 className="font-headline text-2xl font-semibold text-primary">
+          That report isn&apos;t here
+        </h1>
+        <p className="max-w-[46ch] text-lg text-on-surface-variant">
+          Reports live on the device that recorded them, so this one may be on
+          another phone or browser. Nothing has been lost from your streak or
+          your XP.
         </p>
-        <Link href="/dashboard" className="mt-4 inline-block font-semibold text-primary underline">
+        <Link
+          href="/dashboard"
+          className="btn mt-2 rounded-lg bg-accent-strong px-6 py-3 font-semibold text-white"
+        >
           Start a new practice
         </Link>
       </div>

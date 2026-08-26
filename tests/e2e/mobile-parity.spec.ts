@@ -23,8 +23,25 @@ async function reachable(page: import("@playwright/test").Page, route: string) {
   await page.waitForTimeout(1200);
   const trigger = page.getByRole("button", { name: /explore/i });
   if (await trigger.count()) {
+    // Click, then wait for the PANEL rather than for a fixed beat.
+    //
+    // The fixed 300ms was a timing assumption, and under a loaded machine —
+    // the whole suite in parallel, or a build still finishing — it lost. A
+    // click that lands before React has hydrated is swallowed entirely, so no
+    // amount of waiting afterwards helps; the menu simply never opens and the
+    // test reports every link inside it as unreachable on a phone. One retry
+    // covers that, since hydration is certainly done by the second attempt.
+    //
+    // This removes the race, not the check: if the panel genuinely never
+    // opens, the links stay missing and the assertion below still fails.
+    const panel = page.locator(".nav-menu");
     await trigger.first().click();
-    await page.waitForTimeout(300);
+    try {
+      await panel.waitFor({ state: "visible", timeout: 2000 });
+    } catch {
+      await trigger.first().click();
+      await panel.waitFor({ state: "visible", timeout: 5000 });
+    }
   }
   return page.evaluate(() =>
     [

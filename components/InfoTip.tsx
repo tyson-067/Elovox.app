@@ -70,9 +70,23 @@ export function InfoTip({
         Math.max(MARGIN, r.right - BUBBLE_W),
         window.innerWidth - BUBBLE_W - MARGIN
       );
-      // ~180px is a tall bubble; if that doesn't fit below, open upward.
-      const above = r.bottom + 188 > window.innerHeight;
-      setPos({ top: above ? r.top - MARGIN : r.bottom + MARGIN, left, above });
+      // Measure the bubble if it is already up; fall back to a tall-bubble
+      // estimate for the first placement, before it has ever rendered.
+      const h = tipRef.current?.getBoundingClientRect().height || 188;
+      const roomBelow = window.innerHeight - r.bottom - MARGIN;
+      const roomAbove = r.top - MARGIN;
+      // Flip up only when there is genuinely more room up there. The old test
+      // asked only "does it fit below?", so a trigger low on a short screen
+      // flipped a bubble taller than the space above it clean off the top of
+      // the viewport — where a fixed element cannot be scrolled to, so the
+      // text was simply unreachable. Preferring the roomier side, and then
+      // clamping, means the worst case is a clipped bottom edge rather than
+      // a tooltip that isn't there.
+      const above = h > roomBelow && roomAbove > roomBelow;
+      const top = above
+        ? Math.max(MARGIN + h, r.top - MARGIN)
+        : Math.min(r.bottom + MARGIN, Math.max(MARGIN, window.innerHeight - h - MARGIN));
+      setPos({ top, left, above });
     };
     place();
 
@@ -142,7 +156,11 @@ export function InfoTip({
           if (e.currentTarget.matches(":focus-visible")) setOpen(true);
         }}
         onBlur={() => setOpen(false)}
-        className={`inline-flex h-5 w-5 items-center justify-center rounded-full border text-micro font-semibold leading-none transition-colors ${
+        // h-6, not h-5. At 20x20 this failed WCAG 2.5.8 Target Size
+        // (Minimum), which asks for 24x24, and it failed it on every app
+        // screen — there is one of these on most cards. 24px is still a
+        // quiet glyph in a card corner; it is simply a hittable one.
+        className={`tap-grow inline-flex h-6 w-6 items-center justify-center rounded-full border text-micro font-semibold leading-none transition-colors ${
           dark
             // /85, not /70. This is a text glyph at 11px on the navy
             // gradient, where /70 measures 3.91:1 — under AA. It was

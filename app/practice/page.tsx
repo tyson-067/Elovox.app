@@ -10,6 +10,7 @@ import { notifyError, tapMedium } from "@/lib/haptics";
 import { endTakeActivity, startTakeActivity } from "@/lib/nativeExtras";
 import { NvChip } from "@/components/native/ui";
 import { AnalyzingLoader } from "@/components/AnalyzingLoader";
+import { RecordingDock } from "@/components/RecordingDock";
 import { getCategory, pickPrompt } from "@/lib/categories";
 import { getSpeech } from "@/lib/speeches";
 import { getInterviewType, pickInterviewQuestion } from "@/lib/interviews";
@@ -356,6 +357,10 @@ function RecordingScreen() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  // The inline transport — clock and control together. RecordingDock watches
+  // it and takes over whenever it has scrolled out of view mid-take; see the
+  // note in that file.
+  const transportRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -934,6 +939,28 @@ function RecordingScreen() {
   // glyphs while the takeover is up — and dark ones again the moment it isn't.
   useInkTopBar(native && recording);
   const busy = state === "analyzing";
+
+  // What the empty stage says before a take, and it depends on where the stage
+  // SITS — which is not the same in the two shells.
+  //
+  // In the app the stage is above the control, so "press record when you're
+  // ready" is the natural next step and reads forwards.
+  //
+  // On the web it now sits BELOW the control (see the `order` note further
+  // down: the record button belongs directly under Impact Modes). An
+  // instruction there points backwards at a button you have already scrolled
+  // past, and it repeats the caption printed under that button word for word —
+  // two lines telling you to press the same thing, 150px apart. So on the web
+  // the panel describes itself instead, which is the job an empty surface
+  // actually has. The camera line keeps its framing advice either way; only
+  // the redundant half goes.
+  const stagePlaceholder = videoOn
+    ? native
+      ? "Stand back so Felix can see your hands. Press record when you're ready."
+      : "Stand back so Felix can see your hands."
+    : native
+      ? "Press record when you're ready. Take a breath first."
+      : "Your voice appears here as you speak.";
   // Nothing about the brief may change once a take is under way, or the
   // report would be scored against a prompt the speaker never heard.
   const locked = state !== "idle" && state !== "error";
@@ -1470,7 +1497,13 @@ function RecordingScreen() {
         <div
           className={
             "min-w-0 lg:col-span-5 lg:sticky lg:top-28" +
-            (native && recording ? " nv-takeover" : "")
+            (native && recording ? " nv-takeover" : "") +
+            // A flex column ONLY on the web, so the two children below can be
+            // ordered; `lg:block` hands it straight back at the breakpoint
+            // where the two-column layout takes over and the order is already
+            // right. The native shell is left entirely alone — its booth is a
+            // bespoke takeover whose layout this must not touch.
+            (native ? "" : " flex flex-col lg:block")
           }
         >
           {native && recording && (
@@ -1532,6 +1565,10 @@ function RecordingScreen() {
               the dominant element on the screen. */}
           <div
             className={
+              // mt-8 only while it is the SECOND child (phone, web): as the
+              // first it needed no top margin, and butted straight against
+              // Felix once it moved.
+              (native ? "" : "mt-8 lg:mt-0 ") +
               "practice-stage stagger-in w-full bg-oxford rounded-xl h-[34vh] min-h-[220px] relative overflow-hidden" +
               (native && recording ? " flex-1" : "")
             }
@@ -1574,11 +1611,7 @@ function RecordingScreen() {
                   role={state === "error" ? "alert" : undefined}
                   className={state === "error" ? "text-amber text-base max-w-[46ch]" : "text-on-primary/50 text-base"}
                 >
-                  {state === "error"
-                    ? errorMsg
-                    : videoOn
-                      ? "Stand back so Felix can see your hands. Press record when you're ready."
-                      : "Press record when you're ready. Take a breath first."}
+                  {state === "error" ? errorMsg : stagePlaceholder}
                 </p>
                 {state === "error" && canRetryTake && (
                   <button
@@ -1594,7 +1627,29 @@ function RecordingScreen() {
             {busy && <AnalyzingLoader withVideo={videoOn} metrics={liveMetrics} />}
           </div>
 
-          <div className="mt-8 flex flex-col items-center gap-5">
+          {/* The transport: clock, then control. RecordingDock watches THIS,
+              not the button inside it — at the very bottom of the page the
+              button can still be on screen while the clock above it has
+              slipped under the sticky header, and the dock (which carries the
+              clock) had already retracted. Anchoring to the group means the
+              dock stays up until the whole thing is genuinely readable. */}
+          {/* On a phone this comes FIRST — the record button sits directly
+              under Impact Modes, where the action belongs once you have read
+              the brief and picked your mode. It used to sit under the 276px
+              stage as well, which put the product's primary action ~490px
+              below the last thing you decide.
+
+              `order`, not a DOM move, so the native booth's own source order
+              (stage, then controls) is untouched, and so `lg:` can hand the
+              desktop column back its screen-above-controls arrangement. The
+              trade-off is stated in full below. */}
+          <div
+            ref={transportRef}
+            className={
+              "mt-8 flex flex-col items-center gap-5" +
+              (native ? "" : " order-first lg:order-none")
+            }
+          >
             {/* The Daily Minute counts DOWN, because the sixty seconds is the
                 exercise and running out is the point. Everything else counts up,
                 because nothing is running out. */}
@@ -1792,6 +1847,57 @@ function RecordingScreen() {
           </div>
         </div>
       </div>
+
+      {/* The transport, when the transport has scrolled away.
+          The two-column layout above keeps the stage sticky from `lg` up, so
+          a desktop always has the control in view; below `lg` it stacks and
+          the recorder sits ~1,450px down a ~2,200px page. That costs twice.
+
+          Mid-take: scroll up to re-read the three points — which is what the
+          brief tells you to do — and the Stop button and the clock both leave
+          the screen with no second copy of either.
+
+          Before a take: the primary action of the whole product is a long
+          scroll past the brief, the instructions and the Impact Modes, on the
+          main flow, on the platform most people use.
+
+          One bar answers both. It shows only while the real transport is out
+          of reach, so it is never a second control competing with a visible
+          first one.
+
+          Hidden while `busy`: during analysis there is nothing to press, and a
+          Record button over a running upload is an invitation to break it.
+
+          `!native` because the shell runs the booth as a full-screen takeover
+          with its own always-visible controls; there is nothing to lose sight
+          of there. */}
+      {!native && !busy && (
+        <RecordingDock
+          anchorRef={transportRef}
+          recording={recording}
+          onStart={start}
+          onStop={stop}
+          failed={state === "error"}
+          urgent={isDaily && recording && elapsed > DAILY_LIMIT_SEC - 10}
+          time={
+            isDaily
+              ? formatTime(Math.max(0, DAILY_LIMIT_SEC - elapsed))
+              : formatTime(elapsed)
+          }
+          // Short on purpose: the bar gives this line ~200px next to the
+          // Record pill, and a truncated fact is worse than a brief one.
+          // "didn't go through" rather than "didn't save" because the error
+          // state also covers a take that never started — a refused
+          // microphone lands here too.
+          idleDetail={
+            state === "error"
+              ? "That one didn't go through"
+              : isDaily
+                ? `Attempt ${attemptNumber} of ${MAX_DAILY_ATTEMPTS}`
+                : "Up to ten minutes"
+          }
+        />
+      )}
     </div>
   );
 }

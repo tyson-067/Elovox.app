@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Felix } from "@/components/FoxLogo";
 import { useAuth } from "@/components/AuthProvider";
 import {
   resendVerificationEmail,
@@ -141,7 +143,46 @@ export function VerifyEmailScreen() {
     router.replace("/login");
   };
 
-  if (loading || !user || user.emailVerified) return null;
+  // Never a blank page. `return null` for all three of these was the same
+  // fault app/report/[id]/page.tsx already documents: a white screen is
+  // indistinguishable from a page that failed to load, and this is a route
+  // people arrive at from an EMAIL — the one context where "nothing happened"
+  // reads as "the link is broken".
+  //
+  // Two of the three states resolve themselves a beat later (the effect above
+  // redirects a signed-out visitor to /login and a verified one onward), so
+  // this only ever shows for as long as that takes. The third — Firebase
+  // unconfigured, so there is no auth to wait for — would otherwise sit blank
+  // forever, and gets a way out.
+  if (loading || (!user && configured) || user?.emailVerified) {
+    return (
+      <div className="py-16 flex flex-col items-center gap-4 text-center" role="status">
+        <Felix mood="coach" className="felix-idle h-16 w-16" />
+        <p className="text-lg text-on-surface-variant">Checking your account…</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="py-16 flex flex-col items-center gap-4 text-center">
+        <Felix mood="sleepy" className="h-16 w-16" />
+        <h1 className="font-headline text-2xl font-semibold text-primary">
+          Nothing to confirm
+        </h1>
+        <p className="max-w-[46ch] text-lg text-on-surface-variant">
+          You&apos;re not signed in, so there&apos;s no address waiting on you
+          here.
+        </p>
+        <Link
+          href="/login"
+          className="btn mt-2 rounded-lg bg-accent-strong px-6 py-3 font-semibold text-white"
+        >
+          Log in
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-lg px-5 py-16">

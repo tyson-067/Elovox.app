@@ -26,26 +26,48 @@ export interface StoryBeat {
   body: string;
 }
 
+/** Below this the pinned stage cannot hold the deck without scrolling inside
+ *  itself, so the deck is not the right shape for the screen. The stage
+ *  content measures ~443px (heading + the 340px card area + the dots + the
+ *  vertical padding); 520 leaves a little air over that. */
+const MIN_DECK_VH = 520;
+
 export function StoryDeck({ beats }: { beats: StoryBeat[] }) {
   const runwayRef = useRef<HTMLDivElement>(null);
   const [idx, setIdx] = useState(0);
-  const [reduced, setReduced] = useState(false);
+  const [flat, setFlat] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    // Read once after mount rather than in a lazy initializer: reduced and
-    // full render DIFFERENT markup (a grid vs the pinned deck), so a lazy
-    // init would risk a hydration mismatch. Rendering the deck first, then
-    // swapping to the grid post-mount if reduced, is the SSR-safe path.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setReduced(mq.matches);
-    const onChange = (e: MediaQueryListEvent) => setReduced(e.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
+    // Two reasons to fall back to the plain grid, and the second is not a
+    // preference — it is a scroll trap.
+    //
+    // On a landscape phone (844x390) the stage is 390px tall and the deck
+    // inside it is 443px, so `overflow-y-auto` was making up the difference:
+    // the content stayed REACHABLE, but only by scrolling a container nested
+    // inside a pinned section. A swipe up over the deck then scrolls those 53
+    // hidden pixels first and the page does not move at all until they run
+    // out, which reads as the page having frozen. A grid of four cards has no
+    // pin, no nesting and no runway, and it is the same content.
+    //
+    // Read after mount rather than in a lazy initializer: the two branches
+    // render DIFFERENT markup, so deciding during the first render would risk
+    // a hydration mismatch. Deck first, grid a beat later, is the SSR-safe
+    // order.
+    const decide = () =>
+      setFlat(mq.matches || window.innerHeight < MIN_DECK_VH);
+    decide();
+    mq.addEventListener("change", decide);
+    // Rotating the phone has to be able to swap the shape back.
+    window.addEventListener("resize", decide);
+    return () => {
+      mq.removeEventListener("change", decide);
+      window.removeEventListener("resize", decide);
+    };
   }, []);
 
   useEffect(() => {
-    if (reduced) return;
+    if (flat) return;
     let raf = 0;
     const onScroll = () => {
       cancelAnimationFrame(raf);
@@ -69,7 +91,7 @@ export function StoryDeck({ beats }: { beats: StoryBeat[] }) {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };
-  }, [reduced, beats.length]);
+  }, [flat, beats.length]);
 
   // Wrapped in a Reveal because `.grow-line` only grows under
   // `.reveal-visible` — rendered bare, the gradient underline sat at
@@ -85,7 +107,7 @@ export function StoryDeck({ beats }: { beats: StoryBeat[] }) {
     </Reveal>
   );
 
-  if (reduced) {
+  if (flat) {
     return (
       <section className="mt-16 md:mt-20">
         {heading}
@@ -117,7 +139,14 @@ export function StoryDeck({ beats }: { beats: StoryBeat[] }) {
           would push the heading and the progress dots off both edges with no
           way to reach them. Auto-margins center when there's room; the scroll
           fallback keeps everything reachable when there isn't. */}
-      <div className="sticky top-0 flex h-screen min-h-0 flex-col justify-center overflow-y-auto py-8">
+      {/* h-dvh, not h-screen. `100vh` on a phone is the LARGE viewport — the
+          height the page would have if the browser chrome were hidden — so
+          with the URL bar showing, this stage was taller than anything the
+          user could see and `justify-center` centred the card on a midpoint
+          below the fold. The progress dots at its bottom edge sat off-screen
+          for the whole pinned section. `100dvh` is the height that is
+          actually visible right now, which is the one this is centring in. */}
+      <div className="sticky top-0 flex h-dvh min-h-0 flex-col justify-center overflow-y-auto py-8">
         {heading}
         <div className="relative mx-auto mt-6 h-[340px] w-full max-w-lg shrink-0 md:h-[320px]">
           {beats.map((beat, i) => {

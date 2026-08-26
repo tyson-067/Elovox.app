@@ -736,6 +736,132 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
   transform: scaleX(1);
 }
 
+/* ---------------------------------------------------------------------------
+   THE LEVEL LADDER — scroll-linked, not observer-linked
+   ---------------------------------------------------------------------------
+   components/LevelLadder.tsx writes exactly three things per frame, all to
+   the .ladder-rail element: a transform, and the custom properties --climb
+   (0-1, how far the climb has got) and, once, each rung's static --at (0-1,
+   where that rung sits along the rail). Everything below is derived from
+   those in CSS, so twelve rungs light up without twelve React updates.
+
+   The lighting test is the arithmetic in `opacity` below, and it is the
+   whole trick: (climb - at) is negative before the head reaches a rung and
+   positive after, so multiplying by a large number and clamping to 0..1
+   gives a switch with a short ramp — a rung that fades on over roughly 3%
+   of the rail rather than popping.
+
+   --climb defaults to 1. That default is the contract with every client
+   that never runs the effects (no JS, JS still loading, prefers-reduced-
+   motion): they get the finished ladder, fully lit, in a rail they can
+   scroll by hand. The animation is the enhancement, never the gate. */
+.ladder-rail {
+  --climb: 1;
+  --rail-pad: 1rem;
+  position: relative;
+  display: flex;
+  gap: 0;
+  padding: 0 var(--rail-pad) 0.5rem;
+  will-change: transform;
+  /* The rail's BOX has to be as wide as its rungs, or the two lines below —
+     which are positioned against it — stop at the edge of the phone instead
+     of running the length of the ladder. A plain flex container stays at the
+     window's width and simply lets its items overflow, which is what left
+     the rail undrawn past rung 4. fit-content sizes to the rungs' own
+     minimum (12 x 92px) on a narrow screen and to the available width once
+     that is the larger of the two, so the same declaration gives a
+     1104px rail on a phone and a flush, full-width one on a desktop. */
+  width: fit-content;
+  min-width: 100%;
+}
+@media (min-width: 768px) {
+  .ladder-rail {
+    --rail-pad: 0px;
+  }
+}
+
+.ladder-line,
+.ladder-line-lit {
+  position: absolute;
+  top: 15px;
+  left: var(--rail-pad);
+  height: 2px;
+  border-radius: 999px;
+}
+.ladder-line {
+  right: var(--rail-pad);
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+.ladder-line-lit {
+  width: calc((100% - var(--rail-pad) * 2) * var(--climb));
+  background: linear-gradient(90deg, var(--color-accent), var(--color-violet));
+}
+
+.ladder-rung {
+  position: relative;
+  display: flex;
+  min-width: 92px;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+/* 0 before the climb head reaches this rung, 1 after, with a short ramp
+   across roughly 3% of the rail so a rung fades on rather than popping.
+   Inherited by everything inside the rung. */
+.ladder-rung {
+  --lit: clamp(0, (var(--climb) - var(--at)) * 32, 1);
+}
+
+.ladder-pip {
+  position: relative;
+  display: flex;
+  height: 2rem;
+  width: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+  background: var(--color-surface);
+  color: var(--color-violet);
+}
+/* The lit ring is an OVERLAY with no background of its own, so the number
+   underneath stays readable while it fades in. Fading the pip itself would
+   have taken the digit with it. */
+.ladder-pip::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 999px;
+  border: 1px solid var(--color-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 12%, transparent);
+  opacity: var(--lit);
+}
+.ladder-name {
+  display: block;
+  margin-top: 0.5rem;
+  padding: 0 0.25rem;
+  line-height: 1rem;
+  color: var(--color-primary);
+  /* Never below 0.55: an unclimbed rung is quiet, not unreadable. */
+  opacity: calc(0.55 + 0.45 * var(--lit));
+}
+
+/* The heading rule, scrubbed by the same progress value instead of by a
+   one-shot reveal. No transition: it is driven every frame, so a transition
+   would only make it lag behind the thing it is reporting on. */
+.ladder-underline {
+  display: block;
+  height: 2px;
+  width: 32px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-violet));
+  transform: scaleX(0.08);
+  transform-origin: left;
+}
+
 /* Goal pills: gentle lift to match the cards. */
 .pill {
   transition:
@@ -972,9 +1098,47 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
 }
 
 /* Header nav links: underline slides in from the left on hover. */
+/* Grows a text control's touch target to 44px tall without changing a single
+   pixel of layout: the target is an absolutely positioned, transparent
+   pseudo-element, so nothing reflows, no underline moves, and no neighbour
+   shifts. Padding cannot do this job here — .nav-link hangs its hover rule
+   off `bottom: -3px`, so padding would push the rule away from the word it
+   underlines.
+
+   The horizontal reach is deliberately 6px, not more. The header sets
+   `gap-3` (12px) between items, so each control's target grows exactly half
+   the gap on each side: the bands meet, never overlap, and a thumb aimed
+   between two links still cannot hit the wrong one.
+
+   Measured need: these links render 20px tall, which fails WCAG 2.5.8 Target
+   Size (Minimum) — 24x24 — and fails it on every page, since this is the
+   site header. 44px is the comfortable target, not the legal floor. */
+.tap-grow {
+  position: relative;
+}
+.tap-grow::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -6px;
+  right: -6px;
+  height: 44px;
+  transform: translateY(-50%);
+}
+
 .nav-link {
   position: relative;
   transition: color var(--dur-base) var(--ease-standard);
+}
+/* Every nav link gets the grown target; none of them is 44px on its own. */
+.nav-link::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -6px;
+  right: -6px;
+  height: 44px;
+  transform: translateY(-50%);
 }
 .nav-link::after {
   content: "";
@@ -2240,4 +2404,126 @@ html[data-native][data-theme="dark"] .apple-signin-btn {
   content: "\f8ff";
   font-size: 1.15em;
   line-height: 1;
+}
+
+
+/* ---------------------------------------------------------------------------
+   THE RECORDING DOCK — the transport, when the transport has scrolled away
+   ---------------------------------------------------------------------------
+   components/RecordingDock.tsx explains why this exists. Notes on the shape:
+
+   Fixed to the bottom, not the top: the header is already sticky up there,
+   and the thumb that has to reach Stop is at the bottom of the phone.
+
+   z-50 puts it over the page and under the InfoTip bubble (z-60), which is
+   correct — a tooltip the user just opened should not be covered by chrome.
+
+   It stays MOUNTED and merely translates out of view, so the entry and exit
+   are one transition rather than a mount/unmount pop; `inert` in the
+   component keeps the hidden state out of the tab order regardless. */
+.recording-dock {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px 10px 16px;
+  border-radius: 16px;
+  background: var(--color-oxford, #0b0829);
+  box-shadow: 0 14px 40px rgba(11, 8, 41, 0.36);
+  transform: translateY(calc(100% + 24px + env(safe-area-inset-bottom)));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 320ms var(--ease-standard),
+    opacity 200ms var(--ease-standard);
+}
+.recording-dock.is-docked {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (min-width: 768px) {
+  /* On a wide screen a gutter-to-gutter bar reads as a system alert. Sized to
+     its content and centred, it reads as the transport it is. */
+  .recording-dock {
+    left: 50%;
+    right: auto;
+    width: max-content;
+    transform: translate(-50%, calc(100% + 24px));
+  }
+  .recording-dock.is-docked {
+    transform: translate(-50%, 0);
+  }
+}
+
+.recording-dock-dot {
+  height: 10px;
+  width: 10px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--color-accent);
+  animation: rec-dot-pulse 1.6s ease-in-out infinite;
+}
+@keyframes rec-dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* The idle face's glyph: the record button's own hollow ring, at bar scale.
+   Not the pulsing dot — a bar that pulses before anything is recording reads
+   as "you are live" on a screen where being live is the whole point. */
+.recording-dock-ring {
+  height: 12px;
+  width: 12px;
+  flex: none;
+  border-radius: 999px;
+  border: 2px solid var(--color-accent);
+}
+
+.recording-dock-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.recording-dock-stop {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  /* 44px tall, and it is the one control on this bar. */
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background: var(--color-accent-strong);
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  transition: filter var(--dur-micro) var(--ease-standard);
+}
+.recording-dock-stop:hover {
+  filter: brightness(1.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recording-dock {
+    transition: opacity 1ms linear;
+    transform: none;
+  }
+  .recording-dock.is-docked {
+    transform: none;
+  }
+  @media (min-width: 768px) {
+    .recording-dock,
+    .recording-dock.is-docked {
+      transform: translateX(-50%);
+    }
+  }
+  .recording-dock-dot {
+    animation: none;
+  }
 }

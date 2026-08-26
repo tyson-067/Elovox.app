@@ -623,7 +623,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               type="button"
               onClick={forgotPassword}
               disabled={busy}
-              className="text-label font-semibold text-primary/80 transition-colors hover:text-primary disabled:opacity-50"
+              className="tap-grow text-label font-semibold text-primary/80 transition-colors hover:text-primary disabled:opacity-50"
             >
               Forgot password?
             </button>

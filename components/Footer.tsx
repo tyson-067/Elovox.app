@@ -9,6 +9,15 @@ import { FooterAboutLink } from "@/components/FooterAboutLink";
 // `py-2 -my-2` grows the tap target to 36px without changing the layout:
 // stacked on mobile these were 20px-tall links 8px apart, well under the 44px
 // WCAG 2.5.8 target and genuinely fiddly to hit with a thumb.
+//
+// The gap below it is part of this and must stay at least TWICE the padding.
+// It was `gap-2` — 8px — against 8px of padding, so every link's grown box
+// reached 8px into its neighbour's and the two overlapped by exactly that.
+// Measured with elementFromPoint: a tap in the shared band opened the LOWER
+// link every time, so the bottom 8px of "Terms" was really "Privacy" and the
+// growth meant to make these easier to hit had quietly made a quarter of each
+// one wrong. At `gap-4` the boxes meet without crossing: every pixel belongs
+// to exactly one link.
 const linkClass = "py-2 -my-2 transition-opacity hover:opacity-70";
 
 // The footer owns the gap above itself. Every page used to add its own trailing
@@ -34,7 +43,7 @@ export function Footer() {
               wrapping, which pushed Instagram off the page. */}
           <nav
             aria-label="Footer"
-            className="flex flex-col gap-2 text-sm text-on-surface-variant sm:flex-row sm:flex-wrap sm:gap-x-6 sm:gap-y-2"
+            className="flex flex-col gap-4 text-sm text-on-surface-variant sm:flex-row sm:flex-wrap sm:gap-x-6 sm:gap-y-4"
           >
             <FooterAboutLink className={linkClass} />
             <Link href="/pricing" className={`${linkClass} web-only`}>

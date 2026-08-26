@@ -27,6 +27,15 @@ export default defineConfig({
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:3100",
     trace: "on-first-retry",
+    // Headless Chromium has no microphone, so getUserMedia never resolves and
+    // the recorder tests' takes never start — their assertions would then pass
+    // or fail for entirely the wrong reason. Here rather than `test.use()` in
+    // the one spec that needs it: launch options set per-file force a SECOND
+    // browser launch, and the extra cold start is what makes an otherwise
+    // green suite flake on the first parallel wave.
+    launchOptions: {
+      args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"],
+    },
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: process.env.E2E_BASE_URL

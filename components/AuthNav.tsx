@@ -237,7 +237,7 @@ export function AuthNav() {
           await signOutUser();
           router.push("/");
         }}
-        className="text-primary/75 transition-colors hover:text-primary"
+        className="tap-grow text-primary/75 transition-colors hover:text-primary"
       >
         Sign out
       </button>
