@@ -62,7 +62,7 @@ export function LegalDoc({
       {sections.length >= 4 && (
         <nav
           aria-labelledby="legal-contents"
-          className="native-hide card mt-8 p-5"
+          className="native-hide mt-8 border-y border-(--hairline-ink) py-5"
         >
           <h2
             id="legal-contents"

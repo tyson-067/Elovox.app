@@ -173,8 +173,17 @@ export function StoryDeck({ beats }: { beats: StoryBeat[] }) {
                 key={beat.title}
                 aria-hidden={offset !== 0}
                 style={style}
-                className="deck-card card-warm absolute inset-0 flex flex-col p-6 shadow-[0_18px_40px_-18px_rgba(11,8,41,0.35)] md:p-8"
+                className="deck-card card-warm absolute inset-0 flex flex-col p-6 shadow-lift-lg md:p-8"
               >
+                {/* Beat number, same index language as the rest of the page.
+                    The deck keeps its card shape on purpose — a deck of
+                    cards is the one place where the card IS the metaphor. */}
+                <span
+                  aria-hidden="true"
+                  className="ghost-num ghost-num-sm absolute right-5 top-4 text-accent-strong"
+                >
+                  0{i + 1}
+                </span>
                 <Felix mood={beat.mood} className="h-20 w-20 md:h-24 md:w-24" />
                 <h3 className="mt-4 font-headline text-2xl font-semibold text-primary">
                   {beat.title}

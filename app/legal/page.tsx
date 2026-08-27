@@ -113,18 +113,21 @@ export default function LegalHubPage() {
           .
         </p>
 
-        <ul className="mt-10 flex flex-col gap-3">
+        <ul className="rule-list mt-10">
           {DOCS.map((d) => (
             <li key={d.href}>
-              <Link
-                href={d.href}
-                className="block rounded-card border border-primary/8 bg-surface-warm/60 px-5 py-4 transition-colors hover:bg-surface-warm"
-              >
-                <span className="font-headline text-lg font-semibold text-primary">
+              <Link href={d.href} className="block pr-8">
+                <span className="sweep-hover sweep-strong font-headline text-h4 font-semibold text-primary">
                   {d.title}
                 </span>
-                <span className="mt-0.5 block text-sm text-on-surface-variant">
+                <span className="mt-1 block text-body-sm text-on-surface-variant">
                   {d.blurb}
+                </span>
+                <span
+                  aria-hidden="true"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 text-lg text-on-surface-variant"
+                >
+                  →
                 </span>
               </Link>
             </li>

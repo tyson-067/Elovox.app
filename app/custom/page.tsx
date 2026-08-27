@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Reveal } from "@/components/Reveal";
 import { WordReveal } from "@/components/WordReveal";
-import { GlowCard } from "@/components/GlowCard";
 import { Felix } from "@/components/FoxLogo";
 import { NvButton } from "@/components/native/ui";
 import { useIsNative } from "@/lib/native";
@@ -128,14 +127,27 @@ function CustomScreen() {
             </div>
           </div>
 
-          <GlowCard className="card mt-6 p-6">
+          {/* A reading surface, not a card: on a plain page this is open
+              type — a kicker over the script, nothing boxed. .ground-panel
+              only materializes into a near-opaque wash once a purchased
+              backdrop is active behind the practice pages, which is exactly
+              when this much running text needs the contrast a card would
+              have given it for free. Registered in globals.css's backdrop
+              surface list so it re-points its ink the same way .card does. */}
+          <div className="ground-panel mt-6">
             {/* The hidden h1 above carried the title; in the app it heads
-                the script card instead, at card scale. */}
+                the script surface instead, at panel scale. */}
             {native && <h2 className="nv-headline mb-2">{speech.title}</h2>}
-            <p className="text-lg leading-8 text-on-surface whitespace-pre-line">
+            {/* Web-only: in the native shell the h2 above already titles
+                this surface, and the kicker is a web idiom. */}
+            <p className="native-hide text-kicker uppercase text-on-surface-variant">
+              Your script
+              <span className="grow-line" aria-hidden="true" />
+            </p>
+            <p className="mt-4 text-lg leading-8 text-on-surface whitespace-pre-line">
               {speech.text}
             </p>
-          </GlowCard>
+          </div>
 
           {native ? (
             <div className="mt-6 flex flex-col gap-3">

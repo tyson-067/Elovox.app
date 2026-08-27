@@ -112,7 +112,18 @@ export default function AboutPage() {
 
       {/* Mission statement. The short, quotable version of the story, and now
           the only version: the three "Why we built it" cards that used to sit
-          underneath said the same thing at four times the length. */}
+          underneath said the same thing at four times the length.
+
+          The navy box is gone too: the two paragraphs stand as open prose
+          instead, and the second is nudged right so the pair doesn't read as
+          two identical blocks stacked on top of each other. The payoff
+          phrase gets the same drawn underline the landing page uses on its
+          key nouns.
+
+          Set in .statement — the upright headline face. This is the company
+          speaking in its own name, not a quotation, and the display serif
+          that was here first turned forty-odd words a paragraph into
+          something the reader had to push through rather than read. */}
       <section className="mt-16 md:mt-24">
         <Reveal>
           <h2 className="text-kicker uppercase text-on-surface-variant">
@@ -120,26 +131,30 @@ export default function AboutPage() {
             <span className="grow-line" aria-hidden="true" />
           </h2>
         </Reveal>
-        <Reveal delay={100}>
-          <div className="mt-5 navy-gradient rounded-card p-7 md:p-10">
-            <p className="text-lg md:text-xl leading-8 md:leading-9 text-white/90 max-w-[62ch]">
-              We met in San Diego, Summer 2026, united by a shared realization:
-              brilliant concepts are too often silenced by a fear of public
-              speaking. This inspired us to build Elovox: an AI-powered platform
-              designed to make speech coaching accessible, effective, and
-              judgment-free.
-            </p>
-            <p className="mt-5 text-lg md:text-xl leading-8 md:leading-9 text-white max-w-[62ch]">
-              Our mission is to bridge the gap between having great thoughts and
-              articulating them with authority. We empower students, creators,
-              and professionals to conquer their nerves, master their delivery,
-              and comfortably command any room.
-            </p>
-          </div>
+        <Reveal delay={100} className="mt-5">
+          <p className="statement text-primary">
+            We met in San Diego, Summer 2026, united by a shared realization:
+            brilliant concepts are too often silenced by a fear of public
+            speaking. This inspired us to build Elovox: an AI-powered platform
+            designed to make speech coaching accessible, effective, and
+            judgment-free.
+          </p>
+          <p className="statement mt-8 text-on-surface-variant md:ml-[18%]">
+            Our mission is to bridge the gap between having great thoughts and
+            articulating them with authority. We empower students, creators,
+            and professionals to conquer their nerves, master their delivery,
+            and comfortably{" "}
+            <span className="sweep sweep-strong">command any room</span>.
+          </p>
         </Reveal>
       </section>
 
-      {/* Team */}
+      {/* Team. A typographic roster instead of a card grid: one rule-list,
+          each person a ledger row split into name and title the way a
+          masthead credits its people. The Co-Founder badge is the one
+          thing on the row that keeps its own background. See the note at
+          its call site for why that particular pixel of color survives
+          everywhere else on this page going open. */}
       <section className="mt-16 md:mt-24">
         <Reveal>
           <h2 className="text-kicker uppercase text-on-surface-variant">
@@ -147,27 +162,29 @@ export default function AboutPage() {
             <span className="grow-line" aria-hidden="true" />
           </h2>
         </Reveal>
-        <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-          {/* h-full on the Reveal, not just the card: Reveal is the grid ITEM,
-              so without it the card has nothing full-height to fill and a
-              longer role wraps one card taller than its neighbour. */}
+        <div className="rule-list mt-7">
           {TEAM.map((member, i) => (
-            <Reveal key={member.name} delay={i * 80} className="h-full">
-              <div className="card h-full p-5 md:p-6">
-                <p className="font-headline text-h3 font-bold text-primary">
+            <Reveal key={member.name} delay={i * 80}>
+              {/* Fixed right column, not auto. Every row is its own grid, so
+                  an auto track sized itself to that row's job title and each
+                  credit started at a different x — four ragged left edges
+                  down the page. A fixed width gives the roster the single
+                  alignment line a masthead is supposed to have. */}
+              <div className="md:grid md:grid-cols-[minmax(0,1fr)_15rem] md:items-baseline md:gap-6">
+                <p className="font-headline text-h1 font-bold text-primary">
                   {member.name}
                 </p>
-                {/* text-violet-strong, not text-violet: on the violet/10 tint
-                    the plain violet measures 4.24:1, just under AA. See the
-                    token's note in globals.css. */}
-                <p className="mt-2.5">
+                <div className="mt-3 md:mt-0">
+                  {/* text-violet-strong, not text-violet: on the violet/10 tint
+                      the plain violet measures 4.24:1, just under AA. See the
+                      token's note in globals.css. */}
                   <span className="inline-block rounded-full bg-violet/10 px-3 py-1 text-micro font-bold uppercase tracking-[0.1em] text-violet-strong">
                     Co-Founder
                   </span>
-                </p>
-                <p className="mt-2.5 text-label font-bold uppercase tracking-[0.08em] text-violet-strong">
-                  {member.role}
-                </p>
+                  <p className="mt-2 text-body-sm text-on-surface-variant">
+                    {member.role}
+                  </p>
+                </div>
               </div>
             </Reveal>
           ))}

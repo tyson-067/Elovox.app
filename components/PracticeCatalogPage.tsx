@@ -127,8 +127,10 @@ export function PracticeCatalogPage<T extends CatalogItem>({
           {/* No `.card` + `border-none!` here. The original fought its own
               base class with an important modifier to remove a border the
               gradient never wanted; the surface simply doesn't need .card. */}
-          <div className="navy-gradient mt-10 rounded-card p-6 text-white md:p-7">
-            <h2 className="font-headline text-h3 font-semibold">{upsellHeading}</h2>
+          <div className="navy-gradient mt-10 rounded-[length:var(--radius-panel)] p-6 text-white md:p-7">
+            <h2 className="font-headline text-h2 font-bold">
+              <span className="sweep sweep-strong">{upsellHeading}</span>
+            </h2>
             <p className="mt-2 max-w-[56ch] text-base leading-6 text-white/85">
               {upsellBody}
             </p>
@@ -172,6 +174,9 @@ function CatalogCard({
   );
 
   if (locked === false) {
+    // Keeps its box: a card reads as clickable, and this one is a link.
+    // Locked and still-loading below stay open type on purpose — the
+    // missing box is the tell that they aren't.
     return (
       <GlowCard className="card h-full">
         <Link href={href} className="block h-full p-5">
@@ -188,8 +193,13 @@ function CatalogCard({
     // "Unlocks with Premium" landed at a different height in every card and
     // the row read as ragged. Pinning it to the bottom is what makes a row of
     // cards look like a row.
+    //
+    // No `.card` here, unlike the branch above: this tile isn't a link, so
+    // it doesn't get to look like one. A hairline stands in for the border,
+    // and the horizontal padding goes with it — the title sits flush with
+    // the grid line instead of inset, the way the page's own headings do.
     return (
-      <div className="card flex h-full flex-col p-5 opacity-70">
+      <div className="flex h-full flex-col border-t border-(--hairline-ink) py-5 opacity-70">
         <div className="flex items-start justify-between gap-2">
           {Title}
           <PremiumBadge />
@@ -202,9 +212,10 @@ function CatalogCard({
     );
   }
 
-  // Still loading. Neutral: no lock, no badge, no flash.
+  // Still loading. Neutral: no lock, no badge, no flash. Same open
+  // treatment as the locked tile above, minus the muting and the footer.
   return (
-    <div className="card h-full p-5">
+    <div className="h-full border-t border-(--hairline-ink) py-5">
       {Title}
       {Blurb}
     </div>

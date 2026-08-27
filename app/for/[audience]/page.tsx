@@ -3,7 +3,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Reveal } from "@/components/Reveal";
 import { WordReveal } from "@/components/WordReveal";
-import { GlowCard } from "@/components/GlowCard";
 import { Felix } from "@/components/FoxLogo";
 import { AUDIENCES, getAudience } from "@/lib/audiences";
 import { pageGraph, WEBAPP } from "@/lib/schema";
@@ -130,7 +129,13 @@ export default async function AudiencePage({
         ))}
       </section>
 
-      {/* The modes that matter to this person */}
+      {/* The modes that matter to this person. A vertical ledger, not a
+          three-across row of cards: the landing page's own trio ("Who it's
+          for") already fills that shape, and repeating it here with the
+          audience name swapped in would read as a template rather than a
+          page written for this person. One rule-list instead, the same
+          numbered-row idiom the report ledger and "how it works" use on
+          the homepage. */}
       <section className="mt-16 md:mt-20">
         <Reveal>
           <h2 className="text-kicker uppercase text-on-surface-variant">
@@ -138,29 +143,47 @@ export default async function AudiencePage({
             <span className="grow-line" aria-hidden="true" />
           </h2>
         </Reveal>
-        <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
+        <div className="rule-list rule-list-cols mt-7">
           {a.modes.map((m, i) => (
-            <Reveal variant="swipe" key={m.title} delay={i * 100} className="h-full">
-              <GlowCard className="card h-full p-5 md:p-6">
-                <h3 className="font-headline text-xl font-semibold text-primary">
-                  {m.title}
-                </h3>
-                <p className="mt-1.5 text-base leading-6 text-on-surface-variant">
-                  {m.body}
-                </p>
-              </GlowCard>
+            <Reveal key={m.title} delay={i * 110}>
+              <span
+                aria-hidden="true"
+                className="ghost-num ghost-num-sm absolute -left-1 top-1 text-primary"
+              >
+                0{i + 1}
+              </span>
+              <h3 className="relative font-headline text-h3 font-semibold text-primary">
+                {m.title}
+              </h3>
+              <p className="relative mt-2 text-base leading-7 text-on-surface-variant md:mt-1">
+                {m.body}
+              </p>
             </Reveal>
           ))}
         </div>
       </section>
 
-      {/* Close */}
-      <section className="mt-20 md:mt-28">
+      {/* Close. Same dark surface as before — its own background stays
+          legible over any purchased backdrop on its own (explicit white
+          text on an explicit gradient, not the semantic tokens the ground
+          rules re-point), so dropping the card chrome costs nothing there.
+          What's gone is the hairline border, and what's new is Felix
+          pulling up out of the panel's top edge instead of sitting inside
+          it — the one sanctioned overlap on this page. The extra top
+          margin below gives the overhang room before the modes ledger
+          above it, and the panel itself (not the Reveal wrapping it) is
+          the `relative` Felix positions against, so the entrance transform
+          on the still-hidden Reveal never touches him. */}
+      <section className="mt-24 md:mt-32">
         <Reveal>
-          <div className="card navy-gradient border-none! p-8 text-white md:p-10">
-            <Felix mood="cheer" animate className="mb-4 h-20 w-20" />
-            <h2 className="font-headline text-3xl font-semibold md:text-4xl">
-              {a.payoff}
+          <div className="navy-gradient relative overflow-visible rounded-[length:var(--radius-panel)] p-8 text-white md:p-10">
+            <Felix
+              mood="cheer"
+              animate
+              className="absolute -top-10 right-8 h-20 w-20"
+            />
+            <h2 className="text-display-sm font-headline font-bold">
+              <WordReveal text={a.payoff} step={90} />
             </h2>
             <p className="mt-2 max-w-[52ch] text-base leading-7 text-white/85">
               Free forever with a daily challenge and three attempts a day.

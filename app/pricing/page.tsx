@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { isNativeApp } from "@/lib/native";
 import { Reveal } from "@/components/Reveal";
+import { WordReveal } from "@/components/WordReveal";
 import { Parallax } from "@/components/Parallax";
 import { GlowCard } from "@/components/GlowCard";
 import { useAuth } from "@/components/AuthProvider";
@@ -232,8 +233,11 @@ export default function PricingPage() {
             {TRIAL_DAYS} days free on monthly and annual
             <span className="grow-line" aria-hidden="true" />
           </h2>
+          {/* "free" gets the hollow treatment, not "impact.": that word
+              already carries text-gradient, and .text-outline's stroke
+              fights the gradient's background-clip on the same element. */}
           <h1 className="text-title font-headline font-bold text-primary mt-4">
-            Start free. Speak with{" "}
+            Start <span className="text-outline">free</span>. Speak with{" "}
             <span className="slogan-serif text-gradient">impact.</span>
           </h1>
           <p className="mt-5 max-w-[54ch] text-lg leading-8 text-on-surface-variant">
@@ -299,11 +303,11 @@ export default function PricingPage() {
             <h2 className="font-headline text-2xl font-semibold text-primary">
               Free
             </h2>
-            <p className="mt-2 flex items-baseline gap-1.5">
-              <span className="font-headline text-4xl font-bold text-primary">
-                $0
-              </span>
-              <span className="font-data text-sm text-on-surface-variant">
+            {/* Same num-display idiom as the homepage pricing preview
+                (app/page.tsx) — one price treatment, not two. */}
+            <p className="num-display mt-2 text-primary">
+              $0
+              <span className="ml-2 align-baseline font-data text-sm font-medium text-on-surface-variant">
                 / forever
               </span>
             </p>
@@ -339,11 +343,9 @@ export default function PricingPage() {
               )}
             </div>
 
-            <p className="mt-2 flex items-baseline gap-1.5">
-              <span className="font-headline text-4xl font-bold">
-                {formatUSD(plan.price)}
-              </span>
-              <span className="font-data text-sm text-white/85">
+            <p className="num-display mt-2">
+              {formatUSD(plan.price)}
+              <span className="ml-2 align-baseline font-data text-sm font-medium text-white/85">
                 / {plan.unit}
               </span>
             </p>
@@ -513,7 +515,10 @@ export default function PricingPage() {
                       )
                     )}
                   </div>
-                  <p className="mt-2 font-headline text-2xl font-bold text-primary">
+                  {/* font-data + tabular-nums, not the full num-display
+                      scale: three of these sit side by side in one tile,
+                      and num-display's clamp tops out too large to fit. */}
+                  <p className="mt-2 font-data text-3xl font-bold tabular-nums text-primary">
                     {formatUSD(p.price)}
                     <span className="font-data text-sm font-normal text-on-surface-variant">
                       {" "}
@@ -541,17 +546,36 @@ export default function PricingPage() {
             <span className="grow-line" aria-hidden="true" />
           </h2>
         </Reveal>
-        <div className="mt-5 space-y-3">
+        {/* Ledger rows, not boxed accordions: each row's index numeral is
+            decoration behind the question — the <details> disclosure
+            already carries the structure assistive tech needs — so the
+            numeral stays aria-hidden while the rule lines take over the
+            separating job the card borders used to do. */}
+        <div className="rule-list mt-7">
           {FAQ.map((item, i) => (
             <Reveal key={item.q} delay={i * 80}>
-              <details className="card group p-5">
-                <summary className="cursor-pointer list-none font-headline text-lg font-semibold text-primary marker:content-none flex items-center justify-between gap-4">
-                  {item.q}
-                  <span className="text-violet transition-transform group-open:rotate-45" aria-hidden="true">
+              <details className="group">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 marker:content-none">
+                  <span
+                    aria-hidden="true"
+                    className="ghost-num ghost-num-sm absolute -left-1 top-1 text-primary"
+                  >
+                    0{i + 1}
+                  </span>
+                  {/* Clear of the numeral, not half-on it: two tabular
+                      digits at the -sm clamp run wider than 3.5rem, and a
+                      question starting inside the numeral read as a typo. */}
+                  <span className="relative pl-16 font-headline text-h4 font-semibold text-primary md:pl-20">
+                    {item.q}
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="relative shrink-0 text-violet transition-transform group-open:rotate-45"
+                  >
                     +
                   </span>
                 </summary>
-                <p className="mt-2 text-base leading-7 text-on-surface-variant">
+                <p className="relative mt-2 max-w-[62ch] pl-16 text-base leading-7 text-on-surface-variant md:pl-20">
                   {item.a}
                 </p>
               </details>
@@ -570,6 +594,9 @@ export default function PricingPage() {
               $4.99 immediately. The buy button itself was already correct via
               hasTrial(); the headline and the line under it were not, and
               they are the larger type. Both now follow the same check. */}
+          {/* Word-by-word entrance, same as the landing page's own closing
+              line: the last thing the page says earns the same arrival as
+              the last thing the homepage says. */}
           <h2 className="text-display-sm font-headline font-bold text-primary">
             {subscribed
               ? "You're all set."

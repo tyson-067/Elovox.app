@@ -5,7 +5,6 @@ import Link from "next/link";
 import { RequireAuth } from "@/components/RequireAuth";
 import { NativeReport } from "@/components/NativeReport";
 import { Reveal } from "@/components/Reveal";
-import { GlowCard } from "@/components/GlowCard";
 import { getSession } from "@/lib/store";
 import { getCategory } from "@/lib/categories";
 import { Felix } from "@/components/FoxLogo";
@@ -311,18 +310,28 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
           </ul>
 
           <Reveal delay={200}>
-            <GlowCard className="card mt-8 p-4 grid grid-cols-3 gap-2 text-center">
+            {/* Three numbers, nothing to press: GlowCard's whole point is the
+                hover spotlight that promises "this responds to you", which
+                this row never did. An open, hairline-divided stat row reads
+                as data rather than as a button that goes nowhere. */}
+            <div className="mt-8 grid grid-cols-3 divide-x divide-(--hairline-ink) text-center">
               {[
                 [String(analysis.paceWpm), "words / min"],
                 [String(analysis.fillerWords), "filler words"],
                 [String(analysis.pauses), "long pauses"],
-              ].map(([n, label]) => (
-                <div key={label}>
-                  <div className="font-data text-lg text-primary">{n}</div>
-                  <div className="text-caption text-on-surface-variant">{label}</div>
+              ].map(([n, label], i) => (
+                // No unit is embedded in the value itself here (the label
+                // below already says "words / min" etc.), so there's no
+                // separate span to demote to font-data — .num-display alone
+                // carries the numeral.
+                <div key={label} className={`px-4 ${i === 0 ? "pl-0" : ""}`}>
+                  <div className="num-display text-primary">{n}</div>
+                  <div className="mt-1 text-kicker uppercase text-on-surface-variant">
+                    {label}
+                  </div>
                 </div>
               ))}
-            </GlowCard>
+            </div>
           </Reveal>
         </section>
 
@@ -520,20 +529,32 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
               Short, targeted exercises for exactly what this take needs.
             </p>
           </Reveal>
-          <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* One ledger, not a grid of cards: a drill is a title and a
+              how-to with nothing to click, the same false affordance the
+              stats row above dropped GlowCard for. The index numeral sits
+              behind the title as decoration, so it's aria-hidden; the
+              stagger animation that used to live on the card moves onto
+              this row div instead of disappearing with it. */}
+          <div className="rule-list rule-list-cols mt-5">
             {analysis.drills.map((d, i) => (
-              <GlowCard
+              <div
                 key={i}
-                className="card stagger-in p-5"
+                className="stagger-in"
                 style={{ animationDelay: `${i * 100}ms` }}
               >
-                <h3 className="font-headline text-xl font-medium text-primary">
+                <span
+                  aria-hidden="true"
+                  className="ghost-num ghost-num-sm absolute -left-1 top-1 text-primary"
+                >
+                  0{i + 1}
+                </span>
+                <h3 className="relative font-headline text-h4 font-semibold text-primary">
                   {d.title}
                 </h3>
-                <p className="mt-2 text-base leading-6 text-on-surface-variant">
+                <p className="relative mt-2 text-base leading-6 text-on-surface-variant md:mt-0">
                   {d.how}
                 </p>
-              </GlowCard>
+              </div>
             ))}
           </div>
         </section>
@@ -544,8 +565,13 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
           the wall, right where they can feel the difference. */}
       {plan === "free" && !analysis.isSample && (
         <section className="native-hide mt-12">
-          <div className="card navy-gradient border-none! p-6 md:p-7 text-white">
-            <h2 className="font-headline text-2xl font-semibold">
+          {/* The navy fill already reads as its own panel — the hairline
+              card border under it was never carrying any of the weight, just
+              adding a redundant edge. Dropped for the shared panel radius,
+              with the heading promoted a step so the panel keeps its
+              presence without the box. */}
+          <div className="navy-gradient rounded-[length:var(--radius-panel)] p-6 md:p-7 text-white">
+            <h2 className="font-headline text-h2 font-bold">
               Go deeper with Premium
             </h2>
             <p className="mt-2 text-base leading-6 text-white/85 max-w-[60ch]">

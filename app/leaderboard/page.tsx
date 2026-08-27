@@ -158,7 +158,11 @@ function HandleCard({
 
   if (!editing) {
     return (
-      <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
+      // Display-only, so a hairline top/bottom rule is enough to set it off
+      // from the toggle above and the board below — no box. The editing form
+      // just below KEEPS its card: a form is an input surface, and an input
+      // surface earns a boundary the way a line of read-only text does not.
+      <div className="flex flex-wrap items-center justify-between gap-3 border-y border-(--hairline-ink) py-4">
         <p className="text-body-sm leading-6 text-on-surface-variant">
           {handle ? (
             <>
@@ -181,6 +185,9 @@ function HandleCard({
   }
 
   return (
+    // Card kept on purpose: unlike the display row above, this is a form —
+    // an input surface with a text field and two buttons — and a form earns
+    // the boundary a plain sentence doesn't need.
     <form onSubmit={submit} className="card p-4">
       <label
         htmlFor="handle"
@@ -438,9 +445,12 @@ function LeaderboardScreen() {
       )}
 
       {board && rows.length === 0 && (
-        <div className="card mt-8 p-6">
+        // An empty board isn't a notice waiting to be dismissed, so it
+        // doesn't get a box — Felix, a headline and the way forward, centered
+        // and given room, read as "nothing here yet" on their own.
+        <div className="mt-8 flex flex-col items-center py-12 text-center">
           <Felix mood="coach" className="h-16 w-16" />
-          <h2 className="mt-3 font-headline text-xl font-semibold text-primary">
+          <h2 className="mt-3 font-headline text-h2 font-bold text-primary">
             {scope === "friends"
               ? "No friends here yet"
               : "Nobody's on the board yet"}

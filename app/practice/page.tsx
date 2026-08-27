@@ -1164,7 +1164,10 @@ function RecordingScreen() {
                   nearly every bad first minute actually goes wrong: people
                   script it, and people run long on point one and then trail
                   off. The rest was good advice nobody was going to read. */}
-              <div className="card-warm mt-5 p-4">
+              {/* An aside, not a card: this is advice about the topic above,
+                  not an input or a purchase, so a left hairline rule is
+                  enough to set it apart without boxing it in. */}
+              <aside className="mt-5 border-l-2 border-(--hairline-ink) pl-4">
                 <p
                   className={
                     "text-kicker uppercase text-on-surface-variant" +
@@ -1194,7 +1197,7 @@ function RecordingScreen() {
                     rather than trailing off.
                   </li>
                 </ol>
-              </div>
+              </aside>
             </div>
           ) : (
             <p

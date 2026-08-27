@@ -64,21 +64,28 @@ const SITE_SCHEMA = pageGraph(WEBAPP);
 // What a report actually contains. Every line here is a real thing the
 // pipeline produces — the six dimensions and the pause threshold are lifted
 // from app/api/analyze/route.ts. If the analysis changes, this changes.
+// `mark` is the phrase that gets the drawn underline when the row reveals —
+// the same sweep the report itself uses on your words, which is the point:
+// the section about markup is itself marked up.
 const REPORT = [
   {
     title: "Six scores, not one",
+    mark: "not one",
     body: "Each one out of 100, and the overall is their average, so you can see which one is dragging the rest down.",
   },
   {
     title: "Your own words, marked up",
+    mark: "marked up",
     body: "Felix marks the words to stress, the places to pause, and where to slow down, and says what each change does to the room.",
   },
   {
     title: "The numbers you can't hear yourself",
+    mark: "can't hear",
     body: "Words per minute, every filler counted, and every pause over 1.2 seconds with the spot it happened.",
   },
   {
     title: "How you came across",
+    mark: "came across",
     body: "Whether you sounded trusted or doubted, in charge or just presenting, and whether your ending lost energy.",
   },
 ];
@@ -430,31 +437,50 @@ export default function LandingPage() {
       </section>
 
       {/* Who it's for. Directly under the hero so a stranger can find
-          themself on the page before a single feature is explained. */}
-      <section id="who" className="scroll-mt-24 mt-[var(--space-section-lg)]">
-        <Reveal>
-          <h2 className="text-kicker uppercase text-on-surface-variant">
-            Who it&apos;s for
-            <span className="grow-line" aria-hidden="true" />
-          </h2>
-        </Reveal>
-        <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+          themself on the page before a single feature is explained.
+
+          No cards: three audiences set as open type on a broken grid, the
+          middle one deliberately low. The kicker lives in a sticky left
+          rail (the page's one rail — repeated on every section it would
+          become a template). The sticky element is the rail cell itself,
+          never a Reveal: a hidden Reveal is transformed, and transform
+          kills position: sticky for everything inside it. */}
+      <section
+        id="who"
+        className="section-rail scroll-mt-24 mt-[var(--space-section-lg)]"
+      >
+        <div className="marginalia">
+          <Reveal>
+            <h2 className="text-kicker uppercase text-on-surface-variant">
+              Who it&apos;s for
+              <span className="grow-line" aria-hidden="true" />
+            </h2>
+          </Reveal>
+        </div>
+        <div className="grid-broken mt-5 max-md:gap-y-0 max-md:divide-y max-md:divide-(--hairline-ink) md:mt-0">
           {AUDIENCES.map((a, i) => (
-            <Reveal key={a.who} delay={i * 120} className="h-full">
-              <GlowCard className="card h-full">
-                <Link href={a.href} className="block h-full p-5 md:p-6">
-                  <h3 className="font-headline text-xl font-semibold text-primary">
+            // The stagger transform lives on this wrapper; the Reveal is
+            // inside it. On the Reveal itself, .reveal-visible resolves
+            // transform to none and would erase the offset.
+            <div
+              key={a.who}
+              className="col-span-12 max-md:py-5 md:col-span-4"
+            >
+              <Reveal variant="swipe" delay={i * 120} className="h-full">
+                <Link href={a.href} className="block h-full">
+                  <h3 className="font-headline text-h2 font-bold text-primary">
                     {a.who}
                   </h3>
-                  <p className="mt-1.5 text-base leading-6 text-on-surface-variant">
+                  <p className="mt-2 text-base leading-6 text-on-surface-variant">
                     {a.body}
                   </p>
-                  <p className="mt-3 text-label font-semibold tracking-wide text-violet">
-                    {a.via} <span aria-hidden="true">→</span>
+                  <p className="mt-4 text-label font-semibold tracking-wide text-violet">
+                    <span className="sweep-hover sweep-violet">{a.via}</span>{" "}
+                    <span aria-hidden="true">→</span>
                   </p>
                 </Link>
-              </GlowCard>
-            </Reveal>
+              </Reveal>
+            </div>
           ))}
         </div>
       </section>
@@ -475,24 +501,42 @@ export default function LandingPage() {
             to arrive.
           </p>
         </Reveal>
-        <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
+        {/* Four ledger rows, not a 2x2 of cards: each row is title left,
+            body right, with an oversized index numeral layered faintly
+            behind the title. The numeral is decoration (the sweep and the
+            ledger carry the reading order), so it is aria-hidden. */}
+        <div className="rule-list rule-list-cols mt-7">
           {REPORT.map((r, i) => (
-            <Reveal key={r.title} variant="zoom" delay={i * 110} className="h-full">
-              <GlowCard className="card h-full p-5 md:p-6">
-                <h3 className="font-headline text-xl font-semibold text-primary">
-                  {r.title}
-                </h3>
-                <p className="mt-1.5 text-base leading-6 text-on-surface-variant">
-                  {r.body}
-                </p>
-              </GlowCard>
+            <Reveal key={r.title} variant="zoom" delay={i * 110}>
+              <span
+                aria-hidden="true"
+                className="ghost-num absolute -left-2 top-2 text-primary"
+              >
+                0{i + 1}
+              </span>
+              <h3 className="relative font-headline text-h2 font-bold text-primary">
+                {r.title.slice(0, r.title.indexOf(r.mark))}
+                <span
+                  className="sweep sweep-strong"
+                  style={{ transitionDelay: `${i * 110 + 250}ms` }}
+                >
+                  {r.mark}
+                </span>
+                {r.title.slice(r.title.indexOf(r.mark) + r.mark.length)}
+              </h3>
+              <p className="relative mt-2 text-base leading-7 text-on-surface-variant md:mt-1">
+                {r.body}
+              </p>
             </Reveal>
           ))}
         </div>
-        <div className="mt-4 flex flex-wrap gap-2.5">
+        <div className="mt-6 flex flex-wrap gap-2.5">
           {VOICE_DIMENSIONS.map((d, i) => (
             <Reveal key={d} delay={i * 60}>
-              <span className="pill inline-block rounded-full border border-primary/20 px-4 py-2 text-body-sm font-medium text-primary">
+              {/* Hairline drawn from the local ink, not a fixed navy: over a
+                  purchased night backdrop the ground rules turn the text
+                  light and the border follows it. */}
+              <span className="pill inline-block rounded-full border border-(--hairline-ink) px-4 py-2 text-body-sm font-medium text-primary">
                 {d}
               </span>
             </Reveal>
@@ -537,14 +581,22 @@ export default function LandingPage() {
                       the reading measure honest, and gives the sequence the
                       spec-sheet register that suits a numbered process. */}
                   <div>
-                    <span className="font-data text-label font-medium tabular-nums text-violet">
+                    {/* Same numbering language as the report ledger above:
+                        an oversized numeral layered behind the title. Violet
+                        ink at 14% rather than the old small label — the ol
+                        still carries the order for AT, so this is
+                        decoration. */}
+                    <span
+                      aria-hidden="true"
+                      className="ghost-num ghost-num-sm absolute -left-1 -top-5 text-violet"
+                    >
                       {s.n}
                     </span>
-                    <h3 className="mt-1 font-headline text-h3 font-semibold text-primary">
+                    <h3 className="relative pt-3 font-headline text-h3 font-semibold text-primary">
                       {s.title}
                     </h3>
                   </div>
-                  <p className="mt-2 max-w-[62ch] text-base leading-7 text-on-surface-variant md:mt-0 md:pt-6">
+                  <p className="relative mt-2 max-w-[62ch] text-base leading-7 text-on-surface-variant md:mt-0 md:pt-3">
                     {s.body}
                   </p>
                 </div>
@@ -569,7 +621,7 @@ export default function LandingPage() {
         <div className="mt-5 flex flex-wrap gap-2.5">
           {GOALS.map((g, i) => (
             <Reveal key={g.id} delay={i * 60}>
-              <span className="pill inline-block rounded-full border border-primary/20 text-primary text-body-sm font-medium px-4 py-2 hover:border-accent-strong hover:text-accent-strong">
+              <span className="pill inline-block rounded-full border border-(--hairline-ink) text-primary text-body-sm font-medium px-4 py-2 hover:border-accent-strong hover:text-accent-strong">
                 {g.label}
               </span>
             </Reveal>
@@ -590,14 +642,30 @@ export default function LandingPage() {
             and what to change.
           </p>
         </Reveal>
-        <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+        {/* Six numbered entries on a broken grid instead of six white boxes.
+            The middle column of each row sits low (see .grid-broken), the
+            index numeral is layered behind the title, and the glyph loses
+            its tile — a stroke icon can stand on its own. On phones the
+            grid collapses to a single hairline ledger. */}
+        <div className="grid-broken mt-7 max-md:gap-y-0 max-md:divide-y max-md:divide-(--hairline-ink)">
           {MODES.map((m, i) => (
-            <Reveal key={m.title} variant="swipe" delay={i * 100} className="h-full">
-              <GlowCard className="card h-full p-5 md:p-6">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-container text-primary">
-                    {m.glyph}
-                  </span>
+            <div
+              key={m.title}
+              className="col-span-12 max-md:py-5 md:col-span-4"
+            >
+              <Reveal
+                variant="swipe"
+                delay={(i % 3) * 100 + Math.floor(i / 3) * 60}
+                className="relative h-full"
+              >
+                <span
+                  aria-hidden="true"
+                  className="ghost-num absolute -left-2 -top-3 text-primary"
+                >
+                  0{i + 1}
+                </span>
+                <div className="relative flex items-center justify-end gap-2.5">
+                  <span className="text-accent-strong">{m.glyph}</span>
                   <span
                     className={`text-micro font-semibold uppercase tracking-[0.08em] ${
                       m.tag === "Free" ? "text-accent-strong" : "text-violet"
@@ -606,14 +674,14 @@ export default function LandingPage() {
                     {m.tag}
                   </span>
                 </div>
-                <h3 className="mt-3 font-headline text-xl font-semibold text-primary">
+                <h3 className="relative mt-9 font-headline text-h3 font-semibold text-primary">
                   {m.title}
                 </h3>
-                <p className="mt-1.5 text-base leading-6 text-on-surface-variant">
+                <p className="relative mt-1.5 text-base leading-6 text-on-surface-variant">
                   {m.body}
                 </p>
-              </GlowCard>
-            </Reveal>
+              </Reveal>
+            </div>
           ))}
         </div>
       </section>
@@ -646,18 +714,23 @@ export default function LandingPage() {
               <span className="grow-line" aria-hidden="true" />
             </h2>
           </Reveal>
-          <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
+          {/* A wall of voices, not a grid of boxes: quotes set large and
+              open, alternating left and right down the page. Same upright
+              headline face as the rest of the site — the quotation marks and
+              the credit line under each one are what say "someone said
+              this", so the type doesn't have to perform it. */}
+          <div className="mt-7 space-y-10 md:space-y-12">
             {TESTIMONIALS.map((t, i) => (
-              <Reveal key={t.name + i} delay={i * 110} className="h-full">
-                <GlowCard className="card flex h-full flex-col p-5 md:p-6">
-                  <blockquote className="font-headline text-lg leading-7 text-primary">
+              <Reveal key={t.name + i} delay={i * 110}>
+                <figure className={i % 2 === 1 ? "max-w-[56ch] md:ml-auto" : "max-w-[56ch]"}>
+                  <blockquote className="statement text-primary">
                     &ldquo;{t.quote}&rdquo;
                   </blockquote>
-                  <p className="mt-3 text-body-sm text-on-surface-variant">
+                  <figcaption className="mt-3 font-data text-label uppercase tracking-[0.08em] text-on-surface-variant">
                     <span className="font-semibold text-primary">{t.name}</span>
                     {t.context && <span> · {t.context}</span>}
-                  </p>
-                </GlowCard>
+                  </figcaption>
+                </figure>
               </Reveal>
             ))}
           </div>
@@ -678,8 +751,11 @@ export default function LandingPage() {
               <h3 className="font-headline text-2xl font-semibold text-primary">
                 Free
               </h3>
-              <p className="mt-1 font-data text-sm text-on-surface-variant">
-                $0 / forever
+              <p className="num-display mt-2 text-primary">
+                $0
+                <span className="ml-2 align-baseline font-data text-sm font-medium text-on-surface-variant">
+                  / forever
+                </span>
               </p>
               <ul className="mt-4 space-y-2 text-base leading-6 text-on-surface">
                 <li>The Daily Minute, a new topic every day, set by Felix</li>
@@ -707,6 +783,12 @@ export default function LandingPage() {
                   visible trouble to qualify both; the homepage inverted the
                   emphasis on the page more people see. Figures come from
                   lib/pricing.ts so they can never drift from checkout. */}
+              <p className="num-display mt-2">
+                {formatUSD(planFor("annual").price)}
+                <span className="ml-2 align-baseline font-data text-sm font-medium text-white/85">
+                  / year
+                </span>
+              </p>
               <p className="mt-1 font-data text-sm text-white/85">
                 {formatUSD(planFor("annual").price)}/year (
                 {formatUSD(planFor("annual").perWeek)}/week) · {TRIAL_DAYS}-day
@@ -746,16 +828,22 @@ export default function LandingPage() {
           reads as the alternative to buying, not a competitor to it. */}
       <section className="mt-[var(--space-section)]">
         <Reveal>
-          <div className="card p-6 md:p-7">
-            <h2 className="font-headline text-2xl font-semibold text-primary">
-              Not ready yet?
-            </h2>
-            <p className="mt-2 max-w-[52ch] text-base leading-6 text-on-surface-variant">
-              Leave your email and we&apos;ll send the occasional speaking tip
-              when we have one worth sending. No spam, and you can drop off
-              the list any time.
-            </p>
-            <div className="mt-4">
+          {/* No card: open type on the plain page. .ground-panel is inert
+              here and only materializes (white wash, padding) when a
+              purchased backdrop is active, because a form must not gamble
+              its legibility on a photograph. */}
+          <div className="ground-panel md:grid md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:items-center md:gap-10">
+            <div>
+              <h2 className="font-headline text-h2 font-bold text-primary">
+                Not ready yet?
+              </h2>
+              <p className="mt-2 max-w-[52ch] text-base leading-6 text-on-surface-variant">
+                Leave your email and we&apos;ll send the occasional speaking
+                tip when we have one worth sending. No spam, and you can drop
+                off the list any time.
+              </p>
+            </div>
+            <div className="mt-4 md:mt-0">
               <EmailCapture />
             </div>
           </div>
@@ -771,7 +859,9 @@ export default function LandingPage() {
         </div>
         <Reveal>
           <Felix mood="cheer" animate className="mb-4 h-24 w-24" />
-          <h2 className="text-display-sm font-headline font-bold text-primary">
+          {/* Full display size for the exit line — the biggest type on the
+              page belongs to the last thing it says. */}
+          <h2 className="text-display font-headline font-bold text-primary">
             <WordReveal text="The room goes quiet." step={90} />
             <WordReveal
               text="You're ready."

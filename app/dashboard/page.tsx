@@ -608,8 +608,13 @@ function TodayScreen() {
 
       {reward?.granted && (
         <Reveal className="mt-8">
-          <div className="card navy-gradient border-none! p-6 text-white">
-            <h2 className="font-headline text-2xl font-semibold">
+          {/* Same navy-panel treatment as the report's Premium upsell: the
+              gradient fill is already a panel, so the card hairline under it
+              was doing nothing but repeat the edge. Dropped for the shared
+              panel radius, heading promoted a step to keep the panel's
+              weight without the box. */}
+          <div className="navy-gradient rounded-[length:var(--radius-panel)] p-6 text-white">
+            <h2 className="font-headline text-h2 font-bold">
               Three weeks straight. Have a week on us.
             </h2>
             <p className="mt-2 max-w-[56ch] text-base leading-6 text-white/85">
@@ -701,8 +706,10 @@ function TodayScreen() {
         // it — a dead end in the app, and a surface App Review reads as
         // selling without a purchase path. The app simply doesn't upsell.
         <Reveal className="native-hide">
-          <div className="card navy-gradient border-none! mt-12 mb-6 p-6 text-white">
-            <h3 className="font-headline text-2xl font-semibold">
+          {/* Same treatment as the streak reward panel above: the gradient
+              is the panel, the card border was redundant on top of it. */}
+          <div className="navy-gradient rounded-[length:var(--radius-panel)] mt-12 mb-6 p-6 text-white">
+            <h3 className="font-headline text-h2 font-bold">
               Practice as much as you want
             </h3>
             <p className="mt-2 max-w-[56ch] text-base leading-6 text-white/85">

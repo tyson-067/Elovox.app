@@ -381,6 +381,7 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
     :is(
       .card,
       .card-warm,
+      .ground-panel,
       header,
       footer,
       [class*="bg-surface"],
@@ -900,8 +901,211 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
 .sweep-flag {
   background-image: linear-gradient(90deg, #ff8400, #ff8400);
 }
+/* var() rather than a literal so the underline follows the violet token
+   into native dark mode, where violet lightens to stay legible. */
+.sweep-violet {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-violet),
+    var(--color-violet)
+  );
+}
 .reveal-visible .sweep {
   background-size: 100% 3px;
+}
+
+/* --- Editorial vocabulary ----------------------------------------------
+   The open-layout replacements for text-content cards: content that used
+   to sit in a box now leads with type — oversized index numerals, ledger
+   rules, hollow display words, large upright statements. Everything draws
+   its decoration in currentColor (via --hairline-ink) so it survives the
+   purchased backdrops: over a night scene the ground rules re-point the
+   ink, and the hairlines and numerals follow it for free. Fixed brand
+   rgba() would be invisible on one tone or the other. */
+
+/* Substituted at the element that uses it, so currentColor resolves
+   against the local ink — not the :root color. That substitution-time
+   resolution is the whole point; do not "simplify" to a literal. */
+:root {
+  --hairline-ink: color-mix(in srgb, currentColor 16%, transparent);
+}
+
+/* Oversized index numeral ("01"–"06") behind or beside a row of content.
+   Decoration, not content: call sites set aria-hidden and position it.
+   The numeral leads its row's Reveal on purpose — the index stamps in,
+   the text follows. */
+.ghost-num {
+  --ghost-opacity: 0.1;
+  display: block;
+  font-family: var(--font-data);
+  font-size: clamp(3.5rem, 6vw + 1rem, 7rem);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: currentColor;
+  opacity: var(--ghost-opacity);
+  -webkit-user-select: none;
+  user-select: none;
+  pointer-events: none;
+  transition:
+    opacity var(--dur-reveal) var(--ease-standard),
+    transform var(--dur-reveal) var(--ease-standard);
+}
+.ghost-num-sm {
+  --ghost-opacity: 0.14;
+  font-size: clamp(2.5rem, 4vw, 4rem);
+}
+.reveal:not(.reveal-visible) .ghost-num {
+  opacity: 0;
+  transform: translateY(0.15em);
+}
+
+/* Hollow display type: the bold register's second ink. Never combine with
+   .text-gradient — background-clip: text and text-stroke fight over the
+   paint and Safari picks a different winner than Chrome.
+
+   The hollow comes from -webkit-text-fill-color, NOT color: transparent.
+   The stroke is currentColor, and currentColor reads the element's own
+   `color` — set that transparent and the stroke vanishes with it. fill-color
+   empties the glyphs while `color` keeps carrying the inherited ink. */
+.text-outline {
+  -webkit-text-stroke: 2px currentColor;
+  -webkit-text-fill-color: transparent;
+  paint-order: stroke fill;
+}
+@supports not (-webkit-text-stroke: 1px black) {
+  .text-outline {
+    -webkit-text-fill-color: currentColor;
+  }
+}
+@media (max-width: 47.9375rem) {
+  /* At clamp-floor sizes a 2px stroke clogs the counters of Montserrat's
+     tighter glyphs. */
+  .text-outline {
+    -webkit-text-stroke-width: 1.5px;
+  }
+}
+
+/* Large-format text: the headline face, upright, at a size between body and
+   display. The mission statement, testimonial quotes, anything that has to
+   carry weight at length.
+
+   This replaced a Playfair-italic treatment that was here first. Playfair is
+   a display face — it earns the slogan lockup and nothing longer. Over a
+   paragraph it stops being read and starts being looked at, which is the
+   opposite of what a mission or a customer's own words need. The serif stays
+   in .slogan-serif, where the line is four words long. */
+.statement {
+  max-width: 46ch;
+  font-family: var(--font-headline);
+  font-size: clamp(1.375rem, 1.1vw + 1rem, 1.875rem);
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: -0.015em;
+  text-wrap: pretty;
+}
+
+/* Ledger list: hairline-ruled rows replacing a grid of white cards. Rows
+   are positioning contexts so a .ghost-num can sit inside them. The last
+   row keeps a closing rule — a ledger is ruled below its final entry. */
+.rule-list > * {
+  position: relative;
+  border-top: 1px solid var(--hairline-ink);
+  padding-block: clamp(1.25rem, 2.5vw, 2rem);
+}
+.rule-list > *:last-child {
+  border-bottom: 1px solid var(--hairline-ink);
+}
+/* Spec-sheet split (term left, description right), same proportions the
+   "How it works" ol already proved. Single column below md. */
+@media (min-width: 48rem) {
+  .rule-list-cols > * {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 9fr);
+    column-gap: clamp(1.5rem, 3vw, 3rem);
+  }
+}
+
+/* Hover/focus-drawn underline for interactive rows: same background
+   machinery as .sweep, but the trigger is the pointer, not a Reveal.
+   Compose with .sweep-strong / .sweep-violet for the color. */
+.sweep-hover {
+  background-repeat: no-repeat;
+  background-position: 0 calc(100% - 1px);
+  background-size: 0% 3px;
+  padding-bottom: 3px;
+  transition: background-size var(--dur-slow) var(--ease-standard);
+}
+:where(a, button):where(:hover, :focus-visible) .sweep-hover,
+.sweep-hover:where(:hover, :focus-visible) {
+  background-size: 100% 3px;
+}
+
+/* Broken grid: a 12-column field where children place themselves with
+   col-span utilities and every middle column sits deliberately low. The
+   stagger is position, not motion — it does not animate and is exempt
+   from prefers-reduced-motion. Children carrying the offset must wrap a
+   Reveal, never be one: .reveal-visible resolves transform to none and
+   would erase the stagger. */
+.grid-broken {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: clamp(1rem, 3vw, 2.5rem);
+  row-gap: clamp(2rem, 4vw, 3.5rem);
+}
+@media (min-width: 48rem) {
+  .grid-broken > :nth-child(3n + 2) {
+    transform: translateY(clamp(1rem, 3vw, 3rem));
+  }
+}
+
+/* Section rail: the kicker moves off the top of the section into a left
+   margin column that stays put while the section scrolls. The sticky
+   element must never sit inside a transformed/filtered ancestor (a hidden
+   Reveal is both), so wrap Reveals around the rail's *content*, not the
+   rail. Single column below md — sticky is harmless there. */
+@media (min-width: 48rem) {
+  .section-rail {
+    display: grid;
+    grid-template-columns: 11rem minmax(0, 1fr);
+    column-gap: 2.5rem;
+  }
+  .marginalia {
+    position: sticky;
+    top: 6rem;
+    align-self: start;
+  }
+}
+
+/* The card-free legibility surface: on a plain page it is nothing at all —
+   the content reads as open type — but when a purchased backdrop is active
+   it materializes as a near-opaque wash of the page color so forms and
+   long reading passages keep full brand color over any scene. Registered
+   in the backdrop surface list above so it restores the normal palette
+   exactly like .card does. */
+.ground-panel {
+  border-radius: var(--radius-panel);
+}
+html[data-backdrop-tone] .ground-panel {
+  background: color-mix(in srgb, var(--color-surface) 90%, transparent);
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+}
+@supports (backdrop-filter: blur(10px)) {
+  html[data-backdrop-tone] .ground-panel {
+    backdrop-filter: blur(10px);
+  }
+}
+
+/* Content numeral set huge — prices, scores, stats. Unlike .ghost-num this
+   IS the content: full opacity, foreground. */
+.num-display {
+  font-family: var(--font-data);
+  font-size: clamp(2.5rem, 3.5vw + 1rem, 4rem);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 
 /* --- Landing hero: the report that builds itself -----------------------
@@ -1301,6 +1505,20 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
   .sweep-run {
     animation: none;
     background-size: 100% 3px;
+  }
+  /* Editorial vocabulary. The ghost numeral's entrance rule is
+     .reveal:not(.reveal-visible) .ghost-num — (0,3,0) — so the kill
+     restates the same selector (see the specificity note above). The
+     hover sweep becomes a permanent underline, consistent with .sweep. */
+  .ghost-num,
+  .reveal:not(.reveal-visible) .ghost-num {
+    opacity: var(--ghost-opacity);
+    transform: none;
+    transition: none;
+  }
+  .sweep-hover {
+    background-size: 100% 3px;
+    transition: none;
   }
 }
 

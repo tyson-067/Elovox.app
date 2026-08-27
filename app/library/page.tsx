@@ -77,8 +77,13 @@ function SpeechCard({
     // flex-col + mt-auto below: the scenarios run one to three lines, so this
     // card's footer used to sit at a different height in every card, and a row
     // of nine read as ragged.
+    //
+    // No `.card` here, unlike the button below: this tile doesn't do
+    // anything, so it doesn't get to look like it does. A hairline stands in
+    // for the border, and the horizontal padding goes with it — the title
+    // sits flush with the grid line instead of inset.
     return (
-      <div className="card flex h-full flex-col p-5 opacity-70">
+      <div className="flex h-full flex-col border-t border-(--hairline-ink) py-5 opacity-70">
         <div className="flex items-start justify-between gap-2">
           <span className="font-headline text-h4 font-medium text-primary block">
             {speech.title}
@@ -97,9 +102,10 @@ function SpeechCard({
 
   if (locked === null) {
     // Plan still loading: neutral card, no lock and no badge, so a premium
-    // subscriber never sees a flash of the paywalled state.
+    // subscriber never sees a flash of the paywalled state. Same open
+    // treatment as the locked tile above, minus the muting and the footer.
     return (
-      <div className="card h-full p-5">
+      <div className="h-full border-t border-(--hairline-ink) py-5">
         <span className="font-headline text-xl font-medium text-primary block">
           {speech.title}
         </span>
@@ -110,6 +116,9 @@ function SpeechCard({
     );
   }
 
+  // Keeps its box: a card reads as clickable, and this one is a button.
+  // Locked and still-loading above stay open type on purpose — the missing
+  // box is the tell that they aren't.
   return (
     <GlowCard className="card relative h-full">
       {/* The whole card is the button. The X sits above it in the corner. */}
@@ -268,9 +277,9 @@ function LibraryScreen() {
 
       {plan === "free" && (
         <Reveal className="native-hide">
-          <div className="navy-gradient mt-10 rounded-card p-6 text-white md:p-7">
-            <h2 className="font-headline text-h3 font-semibold">
-              Free practice never stops
+          <div className="navy-gradient mt-10 rounded-[length:var(--radius-panel)] p-6 text-white md:p-7">
+            <h2 className="font-headline text-h2 font-bold">
+              Free practice <span className="sweep sweep-strong">never stops</span>
             </h2>
             <p className="mt-2 text-base leading-6 text-white/85 max-w-[56ch]">
               The Daily Minute is yours either way, a new one-minute
