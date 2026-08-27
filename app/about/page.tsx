@@ -210,7 +210,7 @@ export default function AboutPage() {
             href="/signup"
             className="btn rounded-lg mt-8 inline-block bg-accent-strong text-white font-semibold px-8 py-3.5"
           >
-            Get started free
+            Start free
           </Link>
         </Reveal>
       </section>

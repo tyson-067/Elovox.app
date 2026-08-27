@@ -347,6 +347,14 @@ export default function LandingPage() {
                 See a sample report
               </a>
             </div>
+            {/* The objection the button raises, answered under the button
+                rather than crammed into its label. /pricing already tells
+                people the free plan takes no card; the page where they
+                actually decide never did. Every clause here is checkable
+                against lib/pricing.ts and the free plan's own limits. */}
+            <p className="mt-3 text-caption text-on-surface-variant">
+              No card required. One minute a day, free for good.
+            </p>
           </Reveal>
         </div>
         <div className="md:col-span-5">

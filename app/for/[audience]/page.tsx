@@ -114,6 +114,13 @@ export default async function AudiencePage({
               See pricing
             </Link>
           </div>
+          {/* Same reassurance the homepage hero carries, for the same reason:
+              these pages take cold search traffic straight to a signup
+              button, and "do I have to pay" is the question standing between
+              the two. */}
+          <p className="mt-3 text-caption text-on-surface-variant">
+            No card required. One minute a day, free for good.
+          </p>
         </Reveal>
       </section>
 
