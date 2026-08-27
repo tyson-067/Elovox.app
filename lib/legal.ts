@@ -73,8 +73,12 @@ export const SUBPROCESSORS = [
   },
   {
     name: "Google (Gemini API)",
+    // Also receives the briefs you type: /api/speech sends need, audience,
+    // occasion and tone to write a practice speech, and situation and panel
+    // to generate interview questions. Neither is a transcript or a frame,
+    // so the old purpose string did not cover them.
     purpose:
-      "Generating your coaching feedback from the transcript, and the camera analysis when you record with video",
+      "Generating your coaching feedback from the transcript, the camera analysis when you record with video, and writing the practice material you ask for from the brief you type",
     link: "https://ai.google.dev/gemini-api/terms",
   },
   {
@@ -96,8 +100,12 @@ export const SUBPROCESSORS = [
   },
   {
     name: "Google reCAPTCHA",
+    // App Check tokens are attached to the recording and speech-writing
+    // calls (lib/analyze.ts, lib/generated.ts) and verified there. The tips
+    // form uses a honeypot and a per-IP limit instead, so "on our forms"
+    // claimed a third-party contact that does not happen.
     purpose:
-      "Telling real browsers from bots at sign-in and on our forms, to stop abuse of the paid pipeline",
+      "Telling real browsers from bots at sign-in and on the recording and speech-writing pipeline, to stop abuse of the paid pipeline",
     link: "https://policies.google.com/privacy",
   },
 ] as const;

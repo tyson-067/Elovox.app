@@ -91,8 +91,8 @@ export default function BiometricsPage() {
           <p>
             Recording only happens when you start a practice run, and the camera
             stays off unless you switch it on — video is never required to use
-            Elovox. You can delete any session, or erase your whole account
-            along with everything saved to it, from{" "}
+            Elovox. You can erase your whole account along with everything
+            saved to it, or delete individual sessions a few at a time, from{" "}
             <Link href="/account" className="text-accent-strong hover:underline">
               your account settings
             </Link>

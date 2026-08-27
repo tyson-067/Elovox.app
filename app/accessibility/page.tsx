@@ -153,7 +153,8 @@ export default function AccessibilityPage() {
             you stop it whenever you&apos;re done. Your transcript and report
             stay in your history, so you
             can read the feedback at your own pace rather than taking it in
-            live. And you can delete any session, or your whole account, from{" "}
+            live. And you can erase your whole account, or delete individual
+            sessions a few at a time, from{" "}
             <Link href="/account" className="text-accent-strong hover:underline">
               your account settings
             </Link>

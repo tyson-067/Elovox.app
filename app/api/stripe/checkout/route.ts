@@ -348,6 +348,22 @@ export async function POST(req: NextRequest) {
         metadata: { firebaseUid: uid },
       },
       allow_promotion_codes: true,
+      // No automatic_tax here on purpose, and it is NOT the same as no tax.
+      // Stripe Tax is switched on account-wide in the dashboard, so sessions
+      // created here inherit it: live invoices come back with
+      // automatic_tax.enabled true and a tax line added on top (11.99 ->
+      // 12.80 on a US address). The prices are tax-EXCLUSIVE, which is why
+      // /pricing says "plus sales tax" rather than quoting a final figure.
+      //
+      // Two consequences worth knowing before touching this call:
+      //   - Tax collection depends on a dashboard toggle, not on this file.
+      //     An older subscription on this account predates it and still bills
+      //     with automatic_tax false, so the setting has already been
+      //     inconsistent once.
+      //   - Setting automatic_tax explicitly here would make it durable, but
+      //     Stripe then also wants customer_update.address = "auto" alongside
+      //     an existing `customer`, and getting that wrong fails checkout
+      //     outright. Do it deliberately against a test key, not in passing.
       // The webhook is the source of truth; these just route the browser back.
       success_url: `${appBaseUrl(req)}/account?checkout=success`,
       cancel_url: `${appBaseUrl(req)}/pricing?checkout=canceled`,

@@ -42,7 +42,13 @@ import { FAQ } from "@/lib/faq";
 const FREE_FEATURES = [
   "The Daily Minute, a new topic every day, set by Felix",
   "3 attempts a day to beat your own best score",
-  "Full Felix feedback report on every attempt",
+  // Not "full": reportSchema(premium) in app/api/analyze/route.ts gives a
+  // free report a one-sentence summary, one-sentence dimension notes, 2-3
+  // tips and lighter annotations, and withholds strengths and drills
+  // entirely. "Full" is the word the report screen and the dashboard both
+  // reserve for the Premium version, so selling Free with it contradicted
+  // the product in three places.
+  "A Felix feedback report on every attempt: score, marked transcript, tips",
   "Levels, XP, and streaks",
   "Coaching goals and progress tracking",
 ];
@@ -57,6 +63,10 @@ const PREMIUM_FEATURES = [
   // stops scripted abuse, so the copy says "as much as you need", not
   // "unlimited", which would be false. See the FAQ entry, which is explicit.
   "Everything in Free, plus as much practice as you need beyond the Daily Minute",
+  // Named explicitly: the report really is deeper on Premium (strengths,
+  // drills, longer notes), and with the Free list no longer saying "full",
+  // nothing else on the page told a reader that.
+  "Felix's deeper report: what you did well, targeted drills, a longer read on every dimension",
   "Camera coaching: posture, gestures, eye contact, expression",
   "The full speech library, about thirty seconds each, practice them as much as you like",
   "Interview practice: jobs, college, scholarships, grad school",
@@ -125,8 +135,14 @@ export default function PricingPage() {
   // never had one.
   const trialUsed = !subscribed && record?.trialEnd != null;
   // Whether this plan can offer a trial to THIS visitor at all (weekly can't,
-  // a returning customer already spent theirs). Used for the marketing close,
-  // which describes availability rather than the current selection.
+  // a returning customer already spent theirs).
+  //
+  // This used to drive the closing CTA too, on the reasoning that the close
+  // describes availability rather than the current selection. It doesn't: the
+  // close sits directly on top of a button that runs goPremium() with the
+  // user's own skipTrial choice, so with "Skip the trial and pay today"
+  // ticked the page read "Your first week's on us" over a button that charges
+  // $79.99 immediately. The close uses trialOn now, like every other CTA.
   const offersTrial = hasTrial(plan) && !trialUsed;
   // Weekly has no trial, a skipped trial is a charge today, and a used trial
   // won't be granted, so the CTA promises exactly what the click does.
@@ -244,7 +260,8 @@ export default function PricingPage() {
             Try every Premium feature free for {TRIAL_DAYS} days on the monthly
             and annual plans. Keep the free plan forever, or unlock all the
             coaching modes with no three-a-day limit. The longer you commit,
-            the less you pay each week.
+            the less you pay each week. Prices here are before sales tax, which
+            Stripe works out at checkout from your address and adds on top.
           </p>
         </Reveal>
       </section>
@@ -450,13 +467,14 @@ export default function PricingPage() {
                 <>Switch plans or cancel any time, no email, no phone call.</>
               ) : trialOn ? (
                 <>
-                  Then {formatUSD(plan.price)}/{plan.unit}. Cancel before
-                  day {plan.trialDays} and pay nothing.
+                  Then {formatUSD(plan.price)}/{plan.unit}, plus sales tax
+                  where it applies. Cancel before day {plan.trialDays} and pay
+                  nothing.
                 </>
               ) : (
                 <>
-                  {formatUSD(plan.price)} charged today, then every{" "}
-                  {plan.unit}. Cancel anytime.
+                  {formatUSD(plan.price)} plus sales tax where it applies,
+                  charged today, then every {plan.unit}. Cancel anytime.
                 </>
               )}
             </p>
@@ -598,16 +616,21 @@ export default function PricingPage() {
               line: the last thing the page says earns the same arrival as
               the last thing the homepage says. */}
           <h2 className="text-display-sm font-headline font-bold text-primary">
-            {subscribed
-              ? "You're all set."
-              : offersTrial
-                ? "Your first week's on us."
-                : "Practice like it counts."}
+            <WordReveal
+              text={
+                subscribed
+                  ? "You're all set."
+                  : trialOn
+                    ? "Your first week's on us."
+                    : "Practice like it counts."
+              }
+              step={90}
+            />
           </h2>
           <p className="mx-auto mt-3 max-w-[46ch] text-lg leading-7 text-on-surface-variant">
             {subscribed
               ? "Every Premium feature is unlocked. Switch cycles or cancel whenever you like. Changes take effect from the billing portal."
-              : offersTrial
+              : trialOn
                 ? "Start the free trial, keep the free plan, or go Premium. You can change your mind any time."
                 : "Keep the free plan, or go Premium and cancel whenever you like. You're billed from day one."}
           </p>

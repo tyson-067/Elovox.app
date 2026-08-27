@@ -76,12 +76,23 @@ const REPORT = [
   {
     title: "Your own words, marked up",
     mark: "marked up",
-    body: "Felix marks the words to stress, the places to pause, and where to slow down, and says what each change does to the room.",
+    // Two mark types exist, not four: the annotation schema's enum is
+    // ["strong", "flag"] (app/api/analyze/route.ts) and the report labels
+    // them "Strong moment" and "Worth cutting". Nothing is marked for pace,
+    // so "the places to pause, and where to slow down" described a pair of
+    // marks the pipeline has never emitted. Felix can say slow down inside a
+    // note; he does not mark it.
+    body: "Felix marks the lines that landed and the ones worth cutting, and says what each one does to the room.",
   },
   {
     title: "The numbers you can't hear yourself",
     mark: "can't hear",
-    body: "Words per minute, every filler counted, and every pause over 1.2 seconds with the spot it happened.",
+    // Three numbers, and only three. This used to end "with the spot it
+    // happened", which promised a per-pause location the pipeline has never
+    // produced: Analysis.pauses is a single integer (lib/types.ts) and the
+    // report prints it as one figure. Timestamps exist only on transcript
+    // segments Felix annotated, which is the bullet above this one.
+    body: "Words per minute, your filler words counted, and every pause over 1.2 seconds.",
   },
   {
     title: "How you came across",
@@ -327,8 +338,8 @@ export default function LandingPage() {
                 and not as an answer to "what do I actually get?". */}
             <p className="mt-5 text-lg md:text-xl leading-8 text-on-surface-variant max-w-[52ch]">
               Record a speech, a pitch or an interview answer. Elovox scores
-              it out of 100, marks the words to stress, and counts every
-              filler you didn&apos;t hear yourself say.
+              it out of 100, marks the lines that landed, and counts the
+              fillers you didn&apos;t hear yourself say.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Link
@@ -344,7 +355,7 @@ export default function LandingPage() {
                 href="#report"
                 className="text-base font-semibold text-primary underline underline-offset-4 decoration-primary/30 transition-colors hover:decoration-primary"
               >
-                See a sample report
+                See what comes back
               </a>
             </div>
             {/* The objection the button raises, answered under the button
@@ -504,9 +515,14 @@ export default function LandingPage() {
             What comes back
             <span className="grow-line" aria-hidden="true" />
           </h2>
+          {/* "Every recording gets the same report" was not true across
+              plans: a Premium report adds strengths and drills and runs
+              longer everywhere. It IS true across modes, which is the claim
+              worth making. "About a minute" was also roughly 3x the real
+              number, and the app's own loader says "a few seconds". */}
           <p className="mt-3 max-w-[56ch] text-lg leading-7 text-on-surface-variant">
-            Every recording gets the same report, and it takes about a minute
-            to arrive.
+            Every mode ends in the same report, and it usually arrives in
+            under half a minute.
           </p>
         </Reveal>
         {/* Four ledger rows, not a 2x2 of cards: each row is title left,
@@ -768,7 +784,7 @@ export default function LandingPage() {
               <ul className="mt-4 space-y-2 text-base leading-6 text-on-surface">
                 <li>The Daily Minute, a new topic every day, set by Felix</li>
                 <li>3 attempts a day to beat your own best score</li>
-                <li>Full Felix feedback report on every attempt</li>
+                <li>A Felix feedback report on every attempt</li>
                 <li>Levels, XP and streaks</li>
                 <li>Coaching goals and progress tracking</li>
               </ul>
@@ -798,9 +814,8 @@ export default function LandingPage() {
                 </span>
               </p>
               <p className="mt-1 font-data text-sm text-white/85">
-                {formatUSD(planFor("annual").price)}/year (
-                {formatUSD(planFor("annual").perWeek)}/week) · {TRIAL_DAYS}-day
-                free trial on monthly and annual
+                ({formatUSD(planFor("annual").perWeek)}/week) · {TRIAL_DAYS}-day
+                free trial on monthly and annual · plus sales tax
               </p>
               {/* Four lines, not eight. The feature grid further up this page
                   already made the case in detail; restating all of it here

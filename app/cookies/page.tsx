@@ -91,7 +91,7 @@ export default function CookiesPage() {
         <Section heading="Two third-party pieces that run">
           <Bullets
             items={[
-              "Google reCAPTCHA. It runs in the background to tell real browsers from bots at sign-in and on our forms, which is what stops strangers from burning our paid transcription and AI budget. It's a Google service and may set its own cookie in Google's domain. We use it only for abuse prevention.",
+              "Google reCAPTCHA. It runs in the background to tell real browsers from bots at sign-in and when you record or ask Felix to write something, which is what stops strangers from burning our paid transcription and AI budget. It's a Google service and may set its own cookie in Google's domain. We use it only for abuse prevention.",
               "Vercel Analytics. We count page views to see what's used, with a privacy-friendly, cookieless setup — no cookie, no cross-site identifier, no selling.",
             ]}
           />

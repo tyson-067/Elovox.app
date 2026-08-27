@@ -1,5 +1,5 @@
 import type { App } from "firebase-admin/app";
-import type { Firestore } from "firebase-admin/firestore";
+import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import type Stripe from "stripe";
 import { getStripe } from "./stripe";
 import { refundUnusedPortion } from "./refunds";
@@ -169,7 +169,43 @@ export async function eraseAccount(
     console.error(`[account] lead cleanup failed for ${uid}`, err);
   }
 
-  // 4. Delete every document under users/{uid}: sessions, challenges, usage,
+  // 4. The deletion-reason log. sessionDeletions lives outside users/{uid}
+  //    (written server-side by /api/session/delete, deny-all to clients), so
+  //    like the tips-list lead above it survived every step: a deleted user
+  //    was leaving behind a uid, a session id and the score of each session
+  //    they had removed, permanently.
+  //
+  //    Scrubbed rather than deleted. The row exists to answer "why do people
+  //    delete a take", and people who go on to leave entirely are the cohort
+  //    that question most wants to hear from, so dropping the rows would
+  //    quietly lose exactly the feedback worth having. Removing the uid and
+  //    the session id severs the link to a person; what is left (reason,
+  //    mode, category, score, timestamp) is aggregate and belongs to nobody.
+  //
+  //    Best-effort, like the lead sweep: this is product analytics, and it
+  //    must never be the reason a user cannot erase their account.
+  try {
+    const snap = await db
+      .collection("sessionDeletions")
+      .where("uid", "==", uid)
+      .get();
+    // Chunked at 500 for the same WriteBatch cap as the cleanup step above.
+    for (let i = 0; i < snap.docs.length; i += 500) {
+      const batch = db.batch();
+      for (const doc of snap.docs.slice(i, i + 500)) {
+        batch.update(doc.ref, {
+          uid: FieldValue.delete(),
+          sessionId: FieldValue.delete(),
+          erasedAccount: true,
+        });
+      }
+      await batch.commit();
+    }
+  } catch (err) {
+    console.error(`[account] deletion-log scrub failed for ${uid}`, err);
+  }
+
+  // 5. Delete every document under users/{uid}: sessions, challenges, usage,
   //    profile (including the plan doc, which only the Admin SDK can touch).
   //
   //    Guarded like the steps above. recursiveDelete is a BulkWriter and can
@@ -184,7 +220,7 @@ export async function eraseAccount(
     return { ok: false, step: "data" };
   }
 
-  // 5. Delete the login itself. Do this last: while the auth record exists
+  // 6. Delete the login itself. Do this last: while the auth record exists
   //    the user could still sign in and see an empty account, which is odd
   //    but harmless, whereas deleting it first would strand the data with
   //    no owner and no way to retry.

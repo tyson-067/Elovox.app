@@ -108,9 +108,15 @@ export const AUDIENCES: Audience[] = [
         title: "Custom speeches",
         body: "Give Felix the situation, the room, the objection you keep hitting, and he writes a script to rehearse against.",
       },
+      // Was "Audience-impact read", which is not a mode. audienceImpact is a
+      // field on every report, free included (it sits in `required` before
+      // the premium branch in app/api/analyze/route.ts), so listing it here
+      // sold a Premium practice mode that you cannot choose and already get.
+      // Camera coaching is a real gated mode, and it is the one a founder
+      // pitching over video is actually missing.
       {
-        title: "Audience-impact read",
-        body: "A prediction of how a listener came away: trusted or doubted, backing you or just nodding along.",
+        title: "Camera coaching",
+        body: "Turn the camera on and Felix scores what an investor watches as well as hears: posture, eye contact, and whether you hold still through the ask.",
       },
     ],
     payoff: "Deliver it like it's already funded.",

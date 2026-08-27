@@ -157,7 +157,11 @@ export function subscriptionStarted(
     key: `sub-start:${uid}:${cycle}`,
     subject: `${LEGAL.serviceName} Premium is on`,
     doc: {
-      preheader: "Unlimited practice, full reports, the whole library.",
+      // Not "unlimited": there is a 12/hour and 120/day analysis ceiling
+      // (lib/rateLimit.ts, app/api/analyze/route.ts). The rest of the
+      // codebase purged that word deliberately and this billing email was
+      // the one place it survived.
+      preheader: "Practice beyond the Daily Minute, deeper reports, the whole library.",
       heading: "Premium is on",
       blocks: [
         { kind: "lead", text: `You're on the ${cycle} plan.` },
@@ -169,8 +173,16 @@ export function subscriptionStarted(
         },
         { kind: "cta", label: "Open Elovox", href: `${app()}/practice` },
         {
+          // This said "cancel early and we refund the part you didn't use",
+          // which no self-service path does: an ordinary cancel goes to the
+          // Stripe portal (app/api/stripe/portal/route.ts) and issues no
+          // refund, and /refunds says payments are generally non-refundable
+          // for time you didn't use. refundUnusedPortion only runs on account
+          // deletion, duplicate-subscription cleanup, and admin action. A
+          // subscriber who cancelled an annual plan on this promise and got
+          // nothing back had it in writing from us.
           kind: "note",
-          text: "Cancel early and we refund the part you didn't use, back to your card. See the refunds page for the detail.",
+          text: "Cancel any time and you keep Premium until the period you've paid for runs out. Delete your account instead and we put the unused part back on your card. See the refunds page for the detail.",
         },
       ],
     },

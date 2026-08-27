@@ -69,7 +69,21 @@ test.describe("page bottom", () => {
           let deepest = 0;
           main.querySelectorAll("*").forEach((el) => {
             const r = el.getBoundingClientRect();
-            if (r.height > 0 && r.width > 0 && (el.textContent || "").trim()) {
+            // checkVisibility, not just a non-zero box. Chrome hides the
+            // children of a CLOSED <details> with content-visibility rather
+            // than display:none, so /pricing's five collapsed FAQ answers
+            // still measure a few hundred px tall each while painting
+            // nothing. Their phantom boxes hang below the questions, and the
+            // longest one was landing 2px above the footer, failing a test
+            // about visible spacing over text no reader can see. The
+            // assertion is unchanged; this only stops counting content that
+            // is not rendered.
+            const shown = el.checkVisibility({
+              contentVisibilityAuto: true,
+              opacityProperty: true,
+              visibilityProperty: true,
+            });
+            if (shown && r.height > 0 && r.width > 0 && (el.textContent || "").trim()) {
               deepest = Math.max(deepest, r.bottom + window.scrollY);
             }
           });

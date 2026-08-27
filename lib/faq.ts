@@ -24,10 +24,19 @@ export const FAQ: FaqItem[] = [
   },
   {
     q: "Does Premium give me more Daily Minute attempts?",
-    a: "No, and that one is on purpose. The Daily Minute is three attempts a day on every plan, because it's the same topic for everybody and the scores are only comparable if everyone gets the same number of goes at it. What Premium unlocks is everything else: the speech library, your own material, interview practice, social skills and custom speeches, with no three-a-day limit like the Daily Minute. There's a generous fair-use ceiling to stop automated abuse, set well above a full day of real practice, so you'll never meet it by actually practicing.",
+    // The old last sentence promised a ceiling "set well above a full day of
+    // real practice, so you'll never meet it by actually practicing". The
+    // daily cap it described (120, app/api/analyze/route.ts) is genuinely out
+    // of reach, but it is not the binding one: lib/rateLimit.ts caps analyze
+    // at 12 an hour per user, fails closed, and is checked before entitlement
+    // is resolved, so Premium does not exempt you. A library speech runs 30 to
+    // 45 seconds and analysis takes about 20, so a determined session reaches
+    // twelve inside twenty minutes. Naming both numbers is the only version
+    // of this answer that stays true for the person it happens to.
+    a: "No, and that one is on purpose. The Daily Minute is three attempts a day on every plan, because it's the same topic for everybody and the scores are only comparable if everyone gets the same number of goes at it. What Premium unlocks is everything else: the speech library, your own material, interview practice, social skills and custom speeches, with no three-a-day limit like the Daily Minute. There is a fair-use ceiling to stop automated abuse, about a dozen recordings an hour and 120 a day. That's more than a hard practice session, but it isn't infinite, which is why we don't say unlimited.",
   },
   {
     q: "Is the Free plan really free forever?",
-    a: "Yes. The daily speech, three attempts, and your full feedback report stay free for as long as you want them. Premium adds the other coaching modes and lifts the three-a-day limit on them.",
+    a: "Yes. The daily speech, three attempts, and a Felix feedback report on every one of them stay free for as long as you want them. Premium adds the other coaching modes, lifts the three-a-day limit on them, and turns the report into the deeper version with strengths and drills.",
   },
 ];

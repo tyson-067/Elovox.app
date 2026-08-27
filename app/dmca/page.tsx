@@ -70,8 +70,9 @@ export default function DmcaPage() {
           <p>
             Most of what you create in Elovox — your recordings, transcripts, and
             the briefs you type — is private to your own account and never shown
-            to anyone else. The one thing other users can see is the display name
-            you pick for the leaderboard. So a copyright report will almost always
+            to anyone else. What other users can see is your leaderboard row:
+            the display name you pick, and your rank, level and streak. So a
+            copyright report will almost always
             be about a public handle; if that ever changes, this process covers
             whatever is public.
           </p>

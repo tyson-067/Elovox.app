@@ -77,7 +77,13 @@ export default function PrivacyPage() {
             "We do not keep your audio or video. Recordings are processed to produce your feedback, then discarded. We store the transcript and the coaching report, not the recording.",
             "We do not use your voice to identify you. Elovox does not create a voiceprint or any biometric identifier, and does not attempt to recognize who is speaking.",
             "We never see your card details. Payments run entirely through Stripe.",
-            "You can delete any practice session from your history, or erase your entire account, from your account settings, no email, no waiting.",
+            // Account erasure really is immediate and uncapped
+            // (lib/accountDeletion.ts). Per-session deletion is not:
+            // app/api/session/delete/route.ts meters it per day and answers
+            // "You've used today's delete. It comes back tomorrow." Promising
+            // "no waiting" for both was the one claim on this page that
+            // offered more protection than the code delivers.
+            "You can erase your entire account from your account settings, no email and no waiting. You can also delete individual practice sessions from your history, a few each day.",
           ]}
         />
       </Section>
@@ -148,6 +154,21 @@ export default function PrivacyPage() {
           including IP addresses, which we use to enforce rate limits and to
           stop abuse. We count how many analyses a free account has run each day
           in order to enforce the free-tier limit.
+        </p>
+        {/* The leaderboard row was the one durable, cross-user projection the
+            policy never mentioned. publishRow() in lib/leaderboardServer.ts
+            writes it on every scored session, with no opt-in, and
+            firestore.rules makes it readable by any signed-in user. Saying
+            elsewhere that practice history is protected from other users was
+            true of the sessions and silent on the row derived from them. */}
+        <p>
+          <strong>Your leaderboard row.</strong> Every scored session updates a
+          public row holding your XP, your level, your streak, and the display
+          name you choose. Any signed-in user can read it, which is what makes
+          a leaderboard a leaderboard. Choosing a display name is optional and a
+          row without one appears as an anonymous speaker, but the row itself is
+          part of practising and there is no way to switch it off. Your signup
+          name is never in it, and neither is anything you said.
         </p>
       </Section>
 
@@ -229,6 +250,15 @@ export default function PrivacyPage() {
             "Billing records: retained by Stripe, and by us in summary form, for as long as tax and accounting law requires.",
             "Server logs: a short operational window, then discarded.",
             "Audio and video: not retained by Elovox at all.",
+            // moderationEvents and adminAudit are written server-side and are
+            // deliberately not swept by eraseAccount: they are the record of a
+            // decision we may have to stand behind after the account it
+            // concerned is gone. That is defensible, but it was undisclosed,
+            // which is the part that was not.
+            "Enforcement and operator-action records: kept after an account closes. If we warn, suspend or close an account, or an operator acts on one, the record of that decision outlives the account, so we can answer for it. It holds what was decided and why, never what you said.",
+            // The deletion-reason rows keep their reason/mode/score but lose
+            // the uid and session id in step 4 of lib/accountDeletion.ts.
+            "Why a session was deleted: kept as an anonymous product signal, with the link to you and to the session removed when your account is deleted.",
           ]}
         />
       </Section>
@@ -253,8 +283,11 @@ export default function PrivacyPage() {
             your account settings
           </Link>{" "}
           will permanently erase your entire account (history, profile, and
-          login) along with canceling any subscription. For anything else,
-          email{" "}
+          login) along with canceling any subscription. The two exceptions are
+          named under &ldquo;How long we keep things&rdquo; above: an
+          enforcement or operator-action record, if there is one, and the
+          anonymous note of why a session was deleted, which stops being
+          connected to you. For anything else, email{" "}
           <a className="text-accent-strong hover:underline" href={mailto}>
             {LEGAL.contactEmail}
           </a>{" "}
