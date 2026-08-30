@@ -22,11 +22,16 @@ import { DobPicker, dobPartsToIso, type DobParts } from "@/components/DobPicker"
 import type { BillingCycle } from "@/lib/pricing";
 import {
   AGE_BLOCK_MESSAGE,
+  AGE_CORRECTION_ACTION,
+  AGE_CORRECTION_EXPLAINER,
+  AGE_CORRECTION_NOTICE,
   MINIMUM_AGE,
   MINOR_NOTICE,
   ageFromDob,
   rememberAgeBlock,
+  takeAgeBlockCorrection,
   useAgeBlocked,
+  useAgeCorrectionAvailable,
 } from "@/lib/age";
 import { useIsNative } from "@/lib/native";
 
@@ -145,6 +150,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     year: "",
   });
   const dob = dobPartsToIso(dobParts);
+  // Set once a lockout has been undone, purely so the picker can say why the
+  // visitor is looking at it again. Cosmetic — the correction itself is
+  // already recorded in storage by the time this flips.
+  const [ageCorrected, setAgeCorrected] = useState(false);
 
   const age = isSignup && dob ? ageFromDob(dob) : null;
   // Enough to submit with: a date we can actually read. Whether it clears the
@@ -159,6 +168,36 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   // permanently, before they had finished typing their own birthday.
   const wasBlocked = useAgeBlocked();
   const blocked = isSignup && wasBlocked;
+  // Whether the lockout screen has a way back left to offer. Read here with
+  // the other hooks rather than inside the `blocked` branch below, which sits
+  // after an early return and so isn't a place a hook can go.
+  const correctionLeft = useAgeCorrectionAvailable();
+  const canCorrectAge = blocked && correctionLeft;
+
+  // Undo a lockout and hand the form back, for the visitor who picked the
+  // wrong year rather than the one who answered honestly. Three deliberate
+  // parts:
+  //
+  // takeAgeBlockCorrection() owns the decision, not this component. It spends
+  // the single allowance and returns false if there was none left, so a
+  // second click landing behind the first can't reopen a spent block.
+  //
+  // Clearing `pending` is not tidying-up, it's the fix. The confirmation
+  // screen is still holding the date that caused the block, and it renders
+  // AFTER this branch — so standing the block down without this drops the
+  // visitor straight back onto "Yes, I'm 9" with the bad date intact, one
+  // reflex tap from burning their only correction on the same mistake.
+  //
+  // The date itself is deliberately left in the picker. It is the evidence:
+  // someone who meant 1916 and chose 2016 fixes it by seeing it, and wiping
+  // the wheels would hide the very thing they came back to correct.
+  const correctAge = () => {
+    if (!takeAgeBlockCorrection()) return;
+    setPending(null);
+    setError("");
+    setNotice("");
+    setAgeCorrected(true);
+  };
 
   // Stores the selection and nothing else. No validation, no navigation — the
   // date isn't an answer until it's submitted and then confirmed.
@@ -251,15 +290,38 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           We can&apos;t sign you up
         </h1>
         <p className="mt-3 text-lg leading-7 text-on-surface-variant">
-          {AGE_BLOCK_MESSAGE} Thanks for being honest about your age, come
-          back when you&apos;re old enough and we&apos;ll be here.
+          {AGE_BLOCK_MESSAGE}{" "}
+          Thanks for being honest about your age, come back when you&apos;re
+          old enough and we&apos;ll be here.
         </p>
-        <Link
-          href="/"
-          className="btn rounded-lg mt-8 inline-block bg-accent-strong text-white font-semibold px-8 py-3.5"
-        >
-          Back to home
-        </Link>
+        {/* The way out for someone who mistyped. Offered second, and worded
+            as a mistake rather than a retry, because the message above is the
+            true answer for almost everyone who reads it — this screen should
+            not talk anybody into pressing the other button. Always available
+            as MAX_CORRECTIONS stands; the condition is here so that capping
+            it later needs no change on this screen. */}
+        {canCorrectAge && (
+          <p className="mt-4 text-base leading-6 text-on-surface-variant">
+            {AGE_CORRECTION_EXPLAINER}
+          </p>
+        )}
+        <div className="mt-8 space-y-3">
+          <Link
+            href="/"
+            className="btn rounded-lg block w-full bg-accent-strong text-center text-white font-semibold px-8 py-3.5"
+          >
+            Back to home
+          </Link>
+          {canCorrectAge && (
+            <button
+              type="button"
+              onClick={correctAge}
+              className="card pill w-full px-4 py-3 text-base font-semibold text-primary hover:border-primary/30"
+            >
+              {AGE_CORRECTION_ACTION}
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -535,7 +597,9 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               <DobPicker
                 value={dobParts}
                 onChange={onDobChange}
-                describedBy="dob-note"
+                describedBy={
+                  ageCorrected ? "dob-note dob-correction" : "dob-note"
+                }
               />
             </div>
             <p
@@ -544,6 +608,20 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             >
               We use this once to check your age, and don&apos;t store it.
             </p>
+            {/* Sits in aria-describedby rather than a live region. Coming back
+                from the lockout screen remounts this whole form, and a
+                role="status" that is already populated at mount typically
+                announces nothing — whereas a description is read out the
+                moment a wheel takes focus, which is exactly when it's
+                needed. */}
+            {ageCorrected && (
+              <p
+                id="dob-correction"
+                className="mt-1.5 text-label leading-5 text-primary"
+              >
+                {AGE_CORRECTION_NOTICE}
+              </p>
+            )}
             {/* The under-18 notice used to sit here, keyed off the field as
                 it changed — on iOS it flickered in and out while the picker
                 wheels moved through the teens. It lives on the confirmation

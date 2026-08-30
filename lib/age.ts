@@ -79,6 +79,81 @@ const STALE_BLOCK_KEYS = [
 const BLOCK_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
+ * How many times a blocked browser may say "that wasn't my date of birth"
+ * and get the signup form back. Unlimited, by operator decision.
+ *
+ * Know what this setting trades. A wrong answer is never final, so nobody is
+ * locked out of the product by a mis-tapped wheel — and equally, the block
+ * becomes a screen anyone can walk past, so it slows a second guess at the
+ * date without preventing one. The age question is on the honour system.
+ *
+ * That is a defensible place to stand rather than an oversight: no
+ * client-side check can prove an age anyway (see the header), and the
+ * standard the law applies is that we not KNOWINGLY sign up a child. The
+ * confirmation screen still says the age back to the visitor, the rule is
+ * still stated plainly, and the account is still refused.
+ *
+ * To put a cap back, set a finite number here and change
+ * {@link AGE_CORRECTION_EXPLAINER}, which promises what this allows. The
+ * count below is still kept and still carried across corrections, so a cap
+ * added later applies correctly to browsers that have already used the
+ * unlimited allowance — no migration, no key bump.
+ */
+const MAX_CORRECTIONS = Number.POSITIVE_INFINITY;
+
+/**
+ * What we keep about a failed age check. Still no date of birth, still no
+ * age: `at` dates the block for the TTL, `standing` is whether it is closing
+ * the form right now, and `corrections` counts how many times this browser
+ * has been handed the form back.
+ *
+ * A corrected block is kept rather than deleted. The record is the only thing
+ * that remembers a correction was spent, and while {@link MAX_CORRECTIONS} is
+ * unlimited that count is doing nothing — but it is what a future cap would
+ * be measured against, and a count only kept once capping starts would read
+ * every existing browser as fresh.
+ */
+type BlockRecord = { at: number; corrections: number; standing: boolean };
+
+/**
+ * The live block, or null if there isn't one. Pure — no writes, no cleanup —
+ * because the snapshot reads below run on every render.
+ */
+function readBlock(): BlockRecord | null {
+  try {
+    const raw = window.localStorage.getItem(BLOCK_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { at?: unknown; corrections?: unknown; standing?: unknown };
+    // Unreadable or undated: it isn't evidence of anything, so don't block on
+    // it. (A stale entry is simply ignored from now on.)
+    if (typeof parsed?.at !== "number") return null;
+    if (Date.now() - parsed.at >= BLOCK_TTL_MS) return null;
+    return {
+      at: parsed.at,
+      // Records written before corrections existed carry neither field, and
+      // the defaults read them correctly: a standing block that has spent
+      // nothing. So everyone already locked out gets the way back too,
+      // without a key bump — which would have released the honest answers
+      // along with the typos.
+      corrections:
+        typeof parsed.corrections === "number" ? parsed.corrections : 0,
+      standing: parsed.standing !== false,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeBlock(record: BlockRecord): void {
+  try {
+    window.localStorage.setItem(BLOCK_KEY, JSON.stringify(record));
+  } catch {
+    /* private mode / storage disabled, the gate still ran this session */
+  }
+  listeners.forEach((fn) => fn());
+}
+
+/**
  * Remember that this browser failed the age check, so the form stays closed
  * instead of inviting an immediate retry with a different date. A soft
  * deterrent — clearing site data resets it, and so does {@link BLOCK_TTL_MS}
@@ -86,29 +161,49 @@ const BLOCK_TTL_MS = 30 * 24 * 60 * 60 * 1000;
  *
  * Call this only for an answer the visitor has explicitly confirmed. See
  * the note on v3 above for what happens when it's called any earlier.
+ *
+ * Carries the correction count forward. Inert while
+ * {@link MAX_CORRECTIONS} is unlimited, and load-bearing the moment it isn't:
+ * without this, correct → pick another date → still under age → block would
+ * write `corrections: 0` and buy a fresh allowance every round, which is how
+ * a cap silently becomes no cap at all.
  */
 export function rememberAgeBlock(): void {
-  try {
-    window.localStorage.setItem(BLOCK_KEY, JSON.stringify({ at: Date.now() }));
-  } catch {
-    /* private mode / storage disabled, the gate still ran this session */
+  writeBlock({
+    at: Date.now(),
+    corrections: readBlock()?.corrections ?? 0,
+    standing: true,
+  });
+}
+
+/**
+ * True while a blocked browser still has a correction left — i.e. the lockout
+ * screen has a way back to offer.
+ */
+function correctionAvailable(): boolean {
+  const block = readBlock();
+  return !!block && block.standing && block.corrections < MAX_CORRECTIONS;
+}
+
+/**
+ * Spend a correction: stand the block down and hand the form back. Returns
+ * false, changing nothing, when there was nothing to stand down — an expired
+ * block, an already-corrected one, or (under a finite {@link MAX_CORRECTIONS})
+ * a spent allowance. That guard is why a stale button or a second click
+ * landing behind the first can't reopen anything.
+ */
+export function takeAgeBlockCorrection(): boolean {
+  const block = readBlock();
+  if (!block || !block.standing || block.corrections >= MAX_CORRECTIONS) {
+    return false;
   }
-  listeners.forEach((fn) => fn());
+  writeBlock({ ...block, corrections: block.corrections + 1, standing: false });
+  return true;
 }
 
 function isAgeBlocked(): boolean {
-  try {
-    const raw = window.localStorage.getItem(BLOCK_KEY);
-    if (!raw) return false;
-    const at = (JSON.parse(raw) as { at?: unknown })?.at;
-    // Unreadable or undated: it isn't evidence of anything, so don't block on
-    // it. (This read has to stay pure for useSyncExternalStore, so nothing is
-    // cleaned up here — a stale entry is simply ignored from now on.)
-    if (typeof at !== "number") return false;
-    return Date.now() - at < BLOCK_TTL_MS;
-  } catch {
-    return false;
-  }
+  const block = readBlock();
+  return !!block && block.standing;
 }
 
 // localStorage is an external store, so it's read through
@@ -139,8 +234,42 @@ export function useAgeBlocked(): boolean {
   return useSyncExternalStore(subscribe, isAgeBlocked, () => false);
 }
 
-/** Shown to anyone under the minimum age. Final, there's no retry path. */
+/**
+ * True while the lockout screen still has a correction to offer. Read through
+ * the same store as {@link useAgeBlocked}, so spending one re-renders both,
+ * and returned as a boolean rather than the record itself because
+ * useSyncExternalStore compares snapshots by identity — a fresh object every
+ * read would loop forever.
+ */
+export function useAgeCorrectionAvailable(): boolean {
+  return useSyncExternalStore(subscribe, correctionAvailable, () => false);
+}
+
+/**
+ * Shown to anyone under the minimum age. The screen it lands on always offers
+ * a way back to the form — see {@link MAX_CORRECTIONS}.
+ */
 export const AGE_BLOCK_MESSAGE = `Sorry, you need to be at least ${MINIMUM_AGE} to use Elovox.`;
+
+/**
+ * The lockout screen's way out. Named after the mistake rather than the
+ * remedy: "Try again" invites a second guess at the question, which is the
+ * behaviour the block is there to stop, while this only makes sense to press
+ * if the date on file was actually wrong.
+ */
+export const AGE_CORRECTION_ACTION = "I entered the wrong date of birth";
+
+/** Sits above it, so the offer can't be read as "keep guessing until it opens". */
+export const AGE_CORRECTION_EXPLAINER =
+  "Picked the wrong year by mistake? You can go back and enter your date of birth again.";
+
+/**
+ * Shown beside the picker afterwards. Points at the year specifically, since
+ * that is the wheel that produces this mistake — the day and month are rarely
+ * off by enough to matter, and a slipped century is the whole story.
+ */
+export const AGE_CORRECTION_NOTICE =
+  "Your last answer is still filled in below. Check it — the year especially — before you continue.";
 
 /** Shown to 13–17 year olds, who may sign up with permission. */
 export const MINOR_NOTICE =
