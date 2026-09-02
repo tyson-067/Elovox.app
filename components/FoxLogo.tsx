@@ -95,6 +95,50 @@ function Eyes({ mood }: { mood: FelixMood }) {
 }
 
 /**
+ * The mouth. Felix never had one: the muzzle and the nose carried the face,
+ * and for a fox who only ever listened that was enough. Now he talks.
+ *
+ * Two layers. The lips are the fox's "w", always drawn: the resting smile
+ * under the nose. The cavity is the open mouth, drawn at full size and then
+ * collapsed to a line by scaleY(0), so at rest it shows nothing and costs
+ * nothing. Speech drives it through three custom properties set on ANY
+ * ancestor (custom properties inherit, so the fox needs no props for it):
+ *
+ *   --felix-open   0..1  how far the jaw drops. The audio's level.
+ *   --felix-wide   0..1  round ("oo") at 0, spread ("ee") at 1. Its tilt.
+ *   --felix-tilt   deg   a small nod on stressed syllables.
+ *
+ * The rules are .felix-cavity / .felix-lips / .felix-muzzle / .felix-head in
+ * globals.css; lib/useFelixVoice.ts writes the values, sixty times a second,
+ * straight onto a wrapper's style and never through React.
+ */
+function Mouth() {
+  return (
+    <g>
+      <g className="felix-cavity">
+        <path
+          d="M89 125.5 Q94.5 123 100 124.6 Q105.5 123 111 125.5 Q100 146 89 125.5 Z"
+          fill={DARK}
+        />
+        {/* tongue */}
+        <ellipse cx="100" cy="131.5" rx="5.5" ry="3.2" fill="#e0607a" />
+      </g>
+      <g
+        className="felix-lips"
+        stroke={DARK}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        fill="none"
+        opacity="0.85"
+      >
+        <path d="M100 118.5 C100 124 97 126 91 126" />
+        <path d="M100 118.5 C100 124 103 126 109 126" />
+      </g>
+    </g>
+  );
+}
+
+/**
  * What Felix is wearing. Ids match the wardrobe in lib/quests.ts, and the
  * dashboard passes whichever one the user's level has unlocked — so an
  * unlocked outfit is a thing you can see on him, not a line in a list.
@@ -378,16 +422,33 @@ function VoiceBars({ alive = false }: { alive?: boolean }) {
  * `animate` adds the idle sway (or the cheer bounce on a cheering Felix).
  * Off by default: a page with several Felixes all bobbing is a fairground.
  */
+/**
+ * `crop="portrait"` frames the ears to just below the chin, with a hint of
+ * shoulder: the same drawing, a tighter window. For the coaching module,
+ * where a whole fox with a tail reads as a mascot and a head reads as a
+ * person talking to you.
+ */
+export type FelixCrop = "full" | "portrait";
+
+const VIEWBOX: Record<FelixCrop, string> = {
+  full: "0 0 200 200",
+  // Ears (y=24) to a little below the chin (y=141), head width with room
+  // for the glasses' arms (x=48..152). Square, so the same size classes fit.
+  portrait: "32 18 136 136",
+};
+
 export function Felix({
   className = "",
   mood = "idle",
   animate = false,
   accessory,
+  crop = "full",
 }: {
   className?: string;
   mood?: FelixMood;
   animate?: boolean;
   accessory?: FelixAccessory | null;
+  crop?: FelixCrop;
 }) {
   const fur = FUR_FILL;
   const wearingChestPiece = !!accessory && CHEST_ACCESSORIES.includes(accessory);
@@ -404,12 +465,13 @@ export function Felix({
 
   return (
     <svg
-      viewBox="0 0 200 200"
+      viewBox={VIEWBOX[crop]}
       className={`${className} ${motion}`.trim()}
       // The app's follow-through layer keys on this: the shell animates the
       // tail and ear groups on every mood except sleepy, whose folded ears
       // must not twitch back open. The website has no rules for it — inert.
       data-mood={mood}
+      data-crop={crop === "portrait" ? "portrait" : undefined}
       aria-hidden="true"
     >
       <FurGradient />
@@ -452,6 +514,9 @@ export function Felix({
       )}
 
 
+      {/* Everything from the ears down to the whiskers is one group, so the
+          head can nod as he talks (see <Mouth>) without the body following. */}
+      <g className="felix-head">
       {/* ears. Sleepy Felix's fold back, which is most of what sells the mood */}
       <g
         className="felix-ears"
@@ -474,10 +539,12 @@ export function Felix({
       />
       {/* muzzle */}
       <path
+        className="felix-muzzle"
         d="M73 106 C83 126 117 126 127 106 C125 128 114 139 100 141 C86 139 75 128 73 106 Z"
         fill={CREAM}
       />
       <ellipse cx="100" cy="113" rx="6.5" ry="5.5" fill={DARK} />
+      <Mouth />
 
       {showGlasses ? <Glasses /> : null}
       <Eyes mood={mood} />
@@ -494,6 +561,7 @@ export function Felix({
       {accessory && !wearingChestPiece && !wearingBackPiece ? (
         <Accessory id={accessory} />
       ) : null}
+      </g>
     </svg>
   );
 }
@@ -513,6 +581,7 @@ export function FelixMark({
   return (
     <svg viewBox="30 20 140 140" className={className} aria-hidden="true">
       <FurGradient />
+      <g className="felix-head">
       <path d="M56 78 L49 24 L93 52 Z" fill={fur} />
       <path d="M144 78 L151 24 L107 52 Z" fill={fur} />
       <path d="M63 69 L58 37 L83 54 Z" fill={DARK} opacity="0.2" />
@@ -522,11 +591,14 @@ export function FelixMark({
         fill={fur}
       />
       <path
+        className="felix-muzzle"
         d="M73 106 C83 126 117 126 127 106 C125 128 114 139 100 141 C86 139 75 128 73 106 Z"
         fill={CREAM}
       />
       <ellipse cx="100" cy="113" rx="6.5" ry="5.5" fill={DARK} />
+      <Mouth />
       <Eyes mood={mood} />
+      </g>
     </svg>
   );
 }

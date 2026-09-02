@@ -97,6 +97,18 @@ export const LIMITS = {
   // Gemini speech generation. "Felix writes it".
   speech: { limit: 30, windowMs: HOUR },
   "speech-ip": { limit: 600, windowMs: HOUR },
+  // Fish Audio text-to-speech: Felix reading his feedback aloud. Cheap per
+  // call next to the two above, but a paid third party all the same. Replays
+  // are cached in the browser (lib/felixVoice.ts), so an honest session
+  // spends one call per report it opens; this is sized for that, not for a
+  // script reading the whole library out loud.
+  voice: { limit: 60, windowMs: HOUR },
+  "voice-ip": { limit: 900, windowMs: HOUR },
+  // Felix's spoken take: one short Gemini call per report, the first time it
+  // is opened, then served from the session doc. Sized for someone opening
+  // every report they have ever recorded in one sitting, not for a script.
+  felix: { limit: 60, windowMs: HOUR },
+  "felix-ip": { limit: 900, windowMs: HOUR },
   // The daily challenge, public and unauthenticated, so limited per IP. Two
   // ceilings. `daily` is the tight one and sits BEHIND the memo cache, because
   // what it exists to bound is paid Gemini generation. `daily-flood` applies to

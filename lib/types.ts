@@ -101,6 +101,22 @@ export type PracticeMode =
   | "social" // social skills practice
   | "custom"; // a speech Felix wrote for this user
 
+/**
+ * Felix's spoken take on a session: thirty to sixty words the model wrote
+ * from the finished analysis (lib/felixTake.ts, /api/felix), stored on the
+ * session so reopening a report never pays for a second generation. Only
+ * model-written takes are stored; the deterministic fallback is rebuilt on
+ * the client and never persisted. `version` is FELIX_TAKE_VERSION at the
+ * time: a prompt change bumps it and older takes are rewritten on the next
+ * open.
+ */
+export interface FelixTake {
+  text: string;
+  version: number;
+  generatedAt: number; // epoch ms
+  source: "model" | "fallback";
+}
+
 export interface Session {
   id: string;
   category: CategoryId;
@@ -132,6 +148,8 @@ export interface Session {
   createdAt: number; // epoch ms
   durationSec: number;
   analysis: Analysis;
+  /** Felix's spoken take, once /api/felix has written it. Server-written. */
+  felix?: FelixTake;
 }
 
 export type InterviewTypeId =

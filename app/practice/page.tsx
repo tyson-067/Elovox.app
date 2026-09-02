@@ -19,6 +19,7 @@ import { GOALS } from "@/lib/goals";
 import { usePlan } from "@/lib/plan";
 import { analyzeRecording, AnalysisError, type LiveMetrics } from "@/lib/analyze";
 import { saveSession } from "@/lib/store";
+import { prefetchFelixTake } from "@/lib/felixTakeClient";
 import { FrameSampler } from "@/lib/frames";
 import {
   fetchDailyChallenge,
@@ -46,6 +47,7 @@ import type {
   GoalId,
   InterviewTypeId,
   PracticeMode,
+  Session,
   SocialSkillId,
 } from "@/lib/types";
 
@@ -611,7 +613,7 @@ function RecordingScreen() {
       const { analysis, id, xpEarned, attemptNumber, xpReasons, leveledUpTo, isNewBest } =
         cached;
 
-      await saveSession({
+      const saved: Session = {
         id,
         category,
         mode,
@@ -636,10 +638,16 @@ function RecordingScreen() {
         createdAt: Date.now(),
         durationSec: Math.round(durationSec),
         analysis,
-      });
+      };
+      await saveSession(saved);
 
       // Saved cleanly: drop the cache so a fresh take re-analyses.
       pendingSaveRef.current = null;
+      // Ask for Felix's take now, not when the report mounts: the request
+      // runs while the route changes, so the module usually opens with the
+      // take already written rather than a status line. Fire-and-forget; a
+      // failure here is just a report that asks for itself.
+      prefetchFelixTake(saved);
       if (activeRef.current) router.push(`/report/${id}`);
     },
     [category, speech, generated, daily, isDaily, interviewId, socialId, mode, router]

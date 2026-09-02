@@ -1470,6 +1470,32 @@ html[data-backdrop-tone] .ground-panel {
   .xp-bar-fill::after {
     display: none;
   }
+  /* Felix's lip-sync stays: the reader pressed play, and a mouth that moves
+     with the sound they asked for is the content, not decoration. The nod
+     and the jaw stretch around it are decoration, and go; so does the
+     loading pulse on the badge. */
+  .felix-head,
+  .felix-muzzle {
+    transform: none;
+  }
+  .felix-speaks[data-status="loading"] .felix-speaks-badge {
+    animation: none;
+  }
+  .felix-speaks-btn,
+  .felix-speaks-btn:hover,
+  .felix-speaks-btn:active {
+    transform: none;
+    transition: none;
+  }
+  /* The coaching module: the resting breath goes, the progress hairline
+     simply appears. The mouth, as above, keeps moving with the sound. */
+  .felix-coach-portrait[data-state="idle"],
+  .felix-coach-portrait[data-state="thinking"] {
+    animation: none;
+  }
+  .felix-coach-progress {
+    transition: none;
+  }
   .grow-line {
     transform: scaleX(1);
     transition: none;
@@ -1585,6 +1611,228 @@ html[data-backdrop-tone] .ground-panel {
 @keyframes felix-bar {
   from { transform: scaleY(0.35); }
   to { transform: scaleY(1.15); }
+}
+
+/* Felix talking. Three custom properties, written onto a wrapper sixty times
+   a second by lib/useFelixVoice.ts and inherited by the fox inside (see the
+   note above <Mouth> in components/FoxLogo.tsx): --felix-open (jaw, 0..1),
+   --felix-wide (round..spread, 0..1), --felix-tilt (degrees). At the defaults
+   every rule here is an identity transform, so the many static Felixes across
+   the site pay nothing for it. Transforms and opacity only: nothing below
+   touches layout, which is what lets it run at frame rate on a phone. */
+.felix-cavity {
+  transform-origin: 100px 125px;
+  /* A round mouth is tall and narrow, a spread one wide and thin: width and
+     height both follow --felix-wide, in opposite directions, so "oo" and
+     "ee" are two different mouths and not one mouth at two widths. */
+  transform: scaleX(calc(0.62 + var(--felix-wide, 0.5) * 0.62))
+    scaleY(calc(var(--felix-open, 0) * (1.08 - var(--felix-wide, 0.5) * 0.38)));
+  /* Fade the dark in over the first sliver of opening, or a barely-parted
+     mouth draws a hairline. */
+  opacity: min(1, calc(var(--felix-open, 0) * 6));
+}
+.felix-lips {
+  transform-origin: 100px 118.5px;
+  transform: scaleX(calc(0.85 + var(--felix-wide, 0.5) * 0.3));
+}
+.felix-muzzle {
+  transform-origin: 100px 104px;
+  transform: scaleY(calc(1 + var(--felix-open, 0) * 0.07));
+}
+.felix-head {
+  transform-origin: 100px 96px;
+  transform: translateY(calc(var(--felix-open, 0) * 1.6px))
+    rotate(calc(var(--felix-tilt, 0) * 1deg));
+}
+
+/* The pressable fox (components/FelixSpeaks.tsx). The fox is the button; the
+   badge at his feet is what says so: a speaker at rest, a stop square while
+   he talks, a "!" when he can't. Sized against the fox so it reads at 40px
+   and at 112px alike. */
+.felix-speaks {
+  display: inline-block;
+}
+.felix-speaks-btn {
+  position: relative;
+  display: inline-block;
+  border-radius: 9999px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.felix-speaks-btn:hover {
+  transform: translateY(-2px);
+}
+.felix-speaks-btn:active {
+  transform: scale(0.97);
+}
+.felix-speaks-btn:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 4px;
+}
+.felix-speaks-btn:disabled {
+  cursor: progress;
+}
+.felix-speaks-badge {
+  position: absolute;
+  right: 2%;
+  bottom: 4%;
+  display: grid;
+  place-items: center;
+  width: 27%;
+  min-width: 20px;
+  max-width: 34px;
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  box-shadow:
+    0 4px 12px rgba(11, 8, 41, 0.28),
+    0 0 0 2px var(--color-surface);
+  transition: background 160ms ease-out, transform 160ms ease-out;
+}
+.felix-speaks-badge svg {
+  width: 58%;
+  height: 58%;
+}
+.felix-speaks[data-status="speaking"] .felix-speaks-badge {
+  background: var(--color-accent);
+}
+.felix-speaks[data-status="loading"] .felix-speaks-badge {
+  animation: felix-speaks-pulse 700ms ease-in-out infinite alternate;
+}
+.felix-speaks[data-status="error"] .felix-speaks-badge {
+  background: var(--color-error);
+}
+@keyframes felix-speaks-pulse {
+  from { transform: scale(0.9); opacity: 0.7; }
+  to { transform: scale(1.06); opacity: 1; }
+}
+.felix-speaks-note {
+  display: block;
+  margin-top: 0.375rem;
+  max-width: 24ch;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--color-on-surface-variant);
+}
+
+/* Felix's take (components/FelixCoach.tsx): his head, his thirty seconds,
+   and the two buttons. One card at the top of every report. Layout and
+   states only; the type and the buttons are the page's own classes.
+
+   Head on the left at every width. On a phone the head is 60px with the
+   label beside it and the take runs the card's full width UNDER them: the
+   body is display: contents, so its children place themselves on the
+   card's own grid. Sixty words beside a head in a 240px column ran to ten
+   lines and pushed the score off the first screen; full width at body
+   size is six. From md the body is a block in the second column, the take
+   beside him, and the head grows to 88px and no further: a coach across a
+   table rather than a mascot on a stage. */
+.felix-coach {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.875rem;
+  align-items: start;
+  padding: 1rem 1.125rem 1.125rem 1rem;
+  border: 1px solid var(--hairline-ink);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface-warm);
+}
+.felix-coach-body {
+  display: contents;
+}
+.felix-coach-heading {
+  grid-column: 2;
+  align-self: center;
+  min-width: 0;
+}
+.felix-coach-text,
+.felix-coach-note,
+.felix-coach-progress,
+.felix-coach-actions {
+  grid-column: 1 / -1;
+}
+@media (min-width: 768px) {
+  .felix-coach {
+    column-gap: 1.5rem;
+    padding: 1.5rem 1.75rem 1.5rem 1.5rem;
+  }
+  .felix-coach-body {
+    display: block;
+    grid-column: 2;
+  }
+  .felix-coach-heading,
+  .felix-coach-text,
+  .felix-coach-note,
+  .felix-coach-progress,
+  .felix-coach-actions {
+    grid-column: auto;
+    align-self: auto;
+  }
+}
+.felix-coach-portrait {
+  display: block;
+  width: 3.75rem;
+  height: 3.75rem;
+  transform-origin: 50% 92%;
+}
+@media (min-width: 768px) {
+  .felix-coach-portrait {
+    width: 5.5rem;
+    height: 5.5rem;
+  }
+}
+.felix-coach-portrait svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* At rest he breathes: a millimetre and half a degree on a slow loop, the
+   least motion that separates a face from a drawing. Not while he talks,
+   when the nod from the audio does the work, and never under Reduce
+   Motion. */
+.felix-coach-portrait[data-state="idle"],
+.felix-coach-portrait[data-state="thinking"] {
+  animation: felix-breathe 6.5s ease-in-out infinite;
+}
+@keyframes felix-breathe {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-1.5px) rotate(0.5deg); }
+}
+.felix-coach-text {
+  overflow-wrap: anywhere;
+}
+/* The progress hairline. Present in the flow always (so the buttons don't
+   jump when it appears), visible only once there is a take playing. */
+.felix-coach-progress {
+  display: block;
+  height: 2px;
+  margin: 0.875rem 0 0.75rem;
+  border-radius: 999px;
+  background: var(--color-surface-container);
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+.felix-coach[data-audio="speaking"] .felix-coach-progress,
+.felix-coach[data-audio="paused"] .felix-coach-progress,
+.felix-coach[data-audio="finished"] .felix-coach-progress {
+  opacity: 1;
+}
+.felix-coach-progress-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--color-accent);
+  transform-origin: left center;
+  transform: scaleX(var(--felix-progress, 0));
+}
+.felix-coach-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
 }
 
 /* XP / level bar: the fill grows on mount (reusing .bar-grow) and a light

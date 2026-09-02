@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Felix, type FelixMood } from "@/components/FoxLogo";
+import { FelixSpeaks } from "@/components/FelixSpeaks";
+import { FelixCoachCard } from "@/components/FelixCoach";
+import { FELIX_SAMPLE_TAKE } from "@/lib/felixSample";
 import { Reveal } from "@/components/Reveal";
 import { Parallax } from "@/components/Parallax";
 import { WordReveal } from "@/components/WordReveal";
@@ -99,6 +102,14 @@ const REPORT = [
     mark: "came across",
     body: "Whether you sounded trusted or doubted, in charge or just presenting, and whether your ending lost energy.",
   },
+  {
+    title: "Felix's take, out loud",
+    mark: "out loud",
+    // The take is written from the finished analysis (lib/felixTake.ts),
+    // capped at about sixty words, and always shown as text: the audio is a
+    // press away, never the only copy.
+    body: "Thirty seconds of spoken coaching, written from your report: the one thing that worked, the one thing to fix, and what to do on the next take. Always there as text too.",
+  },
 ];
 
 // The six dimensions Felix scores from the audio, named on the page so the
@@ -113,21 +124,30 @@ const VOICE_DIMENSIONS = [
   "Audience engagement",
 ];
 
+// The loop, in the order it happens: speak, see, hear, go again. Every
+// claim here is a thing the code does: the Daily Minute and its three
+// attempts (lib/daily.ts), the report (app/api/analyze/route.ts), Felix's
+// take (lib/felixTake.ts), XP and the twelve levels (lib/levels.ts).
 const STEPS = [
   {
     n: "01",
-    title: "A new topic every day",
-    body: "Felix sets a fresh topic and three points to hit each morning, the same one for everybody. You improvise for a minute, so you train thinking on your feet, not reading a script. Free, forever.",
+    title: "Record yourself",
+    body: "Felix sets a fresh topic and three points to hit each morning, the same one for everybody, and you improvise for a minute with no script. Free, forever. Or bring a speech, an interview answer, a pitch: every mode ends the same way.",
   },
   {
     n: "02",
-    title: "Three tries to beat your own score",
-    body: "Record the topic, get Felix's feedback, then run it again with his notes in mind. Three attempts a day, on every plan, each one scored, so you can watch your delivery improve in a single sitting.",
+    title: "See how you came across",
+    body: "Six scores out of 100, your own words marked up, the numbers you can't hear yourself, and a read on whether the room trusted you, doubted you, or drifted.",
   },
   {
     n: "03",
-    title: "Level up as you go",
-    body: "Every rep earns XP, beating your own best earns more, and streaks multiply it. Twelve levels from First Words to Voice of the Room.",
+    title: "Hear Felix's coaching",
+    body: "Thirty seconds, in his voice: the one thing that worked, the one thing to fix, and what to do on the next take. Written from your report, and always there as text.",
+  },
+  {
+    n: "04",
+    title: "Practice again",
+    body: "Three attempts a day on the Daily Minute, on every plan, each one scored, so you can watch your delivery improve in a single sitting. Every rep earns XP, beating your own best earns more, and streaks multiply it. Twelve levels from First Words to Voice of the Room.",
   },
 ];
 
@@ -441,15 +461,26 @@ export default function LandingPage() {
                   </span>
                 </div>
               </div>
-              <Felix
+              {/* Tap him and he introduces himself: the page's one chance to
+                  let a stranger hear the coach before signing up. Plays a
+                  static file written once by scripts/felix-voice-sample.mjs,
+                  never the live route, so the front door costs nothing and
+                  can't be scripted against. Listening at rest, since the take
+                  is playing; the glasses go on when he talks. */}
+              <FelixSpeaks
+                src="/felix-hello.mp3"
                 mood="listening"
+                speakingMood="coach"
                 animate
-                className="absolute -bottom-6 -right-3 h-24 w-24 drop-shadow-[0_12px_24px_rgba(11,8,41,0.35)] md:h-28 md:w-28"
+                label="Hear Felix's voice"
+                showNote={false}
+                className="absolute -bottom-6 -right-3"
+                foxClassName="h-24 w-24 drop-shadow-[0_12px_24px_rgba(11,8,41,0.35)] md:h-28 md:w-28"
               />
             </TiltCard>
             <p className="mt-9 text-base leading-6 text-on-surface-variant">
               <span className="font-semibold text-primary">Felix</span> hears
-              you the way your audience does.
+              you the way your audience does. Tap him to hear how he sounds.
             </p>
           </Reveal>
         </div>
@@ -566,6 +597,28 @@ export default function LandingPage() {
             </Reveal>
           ))}
         </div>
+
+        {/* Meet Felix: the same card that tops every report, with the one
+            sample a stranger gets to hear. A static file, never the live
+            route (scripts/felix-voice-sample.mjs), so the front door costs
+            nothing and can't be scripted against. Under the ledger and not
+            above it: the report is the product, the take is how it opens. */}
+        <Reveal delay={160} className="mt-12">
+          <h3 className="font-headline text-h3 font-semibold text-primary">
+            Meet Felix, your communication coach.
+          </h3>
+          <p className="mt-2 max-w-[60ch] text-base leading-7 text-on-surface-variant">
+            Felix turns your Elovox analysis into a short, actionable coaching
+            response, so you know what to improve before you practice again.
+          </p>
+          <FelixCoachCard
+            className="mt-5 max-w-[640px]"
+            text={FELIX_SAMPLE_TAKE}
+            source={{ kind: "url", url: "/felix-hello.mp3" }}
+            audioLabel="Hear Felix"
+            action={{ href: "/signup", label: "Try it free" }}
+          />
+        </Reveal>
       </section>
 
       {/* How it works */}

@@ -82,6 +82,18 @@ export const SUBPROCESSORS = [
     link: "https://ai.google.dev/gemini-api/terms",
   },
   {
+    name: "Fish Audio",
+    // /api/voice sends the TEXT of Felix's take (thirty to sixty words Gemini
+    // wrote from the finished analysis, see lib/felixTake.ts) to be read
+    // aloud, and only when the user presses play. Never the recording, never
+    // the transcript itself. The audio comes back and is kept on the user's
+    // own session so a replay never sends it again. The landing page's
+    // sample is a static file and sends nothing.
+    purpose:
+      "Turning Felix's written take on a report into his voice, only when you press play",
+    link: "https://fish.audio/privacy/",
+  },
+  {
     name: "Stripe",
     purpose: "Subscription payments and billing, Elovox never sees your card details",
     link: "https://stripe.com/privacy",

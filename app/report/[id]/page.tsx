@@ -8,6 +8,8 @@ import { Reveal } from "@/components/Reveal";
 import { getSession } from "@/lib/store";
 import { getCategory } from "@/lib/categories";
 import { Felix } from "@/components/FoxLogo";
+import { FelixCoach } from "@/components/FelixCoach";
+import { useIsNative } from "@/lib/native";
 import { usePlan } from "@/lib/plan";
 import type { Session } from "@/lib/types";
 import { barClass } from "@/lib/scoring";
@@ -68,6 +70,12 @@ function normalizeSession(s: Session): Session {
 function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { plan } = usePlan();
+  // The rest of the web markup is hidden in the shell by CSS (native-hide),
+  // which is fine for static sections. Felix's take is not static: it asks
+  // for itself, fires analytics, and owns an AudioContext, so a hidden web
+  // copy under the native one would count every "shown" twice. Rendered on
+  // exactly one of the two layouts instead.
+  const native = useIsNative();
   // A failed READ is not the same as a session that isn't there. Collapsing
   // the two told a user whose network blipped that the take they recorded
   // thirty seconds ago doesn't exist and was probably on another device — and
@@ -189,8 +197,22 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
         practiceLabel={practiceLabel}
       />
 
+      {/* Felix's take comes first: his thirty seconds on the take, in his
+          voice on request, and the way back into the booth. The report
+          itself, the score and everything under it, is unchanged below
+          it; this is the executive summary, not a replacement for it.
+          Deliberately the only Felix on the page. */}
+      {!native && (
+        <FelixCoach
+          session={session}
+          practiceHref={practiceHref}
+          practiceLabel={practiceLabel}
+          surface={session.mode === "daily" ? "daily" : "report"}
+        />
+      )}
+
       {/* Score: one large confident element, not a card among equals */}
-      <div className="native-hide stagger-in flex flex-wrap items-end gap-x-10 gap-y-4">
+      <div className="native-hide stagger-in mt-8 flex flex-wrap items-end gap-x-10 gap-y-4 md:mt-10">
         <div>
           {/* The score IS this page's title, so it's the h1. There was no h1
               at all before, and the first heading was an <h2> halfway down. */}
@@ -208,24 +230,12 @@ function ReportScreen({ params }: { params: Promise<{ id: string }> }) {
               / 100
             </span>
           </h1>
-          <div className="mt-3 flex items-start gap-3 max-w-[52ch]">
-            {/* Felix reacts to the actual result rather than sitting in the
-                same neutral pose whatever happened. 87 is the floor of GOOD
-                in the scoring rubric (see SYSTEM_PROMPT in
-                app/api/analyze/route.ts), so it's the honest place for him to
-                celebrate; below it he's the coach, not a cheerleader.
-                Deliberately only ONE reacting Felix on the page — the
-                summary's — so the report doesn't turn into a parade. */}
-            <Felix
-              mood={analysis.overall >= 87 ? "cheer" : "coach"}
-              className={`h-10 w-10 shrink-0 mt-0.5 ${
-                analysis.overall >= 87 ? "felix-cheer" : ""
-              }`}
-            />
-            <p className="text-lg leading-7 text-on-surface">
-              {analysis.summary}
-            </p>
-          </div>
+          {/* The analysis's own verdict. The fox that used to sit beside it
+              moved up into Felix's take, so there is one Felix on the page
+              and not a parade. */}
+          <p className="mt-3 max-w-[52ch] text-lg leading-7 text-on-surface">
+            {analysis.summary}
+          </p>
         </div>
         <div className="pb-2 text-label font-semibold tracking-wide text-on-surface-variant">
           <span className="text-violet">

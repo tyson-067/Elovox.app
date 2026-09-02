@@ -116,6 +116,14 @@ export async function POST(req: NextRequest) {
   try {
     const data = snap.data() ?? {};
     await ref.delete();
+    // Felix's cached voice for this take lives in a subcollection, and
+    // Firestore does not delete children with their parent. Best effort: an
+    // orphaned clip is a privacy leak in waiting, not a reason to fail the
+    // delete the user asked for.
+    await db
+      .doc(`users/${uid}/sessions/${sessionId}/felix/voice`)
+      .delete()
+      .catch(() => {});
     // Why people delete is the product signal; keep it lean and off-client.
     await db
       .collection("sessionDeletions")

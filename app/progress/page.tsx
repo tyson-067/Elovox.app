@@ -387,6 +387,15 @@ function SessionRow({
                 <span className="text-accent-strong">camera</span>
               </>
             )}
+            {/* Only once Felix has actually written a take for it, and only
+                as a way in: the report opens with his module at the top and
+                nothing plays until it's pressed. */}
+            {s.felix && (
+              <>
+                <span className="mx-1.5">·</span>
+                <span className="text-accent-strong">Hear Felix again</span>
+              </>
+            )}
             <span className="mx-1.5">·</span>
             {new Date(s.createdAt).toLocaleDateString(undefined, {
               month: "short",

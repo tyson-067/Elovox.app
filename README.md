@@ -33,8 +33,20 @@ The app works with zero configuration (localStorage + sample feedback). To enabl
 
 - `ASSEMBLYAI_API_KEY` — [assemblyai.com](https://www.assemblyai.com) (free tier includes $50 credit, no card).
 - `GEMINI_API_KEY` — [aistudio.google.com](https://aistudio.google.com) → Get API key.
+- `FISH_AUDIO_API_KEY` — [fish.audio](https://fish.audio) → API keys. Felix's voice: the "Hear Felix's feedback" button on every report and the landing page's sample. The free developer tier is enough. Optional: without it the button says so quietly and the written take stays. Pick a voice from the fish.audio library and put its id in `FISH_AUDIO_VOICE_ID`, then run `npm run felix:voice` once to write `public/felix-hello.mp3`, the landing page's sample, and commit it.
 
-Add both to `.env.local`. Restart the dev server after env changes.
+Add them to `.env.local`. Restart the dev server after env changes.
+
+#### Felix's take
+
+Every report opens with Felix's take: thirty to sixty words on how the speaker came across, the one thing that worked, the one thing to fix, and what to do next, coached toward the goal they picked. The pieces:
+
+- [`lib/felixTake.ts`](lib/felixTake.ts) — the prompt, the goal focus, the word cap, and the deterministic fallback built from the report when the model can't answer.
+- `POST /api/felix` — writes the take with Gemini from the **server's** copy of the session (the client only sends a session id) and merges it onto the session doc as `felix`, so every later open reads it back for free. A fallback take is never stored.
+- `POST /api/voice` — with `{ sessionId }`, reads that stored take, synthesizes it with Fish Audio, and caches the MP3 on the session's `felix/voice` subdocument (server-only; no client rule reaches it). Replays cost a Firestore read, never a second synthesis.
+- [`components/FelixCoach.tsx`](components/FelixCoach.tsx) — the module (web and app variants), with play / pause / replay, the progress hairline, and the `felix_feedback_*` events on the existing cookieless analytics.
+
+Nothing plays until it is pressed, and the take is always on screen as text.
 
 ### 3. App Check (abuse protection — production)
 

@@ -16,6 +16,15 @@ service cloud.firestore {
     // Deletes go through /api/session/delete (Admin SDK) ONLY: deletion is
     // capped per day so history can't be curated into a highlight reel, and
     // a client-side delete can't be counted.
+    //
+    // `felix` (Felix's spoken take, lib/felixTake.ts) is merged onto the doc
+    // by /api/felix through the Admin SDK. The owner can read it back with
+    // the rest of the session; the tolerant create/update rule below does not
+    // stop a client writing one, and does not need to: the voice route reads
+    // the take from THIS doc, so at worst a user makes Felix say something to
+    // themselves. The cached audio lives in a subcollection,
+    // users/{uid}/sessions/{sessionId}/felix/voice, which no rule matches:
+    // server-only, and deleted with the session by the delete route.
     match /users/{uid}/sessions/{sessionId} {
       allow read: if isOwner(uid);
       allow delete: if false;

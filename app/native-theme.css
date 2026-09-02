@@ -5008,6 +5008,40 @@ html[data-native] {
    =========================================================================== */
 
 /* ===========================================================================
+   FELIX'S TAKE, ON THE STAGE (components/FelixCoach.tsx, variant="native")
+   ===========================================================================
+   The same card the web report opens with, inside the report's ink stage.
+   The stage already remaps --nv-ink / --nv-tint-soft to the on-stage
+   values, so the nv-* type and buttons inside read correctly for free; what
+   this block does is take the card's own chrome away (the stage is the
+   card) and shrink the buttons from full-width to a row. Nothing here is
+   translucent or animated, so it sits safely above the final block. */
+html[data-native] .felix-coach[data-variant="native"] {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  column-gap: 12px;
+}
+html[data-native] .felix-coach[data-variant="native"] .felix-coach-portrait {
+  width: 64px;
+  height: 64px;
+}
+html[data-native] .felix-coach[data-variant="native"] .felix-coach-progress {
+  margin: 12px 0 10px;
+  background: var(--nv-on-stage-fill);
+}
+html[data-native] .felix-coach[data-variant="native"] .felix-coach-progress-fill {
+  background: var(--nv-on-stage);
+}
+html[data-native] .felix-coach[data-variant="native"] .nv-btn {
+  width: auto;
+  min-height: 44px;
+  padding: 10px 16px;
+  font-size: var(--nv-subhead-size);
+}
+
+/* ===========================================================================
    THE LAST WORD ON ACCESSIBILITY
    ===========================================================================
    This block is at the BOTTOM OF THE FILE on purpose, and it must stay there.

@@ -7,15 +7,9 @@ import { useInkTopBar, useIsNative } from "@/lib/native";
 import { notifySuccess } from "@/lib/haptics";
 import { canShare, shareTake } from "@/lib/share";
 import { CountUp } from "@/components/CountUp";
-import { Felix } from "@/components/FoxLogo";
+import { FelixCoach } from "@/components/FelixCoach";
 import { Reveal } from "@/components/Reveal";
-import {
-  bandForScore,
-  FelixBubble,
-  moodForScore,
-  NvBadge,
-  NvConfetti,
-} from "@/components/native/felix";
+import { bandForScore, NvBadge, NvConfetti } from "@/components/native/felix";
 import { NvGroup, NvSectionHeader, NvStat } from "@/components/native/ui";
 import { LEVELS } from "@/lib/levels";
 import { currentOutfit } from "@/lib/quests";
@@ -492,19 +486,23 @@ export function NativeReport({
           </span>
         </div>
 
-        {/* The verdict comes FROM Felix — him beside his summary, mood matched
-            to the band. */}
-        <div className="mt-5 flex items-start gap-3 text-left">
-          <Felix
-            mood={moodForScore(analysis.overall)}
-            animate
-            className="h-16 w-16 shrink-0"
-          />
-          <FelixBubble className="min-w-0 flex-1">
-            {analysis.summary}
-          </FelixBubble>
-        </div>
+        {/* Felix's take, from inside the stage: his thirty seconds on this
+            one, in his voice on request, and the way back into the booth.
+            The one Felix on the screen. */}
+        <FelixCoach
+          variant="native"
+          className="mt-5 text-left"
+          session={session}
+          practiceHref={practiceHref}
+          practiceLabel={practiceLabel}
+          surface={session.mode === "daily" ? "daily" : "report"}
+        />
       </section>
+
+      {/* The analysis's own verdict, which used to sit in a bubble beside
+          him on the stage. Still here, still first after the stage: the
+          take is the coach's opening line, this is the report's. */}
+      <p className="nv-subhead mt-5 text-center">{analysis.summary}</p>
 
       <p className="nv-footnote mt-5 text-center">
         {session.goal && <>{session.goal} · </>}

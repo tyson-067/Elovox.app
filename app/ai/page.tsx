@@ -116,6 +116,22 @@ export default function AiPage() {
           </p>
         </Section>
 
+        <Section heading="On Felix's spoken take">
+          <p>
+            The short take at the top of a report is written by the same model
+            from the finished analysis, not from the recording, and it is held
+            to about sixty words. That is a summary of a summary: it says what
+            matters most, and it can leave out something the full report
+            covers. The written report underneath is the complete version, and
+            the take is always there as text, so nothing depends on the audio.
+            His voice is generated speech; see the{" "}
+            <Link href="/privacy" className="text-accent-strong hover:underline">
+              privacy policy
+            </Link>{" "}
+            for who processes it.
+          </p>
+        </Section>
+
         <Section heading="Questions">
           <p>
             If anything about how Felix works is unclear, email{" "}

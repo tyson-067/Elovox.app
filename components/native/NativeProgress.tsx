@@ -205,6 +205,10 @@ function RecentRow({
               month: "short",
               day: "numeric",
             })}
+            {/* Only once Felix has written a take for it, and only as a way
+                in: the report opens with his module and nothing plays until
+                it's pressed. Same marker the web history rows carry. */}
+            {session.felix && " · Hear Felix again"}
           </span>
         </span>
         {/* No chevron. The × is this row's trailing control, and a chevron
