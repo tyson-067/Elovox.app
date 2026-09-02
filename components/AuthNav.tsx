@@ -6,14 +6,15 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { FelixScene } from "@/components/Biome";
 import { type FelixAccessory } from "@/components/FoxLogo";
-import { NavMenu } from "@/components/NavMenu";
 import { usePlan } from "@/lib/plan";
 import { fetchShopState, type ShopState } from "@/lib/shop";
 import { signOutUser } from "@/lib/auth";
 
-// Header navigation that adapts to auth state: app links + sign out when
-// logged in, log in / get started when logged out. Without Firebase config
-// (local dev) the app links show unconditionally.
+// The right-hand cluster of the site header (components/SiteNav.tsx), which
+// adapts to auth state: log in / start free when logged out, the account
+// chip and the way out of it when logged in. The marketing sections live in
+// SiteNav itself. Without Firebase config (local dev) the app link shows
+// unconditionally.
 
 export function AuthNav() {
   const { user, loading, configured } = useAuth();
@@ -77,78 +78,48 @@ export function AuthNav() {
   // they already own. Subscribers manage billing from /account, which still
   // links through to /pricing as "Compare plans" for the rare case they want
   // to see the grid.
-  // `md` and up only. Below that the Explore panel carries Pricing (and About),
-  // which is what pays for the menu trigger's width — the 375px budget measured
-  // below is real, and this keeps the mobile header spending LESS than it did.
+  // Only ever rendered for a signed-in free user: SiteNav's own row carries
+  // Pricing for everyone else, and hides that row once someone is signed in.
+  // So this no longer needs the `md` gate the Explore panel used to pay for.
   const pricingLink = (
-    <Link href="/pricing" className="nav-link hidden md:block hover:text-primary web-only">
+    <Link href="/pricing" className="nav-link hover:text-primary web-only">
       Pricing
     </Link>
   );
 
-  // Signed-out visitors only, on every marketing page, at `sm` and up.
-  //
-  // /about exists to convince a stranger there are people behind the product.
-  // Someone with an account has already made that call, so this lives in the
-  // signed-out branches alone and never appears once they're in the app.
-  //
-  // Labelled "About", not "Meet the team": the page leads with why Elovox
-  // exists and lists the team underneath, so the narrower label is the honest
-  // one.
-  //
-  // A top-level item at every width that can hold one, on purpose. It spent
-  // a while inside the Explore menu and the verdict was blunt: buried in a
-  // product menu, company info reads as product copy and nobody thinks to
-  // look for the people there. So it stands alone, last of the marketing
-  // links, where every website keeps its About.
-  //
-  // Still hidden below `sm` because the space genuinely isn't there: the
-  // 375px header has ~257px of room next to the wordmark, and Pricing +
-  // Log in + Get started plus their gaps already spend ~240px of it. A
-  // fourth item doesn't shrink, it wraps, landing on top of the wordmark
-  // and breaking "Get started" onto two lines. Mobile reaches /about
-  // through the footer instead, see FooterAboutLink, which is gated the
-  // same way this is.
-  const aboutLink = (
-    <Link href="/about" className="nav-link hidden sm:block hover:text-primary">
-      About
-    </Link>
-  );
-
-  // Depth without more top-level items: the Explore menu carries the three
-  // /for/* audience pages (which otherwise had one route in, a card partway
-  // down the homepage) and the page's own sections. It now renders at EVERY
-  // width — below md as an icon and a full-width panel — because a route diff
-  // against an iPhone 13 found seven destinations a phone simply could not
-  // reach from an inner page. About stays out of it above md (see aboutLink)
-  // and is inside it below md, where it is otherwise unreachable.
-  const exploreMenu = <NavMenu />;
 
   if (!configured) {
     return (
-      <>
-        {exploreMenu}
-        {pricingLink}
-        {aboutLink}
-        {practiceLink}
-      </>
+      <>{practiceLink}</>
     );
   }
 
   if (!user) {
     return (
       <>
-        {exploreMenu}
-        {pricingLink}
-        {aboutLink}
         <Link href="/login" className="nav-link hover:text-primary">
           Log in
         </Link>
-        <Link
-          href="/signup"
-          className="btn rounded-full bg-primary text-on-primary px-4 py-1.5"
-        >
+        {/* The darkest thing in the row, which is how a warm translucent pill
+            says "this is the button". */}
+        <Link href="/signup" className="site-cta">
           Start free
+          <span className="site-cta-chip" aria-hidden="true">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M7 17 17 7" />
+              <path d="M9 7h8v8" />
+            </svg>
+          </span>
         </Link>
       </>
     );

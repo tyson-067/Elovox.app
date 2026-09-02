@@ -511,8 +511,8 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
 }
 
 /* No scripting, no reveal — so show everything. `.reveal` ships in the server
-   HTML at opacity 0 and every section of the landing page, /about, /pricing
-   and /for/* is wrapped in one, including the <h1>. With JS blocked the page
+   HTML at opacity 0 and every section of the landing page, /about and
+   /pricing is wrapped in one, including the <h1>. With JS blocked the page
    was permanently the background gradient and nothing else; on a slow phone
    it was that until the bundle executed. lib/useReveal.ts already handles a
    stuck observer, but it can't help before it runs. */
@@ -562,18 +562,6 @@ html[data-backdrop-tone] .text-gradient .wr-word > span {
   filter: none;
 }
 
-/* The story deck (components/StoryDeck.tsx): cards move only via these
-   transitions; the scroll handler just picks which card is active. */
-.deck-card {
-  transition:
-    transform 550ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 450ms var(--ease-standard);
-  /* Deliberately NO `will-change: transform`. It used to be unconditional,
-     which kept four always-mounted landing-page cards pinned to their own
-     compositor layers for the entire session. Browsers already promote an
-     element for the duration of a running transform transition, which is the
-     only time these move, so the hint bought nothing and cost memory. */
-}
 
 /* Word-by-word headline entrance (driven by components/WordReveal.tsx).
    Each word rises out of a slight blur with a per-word delay. */
@@ -1421,9 +1409,6 @@ html[data-backdrop-tone] .ground-panel {
   .reveal-zoom {
     transform: none;
     filter: none;
-    transition: none;
-  }
-  .deck-card {
     transition: none;
   }
   .btn,
@@ -2991,5 +2976,639 @@ html[data-native][data-theme="dark"] .apple-signin-btn {
   }
   .recording-dock-dot {
     animation: none;
+  }
+}
+
+/* ===========================================================================
+   LANDING PAGE — "Speak with impact"
+   ===========================================================================
+   The website's front door, imported from the Claude Design project
+   "Elovox.app UI overhaul" (Elovox Website.dc.html). The design was drawn
+   against this palette, so almost every colour below resolves to a token
+   that already existed; what lives here is only the handful of things a
+   Tailwind utility cannot say — a full-bleed escape from #main's cap, a
+   marquee, a gradient-clipped word, a underline that sweeps.
+
+   The rule the whole block obeys: motion may only ever ADD. Every element
+   is readable with the stylesheet alone, so a stalled ScrollTrigger, a
+   blocked frame or `prefers-reduced-motion` costs polish and never content.
+   (This codebase has shipped a permanently-blank page from an opacity:0
+   reveal before — see tests/e2e/reduced-motion.spec.ts.) */
+
+/* The warm-paper ground. #main is capped and centred, so painting the page
+   itself would leave white gutters either side; a fixed layer under
+   everything covers the viewport instead. -2, so it sits below the
+   purchased SiteBackdrop's -1 — signed-out visitors are the only ones who
+   see this page, and they have no backdrop, but the ordering should still
+   be right if that ever changes. */
+.lp::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background: var(--color-surface-warm);
+}
+
+/* Paper grain. Multiply at 5% over the whole viewport, above the content
+   but inert — it is the difference between "a warm colour" and "a warm
+   sheet". The turbulence is generated in the URL, so it costs no request. */
+.lp::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/></filter><rect width='220' height='220' filter='url(%23n)'/></svg>");
+}
+
+/* Escape #main's cap and gutters for the set pieces that run edge to edge.
+   `100vw` is safe because `html { overflow-x: clip }` is already set at the
+   top of this file — without it every one of these would add a scrollbar's
+   width of horizontal overflow. */
+.lp-bleed {
+  width: 100vw;
+  margin-inline: calc(50% - 50vw);
+}
+
+/* The dimension ticker. The track holds the list twice and travels exactly
+   half its width, so the seam never arrives; GSAP takes the timeScale over
+   on scroll (see components/LandingMotion.tsx) and reverses it when you
+   scroll back up. Without JS it still runs, at one steady speed. */
+.lp-ticker {
+  display: flex;
+  width: max-content;
+  animation: lp-ticker-run 30s linear infinite;
+}
+@keyframes lp-ticker-run {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* A marked phrase in the sample report: the underline is a background
+   sized 100% x 3px, so GSAP can draw it on by animating background-size
+   from 0%. Painted at full width here, which is the state that survives
+   with no JS. */
+.lp-mark {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-accent),
+    var(--color-accent)
+  );
+  background-repeat: no-repeat;
+  background-position: 0 calc(100% - 1px);
+  background-size: 100% 3px;
+  padding-bottom: 3px;
+}
+.lp-mark-soft {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-orange),
+    var(--color-orange)
+  );
+}
+
+/* The serif word in the hero, ink replaced by a travelling gradient. Its
+   own font-size is set by the wrapper so the em-based padding below the
+   baseline resolves against the display size — at the h1's inherited size
+   the descender on "impact." was being sliced off. */
+.lp-serif-grad {
+  display: inline-block;
+  font-family: var(--font-slogan);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 1em;
+  line-height: 1.12;
+  background-image: linear-gradient(
+    100deg,
+    var(--color-primary),
+    var(--color-violet) 38%,
+    var(--color-accent) 72%,
+    var(--color-orange)
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Felix's story: four beats that cross-fade under a pin.
+
+   They are rendered IN FLOW and fully opaque. LandingMotion stacks them
+   (position:absolute, opacity 0 on all but the first) only once it has a
+   live ScrollTrigger to drive them back. That order matters: the design's
+   own markup started them hidden, which is one blocked frame away from a
+   section that is simply missing. */
+.lp-beats.is-stacked {
+  position: relative;
+  /* Absolutely-positioned children contribute no height, so the stacked
+     state needs its own floor or the column collapses and the pinned stage
+     centres on nothing. Tall enough for the longest beat at the largest
+     display size. */
+  min-height: 340px;
+}
+.lp-beats.is-stacked .lp-beat {
+  position: absolute;
+  inset: 0;
+}
+.lp-beats:not(.is-stacked) .lp-beat + .lp-beat {
+  margin-top: 40px;
+}
+/* The four moods of Felix, one per beat, stacked on top of each other inside
+   a square box. All four are absolutely positioned — including the first —
+   because the box gets its size from its own aspect-ratio and a child left in
+   flow would be measured at zero height instead. (It was: below the stacking
+   breakpoint the story ran with no fox at all.) Until JS says it can cross-
+   fade them, only the first is in the page. */
+.lp-foxes .lp-fox {
+  position: absolute;
+  inset: 0;
+}
+.lp-foxes:not(.is-stacked) .lp-fox + .lp-fox {
+  display: none;
+}
+
+/* The six practice cards. Pinned and scrubbed sideways on a desktop-sized
+   window; a plain swipeable rail everywhere else, which is also what a
+   failed build falls back to. */
+.lp-modes-scroller {
+  width: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  /* Snapping aligns a card's leading edge with the scrollport's, which ate
+     the track's own left gutter and parked card 01 flush against the window.
+     These mirror <main>'s gutters at each breakpoint. */
+  scroll-padding-left: 1rem;
+}
+@media (min-width: 768px) {
+  .lp-modes-scroller {
+    scroll-padding-left: 2.5rem;
+  }
+}
+@media (min-width: 1280px) {
+  .lp-modes-scroller {
+    scroll-padding-left: 4rem;
+  }
+}
+@media (min-width: 1536px) {
+  .lp-modes-scroller {
+    scroll-padding-left: 6rem;
+  }
+}
+.lp-modes-scroller::-webkit-scrollbar {
+  display: none;
+}
+.lp-modes-scroller.is-pinned {
+  overflow-x: hidden;
+  scroll-snap-type: none;
+}
+.lp-modes-track {
+  display: flex;
+  width: max-content;
+}
+.lp-mode-card {
+  scroll-snap-align: start;
+}
+
+/* Pointer spotlight on the two price cards. GlowCard does this for the rest
+   of the product, but these cards also tilt, and one transform owner per
+   element is the rule — so LandingMotion writes --mx/--my alongside the
+   rotation it is already animating. */
+.lp-spot {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 400ms cubic-bezier(0.22, 1, 0.36, 1);
+  background: radial-gradient(
+    300px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(255, 132, 0, 0.16),
+    transparent 70%
+  );
+}
+.lp-spot-light {
+  background: radial-gradient(
+    300px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(255, 255, 255, 0.16),
+    transparent 70%
+  );
+}
+
+/* A short window cannot hold a 100svh set piece AND the copy inside it, and
+   a pinned box taller than the window has no way to scroll the rest into
+   view. Rather than drop the pins — which would gut the two centrepieces on
+   every laptop with a shallow browser — the stages compact. */
+@media (max-height: 760px) {
+  .lp-stage-pad {
+    padding-top: 22px;
+    padding-bottom: 22px;
+  }
+  .lp-report-card {
+    padding: 18px;
+    border-radius: 16px;
+  }
+  .lp-report-quote {
+    font-size: 15.5px;
+    line-height: 1.5;
+    margin-top: 14px;
+  }
+  .lp-score {
+    font-size: 2.6rem;
+  }
+}
+
+/* Below this the set pieces simply flow: pinning a 100svh stage on a phone
+   fights the browser's own chrome collapse, and it loses. */
+@media (max-width: 859px) {
+  .lp-stage {
+    min-height: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp::after {
+    /* The grain is static anyway; named here so the block stays honest
+       about which of these classes it has an opinion on. */
+    opacity: 0.04;
+  }
+  .lp-ticker {
+    animation: none;
+  }
+  /* Never `opacity: 0` — the beats stay in flow, all four readable, which
+     is the same thing LandingMotion does when it declines to stack them. */
+  .lp-beats.is-stacked {
+    position: static;
+  }
+  .lp-beats.is-stacked .lp-beat {
+    position: relative;
+    inset: auto;
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+  .lp-beats.is-stacked .lp-beat + .lp-beat {
+    margin-top: 40px;
+  }
+  .lp-spot {
+    transition: none;
+  }
+}
+
+/* The hero waveform's bars. Deliberately NOT the shared `.eq-bar`: this file
+   is unlayered, so that rule's fixed `width: 3px` outranks a `flex-1`
+   utility, and these twenty-seven bars have to share the card's width.
+   anime.js takes the scaleY over once it loads and clears this animation
+   only then, so a failed import leaves a moving waveform, not a still one. */
+.lp-eq-bar {
+  flex: 1;
+  min-width: 2px;
+  height: 60%;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--color-orange), var(--color-accent));
+  transform-origin: center;
+  animation: eq-bounce 1.1s ease-in-out infinite;
+}
+
+/* A ghost numeral on the navy practice card needs more ink than one on white
+   before it registers as a numeral at all. */
+.lp-ghost-bright {
+  --ghost-opacity: 0.24;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Hold the final frame — a waveform that has stopped mid-bounce reads as
+     broken; one held at a steady level reads as a still of the real thing. */
+  .lp-eq-bar {
+    animation: none;
+    transform: scaleY(0.6);
+  }
+}
+
+/* ===========================================================================
+   SITE NAV — the floating pill
+   ===========================================================================
+   From the Claude Design project "Elovox.app UI overhaul". It replaces a
+   sticky bar whose product links were folded into an "Explore" dropdown; a
+   pill only has to be as wide as its contents, so the sections come back out
+   into the open and the dropdown goes away. Below 980px the row collapses to
+   a burger and a full-screen menu — not a panel, which is what forced the
+   old one to be small enough to fit inside a 390px viewport. */
+
+.site-nav {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  width: min(1340px, calc(100% - 28px));
+  height: 64px;
+  border-radius: 999px;
+  /* Warm glass. Deliberately the paper tint rather than the surface token:
+     it reads as a warm sheet over white and as itself over the landing
+     page's warm ground, so one value works on every route.
+
+     .88, not the design's .72: the design's site is warm paper end to end and
+     its pill never crosses anything but paper. This page has two full-bleed
+     dark stages, and at .72 the report's own headline read straight through
+     the pill and collided with "Log in". Chrome must stay legible over any
+     ground, and it cannot lean on backdrop-filter to get there — plenty of
+     browsers ignore it, and it is the first thing dropped under a reduced
+     transparency setting. At .88 the report's headline was still readable
+     through it; .93 leaves the pill visibly warm-tinted over dark and warm-on-
+     warm over paper, without ever showing a word that belongs to the page. */
+  background: rgba(253, 246, 238, 0.93);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid rgba(0, 78, 137, 0.13);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 10px 30px -20px rgba(11, 8, 41, 0.3);
+}
+.site-nav-row {
+  position: relative;
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 0 12px 0 20px;
+}
+.site-nav-brand {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-primary);
+}
+.site-nav-mark {
+  height: 34px;
+  width: 34px;
+  border-radius: 10px;
+  transition: transform var(--dur-base) var(--ease-standard);
+}
+.site-nav-brand:hover .site-nav-mark {
+  transform: scale(1.08) rotate(-6deg);
+}
+.site-nav-word {
+  font-family: var(--font-headline);
+  font-weight: 800;
+  font-size: 19px;
+  letter-spacing: -0.02em;
+}
+/* Under 360px the wordmark is the difference between a row that fits and one
+   that wraps. The mark still carries the brand and the link keeps its
+   aria-label, so nothing is lost to a screen reader. */
+@media (max-width: 359px) {
+  .site-nav-word {
+    display: none;
+  }
+}
+.site-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  /* .82 rather than .7: at 13.5px these measured 4.07:1 on white at 70%,
+     just under AA. This is 5.0:1 and still reads as chrome. */
+  color: rgba(0, 78, 137, 0.82);
+}
+.site-nav-links .nav-link {
+  color: inherit;
+}
+.site-nav-links .nav-link:hover {
+  color: var(--color-primary);
+}
+.site-nav-right {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 14px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: rgba(0, 78, 137, 0.82);
+}
+/* The pill's own reading-progress hairline, inset so it follows the curve
+   instead of running out past it. */
+.site-nav .scroll-progress {
+  left: 24px;
+  right: 24px;
+  bottom: 0;
+  width: auto;
+  border-radius: 999px;
+}
+.site-nav-spacer {
+  /* 16 above the pill + its 64 + 16 below. */
+  height: 96px;
+  flex: none;
+}
+
+/* The primary action, dark rather than brand-blue: on a warm translucent
+   pill the darkest thing in the row is the thing you press. */
+.site-cta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px 7px 18px;
+  border-radius: 999px;
+  background: var(--color-oxford);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition: filter var(--dur-base) var(--ease-standard);
+}
+.site-cta:hover {
+  color: #fff;
+  filter: brightness(1.25);
+}
+.site-cta-chip {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  transition: transform var(--dur-base) var(--ease-standard);
+}
+.site-cta:hover .site-cta-chip {
+  transform: translate(2px, -2px);
+}
+
+.site-burger {
+  display: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-left: -4px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-primary);
+}
+.site-burger-top,
+.site-burger-bot {
+  transform-origin: center;
+  transition: transform var(--dur-base) var(--ease-standard);
+}
+.site-nav [aria-expanded="true"] .site-burger-top {
+  transform: translateY(4px) rotate(45deg);
+}
+.site-nav [aria-expanded="true"] .site-burger-bot {
+  transform: translateY(-4px) rotate(-45deg);
+}
+
+/* Below this the row cannot hold five section links AND the account cluster,
+   so the sections move into the full-screen menu the burger opens. 980px is
+   where they start to crowd, measured, not the nearest round breakpoint. */
+@media (max-width: 979px) {
+  .site-nav-links {
+    display: none;
+  }
+  .site-burger {
+    display: grid;
+  }
+}
+
+.site-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 49;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 100px clamp(24px, 7vw, 56px) 56px;
+  /* Same reasoning as the pill: the overlay has to hide the page under it
+     without help from backdrop-filter. */
+  background: rgba(253, 246, 238, 0.97);
+  backdrop-filter: blur(26px) saturate(1.3);
+  -webkit-backdrop-filter: blur(26px) saturate(1.3);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity var(--dur-base) var(--ease-standard),
+    visibility 0s linear var(--dur-base);
+}
+.site-menu.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity var(--dur-base) var(--ease-standard),
+    visibility 0s;
+}
+/* Above the collapse breakpoint there is no burger to open it, so it must
+   not be reachable at all. */
+@media (min-width: 980px) {
+  .site-menu {
+    display: none;
+  }
+}
+.site-menu-item {
+  font-family: var(--font-headline);
+  font-size: clamp(30px, 9vw, 48px);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.18;
+  color: var(--color-oxford);
+  transform: translateY(24px);
+  opacity: 0;
+  transition:
+    transform var(--dur-slow) var(--ease-emphasized),
+    opacity var(--dur-slow) var(--ease-emphasized);
+}
+/* The one serif accent, as in the hero: a short word, never running prose. */
+.site-menu-item-serif {
+  font-family: var(--font-slogan);
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--color-accent-strong);
+}
+.site-menu-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  margin-top: 34px;
+  padding-top: 26px;
+  border-top: 1px solid rgba(0, 78, 137, 0.16);
+  transform: translateY(24px);
+  opacity: 0;
+  transition:
+    transform var(--dur-slow) var(--ease-emphasized),
+    opacity var(--dur-slow) var(--ease-emphasized);
+}
+.site-menu.is-open .site-menu-item,
+.site-menu.is-open .site-menu-foot {
+  transform: none;
+  opacity: 1;
+}
+/* Each line arrives a beat after the one above it. Six steps, hand-written
+   rather than generated, because there are six of them. */
+.site-menu.is-open .site-menu-item:nth-child(1) { transition-delay: 40ms; }
+.site-menu.is-open .site-menu-item:nth-child(2) { transition-delay: 90ms; }
+.site-menu.is-open .site-menu-item:nth-child(3) { transition-delay: 140ms; }
+.site-menu.is-open .site-menu-item:nth-child(4) { transition-delay: 190ms; }
+.site-menu.is-open .site-menu-item:nth-child(5) { transition-delay: 240ms; }
+.site-menu.is-open .site-menu-foot { transition-delay: 290ms; }
+
+.site-menu-login {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+.site-menu-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 11px 10px 24px;
+  border-radius: 999px;
+  background: var(--color-accent-strong);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+}
+.site-menu-cta:hover {
+  color: #fff;
+}
+.site-menu-cta .site-cta-chip {
+  width: 30px;
+  height: 30px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The menu still opens and closes — it just arrives rather than sliding,
+     and every line arrives together. Never opacity 0 as the resting state. */
+  .site-menu-item,
+  .site-menu-foot {
+    transform: none;
+    opacity: 1;
+    transition: none;
+  }
+  .site-menu.is-open .site-menu-item,
+  .site-menu.is-open .site-menu-foot {
+    transition-delay: 0s;
+  }
+  .site-burger-top,
+  .site-burger-bot,
+  .site-nav-mark,
+  .site-cta,
+  .site-cta-chip {
+    transition: none;
   }
 }

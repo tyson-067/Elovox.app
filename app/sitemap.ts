@@ -30,10 +30,6 @@ const MODIFIED: Record<string, string> = {
   "/biometrics": "2026-08-01", // new: voice & camera notice
   "/children": "2026-08-01", // new: children's privacy
   "/dmca": "2026-08-01", // new: copyright/DMCA
-
-  "/for/job-candidates": "2026-07-31", // per-audience landing pages
-  "/for/students": "2026-07-31",
-  "/for/founders": "2026-07-31",
 };
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -51,9 +47,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/biometrics": 0.3,
     "/children": 0.3,
     "/dmca": 0.3,
-    "/for/job-candidates": 0.7,
-    "/for/students": 0.7,
-    "/for/founders": 0.7,
   };
 
   return Object.keys(MODIFIED).map((path) => ({

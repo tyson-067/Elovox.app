@@ -49,7 +49,7 @@ test.describe("page bottom", () => {
      own top margin, stacking 144-160px of dead space at the bottom of the site.
      It read as a rendering fault, not as spacing — which is exactly how it was
      reported. The footer owns that gap now; pages must not add bottom padding. */
-  for (const route of ["/", "/about", "/pricing", "/for/students"]) {
+  for (const route of ["/", "/about", "/pricing", "/terms"]) {
     for (const width of [390, 1280]) {
       test(`no dead space above the footer on ${route} @${width}px`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });

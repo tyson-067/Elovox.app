@@ -1,11 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Montserrat, Jost, Geist_Mono, Playfair_Display } from "next/font/google";
-import Link from "next/link";
-import { FelixMark } from "@/components/FoxLogo";
 import { AuthProvider } from "@/components/AuthProvider";
-import { AuthNav } from "@/components/AuthNav";
+import { SiteNav } from "@/components/SiteNav";
 import { SubNav } from "@/components/SubNav";
-import { ScrollProgress } from "@/components/ScrollProgress";
 import { Footer } from "@/components/Footer";
 import { NativeShell } from "@/components/NativeShell";
 import { NativeRuntime } from "@/components/NativeRuntime";
@@ -216,54 +213,13 @@ export default function RootLayout({
           <div className="native-hide">
             <SiteBanner />
           </div>
-          <header className="native-hide sticky top-0 z-40 border-b border-primary/8 bg-surface/80 backdrop-blur-md">
-            <div className="w-full px-4 md:px-10 xl:px-16 2xl:px-24 h-14 flex items-center justify-between">
-              <Link
-                href="/"
-                className="group flex items-center gap-2.5 text-primary"
-                aria-label="Elovox home"
-              >
-                {/* Was a 46 KB, 184x182 PNG served `unoptimized` into a 36px
-                    box: a network request and ~45 KB for a mark we already
-                    draw in vector, downscaled 5x so it never landed on a
-                    pixel boundary and softened on every non-Retina display.
-                    FelixMark is the same fox, inline, crisp at any size, and
-                    it costs nothing extra — FoxLogo.tsx is already in this
-                    bundle for the rest of the site.
-
-                    Keep the fixed gradient ids inside FoxLogo as they are:
-                    two instances of the same mark must emit byte-identical
-                    defs or hydration desyncs. */}
-                <FelixMark
-                  className="h-9 w-9 rounded-[10px] transition-transform duration-300 ease-out group-hover:scale-110 group-hover:-rotate-6"
-                />
-                {/* Hidden under 360px, where the wordmark is the difference
-                    between a header that fits and one that wraps: at 320px
-                    the bar has 288px of content width and the logo plus the
-                    three nav items need 333px. The fox mark still carries the
-                    brand and the link keeps its aria-label, so nothing is lost
-                    to a screen reader. 360px, not the `sm` breakpoint, because
-                    every common phone from the iPhone SE 2 (375) up has room
-                    for the wordmark and should keep it. */}
-                <span className="font-headline text-xl font-bold tracking-tight transition-opacity group-hover:opacity-80 max-[359px]:hidden">
-                  Elovox
-                </span>
-              </Link>
-              {/* gap-3 below `sm`: 20px between items is comfortable on a
-                  desktop header and is 16px of pure overflow on a narrow
-                  phone. Helps the signed-in header too, which carries its own
-                  set (Practice, the account chip, Sign out, and Pricing while
-                  the plan is free). */}
-              {/* /80 rather than /70: at 70% these 13px links measured 4.07:1
-                  on the white page, just under AA. 80% is 5.21:1 and still
-                  reads as chrome rather than content. */}
-              <nav className="flex items-center gap-3 sm:gap-5 text-label font-semibold tracking-wide text-primary/80">
-                <AuthNav />
-              </nav>
-            </div>
-            <SubNav />
-            <ScrollProgress />
-          </header>
+          {/* The site header: a floating glass pill that carries the brand,
+              the product sections and the account cluster, with the mobile
+              menu it opens. It is fixed, so it renders its own spacer. */}
+          <SiteNav />
+          {/* The app's per-feature tabs, below the pill and only inside the
+              app — marketing and auth screens render nothing here. */}
+          <SubNav />
           <NativeShell />
           {/* Renders nothing — it owns the native side effects (splash, status
               bar, keyboard, haptics, edge-swipe back). Its effects reach for

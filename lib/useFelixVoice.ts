@@ -19,7 +19,7 @@ export type { FelixVoiceSource, FelixVoiceStatus };
  * and the fox inside inherits them (see .felix-cavity and friends in
  * globals.css). Progress goes the same way, onto the element handed to
  * `bindProgress`, as --felix-progress. Sixty React renders a second on a
- * report page is exactly the stutter the TiltCard note warns about.
+ * report page is exactly the stutter a per-frame React setState causes.
  */
 export function useFelixVoice() {
   const engine = useRef<FelixVoice | null>(null);

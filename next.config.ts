@@ -180,6 +180,21 @@ const nextConfig: NextConfig = {
   // /__/firebase/* rides along because the handler fetches its init config
   // from there. Same-origin also tightens the popup: frame-src 'self' now
   // covers what used to need *.firebaseapp.com.
+  // The three /for/<audience> landing pages were retired with the site
+  // redesign — their content now lives in the homepage's own sections. They
+  // were in the sitemap and had been indexed, so they redirect rather than
+  // 404: a permanent redirect passes the link equity on to the page that
+  // replaced them instead of dropping it.
+  async redirects() {
+    return [
+      { source: "/for/job-candidates", destination: "/#modes", permanent: true },
+      { source: "/for/students", destination: "/#modes", permanent: true },
+      { source: "/for/founders", destination: "/#modes", permanent: true },
+      // Anything else that was ever under /for/ goes to the front door.
+      { source: "/for/:slug*", destination: "/", permanent: true },
+    ];
+  },
+
   async rewrites() {
     return [
       {

@@ -2,25 +2,31 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Felix, type FelixMood } from "@/components/FoxLogo";
 import { FelixSpeaks } from "@/components/FelixSpeaks";
-import { FelixCoachCard } from "@/components/FelixCoach";
-import { FELIX_SAMPLE_TAKE } from "@/lib/felixSample";
 import { Reveal } from "@/components/Reveal";
 import { Parallax } from "@/components/Parallax";
 import { WordReveal } from "@/components/WordReveal";
-import { GlowCard } from "@/components/GlowCard";
-import { CountUp } from "@/components/CountUp";
-import { TiltCard } from "@/components/TiltCard";
+import { LandingMotion } from "@/components/LandingMotion";
 import { GOALS } from "@/lib/goals";
 import { TRIAL_DAYS, formatUSD, planFor } from "@/lib/pricing";
-import { TESTIMONIALS } from "@/lib/testimonials";
 import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
 import { NativeEntry } from "@/components/NativeEntry";
 import { EmailCapture } from "@/components/EmailCapture";
-import { StoryDeck } from "@/components/StoryDeck";
 import { LevelLadder } from "@/components/LevelLadder";
 import { pageGraph, WEBAPP } from "@/lib/schema";
 
 // Marketing landing page. The app itself lives behind /dashboard.
+//
+// The layout and copy here are the Claude Design project "Elovox.app UI
+// overhaul" (Elovox Website.dc.html), rebuilt on this codebase's own
+// primitives: the palette the design was drawn in is already the @theme
+// block in globals.css, so almost nothing here is a literal colour. The
+// cinematic layer — the pinned report, the drawn rail, the sideways card
+// rail, the story cross-fade — lives in components/LandingMotion.tsx and is
+// strictly additive; every word on this page is readable without it.
+//
+// The design's floating nav pill is site-wide chrome and lives in
+// components/SiteNav.tsx; its footer is the existing shared <Footer />, which
+// already carries the same links and owns the gap above itself.
 
 // The homepage owns its own canonical now that the root layout no longer sets
 // one for the whole tree (Next INHERITS `alternates` rather than merging them,
@@ -48,117 +54,59 @@ export const metadata: Metadata = {
 // the app name on your home page", so declaring it explicitly (rather than
 // leaving it to be inferred from an animated slogan) closes that gap.
 //
-// Emitted as a @graph rather than three separate <script> blocks so the nodes
-// can reference each other by @id. Without that, a crawler sees an unattached
-// Organization and an unattached WebApplication and has to guess they're the
-// same outfit; with it, the publisher edge is stated.
-//
 // The Organization node exists for one specific reason: "Elovox" is a
 // contested name, a registered UK company shares it, so a query for the
 // brand is a tie Google breaks on entity signals. sameAs is the strongest one
-// we can assert from our own page. It is a claim, not proof: it only pays off
-// once those profiles link back here, so the accounts' bio links matter as
-// much as this block does.
-
-// Organization, WebSite and WebApplication live in lib/schema.ts so every
-// other page can emit the same nodes and its @id references actually resolve.
+// we can assert from our own page.
 const SITE_SCHEMA = pageGraph(WEBAPP);
 
-// What a report actually contains. Every line here is a real thing the
-// pipeline produces — the six dimensions and the pause threshold are lifted
-// from app/api/analyze/route.ts. If the analysis changes, this changes.
-// `mark` is the phrase that gets the drawn underline when the row reveals —
-// the same sweep the report itself uses on your words, which is the point:
-// the section about markup is itself marked up.
-const REPORT = [
-  {
-    title: "Six scores, not one",
-    mark: "not one",
-    body: "Each one out of 100, and the overall is their average, so you can see which one is dragging the rest down.",
-  },
-  {
-    title: "Your own words, marked up",
-    mark: "marked up",
-    // Two mark types exist, not four: the annotation schema's enum is
-    // ["strong", "flag"] (app/api/analyze/route.ts) and the report labels
-    // them "Strong moment" and "Worth cutting". Nothing is marked for pace,
-    // so "the places to pause, and where to slow down" described a pair of
-    // marks the pipeline has never emitted. Felix can say slow down inside a
-    // note; he does not mark it.
-    body: "Felix marks the lines that landed and the ones worth cutting, and says what each one does to the room.",
-  },
-  {
-    title: "The numbers you can't hear yourself",
-    mark: "can't hear",
-    // Three numbers, and only three. This used to end "with the spot it
-    // happened", which promised a per-pause location the pipeline has never
-    // produced: Analysis.pauses is a single integer (lib/types.ts) and the
-    // report prints it as one figure. Timestamps exist only on transcript
-    // segments Felix annotated, which is the bullet above this one.
-    body: "Words per minute, your filler words counted, and every pause over 1.2 seconds.",
-  },
-  {
-    title: "How you came across",
-    mark: "came across",
-    body: "Whether you sounded trusted or doubted, in charge or just presenting, and whether your ending lost energy.",
-  },
-  {
-    title: "Felix's take, out loud",
-    mark: "out loud",
-    // The take is written from the finished analysis (lib/felixTake.ts),
-    // capped at about sixty words, and always shown as text: the audio is a
-    // press away, never the only copy.
-    body: "Thirty seconds of spoken coaching, written from your report: the one thing that worked, the one thing to fix, and what to do on the next take. Always there as text too.",
-  },
+// The six dimensions Felix scores from the audio, with the sample report's
+// figures. Kept in step with VOICE_DIMENSIONS in app/api/analyze/route.ts —
+// if the analysis changes, this changes.
+const SCORES: Array<[string, number]> = [
+  ["Clarity", 88],
+  ["Confidence", 84],
+  ["Pacing", 79],
+  ["Vocal variety", 91],
+  ["Organization", 86],
+  ["Audience engagement", 88],
 ];
 
-// The six dimensions Felix scores from the audio, named on the page so the
-// scoring isn't a black box before you sign up. Kept in step with
-// VOICE_DIMENSIONS in app/api/analyze/route.ts.
-const VOICE_DIMENSIONS = [
-  "Clarity",
-  "Confidence",
-  "Pacing",
-  "Vocal variety",
-  "Organization",
-  "Audience engagement",
+// The waveform in the hero card. Twenty-seven bars, each on its own phase of
+// the CSS equalizer so the row never pulses in unison; anime.js re-randomises
+// the heights once it loads (components/LandingMotion.tsx). The delays are
+// written out rather than computed so server and client emit the same markup.
+const WAVE_DELAYS = [
+  0, 60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 660, 720, 780, 840, 900,
+  960, 20, 340, 520, 700, 880, 140, 460, 620, 800, 260,
 ];
 
-// The loop, in the order it happens: speak, see, hear, go again. Every
-// claim here is a thing the code does: the Daily Minute and its three
-// attempts (lib/daily.ts), the report (app/api/analyze/route.ts), Felix's
-// take (lib/felixTake.ts), XP and the twelve levels (lib/levels.ts).
+// The loop, in the order it happens: speak, see, hear, go again. Every claim
+// is a thing the code does — the Daily Minute and its three attempts
+// (lib/daily.ts), the report (app/api/analyze/route.ts), Felix's take
+// (lib/felixTake.ts), XP and the twelve levels (lib/levels.ts).
 const STEPS = [
   {
-    n: "01",
     title: "Record yourself",
-    body: "Felix sets a fresh topic and three points to hit each morning, the same one for everybody, and you improvise for a minute with no script. Free, forever. Or bring a speech, an interview answer, a pitch: every mode ends the same way.",
+    body: "Felix sets a fresh topic and three points to hit each morning — the same one for everybody — and you improvise for a minute with no script. Free, forever. Or bring a speech, an interview answer, a pitch.",
   },
   {
-    n: "02",
     title: "See how you came across",
     body: "Six scores out of 100, your own words marked up, the numbers you can't hear yourself, and a read on whether the room trusted you, doubted you, or drifted.",
   },
   {
-    n: "03",
     title: "Hear Felix's coaching",
     body: "Thirty seconds, in his voice: the one thing that worked, the one thing to fix, and what to do on the next take. Written from your report, and always there as text.",
   },
   {
-    n: "04",
     title: "Practice again",
-    body: "Three attempts a day on the Daily Minute, on every plan, each one scored, so you can watch your delivery improve in a single sitting. Every rep earns XP, beating your own best earns more, and streaks multiply it. Twelve levels from First Words to Voice of the Room.",
+    body: "Three attempts a day on the Daily Minute, on every plan, each one scored — so you can watch your delivery improve in a single sitting. Every rep earns XP; streaks multiply it.",
   },
 ];
 
-// Felix's story, told in four beats down the page. The mascot was a static
-// drawing on a gradient panel and nothing else; this gives him a past, which
-// is the whole argument the page is making — that the calm voice at the end
-// is something you build rather than something you're born with.
-//
-// It is also the one place the fox does the persuading instead of a feature
-// list, which is why it sits directly under the hero.
-const STORY: { mood: FelixMood; title: string; body: string }[] = [
+// Felix's story, four beats. Cross-faded under a pin on a desktop-sized
+// window, stacked in flow everywhere else — see .lp-beats in globals.css.
+const STORY: Array<{ mood: FelixMood; title: string; body: string }> = [
   {
     mood: "sleepy",
     title: "Felix used to hate this",
@@ -181,53 +129,21 @@ const STORY: { mood: FelixMood; title: string; body: string }[] = [
   },
 ];
 
-// Who the app is for, directly below the hero. Each card names the modes
-// that serve that room, so the claim is checkable further down the page, and
-// links through to that audience's own page (/for/<slug>, lib/audiences.ts).
-const AUDIENCES: { who: string; body: string; via: string; href: string }[] = [
-  {
-    who: "Job candidates",
-    body: "Walk in having already answered the hard questions out loud, with the hedges cut and the close rehearsed.",
-    via: "Interview practice · Camera coaching",
-    href: "/for/job-candidates",
-  },
-  {
-    who: "Students",
-    body: "Admissions interviews, scholarship panels, class presentations, without the shaky first minute.",
-    via: "College & scholarship interviews · The Daily Minute",
-    href: "/for/students",
-  },
-  {
-    who: "Founders",
-    body: "Pitch it until the nerves are gone and the ask is clean.",
-    via: "Your material · Custom speeches",
-    href: "/for/founders",
-  },
-];
-
-// One stroke style for every mode glyph, same vocabulary as the native
-// section cards.
 const stroke = {
   fill: "none",
   stroke: "currentColor",
   strokeWidth: 1.6,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-};
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+} as const;
 
-// The six ways to practice, one card each, outcome first. This replaced a
-// wall of feature paragraphs: the report section above already says what
-// comes back, so each mode only has to say what you'd use it for.
-const MODES: {
-  title: string;
-  body: string;
-  tag: "Free" | "Premium";
-  glyph: React.ReactNode;
-}[] = [
+// The six ways to practice, in the order the product opens them up. Only the
+// first is free, and the card says so rather than making you find out.
+const MODES = [
   {
+    tag: "Free",
     title: "The Daily Minute",
     body: "A fresh topic every morning, one improvised minute, three tries to beat your own best.",
-    tag: "Free",
     glyph: (
       <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
         <circle cx="12" cy="12" r="8.5" />
@@ -236,9 +152,9 @@ const MODES: {
     ),
   },
   {
+    tag: "Premium",
     title: "Interview practice",
     body: "Real panel questions: jobs, college admissions, scholarships, grad school, med and law.",
-    tag: "Premium",
     glyph: (
       <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
         <path d="M4 5.5h16v10H9l-5 4z" />
@@ -247,9 +163,9 @@ const MODES: {
     ),
   },
   {
+    tag: "Premium",
     title: "Social skills",
     body: "Small talk, saying no, saying sorry. Practice for the speaking you do every day.",
-    tag: "Premium",
     glyph: (
       <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
         <path d="M3.5 4.5h11v7.5H8.5l-5 3.5z" />
@@ -258,9 +174,9 @@ const MODES: {
     ),
   },
   {
+    tag: "Premium",
     title: "Camera coaching",
     body: "Posture, gestures, eye contact, sway. The half of delivery you can't hear.",
-    tag: "Premium",
     glyph: (
       <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
         <rect x="3.5" y="6.5" width="12" height="11" rx="2" />
@@ -269,9 +185,9 @@ const MODES: {
     ),
   },
   {
-    title: "The speech library",
-    body: "Nine short speeches for pace and emphasis, and you can swap any of them for a fresh one.",
     tag: "Premium",
+    title: "The speech library",
+    body: "Nine short speeches for pace and emphasis — and you can swap any of them for a fresh one.",
     glyph: (
       <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
         <path d="M4 5.5c2.5-1.2 5-1.2 8 .5 3-1.7 5.5-1.7 8-.5V18c-2.5-1.2-5-1.2-8 .5-3-1.7-5.5-1.7-8-.5z" />
@@ -280,9 +196,10 @@ const MODES: {
     ),
   },
   {
-    title: "Your material",
-    body: "Rehearse the talk you already have, or give Felix the situation and perform the speech he writes.",
     tag: "Premium",
+    title: "Your material",
+    body: "Rehearse the talk you already have — or give Felix the situation and perform the speech he writes.",
+    dark: true,
     glyph: (
       <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
         <path d="M5 4.5h8l6 6V19a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19z" />
@@ -292,11 +209,74 @@ const MODES: {
   },
 ];
 
+/** The arrow that leans out of every primary button when the cursor nears it.
+ *  `data-lp-arrow` is what LandingMotion reaches for. */
+function Arrow({ size = 14 }: { size?: number }) {
+  return (
+    <svg
+      data-lp-arrow
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M7 17 17 7" />
+      <path d="M9 7h8v8" />
+    </svg>
+  );
+}
+
+// The uppercase mono eyebrow that opens most sections, with the rule that
+// grows under it once the section arrives.
+function Kicker({ children }: { children: React.ReactNode }) {
+  return (
+    <Reveal>
+      <h2 className="font-data text-[11.5px] font-medium uppercase tracking-[0.16em] text-on-surface-variant">
+        {children}
+        <span className="grow-line" aria-hidden="true" />
+      </h2>
+    </Reveal>
+  );
+}
+
+const TICKER = [
+  "Clarity",
+  "Confidence",
+  "Pacing",
+  "Vocal variety",
+  "Organization",
+  "Audience engagement",
+  "Six scores out of 100",
+  "Back in under 30 seconds",
+];
+
+function TickerRun({ hidden = false }: { hidden?: boolean }) {
+  return (
+    <span className="flex gap-[34px] pr-[34px]" aria-hidden={hidden || undefined}>
+      {TICKER.map((word) => (
+        <span key={word} className="flex gap-[34px]">
+          <span>{word}</span>
+          <span className="text-accent">✳</span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 export default function LandingPage() {
+  const annual = planFor("annual");
+
   return (
     // native-hide: inside the app this page is a redirect, not a screen.
     // See components/NativeEntry.
-    <div className="native-hide">
+    // lp: the warm-paper ground and its grain, painted from a fixed layer
+    // because #main is capped and centred (see .lp in globals.css).
+    <div className="lp native-hide">
       <script
         type="application/ld+json"
         // Not executable script, a data block crawlers and reviewers parse.
@@ -304,662 +284,665 @@ export default function LandingPage() {
       />
       <RedirectIfAuthed />
       <NativeEntry />
-      {/* Hero */}
-      <section className="relative pt-16 md:pt-24 grid grid-cols-1 md:grid-cols-12 gap-10 items-center">
-        {/* Brand circles drifting at different depths behind the hero, plus
-            a faint dot grid so the white doesn't feel flat.
+      <LandingMotion />
 
-            There used to be three orbs here, all floating on their own loop
-            AND parallaxing at three different speeds, over a dot grid, under
-            a per-word headline reveal. Individually each is subtle; together
-            they meant nothing on the page was ever still, which is what made
-            a first visit feel busy. Two orbs at lower opacity keeps the depth
-            and the brand color without the whole background breathing.
-            (Anyone with prefers-reduced-motion set already got none of it;
-            see the media query in globals.css.) */}
-        <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
-          <div className="dot-grid absolute -inset-x-10 -top-16 bottom-0" />
-          {/* One warm orb and one cool one, so the background carries both
-              halves of the palette rather than a single wash. */}
-          <Parallax speed={0.28} className="absolute -top-8 right-[8%]">
-            <div className="orb-float h-40 w-40 rounded-full bg-orange/15 blur-xl" />
+      {/* ================= HERO ================= */}
+      <section id="top" className="relative scroll-mt-24 pt-10 md:pt-16">
+        {/* Brand circles drifting at different depths, over a faint dot grid
+            so the warm paper doesn't read as flat. Both orbs are decoration
+            and carry aria-hidden on the wrapper. */}
+        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
+          <div className="dot-grid absolute -inset-x-10 -top-16 h-[760px]" />
+          <Parallax speed={0.22} className="absolute top-10 right-[6%]">
+            <div className="orb-float h-[300px] w-[300px] rounded-full bg-[radial-gradient(circle,rgba(255,132,0,0.28),rgba(255,132,0,0)_70%)] blur-[14px]" />
           </Parallax>
-          <Parallax speed={-0.18} className="absolute top-40 -left-16">
-            <div className="orb-float-slow h-56 w-56 rounded-full bg-vista/25 blur-xl" />
+          <Parallax speed={-0.1} className="absolute top-64 -left-24">
+            <div className="orb-float-slow h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(143,160,216,0.34),rgba(143,160,216,0)_70%)] blur-[16px]" />
           </Parallax>
         </div>
 
-        <div className="md:col-span-7">
-          {/* The hero mounts already in view, so it keeps the plain rise —
-              swipe direction only means something once the user is scrolling. */}
-          <Reveal>
-            {/* Names the product in plain text directly above the headline.
-                The <h1> is "Speak with impact.", a slogan that never says
-                "Elovox", and it's split into per-word spans for the reveal
-                animation, so an automated reader (Google's OAuth review, link
-                previews, any scraper) finds no brand name at the top of the
-                page. That mismatch is what got the consent screen rejected. */}
-            <span className="inline-flex items-center gap-2 text-label font-semibold tracking-[0.08em] uppercase text-violet">
-              Elovox, your speaking practice partner
+        {/* The brand name in plain text above the slogan. The headline is a
+            four-word claim, not a name, and an OAuth consent-screen review
+            rejected this page for exactly that — so the product says what it
+            is called and what it does before it says anything clever. */}
+        <span
+          data-lp-eyebrow
+          className="inline-flex items-center gap-[9px] rounded-full border border-primary/15 bg-white/60 py-[7px] pl-[11px] pr-[15px] font-data text-[10.5px] font-medium uppercase tracking-[0.16em] text-violet-strong"
+        >
+          <span className="rec-dot h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
+          Elovox — your speaking practice partner
+        </span>
+
+        <h1 className="mt-5 font-bold tracking-[-0.045em] text-balance">
+          {/* Line height must clear Montserrat 800's ink at display size or
+              the descender on "Speak" is sliced flat by the word masks. */}
+          <WordReveal
+            text="Speak with"
+            className="block font-headline text-[clamp(3.1rem,11.6vw,12.2rem)] font-extrabold leading-[1.26] text-oxford"
+          />
+          {/* font-size lives on the WRAPPER so the em-based padding and the
+              negative overlap resolve against the display size rather than
+              the h1's inherited one — at 32px the intended .09em landed at
+              2.88px and cut the descender off "impact." */}
+          <span className="-mt-[0.02em] block overflow-hidden pb-[0.09em] text-[clamp(3.4rem,12.6vw,13.2rem)] leading-[1.2]">
+            <span data-lp-serif className="lp-serif-grad">
+              impact.
             </span>
-            {/* The slogan, single line: "Speak with" in the geometric sans,
-                "impact." in the calligraphic serif. The subline underneath
-                carries the concrete what-you-get answer. */}
-            {/* nowrap keeps it one line where it fits; below 360px the clamp
-                floors out and one line would overflow into the page's
-                overflow-x:clip (lost, not scrollable), so let it wrap there. */}
-            <h1 className="hero-slogan mt-4 font-headline font-bold text-primary whitespace-nowrap max-[360px]:whitespace-normal">
-              <WordReveal text="Speak with" delay={100} className="slogan-sans" />
-              <WordReveal text="impact." delay={280} className="slogan-serif text-gradient" />
-            </h1>
-            {/* Says what the product does, in the first sentence, in nouns.
-                This used to be "tells you exactly how it landed on the
-                audience's ears", which signed-out visitors read as a slogan
-                and not as an answer to "what do I actually get?". */}
-            <p className="mt-5 text-lg md:text-xl leading-8 text-on-surface-variant max-w-[52ch]">
-              Record a speech, a pitch or an interview answer. Elovox scores
-              it out of 100, marks the lines that landed, and counts the
-              fillers you didn&apos;t hear yourself say.
+          </span>
+        </h1>
+
+        <div className="mt-11 grid grid-cols-1 items-start gap-[clamp(24px,4vw,56px)] md:grid-cols-12">
+          <div className="md:col-span-5">
+            <p
+              data-lp-sub
+              className="max-w-[34ch] text-[clamp(17px,1.35vw,21px)] leading-[1.55] text-on-surface-variant"
+            >
+              Record a speech, a pitch or an interview answer. Elovox scores it
+              out of 100, marks the lines that landed, and counts the fillers
+              you didn&apos;t hear yourself say.
             </p>
-            <div className="mt-8 flex flex-wrap items-center gap-4">
+            <div data-lp-cta className="mt-[34px] flex flex-wrap items-center gap-[22px]">
               <Link
                 href="/signup"
-                className="btn rounded-lg bg-accent-strong text-white font-semibold text-base px-8 py-3.5"
+                data-lp-magnet
+                className="flex items-center gap-3 rounded-full bg-accent-strong py-[11px] pl-7 pr-3 text-base font-semibold text-on-primary shadow-[0_14px_30px_-14px_rgba(194,65,12,0.7)]"
               >
                 Start free
+                <span className="grid h-[34px] w-[34px] place-items-center rounded-full bg-white/20">
+                  <Arrow />
+                </span>
               </Link>
-              {/* Low-commitment second step: scrolls to the report section
-                  rather than asking for an account. Log in lives in the
-                  header, it doesn't need a second seat here. */}
-              <a
+              <Link
                 href="#report"
-                className="text-base font-semibold text-primary underline underline-offset-4 decoration-primary/30 transition-colors hover:decoration-primary"
+                className="border-b-2 border-primary/30 pb-0.5 text-base font-semibold text-primary"
               >
                 See what comes back
-              </a>
+              </Link>
             </div>
-            {/* The objection the button raises, answered under the button
-                rather than crammed into its label. /pricing already tells
-                people the free plan takes no card; the page where they
-                actually decide never did. Every clause here is checkable
-                against lib/pricing.ts and the free plan's own limits. */}
-            <p className="mt-3 text-caption text-on-surface-variant">
-              No card required. One minute a day, free for good.
+            <p className="mt-4 font-data text-[11.5px] tracking-[0.04em] text-on-surface-variant">
+              No card required · One minute a day, free for good
             </p>
-          </Reveal>
-        </div>
-        <div className="md:col-span-5">
-          <Reveal delay={150}>
-            {/* The signature piece: a report assembling itself over a take,
-                on the same dark stage the real recorder uses. Bars listen,
-                Felix's marks sweep onto the sentence, the note lands, the
-                score pops. It is the product doing its job in five seconds,
-                where the FoxDen postcard used to sit (the den still opens
-                Felix's story further down). All of it freezes at the final
-                frame under prefers-reduced-motion. */}
-            <TiltCard className="relative">
-              <div
-                className="demo-card pop-in rounded-card p-5 text-white dusk-gradient md:p-6"
-                style={{ animationDelay: "250ms" }}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2 text-label font-semibold tracking-wide text-white/80">
-                    <span className="rec-dot h-2.5 w-2.5 rounded-full bg-accent" aria-hidden="true" />
-                    Recording
-                  </span>
-                  <span className="flex items-center gap-3">
-                    <span className="eq" aria-hidden="true">
-                      {[0, 1, 2, 3, 4].map((i) => (
-                        <span
-                          key={i}
-                          className="eq-bar"
-                          style={{ animationDelay: `${i * 130}ms` }}
-                        />
-                      ))}
-                    </span>
-                    <span className="font-data text-sm text-white/80">0:31</span>
-                  </span>
-                </div>
-                <p className="mt-4 text-lg leading-8 text-white/95">
-                  We{" "}
-                  <span className="sweep sweep-strong sweep-run" style={{ animationDelay: "1100ms" }}>
-                    didn&apos;t just meet
-                  </span>{" "}
-                  the goal, we{" "}
-                  <span className="sweep sweep-strong sweep-run" style={{ animationDelay: "1500ms" }}>
-                    doubled
-                  </span>{" "}
-                  it,{" "}
-                  <span className="sweep sweep-flag sweep-run" style={{ animationDelay: "1900ms" }}>
-                    um, basically
-                  </span>{" "}
-                  ahead of schedule.
-                </p>
-                <p
-                  className="pop-in mt-3 text-body-sm leading-6 text-white/85"
-                  style={{ animationDelay: "2400ms" }}
-                >
-                  Cut &ldquo;um, basically&rdquo; at 0:27, it undercuts the win
-                  right before it.
-                </p>
-                <div
-                  className="pop-in mt-4 flex flex-wrap items-center gap-2.5"
-                  style={{ animationDelay: "2900ms" }}
-                >
-                  <span className="rounded-full bg-white/15 px-3 py-1 text-label font-semibold">
-                    {/* Rolls 0→86 as its chip pops in (the 2900ms cue above),
-                        landing the score rather than stating it. */}
-                    <CountUp
-                      value={86}
-                      startDelay={2950}
-                      className="font-data text-accent"
-                    />{" "}
-                    / 100
-                  </span>
-                  <span className="text-label font-semibold text-white/80">
-                    Strong close. Lose the hedge.
-                  </span>
-                </div>
+          </div>
+
+          <div className="relative md:col-span-7">
+            {/* The product, in one card: a minute of audio going in. The
+                waveform is CSS by default and anime.js once it loads. */}
+            <div
+              data-lp-card
+              className="relative rounded-[22px] bg-[linear-gradient(150deg,#0b0829_0%,#004e89_55%,#1a659e_100%)] p-[26px] text-white shadow-[0_30px_60px_-22px_rgba(11,8,41,0.55),0_0_0_1px_rgba(255,255,255,0.07)_inset]"
+            >
+              <div className="flex items-center justify-between gap-3.5">
+                <span className="flex items-center gap-[9px] text-[12.5px] font-semibold uppercase tracking-[0.06em] text-white/80">
+                  <span className="rec-dot h-[9px] w-[9px] rounded-full bg-accent" aria-hidden="true" />
+                  Recording
+                </span>
+                <span className="font-data text-[13px] text-white/80">0:31</span>
               </div>
-              {/* Tap him and he introduces himself: the page's one chance to
-                  let a stranger hear the coach before signing up. Plays a
-                  static file written once by scripts/felix-voice-sample.mjs,
-                  never the live route, so the front door costs nothing and
-                  can't be scripted against. Listening at rest, since the take
-                  is playing; the glasses go on when he talks. */}
+
+              <div data-lp-wave className="my-[22px] mb-1.5 flex h-[74px] items-center gap-[3px]">
+                {WAVE_DELAYS.map((delay, i) => (
+                  <span
+                    key={i}
+                    aria-hidden="true"
+                    className="lp-eq-bar"
+                    style={{ animationDelay: `${delay}ms` }}
+                  />
+                ))}
+              </div>
+
+              <p className="mt-4 text-[clamp(16px,1.25vw,19px)] leading-[1.7] text-white/95">
+                We didn&apos;t just meet the goal, we doubled it,{" "}
+                <span className="text-white/80">um, basically</span> ahead of
+                schedule.
+              </p>
+              <p className="mt-3.5 flex items-center gap-2.5 font-data text-[11.5px] uppercase tracking-[0.05em] text-white/80">
+                <span className="h-px w-[22px] bg-white/35" aria-hidden="true" />
+                Listening
+              </p>
+            </div>
+
+            {/* Felix, sitting on the corner of the card. He is also the play
+                control for a real thirty-second take — the design's fox is
+                decoration, but there is no reason for it to be. */}
+            <div
+              data-lp-herofox
+              className="absolute -bottom-7 right-0 drop-shadow-[0_16px_28px_rgba(11,8,41,0.35)] sm:-bottom-11 sm:-right-4"
+            >
               <FelixSpeaks
                 src="/felix-hello.mp3"
-                mood="listening"
+                mood="coach"
                 speakingMood="coach"
                 animate
                 label="Hear Felix's voice"
                 showNote={false}
-                className="absolute -bottom-6 -right-3"
-                foxClassName="h-24 w-24 drop-shadow-[0_12px_24px_rgba(11,8,41,0.35)] md:h-28 md:w-28"
+                foxClassName="h-[104px] w-[104px] sm:h-[150px] sm:w-[150px]"
               />
-            </TiltCard>
-            <p className="mt-9 text-base leading-6 text-on-surface-variant">
-              <span className="font-semibold text-primary">Felix</span> hears
-              you the way your audience does. Tap him to hear how he sounds.
-            </p>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* Who it's for. Directly under the hero so a stranger can find
-          themself on the page before a single feature is explained.
-
-          No cards: three audiences set as open type on a broken grid, the
-          middle one deliberately low. The kicker lives in a sticky left
-          rail (the page's one rail — repeated on every section it would
-          become a template). The sticky element is the rail cell itself,
-          never a Reveal: a hidden Reveal is transformed, and transform
-          kills position: sticky for everything inside it. */}
-      <section
-        id="who"
-        className="section-rail scroll-mt-24 mt-[var(--space-section-lg)]"
-      >
-        <div className="marginalia">
-          <Reveal>
-            <h2 className="text-kicker uppercase text-on-surface-variant">
-              Who it&apos;s for
-              <span className="grow-line" aria-hidden="true" />
-            </h2>
-          </Reveal>
-        </div>
-        <div className="grid-broken mt-5 max-md:gap-y-0 max-md:divide-y max-md:divide-(--hairline-ink) md:mt-0">
-          {AUDIENCES.map((a, i) => (
-            // The stagger transform lives on this wrapper; the Reveal is
-            // inside it. On the Reveal itself, .reveal-visible resolves
-            // transform to none and would erase the offset.
-            <div
-              key={a.who}
-              className="col-span-12 max-md:py-5 md:col-span-4"
-            >
-              <Reveal variant="swipe" delay={i * 120} className="h-full">
-                <Link href={a.href} className="block h-full">
-                  <h3 className="font-headline text-h2 font-bold text-primary">
-                    {a.who}
-                  </h3>
-                  <p className="mt-2 text-base leading-6 text-on-surface-variant">
-                    {a.body}
-                  </p>
-                  <p className="mt-4 text-label font-semibold tracking-wide text-violet">
-                    <span className="sweep-hover sweep-violet">{a.via}</span>{" "}
-                    <span aria-hidden="true">→</span>
-                  </p>
-                </Link>
-              </Reveal>
             </div>
-          ))}
+          </div>
         </div>
       </section>
 
-      {/* What you actually get. Right after who-it's-for, because the one
-          complaint from signed-out visitors was that the page was vague about
-          what the product does. Also the target of the hero's "See a sample
-          report" anchor, hence the id and the scroll margin for the sticky
-          header. */}
-      <section id="report" className="scroll-mt-24 mt-[var(--space-section)]">
-        <Reveal>
-          <h2 className="text-kicker uppercase text-on-surface-variant">
-            What comes back
-            <span className="grow-line" aria-hidden="true" />
-          </h2>
-          {/* "Every recording gets the same report" was not true across
-              plans: a Premium report adds strengths and drills and runs
-              longer everywhere. It IS true across modes, which is the claim
-              worth making. "About a minute" was also roughly 3x the real
-              number, and the app's own loader says "a few seconds". */}
-          <p className="mt-3 max-w-[56ch] text-lg leading-7 text-on-surface-variant">
-            Every mode ends in the same report, and it usually arrives in
-            under half a minute.
-          </p>
-        </Reveal>
-        {/* Four ledger rows, not a 2x2 of cards: each row is title left,
-            body right, with an oversized index numeral layered faintly
-            behind the title. The numeral is decoration (the sweep and the
-            ledger carry the reading order), so it is aria-hidden. */}
-        <div className="rule-list rule-list-cols mt-7">
-          {REPORT.map((r, i) => (
-            <Reveal key={r.title} variant="zoom" delay={i * 110}>
-              <span
-                aria-hidden="true"
-                className="ghost-num absolute -left-2 top-2 text-primary"
-              >
-                0{i + 1}
-              </span>
-              <h3 className="relative font-headline text-h2 font-bold text-primary">
-                {r.title.slice(0, r.title.indexOf(r.mark))}
-                <span
-                  className="sweep sweep-strong"
-                  style={{ transitionDelay: `${i * 110 + 250}ms` }}
-                >
-                  {r.mark}
-                </span>
-                {r.title.slice(r.title.indexOf(r.mark) + r.mark.length)}
-              </h3>
-              <p className="relative mt-2 text-base leading-7 text-on-surface-variant md:mt-1">
-                {r.body}
+      {/* ================= TICKER ================= */}
+      {/* Full-bleed out of #main's cap. The six dimensions, said plainly,
+          moving at whatever speed the page is being read. */}
+      <section
+        className="lp-bleed mt-[clamp(56px,9vw,120px)] overflow-hidden border-y border-primary/15 bg-amande/35"
+        aria-label="What Elovox scores"
+      >
+        <div
+          data-lp-ticker
+          className="lp-ticker py-[22px] font-data text-[13px] uppercase tracking-[0.14em] whitespace-nowrap text-primary"
+        >
+          <TickerRun />
+          <TickerRun hidden />
+        </div>
+      </section>
+
+      {/* ================= THE REPORT ================= */}
+      {/* The centrepiece. A full-bleed dark stage that pins itself and builds
+          the report line by line as the page is scrolled through it. */}
+      <section
+        id="report"
+        data-lp-report
+        className="lp-bleed mt-[var(--space-section-lg)] scroll-mt-24"
+      >
+        <div
+          data-lp-report-stage
+          className="lp-stage flex min-h-[100svh] items-center overflow-hidden bg-[linear-gradient(165deg,#0b0829_0%,#0e1136_46%,#004e89_100%)] text-white"
+        >
+          <div className="lp-stage-pad mx-auto grid w-full max-w-[var(--container-page)] grid-cols-1 items-center gap-[clamp(28px,4vw,64px)] px-4 py-[clamp(56px,7vw,96px)] md:grid-cols-12 md:px-10 xl:px-16 2xl:px-24">
+            <div className="md:col-span-4">
+              <p className="font-data text-[11.5px] font-medium uppercase tracking-[0.16em] text-shrimp/80">
+                What comes back
               </p>
-            </Reveal>
-          ))}
-        </div>
-        <div className="mt-6 flex flex-wrap gap-2.5">
-          {VOICE_DIMENSIONS.map((d, i) => (
-            <Reveal key={d} delay={i * 60}>
-              {/* Hairline drawn from the local ink, not a fixed navy: over a
-                  purchased night backdrop the ground rules turn the text
-                  light and the border follows it. */}
-              <span className="pill inline-block rounded-full border border-(--hairline-ink) px-4 py-2 text-body-sm font-medium text-primary">
-                {d}
-              </span>
-            </Reveal>
-          ))}
-        </div>
+              <h2 className="mt-[18px] font-headline text-[clamp(2rem,3.4vw,3.6rem)] font-extrabold leading-[1.02] tracking-[-0.035em]">
+                One minute.
+                <br />
+                Then{" "}
+                <span className="font-slogan italic font-semibold text-orange">
+                  this.
+                </span>
+              </h2>
+              <p className="mt-5 max-w-[32ch] text-[16.5px] leading-[1.65] text-white/80">
+                Every mode ends in the same report. Six scores, your own words
+                marked up, and the numbers you can&apos;t hear yourself.
+              </p>
+              <div data-lp-report-fox className="mt-[34px] w-[130px]">
+                <Felix mood="listening" className="h-[130px] w-[130px]" />
+              </div>
+            </div>
 
-        {/* Meet Felix: the same card that tops every report, with the one
-            sample a stranger gets to hear. A static file, never the live
-            route (scripts/felix-voice-sample.mjs), so the front door costs
-            nothing and can't be scripted against. Under the ledger and not
-            above it: the report is the product, the take is how it opens. */}
-        <Reveal delay={160} className="mt-12">
-          <h3 className="font-headline text-h3 font-semibold text-primary">
-            Meet Felix, your communication coach.
-          </h3>
-          <p className="mt-2 max-w-[60ch] text-base leading-7 text-on-surface-variant">
-            Felix turns your Elovox analysis into a short, actionable coaching
-            response, so you know what to improve before you practice again.
-          </p>
-          <FelixCoachCard
-            className="mt-5 max-w-[640px]"
-            text={FELIX_SAMPLE_TAKE}
-            source={{ kind: "url", url: "/felix-hello.mp3" }}
-            audioLabel="Hear Felix"
-            action={{ href: "/signup", label: "Try it free" }}
-          />
-        </Reveal>
-      </section>
+            <div className="md:col-span-8">
+              <div
+                data-lp-report-card
+                className="lp-report-card rounded-[22px] border border-white/15 bg-white/[0.055] p-[clamp(22px,2.4vw,34px)] shadow-[0_40px_80px_-40px_rgba(0,0,0,0.7)] backdrop-blur-[6px]"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3.5 border-b border-white/12 pb-[18px]">
+                  <span className="font-data text-[11.5px] uppercase tracking-[0.14em] text-white/80">
+                    Report · 0:31
+                  </span>
+                  <span className="rounded-full bg-violet/30 px-3 py-[5px] text-[11.5px] font-semibold tracking-[0.04em] text-white">
+                    Goal: sound like a leader
+                  </span>
+                </div>
 
-      {/* How it works */}
-      <section id="how" className="scroll-mt-24 mt-[var(--space-section)]">
-        <Reveal>
-          <h2 className="text-kicker uppercase text-on-surface-variant">
-            How it works
-            <span className="grow-line" aria-hidden="true" />
-          </h2>
-        </Reveal>
-        {/* A numbered SEQUENCE, not three cards in a row.
-            Three equal cards is the shape every SaaS page uses for "how it
-            works", and it says these are three features rather than three
-            steps that happen in order. Dropping the card chrome and letting a
-            large tabular numeral carry each step turns it back into a process:
-            the eye reads 01 -> 02 -> 03 down a rule instead of scanning three
-            boxes and choosing one.
+                {/* Your own words, with the marks the report actually draws:
+                    the enum is ["strong", "flag"] and nothing else. */}
+                <p
+                  data-lp-report-quote
+                  className="lp-report-quote mt-6 text-[clamp(17px,1.5vw,24px)] leading-[1.75] text-white"
+                >
+                  We <span className="lp-mark">didn&apos;t just meet</span> the
+                  goal, we <span className="lp-mark">doubled</span> it,{" "}
+                  <span className="lp-mark lp-mark-soft text-white/80">
+                    um, basically
+                  </span>{" "}
+                  ahead of schedule.
+                </p>
 
-            The numeral is font-data and tabular so the three digits sit on the
-            same optical left edge; a proportional face would stagger them and
-            the rule would look bent. */}
-        <ol className="mt-7 border-l border-primary/15 pl-6 md:pl-8">
-          {STEPS.map((s, i) => (
-            <li key={s.n} className={i > 0 ? "mt-9 md:mt-11" : ""}>
-              <Reveal delay={i * 120}>
-                <div className="relative md:grid md:grid-cols-[minmax(0,7fr)_minmax(0,9fr)] md:gap-x-10">
-                  {/* Pulled into the rule so the marker straddles it. */}
-                  <span
-                    aria-hidden="true"
-                    className="absolute -left-[calc(1.5rem+1px)] top-1 h-2 w-2 -translate-x-1/2 rounded-full bg-accent-strong md:-left-[calc(2rem+1px)]"
-                  />
-                  {/* Two columns from md up. Single-column with a 62ch measure
-                      left the right half of a 1280px row empty, which reads as
-                      an unfinished section rather than a controlled one — the
-                      measure was right and the layout was not using the space
-                      it had. Title and body side by side fills the row, keeps
-                      the reading measure honest, and gives the sequence the
-                      spec-sheet register that suits a numbered process. */}
-                  <div>
-                    {/* Same numbering language as the report ledger above:
-                        an oversized numeral layered behind the title. Violet
-                        ink at 14% rather than the old small label — the ol
-                        still carries the order for AT, so this is
-                        decoration. */}
-                    <span
-                      aria-hidden="true"
-                      className="ghost-num ghost-num-sm absolute -left-1 -top-5 text-violet"
+                <p
+                  data-lp-note
+                  className="mt-5 flex gap-3 text-[15px] leading-[1.6] text-white/85"
+                >
+                  <span className="w-[3px] flex-none rounded-full bg-accent" aria-hidden="true" />
+                  Cut &ldquo;um, basically&rdquo; at 0:27 — it undercuts the win
+                  right before it. The close is your strongest line; land it and
+                  stop.
+                </p>
+
+                <div className="mt-[30px] grid grid-cols-1 gap-x-[34px] gap-y-3.5 sm:grid-cols-2">
+                  {SCORES.map(([name, value]) => (
+                    <div
+                      key={name}
+                      data-lp-scorerow
+                      className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1.5"
                     >
-                      {s.n}
+                      <span className="text-[13px] tracking-[0.02em] text-white/80">
+                        {name}
+                      </span>
+                      <span className="font-data text-[13px] text-orange">{value}</span>
+                      <span className="col-span-full h-1 overflow-hidden rounded-full bg-white/15">
+                        <span
+                          data-lp-bar
+                          className="block h-full origin-left rounded-full bg-[linear-gradient(90deg,#ff8400,#ff6b35)]"
+                          style={{ width: `${value}%` }}
+                        />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-[34px] flex flex-wrap items-end justify-between gap-5 border-t border-white/12 pt-[26px]">
+                  <p className="flex items-baseline gap-2 font-data font-medium leading-none tracking-[-0.03em]">
+                    {/* Scrubbed 0 → 86 by the pin. Rendered at its finished
+                        value so it is right with no JS at all. */}
+                    <span
+                      data-lp-score
+                      className="lp-score text-[clamp(3rem,5.6vw,5.4rem)] text-orange"
+                    >
+                      86
                     </span>
-                    <h3 className="relative pt-3 font-headline text-h3 font-semibold text-primary">
-                      {s.title}
-                    </h3>
-                  </div>
-                  <p className="relative mt-2 max-w-[62ch] text-base leading-7 text-on-surface-variant md:mt-0 md:pt-3">
-                    {s.body}
+                    <span className="text-[clamp(1rem,1.4vw,1.4rem)] text-white/80">
+                      / 100
+                    </span>
+                  </p>
+                  <p data-lp-verdict className="max-w-[34ch] text-[15px] leading-[1.55] text-white/85">
+                    <span className="font-semibold text-white">
+                      Strong close. Lose the hedge.
+                    </span>
+                    <br />
+                    142 words per minute · 3 fillers · 2 pauses over 1.2s
                   </p>
                 </div>
-              </Reveal>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      {/* Goals */}
-      <section className="mt-[var(--space-section)]">
-        <Reveal>
-          <h2 className="text-kicker uppercase text-on-surface-variant">
-            Tell Felix what you&apos;re going for
-            <span className="grow-line" aria-hidden="true" />
-          </h2>
-          <p className="mt-3 text-lg leading-7 text-on-surface-variant max-w-[54ch]">
-            The same words can build trust or lose it, depending on the
-            delivery. Pick the outcome, and Felix judges every rep against it.
-          </p>
-        </Reveal>
-        <div className="mt-5 flex flex-wrap gap-2.5">
-          {GOALS.map((g, i) => (
-            <Reveal key={g.id} delay={i * 60}>
-              <span className="pill inline-block rounded-full border border-(--hairline-ink) text-primary text-body-sm font-medium px-4 py-2 hover:border-accent-strong hover:text-accent-strong">
-                {g.label}
-              </span>
-            </Reveal>
-          ))}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* The modes */}
-      <section id="modes" className="scroll-mt-24 mt-[var(--space-section)]">
-        <Reveal>
-          <h2 className="text-kicker uppercase text-on-surface-variant">
-            Six ways to practice
-            <span className="grow-line" aria-hidden="true" />
-          </h2>
-          <p className="mt-3 text-lg leading-7 text-on-surface-variant max-w-[58ch]">
-            Most speaking apps count your filler words and stop. Every mode
-            here ends in the same honest report: how you made the room feel,
-            and what to change.
-          </p>
-        </Reveal>
-        {/* Six numbered entries on a broken grid instead of six white boxes.
-            The middle column of each row sits low (see .grid-broken), the
-            index numeral is layered behind the title, and the glyph loses
-            its tile — a stroke icon can stand on its own. On phones the
-            grid collapses to a single hairline ledger. */}
-        <div className="grid-broken mt-7 max-md:gap-y-0 max-md:divide-y max-md:divide-(--hairline-ink)">
-          {MODES.map((m, i) => (
-            <div
-              key={m.title}
-              className="col-span-12 max-md:py-5 md:col-span-4"
-            >
-              <Reveal
-                variant="swipe"
-                delay={(i % 3) * 100 + Math.floor(i / 3) * 60}
-                className="relative h-full"
+      {/* ================= HOW IT WORKS ================= */}
+      <section id="how" className="mt-[var(--space-section-lg)] scroll-mt-24">
+        <Kicker>How it works</Kicker>
+
+        <div className="relative mt-13 pl-[clamp(28px,4vw,60px)]">
+          {/* The rail is drawn by DrawSVGPlugin as the section passes. The
+              grey line under it is always there, so the four steps read as a
+              sequence whether or not the draw ever runs. */}
+          <svg
+            aria-hidden="true"
+            preserveAspectRatio="none"
+            viewBox="0 0 2 1000"
+            className="absolute left-0 top-1.5 h-[calc(100%-12px)] w-0.5 overflow-visible"
+          >
+            <defs>
+              <linearGradient id="lp-railgrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--color-accent)" />
+                <stop offset="100%" stopColor="var(--color-violet)" />
+              </linearGradient>
+            </defs>
+            <line x1="1" y1="0" x2="1" y2="1000" stroke="rgba(0,78,137,.16)" strokeWidth="2" />
+            <line
+              data-lp-rail
+              x1="1"
+              y1="0"
+              x2="1"
+              y2="1000"
+              stroke="url(#lp-railgrad)"
+              strokeWidth="2"
+            />
+          </svg>
+
+          {STEPS.map((step, i) => (
+            <Reveal key={step.title}>
+              <div
+                className={`relative grid grid-cols-1 gap-[clamp(20px,3vw,48px)] md:grid-cols-[minmax(0,7fr)_minmax(0,9fr)] ${
+                  i === STEPS.length - 1 ? "" : "pb-[clamp(40px,5vw,72px)]"
+                }`}
               >
                 <span
                   aria-hidden="true"
-                  className="ghost-num absolute -left-2 -top-3 text-primary"
-                >
-                  0{i + 1}
-                </span>
-                <div className="relative flex items-center justify-end gap-2.5">
-                  <span className="text-accent-strong">{m.glyph}</span>
+                  className="absolute top-3.5 -left-[calc(clamp(28px,4vw,60px)+5px)] h-2.5 w-2.5 rounded-full bg-accent-strong shadow-[0_0_0_5px_rgba(194,65,12,0.16)]"
+                />
+                <div>
                   <span
-                    className={`text-micro font-semibold uppercase tracking-[0.08em] ${
-                      m.tag === "Free" ? "text-accent-strong" : "text-violet"
-                    }`}
+                    aria-hidden="true"
+                    className="ghost-num ghost-num-sm text-violet"
                   >
-                    {m.tag}
+                    0{i + 1}
                   </span>
+                  <h3 className="mt-1.5 font-headline text-[clamp(21px,1.8vw,27px)] font-bold tracking-[-0.02em] text-primary">
+                    {step.title}
+                  </h3>
                 </div>
-                <h3 className="relative mt-9 font-headline text-h3 font-semibold text-primary">
-                  {m.title}
-                </h3>
-                <p className="relative mt-1.5 text-base leading-6 text-on-surface-variant">
-                  {m.body}
+                <p className="max-w-[58ch] self-center text-base leading-[1.7] text-on-surface-variant">
+                  {step.body}
                 </p>
-              </Reveal>
-            </div>
+              </div>
+            </Reveal>
           ))}
         </div>
       </section>
 
-      {/* Felix's story. Below the product, not above it. The one animated
-          set piece on the page: a pinned card deck that swipes beat to beat
-          as you scroll, holding you until the story is told. */}
-      <StoryDeck beats={STORY} />
+      {/* ================= WAYS TO PRACTICE ================= */}
+      {/* Six cards on a rail. Pinned and scrubbed sideways on a desktop-sized
+          window; a swipeable row on everything else, which is also the state
+          the page ships in before any JavaScript runs. */}
+      <section
+        id="modes"
+        data-lp-modes
+        className="lp-bleed mt-[var(--space-section-lg)] scroll-mt-24 overflow-hidden"
+      >
+        <div className="lp-stage flex min-h-[100svh] flex-col justify-center gap-[clamp(32px,4vw,56px)] py-[clamp(48px,6vw,80px)]">
+          <div className="mx-auto w-full max-w-[var(--container-page)] px-4 md:px-10 xl:px-16 2xl:px-24">
+            <h2 className="font-data text-[11.5px] font-medium uppercase tracking-[0.16em] text-on-surface-variant">
+              Six ways to practice
+            </h2>
+            <p className="mt-[18px] max-w-[24ch] font-headline text-[clamp(1.8rem,3vw,3.1rem)] font-extrabold leading-[1.05] tracking-[-0.035em] text-oxford">
+              Most apps count your filler words and stop.
+            </p>
+          </div>
+          <div data-lp-modes-scroller className="lp-modes-scroller">
+            <div
+              data-lp-modes-track
+              className="lp-modes-track gap-[clamp(18px,2vw,30px)] px-4 md:px-10 xl:px-16 2xl:px-24"
+            >
+              {MODES.map((mode, i) => (
+                <article
+                  key={mode.title}
+                  className={`lp-mode-card w-[min(78vw,420px)] flex-none rounded-[20px] p-[clamp(24px,2.6vw,36px)] ${
+                    mode.dark
+                      ? "border border-white/15 bg-[linear-gradient(155deg,#0b0829_0%,#004e89_40%,#1a659e_66%,#8fa0d8_92%)] text-white shadow-[0_26px_50px_-30px_rgba(11,8,41,0.7)]"
+                      : "border border-primary/15 bg-white shadow-[0_20px_44px_-30px_rgba(11,8,41,0.4)]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      aria-hidden="true"
+                      className={`ghost-num ghost-num-sm ${mode.dark ? "lp-ghost-bright text-white" : "text-primary"}`}
+                    >
+                      0{i + 1}
+                    </span>
+                    <span
+                      className={`flex items-center gap-[9px] ${
+                        mode.dark
+                          ? "text-shrimp"
+                          : mode.tag === "Free"
+                            ? "text-accent-strong"
+                            : "text-violet-strong"
+                      }`}
+                    >
+                      {mode.glyph}
+                      <span className="text-[10.5px] font-bold uppercase tracking-[0.1em]">
+                        {mode.tag}
+                      </span>
+                    </span>
+                  </div>
+                  <h3
+                    className={`mt-11 font-headline text-[clamp(20px,1.7vw,26px)] font-bold tracking-[-0.02em] ${
+                      mode.dark ? "" : "text-primary"
+                    }`}
+                  >
+                    {mode.title}
+                  </h3>
+                  <p
+                    className={`mt-2.5 text-[15.5px] leading-[1.6] ${
+                      mode.dark ? "text-white/85" : "text-on-surface-variant"
+                    }`}
+                  >
+                    {mode.body}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
 
-      {/* Levels. A scroll-driven climb, not a wrap of pills: see the long
-          note at the top of components/LevelLadder.tsx for why the previous
-          Reveal-per-rung version left eight of the twelve invisible on a
-          phone. */}
+      {/* ================= FELIX'S STORY ================= */}
+      <section
+        id="story"
+        data-lp-story
+        className="lp-bleed mt-[clamp(48px,7vw,90px)] scroll-mt-24"
+      >
+        <div className="lp-stage flex min-h-[100svh] items-center bg-[linear-gradient(150deg,#f9dfc6_0%,#fdf6ee_48%,#f7e1c6_100%)]">
+          <div className="lp-stage-pad mx-auto grid w-full max-w-[var(--container-page)] grid-cols-1 items-center gap-[clamp(28px,4vw,64px)] px-4 py-[clamp(48px,6vw,90px)] md:grid-cols-12 md:px-10 xl:px-16 2xl:px-24">
+            <div
+              data-lp-foxes
+              className="lp-foxes relative mx-auto aspect-square w-full max-w-[400px] md:col-span-5"
+            >
+              {STORY.map((beat) => (
+                <div key={beat.mood} data-lp-fox className="lp-fox">
+                  <Felix mood={beat.mood} className="h-full w-full" />
+                </div>
+              ))}
+            </div>
+            <div className="md:col-span-7">
+              <p className="mb-[26px] font-data text-[11.5px] font-medium uppercase tracking-[0.16em] text-on-surface-variant">
+                Felix&apos;s story
+              </p>
+              {/* Rendered in flow and fully opaque. LandingMotion stacks and
+                  cross-fades them only once it holds a live ScrollTrigger —
+                  a story that needs JavaScript to be readable is a story
+                  that goes missing. */}
+              <div data-lp-beats className="lp-beats">
+                {STORY.map((beat, i) => (
+                  <div key={beat.title} data-lp-beat className="lp-beat">
+                    <p className="font-data text-xs tracking-[0.14em] text-accent-strong">
+                      0{i + 1} / 0{STORY.length}
+                    </p>
+                    <h3 className="mt-3.5 font-headline text-[clamp(1.9rem,3.4vw,3.5rem)] font-extrabold leading-[1.03] tracking-[-0.035em] text-oxford">
+                      {beat.title}
+                    </h3>
+                    <p className="mt-[18px] max-w-[40ch] text-[clamp(16px,1.4vw,20px)] leading-[1.65] text-on-surface-variant">
+                      {beat.body}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= TWELVE LEVELS ================= */}
+      {/* The ladder is its own component: it climbs with the scroll, pins
+          only when the rail overflows, and renders every rung lit with no
+          JS at all. */}
       <LevelLadder />
 
-      {/* What people say. Hidden entirely until there is something real to
-          put here — an empty "Loved by speakers everywhere" heading over
-          nothing is worse than no section at all. Add quotes in
-          lib/testimonials.ts and this appears on its own.
-
-          Deliberately NOT emitted as schema.org Review/aggregateRating: that
-          markup is for ratings collected on the site, and inventing one to
-          win stars in search results is exactly the kind of thing Google
-          hands out manual actions for. */}
-      {TESTIMONIALS.length > 0 && (
-        <section className="mt-[var(--space-section)]">
-          <Reveal>
-            <h2 className="text-kicker uppercase text-on-surface-variant">
-              What people say
-              <span className="grow-line" aria-hidden="true" />
-            </h2>
-          </Reveal>
-          {/* A wall of voices, not a grid of boxes: quotes set large and
-              open, alternating left and right down the page. Same upright
-              headline face as the rest of the site — the quotation marks and
-              the credit line under each one are what say "someone said
-              this", so the type doesn't have to perform it. */}
-          <div className="mt-7 space-y-10 md:space-y-12">
-            {TESTIMONIALS.map((t, i) => (
-              <Reveal key={t.name + i} delay={i * 110}>
-                <figure className={i % 2 === 1 ? "max-w-[56ch] md:ml-auto" : "max-w-[56ch]"}>
-                  <blockquote className="statement text-primary">
-                    &ldquo;{t.quote}&rdquo;
-                  </blockquote>
-                  <figcaption className="mt-3 font-data text-label uppercase tracking-[0.08em] text-on-surface-variant">
-                    <span className="font-semibold text-primary">{t.name}</span>
-                    {t.context && <span> · {t.context}</span>}
-                  </figcaption>
-                </figure>
-              </Reveal>
+      {/* ================= GOALS ================= */}
+      <section className="mt-[var(--space-section)]">
+        <div className="grid grid-cols-1 items-center gap-[clamp(28px,4vw,64px)] md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+          <div>
+            <Reveal>
+              <h2 className="font-headline text-[clamp(1.7rem,2.6vw,2.7rem)] font-extrabold leading-[1.08] tracking-[-0.03em] text-primary">
+                Tell Felix what you&apos;re going for.
+              </h2>
+            </Reveal>
+            <Reveal delay={80}>
+              <p className="mt-4 max-w-[40ch] text-[16.5px] leading-[1.65] text-on-surface-variant">
+                The same words can build trust or lose it, depending on the
+                delivery. Pick the outcome, and Felix judges every rep against
+                it.
+              </p>
+            </Reveal>
+          </div>
+          <div data-lp-goals className="flex flex-wrap gap-2.5">
+            {GOALS.map((goal) => (
+              <span
+                key={goal.id}
+                data-lp-goal
+                className="rounded-full border border-primary/20 bg-white/55 px-[18px] py-2.5 text-[15px] text-primary"
+              >
+                {goal.label}
+              </span>
             ))}
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
-      {/* Pricing */}
-      <section className="mt-[var(--space-section-lg)]">
-        <Reveal>
-          <h2 className="text-kicker uppercase text-on-surface-variant">
-            Pricing
-            <span className="grow-line" aria-hidden="true" />
-          </h2>
-        </Reveal>
-        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-          <Reveal className="h-full">
-            <GlowCard className="card h-full p-6">
-              <h3 className="font-headline text-2xl font-semibold text-primary">
+      {/* ================= PRICING ================= */}
+      <section id="pricing" className="mt-[var(--space-section-lg)] scroll-mt-24">
+        <Kicker>Pricing</Kicker>
+        <div className="mt-[clamp(32px,4vw,52px)] grid grid-cols-1 gap-[clamp(16px,2vw,28px)] md:grid-cols-2">
+          <Reveal>
+            <div
+              data-lp-tilt
+              className="relative h-full rounded-3xl border border-primary/15 bg-white p-[clamp(26px,3vw,40px)] shadow-[0_24px_50px_-34px_rgba(11,8,41,0.38)] will-change-transform"
+            >
+              <div className="lp-spot" aria-hidden="true" />
+              <h3 className="font-headline text-[22px] font-bold tracking-[-0.02em] text-primary">
                 Free
               </h3>
-              <p className="num-display mt-2 text-primary">
-                $0
-                <span className="ml-2 align-baseline font-data text-sm font-medium text-on-surface-variant">
-                  / forever
-                </span>
+              <p className="mt-3.5 flex items-baseline gap-[9px] font-data font-medium leading-none tracking-[-0.03em] text-primary">
+                <span className="text-[clamp(2.6rem,4vw,3.9rem)]">$0</span>
+                <span className="text-sm text-on-surface-variant">/ forever</span>
               </p>
-              <ul className="mt-4 space-y-2 text-base leading-6 text-on-surface">
-                <li>The Daily Minute, a new topic every day, set by Felix</li>
-                <li>3 attempts a day to beat your own best score</li>
-                <li>A Felix feedback report on every attempt</li>
-                <li>Levels, XP and streaks</li>
-                <li>Coaching goals and progress tracking</li>
+              <ul className="mt-[26px] flex list-none flex-col gap-[11px] text-[15.5px] leading-[1.5] text-oxford">
+                {[
+                  "The Daily Minute — a new topic every day, set by Felix",
+                  "3 attempts a day to beat your own best score",
+                  "A Felix feedback report on every attempt",
+                  "Levels, XP and streaks",
+                  "Coaching goals and progress tracking",
+                ].map((line) => (
+                  <li key={line} className="flex gap-[11px]">
+                    <span
+                      aria-hidden="true"
+                      className="mt-2 h-[5px] w-[5px] flex-none rounded-full bg-accent"
+                    />
+                    {line}
+                  </li>
+                ))}
               </ul>
               <Link
                 href="/signup"
-                className="btn rounded-lg mt-6 inline-block bg-accent-strong text-white font-semibold px-6 py-3"
+                data-lp-magnet
+                className="mt-[30px] inline-flex items-center gap-[11px] rounded-full bg-accent-strong py-2.5 pl-6 pr-2.5 text-[15px] font-semibold text-on-primary"
               >
                 Start free
-              </Link>
-            </GlowCard>
-          </Reveal>
-          <Reveal delay={120} className="h-full">
-            <GlowCard className="card card-glow-light h-full p-6 navy-gradient border-none! text-white">
-              <h3 className="font-headline text-2xl font-semibold">Premium</h3>
-              {/* Qualified, and priced by what is actually charged.
-                  This read "7-day free trial · from $1.54/week", which was
-                  wrong twice: the trial is on monthly and annual only (weekly
-                  bills from day one), and $1.54/week is the annual plan's
-                  DERIVED rate — the charge is $79.99 once. /pricing went to
-                  visible trouble to qualify both; the homepage inverted the
-                  emphasis on the page more people see. Figures come from
-                  lib/pricing.ts so they can never drift from checkout. */}
-              <p className="num-display mt-2">
-                {formatUSD(planFor("annual").price)}
-                <span className="ml-2 align-baseline font-data text-sm font-medium text-white/85">
-                  / year
+                <span className="grid h-[30px] w-[30px] place-items-center rounded-full bg-white/20">
+                  <Arrow size={13} />
                 </span>
+              </Link>
+            </div>
+          </Reveal>
+
+          {/* web-only, and the whole page is native-hide besides: the iOS
+              shell must never show a price or a route to buying (App Store
+              guideline 3.1.1). tests/e2e/app-store-gate.spec.ts enforces it. */}
+          <Reveal delay={90}>
+            <div
+              data-lp-tilt
+              className="web-only relative h-full overflow-hidden rounded-3xl bg-[linear-gradient(155deg,#0b0829_0%,#004e89_38%,#1a659e_62%,#8fa0d8_86%,#f9dfc6_100%)] bg-[length:160%_160%] p-[clamp(26px,3vw,40px)] text-white shadow-[0_30px_60px_-30px_rgba(11,8,41,0.6)] will-change-transform"
+            >
+              <div className="lp-spot lp-spot-light" aria-hidden="true" />
+              <div className="flex items-center justify-between gap-3.5">
+                <h3 className="font-headline text-[22px] font-bold tracking-[-0.02em]">
+                  Premium
+                </h3>
+                <span className="rounded-full bg-white/20 px-3 py-[5px] text-[11px] font-bold uppercase tracking-[0.1em]">
+                  {annual.badge}
+                </span>
+              </div>
+              <p className="mt-3.5 flex items-baseline gap-[9px] font-data font-medium leading-none tracking-[-0.03em]">
+                <span className="text-[clamp(2.6rem,4vw,3.9rem)]">
+                  {formatUSD(annual.price)}
+                </span>
+                <span className="text-sm text-white/85">/ year</span>
               </p>
-              <p className="mt-1 font-data text-sm text-white/85">
-                ({formatUSD(planFor("annual").perWeek)}/week) · {TRIAL_DAYS}-day
-                free trial on monthly and annual · plus sales tax
+              <p className="mt-2.5 font-data text-[12.5px] leading-[1.5] text-white/85">
+                ({formatUSD(annual.perWeek)}/week) · {TRIAL_DAYS}-day free trial
+                on monthly and annual · plus sales tax
               </p>
-              {/* Four lines, not eight. The feature grid further up this page
-                  already made the case in detail; restating all of it here
-                  turns a price into another pitch. The full list lives on
-                  /pricing, which is where someone comparing plans is going
-                  next anyway. */}
-              <ul className="mt-4 space-y-2 text-base leading-6 text-white/90">
-                <li>
-                  <span className="font-semibold">Camera coaching</span>: posture,
-                  sway, gestures, eye contact, expression
-                </li>
-                <li>The nine-speech library, plus interview and social skills practice</li>
-                <li>
-                  Coaching on your own material, and custom speeches Felix
-                  writes for your actual situation
-                </li>
-                <li>Everything in Free, including the Daily Minute</li>
+              <ul className="mt-[26px] flex list-none flex-col gap-[11px] text-[15.5px] leading-[1.5] text-white/95">
+                {[
+                  <>
+                    <span className="font-semibold text-white">Camera coaching</span>{" "}
+                    — posture, sway, gestures, eye contact, expression
+                  </>,
+                  <>The nine-speech library, plus interview and social skills practice</>,
+                  <>Coaching on your own material, and custom speeches Felix writes</>,
+                  <>Everything in Free, including the Daily Minute</>,
+                ].map((line, i) => (
+                  <li key={i} className="flex gap-[11px]">
+                    <span
+                      aria-hidden="true"
+                      className="mt-2 h-[5px] w-[5px] flex-none rounded-full bg-orange"
+                    />
+                    <span>{line}</span>
+                  </li>
+                ))}
               </ul>
               <Link
                 href="/pricing"
-                className="btn rounded-lg mt-6 inline-block bg-white/15 text-white font-semibold px-6 py-3 hover:bg-white/25 web-only"
+                data-lp-magnet
+                className="relative mt-[30px] inline-flex items-center gap-[11px] overflow-hidden rounded-full border border-white/30 bg-white/20 py-2.5 pl-6 pr-2.5 text-[15px] font-semibold text-white"
               >
                 See plans &amp; pricing
+                <span className="grid h-[30px] w-[30px] place-items-center rounded-full bg-white/25">
+                  <Arrow size={13} />
+                </span>
               </Link>
-            </GlowCard>
+            </div>
           </Reveal>
         </div>
       </section>
 
-      {/* The soft exit: an email instead of nothing. For the visitor who got
-          this far and still isn't ready for an account — the feedback said as
-          much, in those words. Sits between pricing and the closing CTA so it
-          reads as the alternative to buying, not a competitor to it. */}
+      {/* ================= NOT READY YET ================= */}
       <section className="mt-[var(--space-section)]">
         <Reveal>
-          {/* No card: open type on the plain page. .ground-panel is inert
-              here and only materializes (white wash, padding) when a
-              purchased backdrop is active, because a form must not gamble
-              its legibility on a photograph. */}
-          <div className="ground-panel md:grid md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:items-center md:gap-10">
+          <div className="grid grid-cols-1 items-center gap-[clamp(24px,4vw,56px)] border-t border-primary/15 pt-[clamp(32px,4vw,48px)] md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
             <div>
-              <h2 className="font-headline text-h2 font-bold text-primary">
+              <h2 className="font-headline text-[clamp(1.5rem,2.2vw,2.2rem)] font-extrabold tracking-[-0.03em] text-primary">
                 Not ready yet?
               </h2>
-              <p className="mt-2 max-w-[52ch] text-base leading-6 text-on-surface-variant">
-                Leave your email and we&apos;ll send the occasional speaking
-                tip when we have one worth sending. No spam, and you can drop
-                off the list any time.
+              <p className="mt-3 max-w-[48ch] text-base leading-[1.6] text-on-surface-variant">
+                Leave your email and we&apos;ll send the occasional speaking tip
+                when we have one worth sending. No spam, and you can drop off
+                the list any time.
               </p>
             </div>
-            <div className="mt-4 md:mt-0">
-              <EmailCapture />
-            </div>
+            <EmailCapture />
           </div>
         </Reveal>
       </section>
 
-      {/* Closing CTA */}
-      <section className="relative mt-[var(--space-section-lg)]">
-        <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
-          <Parallax speed={0.2} className="absolute -top-10 right-0">
-            <div className="orb-float h-36 w-36 rounded-full bg-orange/15 blur-xl" />
+      {/* ================= CLOSING ================= */}
+      {/* No bottom margin: Footer owns the gap above itself
+          (mt-[var(--space-section)]), and a page that adds its own leaves a
+          hole that tests/e2e/responsive.spec.ts measures. */}
+      <section className="relative mt-[var(--space-section-lg)] text-center">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+          <Parallax speed={0.18} className="absolute -top-5 left-1/2 -translate-x-1/2">
+            <div className="h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle,rgba(255,132,0,0.2),rgba(255,132,0,0)_68%)] blur-xl" />
           </Parallax>
         </div>
-        <Reveal>
-          <Felix mood="cheer" animate className="mb-4 h-24 w-24" />
-          {/* Full display size for the exit line — the biggest type on the
-              page belongs to the last thing it says. */}
-          <h2 className="text-display font-headline font-bold text-primary">
-            <WordReveal text="The room goes quiet." step={90} />
-            <WordReveal
-              text="You're ready."
-              delay={420}
-              step={90}
-              className="text-gradient"
-            />
-          </h2>
-          <p className="mt-3 text-lg leading-7 text-on-surface-variant">
-            One minute a day, out loud, three times, with honest feedback.
-            That&apos;s how delivery gets built.
-          </p>
-          {/* No /about link alongside this any more: the footer carries one on
-              every page at every width (FooterAboutLink), which covers the
-              mobile case this used to exist for. */}
-          <Link
-            href="/signup"
-            className="btn rounded-lg mt-8 inline-block bg-accent-strong text-white font-semibold px-8 py-3.5"
-          >
-            Start your Daily Minute
-          </Link>
+        <Reveal variant="zoom">
+          <Felix mood="cheer" animate className="mx-auto mb-5 h-[132px] w-[132px]" />
         </Reveal>
+        <h2 className="relative font-headline text-[clamp(2.2rem,6.4vw,5.4rem)] font-extrabold leading-[1.24] tracking-[-0.04em] text-oxford">
+          <WordReveal text="The room goes quiet." className="block" />
+          <WordReveal
+            text="You're ready."
+            delay={220}
+            className="block font-slogan italic font-semibold text-accent-strong"
+          />
+        </h2>
+        <p className="relative mx-auto mt-[22px] max-w-[52ch] text-[clamp(16px,1.35vw,19px)] leading-[1.6] text-on-surface-variant">
+          One minute a day, out loud, three times, with honest feedback.
+          That&apos;s how delivery gets built.
+        </p>
+        <Link
+          href="/signup"
+          data-lp-magnet
+          className="relative mt-[34px] inline-flex items-center gap-3 rounded-full bg-accent-strong py-[13px] pl-[30px] pr-[13px] text-[17px] font-semibold text-on-primary shadow-[0_18px_36px_-16px_rgba(194,65,12,0.7)]"
+        >
+          Start your Daily Minute
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-white/20">
+            <Arrow size={15} />
+          </span>
+        </Link>
       </section>
     </div>
   );

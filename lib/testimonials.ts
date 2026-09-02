@@ -1,3 +1,8 @@
+// NOTE: nothing renders this today. The landing page's testimonial wall was
+// removed in the design import (the design has no social-proof section), so
+// adding an entry below will type-check, lint, test and build green and then
+// appear nowhere. Add the section back to app/page.tsx first, or delete this
+// file, before collecting quotes for it.
 // What real users say. Rendered on the landing page, below the feature grid
 // and above pricing, which is where someone deciding on the price is looking.
 //

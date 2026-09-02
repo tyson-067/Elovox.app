@@ -3,7 +3,7 @@
 // Why this file exists: every page's schema references `#organization` and
 // `#website` by @id, but those nodes were DEFINED only in the homepage's
 // @graph. A validator resolves @id within a single document, so on /about,
-// /privacy, /terms, /pricing and /for/* those were dangling references —
+// /privacy, /terms and /pricing those were dangling references —
 // pointing at entities that page never declares. Google treats an unresolved
 // publisher edge as absent, which is exactly the signal the Organization node
 // exists to assert (see the note in app/page.tsx: "Elovox" is a contested
