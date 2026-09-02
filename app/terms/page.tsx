@@ -40,12 +40,12 @@ export const metadata: Metadata = {
 const mailto = `mailto:${LEGAL.emails.support}`;
 
 // Same literal the rest of the site's JSON-LD uses, so @id refs resolve to one
-// entity graph. termsUpdated is a human string; parse to ISO for dateModified.
+// entity graph. dateModified reads LEGAL.termsVersion, which is already the
+// ISO form of the same day, rather than parsing the human termsUpdated string:
+// `new Date("September 2, 2026")` is local midnight, so toISOString() on a
+// build machine east of UTC returns September 1 — a schema date one day
+// earlier than the date printed at the top of the page.
 const SITE = "https://elovox.app";
-const modified = (() => {
-  const d = new Date(LEGAL.termsUpdated);
-  return Number.isNaN(d.getTime()) ? undefined : d.toISOString().slice(0, 10);
-})();
 
 const PAGE_SCHEMA = {
   "@type": "WebPage",
@@ -55,7 +55,7 @@ const PAGE_SCHEMA = {
   description: DESCRIPTION,
   isPartOf: { "@id": `${SITE}/#website` },
   publisher: { "@id": `${SITE}/#organization` },
-  ...(modified ? { dateModified: modified } : {}),
+  dateModified: LEGAL.termsVersion,
 };
 
 export default function TermsPage() {
@@ -293,11 +293,123 @@ export default function TermsPage() {
         </p>
       </Section>
 
+      <Section heading="If something you do lands us in a claim">
+        <p>
+          We&apos;ve asked you to record only what you have the right to
+          record, and not to record other people without their consent. This is
+          the part that says what happens when that goes wrong.
+        </p>
+        <p>
+          If someone brings a claim against us because of something you did —
+          what you recorded or uploaded, a person you recorded without their
+          permission, a law you broke while using Elovox, or a use of the
+          service these terms don&apos;t allow — you agree to cover what it
+          reasonably costs us to deal with it, including legal fees.
+        </p>
+        <p>
+          That is deliberately narrow. It covers your own conduct and your own
+          content, and nothing else: not anything we got wrong, not a claim
+          about how Elovox itself works, and not a situation you weren&apos;t
+          responsible for. We&apos;ll tell you promptly if a claim like that
+          arrives, we won&apos;t settle it in your name without asking you
+          first, and you&apos;re free to bring your own lawyer. And as
+          everywhere else here, nothing in this section takes away a right the
+          law says you cannot give up.
+        </p>
+      </Section>
+
       <Section heading="Governing law">
         <p>
-          These terms are governed by the laws of {LEGAL.jurisdiction}, and
-          disputes will be heard by the courts there. If you are a consumer, you
-          may also have the right to bring proceedings in your own country.
+          These terms are governed by the laws of {LEGAL.jurisdiction}. Where
+          this section and the next one both seem to answer the same question,
+          the next one wins: it decides what goes to arbitration, and this one
+          only covers what is left.
+        </p>
+        <p>
+          What is left goes to the courts of {LEGAL.jurisdiction} — with two
+          exceptions we mean to keep, because the next section keeps them too.
+          A small claims case can be brought wherever that court&apos;s own
+          rules let you bring it, which is normally where you live, not here.
+          And if you are a consumer, you may have the right to bring
+          proceedings in your own country and to rely on the protections your
+          own country&apos;s law gives you; nothing in these terms takes that
+          away.
+        </p>
+      </Section>
+
+      <Section heading="Settling a disagreement">
+        <p>
+          If something goes wrong between us, email{" "}
+          <a className="text-accent-strong hover:underline" href={mailto}>
+            {LEGAL.emails.support}
+          </a>{" "}
+          first and give us 30 days to put it right. Nearly everything ends
+          there, and we would much rather fix a problem than argue about one.
+        </p>
+        <p>
+          If that doesn&apos;t settle it, and you are in the United States, you
+          and we agree — subject to the rest of this section, which limits what
+          follows and is part of the agreement rather than a footnote to it —
+          to resolve the dispute by binding arbitration instead of in court:
+          one arbitrator, no jury, run by the American Arbitration
+          Association under its Consumer Arbitration Rules (or another
+          established arbitration service we both agree on). It can be handled
+          on the documents alone, or by phone or video, so you don&apos;t have
+          to travel; if there is a hearing in person, it happens where you live
+          or somewhere we agree.
+        </p>
+        <p>
+          <strong>Individually, not as a class.</strong> Claims are brought on
+          your own behalf. Not as a class action, not as a collective or
+          representative action, not as a class arbitration, and the arbitrator
+          can&apos;t roll your claim together with anyone else&apos;s. This is
+          the line in these terms we most want you to actually read, because it
+          means any dispute is between you and us rather than about everybody
+          at once.
+        </p>
+        <p>
+          <strong>Small claims are still open to you.</strong> Either of us can
+          take a claim to small claims court instead, as long as it stays
+          there. And either of us can always ask a court to stop someone
+          misusing the service, or our name and software, while the rest is
+          worked out.
+        </p>
+        <p>
+          <strong>You can opt out, and it costs you nothing.</strong> If
+          you&apos;d rather keep your right to go to court, email{" "}
+          <a className="text-accent-strong hover:underline" href={mailto}>
+            {LEGAL.emails.support}
+          </a>{" "}
+          within 30 days of first accepting these terms, from the address on
+          your account, with the words &ldquo;arbitration opt-out&rdquo;.
+          That&apos;s the whole process. We&apos;ll confirm it, nothing else
+          about your account changes, and the rest of these terms carry on
+          exactly as before. If you already had an account when this section
+          was added, your 30 days run from the date at the top of this page.
+        </p>
+        <p>
+          <strong>Who pays.</strong> We&apos;ll pay the filing fee and the
+          arbitrator&apos;s fees for any claim you bring in good faith, unless
+          the arbitrator decides it was frivolous — arbitration shouldn&apos;t
+          cost you more than court would have. Each of us pays our own lawyers,
+          unless the law or the arbitrator says otherwise.
+        </p>
+        <p>
+          <strong>If part of this doesn&apos;t hold.</strong> If a court
+          decides the &ldquo;individually, not as a class&rdquo; paragraph
+          can&apos;t be enforced for a particular dispute, then that dispute
+          goes to court rather than to arbitration — and everything else in
+          these terms, including the rest of this section, still stands.
+        </p>
+        <p>
+          <strong>Where this section doesn&apos;t apply.</strong> It applies
+          only as far as the law allows — all of it, the &ldquo;individually,
+          not as a class&rdquo; paragraph included. If you are a consumer in
+          the UK, the EU, or anywhere else that does not let a company require
+          arbitration before a dispute has even arisen, this section does not
+          apply to you at all: you keep your courts, including the right to
+          bring proceedings in your own country, and nothing here removes a
+          right you hold that cannot legally be excluded.
         </p>
       </Section>
 
@@ -307,6 +419,17 @@ export default function TermsPage() {
           you in the app or by email before it takes effect, and continuing to
           use Elovox afterwards means you accept the new version. The date at
           the top always reflects the current one.
+        </p>
+      </Section>
+
+      <Section heading="Which version this is">
+        <p>
+          This is version <strong>{LEGAL.termsVersion}</strong> of the terms — the
+          date the wording last changed. It is here so that if we ever disagree
+          about what you signed up to, there is something exact to point at
+          instead of &ldquo;the terms, at some point&rdquo;. The sign-up screen
+          names the version you are accepting, and the date at the top of this
+          page moves with it.
         </p>
       </Section>
 

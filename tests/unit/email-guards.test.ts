@@ -223,6 +223,16 @@ const { send, sendBulk, EMAIL_LOG_TTL_MS } = await import("@/lib/email/send");
 const { CATEGORY, FREE_PLAN } = await import("@/lib/email/config");
 const { isHardBounce } = await import("@/lib/email/webhook");
 const { utcDayKey } = await import("@/lib/opsMetrics");
+const { render } = await import("@/lib/email/render");
+const {
+  subscriptionStarted,
+  tipsWelcome,
+  winBack,
+  lockoutNotice,
+  paymentFailed,
+  welcome,
+} = await import("@/lib/email/messages");
+const { LEGAL } = await import("@/lib/legal");
 import type { AppMessage } from "@/lib/email/send";
 import type { EmailPrefKey } from "@/lib/email/config";
 
@@ -915,7 +925,31 @@ const msg = (over: Partial<AppMessage> = {}): AppMessage => ({
   ...over,
 });
 
+/**
+ * LEGAL is `as const` and `postalAddress` is deliberately blank in the repo,
+ * because we chose to hold commercial mail rather than publish an address.
+ * `send`/`sendBulk` therefore refuse `lifecycle` and `marketing` outright, and
+ * every pipeline test below would assert against that gate instead of against
+ * the thing it names. So those two suites run with an address written in, and
+ * the gate gets its own suite where the blank is the point.
+ */
+const TEST_POSTAL = "Elovox, 123 Example St, New York, NY 10001";
+function setPostal(address: string): string {
+  const legal = LEGAL as unknown as { postalAddress: string };
+  const saved = legal.postalAddress;
+  legal.postalAddress = address;
+  return saved;
+}
+
 describe("send", () => {
+  let savedPostal = "";
+  beforeEach(() => {
+    savedPostal = setPostal(TEST_POSTAL);
+  });
+  afterEach(() => {
+    setPostal(savedPostal);
+  });
+
   const budgetDocs = () => [...db.data.keys()].filter((k) => k.startsWith("emailBudget/"));
   const logDocs = () => [...db.data.keys()].filter((k) => k.startsWith("emailLog/"));
 
@@ -1088,6 +1122,14 @@ describe("send", () => {
 });
 
 describe("sendBulk", () => {
+  let savedPostal = "";
+  beforeEach(() => {
+    savedPostal = setPostal(TEST_POSTAL);
+  });
+  afterEach(() => {
+    setPostal(savedPostal);
+  });
+
   const many = (emails: string[]) => emails.map((to) => msg({ to, key: `weekly:${to}` }));
 
   it("reports exactly who was accepted — not the first N of the input", async () => {
@@ -1144,5 +1186,201 @@ describe("sendBulk", () => {
     delete process.env.RESEND_API_KEY;
     expect((await sendBulk(asDb(db), "lifecycle", many(["a@example.com"]))).sent).toBe(0);
     expect(db.writes).toEqual([]);
+  });
+});
+
+/* ===========================================================================
+   6. THE TWO THINGS A REGULATOR READS
+
+   Neither of these is a bug a user would report, and both are the kind that
+   gets counted per message once somebody does complain.
+   =========================================================================== */
+
+describe("commercial mail is held while the postal address is blank", () => {
+  /* The decision this pins (2026-09-02): rather than publish a postal
+     address, the commercial sends pause. CAN-SPAM counts each commercial
+     message without one as its own violation, and the tips drip and win-back
+     run from a daily cron — so "remember not to send" was never a control.
+     The gate is. What must NOT break is the mail somebody is owed: a lockout
+     notice, a receipt and a failed-payment warning are about an account the
+     person already has, and the statute does not reach them. */
+
+  it("refuses marketing without spending budget or touching the provider", async () => {
+    const db = makeEmailDb();
+    const r = await send(asDb(db), tipsWelcome("sam@example.com"));
+    expect(r).toMatchObject({ sent: false, outcome: "no-postal-address" });
+    expect(sendEmailMock).not.toHaveBeenCalled();
+    // Nothing reserved: a held message must not consume the day's allowance.
+    expect(db.data.get(`emailBudget/${utcDayKey()}`)).toBeUndefined();
+  });
+
+  it("refuses lifecycle in bulk without sending to anyone", async () => {
+    const db = makeEmailDb();
+    const r = await sendBulk(asDb(db), "lifecycle", [
+      winBack("a@example.com", "uid_a", 3),
+      winBack("b@example.com", "uid_b", 5),
+    ]);
+    expect(r).toMatchObject({ sent: 0, failed: 0, sentTo: [] });
+    expect(sendBatchMock).not.toHaveBeenCalled();
+  });
+
+  it("still sends security, billing and transactional mail", async () => {
+    // The whole point of gating on `optional` rather than on a list of types:
+    // these three are mail the recipient is owed, and holding them would be a
+    // far worse bug than the one being fixed.
+    for (const message of [
+      lockoutNotice("sam@example.com", "https://elovox.app/reset", 15),
+      paymentFailed("sam@example.com", "uid_1", "https://billing.example"),
+      welcome("sam@example.com", "uid_1"),
+    ]) {
+      sendEmailMock.mockClear();
+      const r = await send(asDb(makeEmailDb()), message);
+      expect(r.outcome).not.toBe("no-postal-address");
+      expect(sendEmailMock).toHaveBeenCalled();
+    }
+  });
+
+  it("resumes commercial mail the moment an address exists", async () => {
+    const saved = setPostal(TEST_POSTAL);
+    try {
+      const r = await send(asDb(makeEmailDb()), tipsWelcome("sam@example.com"));
+      expect(r.outcome).not.toBe("no-postal-address");
+      expect(sendEmailMock).toHaveBeenCalled();
+    } finally {
+      setPostal(saved);
+    }
+  });
+});
+
+describe("CAN-SPAM postal address", () => {
+  /** LEGAL is `as const`, and the address is deliberately blank in the repo,
+   *  so the filled-in case can only be exercised by writing it for the
+   *  duration of one render. Restored in `finally` — a leaked address would
+   *  make the "omitted while empty" test below pass for the wrong reason. */
+  function withAddress<T>(address: string, fn: () => T): T {
+    const legal = LEGAL as unknown as { postalAddress: string };
+    const saved = legal.postalAddress;
+    legal.postalAddress = address;
+    try {
+      return fn();
+    } finally {
+      legal.postalAddress = saved;
+    }
+  }
+
+  const ADDRESS = "Elovox, 123 Example St, New York, NY 10001";
+
+  it("prints the address in BOTH parts of a commercial message", () => {
+    // Both, because the statute is about the message, not about the HTML
+    // part — and a client showing the text alternative is a message that
+    // shipped without an address.
+    const { html, text } = withAddress(ADDRESS, () => render(tipsWelcome("sam@example.com").doc));
+    expect(html).toContain(ADDRESS);
+    expect(text).toContain(ADDRESS);
+  });
+
+  it("renders the same address into every message, because both footers are shared", () => {
+    // The reason the fix lives in render.ts rather than in each builder: one
+    // message that forgot the line is one violation per recipient.
+    const { html, text } = withAddress(ADDRESS, () =>
+      render(subscriptionStarted("sam@example.com", "uid_1", "monthly", "September 4, 2026").doc)
+    );
+    expect(html).toContain(ADDRESS);
+    expect(text).toContain(ADDRESS);
+  });
+
+  it("escapes the address rather than injecting it into the footer markup", () => {
+    const { html } = withAddress('Elovox & Co, "Suite 3"', () =>
+      render(tipsWelcome("sam@example.com").doc)
+    );
+    expect(html).toContain("Elovox &amp; Co, &quot;Suite 3&quot;");
+  });
+
+  it("omits the line cleanly while the address is unset", () => {
+    // The failure this pins is the template-string one: an absent value that
+    // renders as "undefined", or as a blank line and a stray separator, in
+    // every email the app sends.
+    const { html, text } = render(tipsWelcome("sam@example.com").doc);
+    expect(LEGAL.postalAddress).toBe("");
+    expect(html).not.toContain("undefined");
+    expect(text).not.toContain("undefined");
+    // The text footer is the whole of the last stanza, so an empty slot would
+    // show up here as a blank line between the brand and the site.
+    expect(text.trimEnd().endsWith(`---\n— ${LEGAL.serviceName}\nhttps://elovox.app`)).toBe(true);
+  });
+
+  it("trims a padded address instead of rendering the padding", () => {
+    const { text } = withAddress(`  ${ADDRESS}  `, () => render(tipsWelcome("s@example.com").doc));
+    expect(text).toContain(`\n${ADDRESS}\n`);
+  });
+});
+
+describe("subscription confirmation (California ARL)", () => {
+  const conf = (...extra: Array<string | null>) =>
+    render(
+      subscriptionStarted(
+        "sam@example.com",
+        "uid_1",
+        "monthly",
+        "September 4, 2026",
+        ...(extra as [(string | null)?, (string | null)?])
+      ).doc
+    );
+
+  it("states the amount, the interval, the next charge date and a way out", () => {
+    // §17602 wants all four in the acknowledgement. Asserted on the text part
+    // because that is the one with no markup to hide a missing fact in.
+    const { text } = conf("$9.99", "https://elovox.app/account");
+    expect(text).toContain("$9.99");
+    expect(text).toContain("a month");
+    expect(text).toContain("every month");
+    expect(text).toContain("September 4, 2026");
+    expect(text).toContain("Cancel any time from your account");
+    expect(text).toContain("https://elovox.app/account");
+  });
+
+  it("says it in the HTML part too", () => {
+    const { html } = conf("$9.99", "https://elovox.app/account");
+    expect(html).toContain("$9.99");
+    expect(html).toContain("every month");
+    expect(html).toContain("https://elovox.app/account");
+  });
+
+  it("still carries a cancellation path when the caller passes no URL", () => {
+    // The four-argument call the Stripe webhook makes today. There is no such
+    // thing as a compliant version of this email with no route to cancel, so
+    // the account page is the floor rather than an omission.
+    const { text } = conf();
+    expect(text).toContain("https://elovox.app/account");
+    expect(text).toContain("Cancel any time from your account");
+  });
+
+  it("does not invent an amount it was not given", () => {
+    // The honest fallback. It is NOT compliant — see the note on the builder —
+    // but a made-up figure in a billing email is worse than a missing one.
+    const { text } = conf();
+    expect(text).toContain("renews automatically every month");
+    expect(text).toContain("The amount is on the receipt");
+    expect(text).not.toMatch(/\$\d/);
+  });
+
+  it("says 'a year' for the annual plan and neither for a cycle it does not know", () => {
+    const annual = render(
+      subscriptionStarted("s@example.com", "u", "annual", "September 4, 2027", "$79.99").doc
+    );
+    expect(annual.text).toContain("$79.99 a year");
+    expect(annual.text).toContain("every year");
+
+    // Stripe's cycle string is passed straight through, and the webhook falls
+    // back to "premium" when it has none. "Charged every premium" is the bug
+    // this branch exists to avoid.
+    const unknown = render(
+      subscriptionStarted("s@example.com", "u", "premium", null, "$79.99").doc
+    );
+    expect(unknown.text).toContain("$79.99 per billing period");
+    expect(unknown.text).toContain("every billing period");
+    expect(unknown.text).not.toContain("a premium");
+    // No renewal date supplied, so no sentence claiming one.
+    expect(unknown.text).not.toContain("The next charge is on");
   });
 });

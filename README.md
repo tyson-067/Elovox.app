@@ -35,6 +35,8 @@ The app works with zero configuration (localStorage + sample feedback). To enabl
 - `GEMINI_API_KEY` — [aistudio.google.com](https://aistudio.google.com) → Get API key.
 - `FISH_AUDIO_API_KEY` — [fish.audio](https://fish.audio) → API keys. Felix's voice: the "Hear Felix's feedback" button on every report and the landing page's sample. The free developer tier is enough. Optional: without it the button says so quietly and the written take stays. Pick a voice from the fish.audio library and put its id in `FISH_AUDIO_VOICE_ID`, then run `npm run felix:voice` once to write `public/felix-hello.mp3`, the landing page's sample, and commit it.
 
+`AI_DAILY_CEILING_USD` caps what all three of those can spend in a day, across every account. It is optional and defaults to $500/day — see [Global spend ceiling](#global-spend-ceiling-ai_daily_ceiling_usd).
+
 Add them to `.env.local`. Restart the dev server after env changes.
 
 #### Felix's take
@@ -106,9 +108,18 @@ The `/api/analyze` route sets `maxDuration = 120` for transcription polling; on 
 Freemium, enforced server-side — the browser decides what to *draw*, never what the server will *do*.
 
 - **Free:** the daily challenge only, capped at 3 analyses per day. The counter lives at `users/{uid}/usage/{date}` and is written solely through the Admin SDK; `firestore.rules` denies every client write to it, so it can't be forged. See `lib/quota.ts`.
-- **Premium:** unlimited practice, the speech library, custom speeches, interview practice, and camera coaching. Entitlement is a single bit at `users/{uid}/profile/plan`, written only by the Stripe webhook (`app/api/stripe/webhook/route.ts`) and read-only to the user.
+- **Premium:** the speech library, custom speeches, interview practice, and camera coaching, with no three-a-day limit on any of them. Not *unlimited*, and the product copy deliberately never says so: the daily challenge stays at 3 attempts on every plan (`MAX_DAILY_ATTEMPTS` — one shared topic, so the scores are only comparable if everyone gets the same number of goes), and a fair-use ceiling of 120 analyses a day guards the paid transcription pipeline (`PREMIUM_ANALYSES_PER_DAY` in `app/api/analyze/route.ts`). Entitlement is a single bit at `users/{uid}/profile/plan`, written only by the Stripe webhook (`app/api/stripe/webhook/route.ts`) and read-only to the user.
 
 Every paid route re-checks entitlement server-side via `isPremiumServer` in `lib/verify.ts`. Billing cycles and trial lengths come from `lib/pricing.ts`, not from the Stripe dashboard.
+
+### Global spend ceiling (`AI_DAILY_CEILING_USD`)
+
+The per-user and per-IP limits above bound one account and one address. `AI_DAILY_CEILING_USD` bounds the **total**: a cap, in whole US dollars of estimated upstream spend per UTC day, across every paid AI call the app makes (`/api/analyze`, `/api/speech`, `/api/felix`). Without it, a set of accounts each politely inside its own limit could run up a bill many times the day's revenue with every limiter reporting green.
+
+- **Default $500/day** when unset — roughly 10,000 analyses, meant to be unreachable on a real day and reachable on a fraudulent one. Deliberately conservative in the safe direction: the per-operation costs in `lib/opsMetrics.ts` are constants rounded **3-5x above** real provider pricing, because a breaker that needs an accurate bill to fire is a breaker that never fires, and over-estimating trips it early.
+- **At 75%, a warning** — a `billingAlerts` row that shows up in the admin Billing queue and the daily operator email, while nothing is being refused yet. That is the signal to raise the ceiling as real traffic grows, before anyone is turned away.
+- **At 100%, graceful degradation** until UTC midnight: analysis and speech writing answer "try again shortly" (`503`, retryable, the recording is kept), Felix falls back to a take written from the report. The answers never mention money and never distinguish the ceiling from the operator's `pauseAnalyze` switch.
+- The running counters (`aiCostCents` and the per-route call counts) are on **/admin → Ops**, so a page at 75% can be read as a trend before deciding whether to raise the number or go find the accounts.
 
 ## License
 

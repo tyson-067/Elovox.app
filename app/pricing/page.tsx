@@ -128,11 +128,15 @@ export default function PricingPage() {
   // of disabled button.
   const planPending = configured && !!user && record === null;
 
-  // A returning ex-subscriber has already spent their one free trial: Stripe
-  // records trialEnd from the first go and the checkout route denies a second
-  // (hadTrial). Promising them a trial the server will silently refuse is the
-  // dishonest path, so treat the trial as available only for someone who has
-  // never had one.
+  // Someone who has already had a trial has spent their one: Stripe records
+  // trialEnd from the first go and the checkout route denies a second
+  // (`hadTrial`, which asks whether any of this customer's subscriptions ever
+  // carried a trial_start — not whether they ever subscribed). Promising them
+  // a trial the server will silently refuse is the dishonest path, so treat
+  // the trial as available only for someone who has never had one. Matching
+  // the server's question exactly matters in the other direction too: a former
+  // WEEKLY-only subscriber never had a trial_start, so the server will grant
+  // them the free days and this page has to offer them.
   const trialUsed = !subscribed && record?.trialEnd != null;
   // Whether this plan can offer a trial to THIS visitor at all (weekly can't,
   // a returning customer already spent theirs).
@@ -242,11 +246,18 @@ export default function PricingPage() {
           </Parallax>
         </div>
         <Reveal>
-          {/* Says WHICH plans the free week applies to. Unqualified, this sat
-              directly above a cycle toggle whose Weekly option has no trial
-              at all and bills from day one. */}
+          {/* Says WHICH plans the free week applies to, and WHO gets it.
+              Unqualified, this sat directly above a cycle toggle whose Weekly
+              option has no trial at all and bills from day one — and it
+              promised the free days to everyone, including the visitor
+              /api/stripe/checkout will hand no trial to (`hadTrial`, matched
+              on the surviving Stripe customer, so deleting the account and
+              signing up again doesn't reset it). The plan cards below
+              already tell a signed-in returning customer the truth; the hero
+              is what a signed-out visitor reads, and it was the one line still
+              promising a week we won't give. */}
           <h2 className="text-kicker uppercase text-violet">
-            {TRIAL_DAYS} days free on monthly and annual
+            {TRIAL_DAYS} days free on your first monthly or annual plan
             <span className="grow-line" aria-hidden="true" />
           </h2>
           {/* "free" gets the hollow treatment, not "impact.": that word
@@ -258,10 +269,15 @@ export default function PricingPage() {
           </h1>
           <p className="mt-5 max-w-[54ch] text-lg leading-8 text-on-surface-variant">
             Try every Premium feature free for {TRIAL_DAYS} days on the monthly
-            and annual plans. Keep the free plan forever, or unlock all the
-            coaching modes with no three-a-day limit. The longer you commit,
-            the less you pay each week. Prices here are before sales tax, which
-            Stripe works out at checkout from your address and adds on top.
+            and annual plans. The free days are one per person, not one per
+            plan: if you&apos;ve already taken a free trial here — on this
+            account, or an earlier one with the same email — you&apos;re
+            billed from day one instead. Paying for the weekly plan doesn&apos;t
+            use it up, since weekly never comes with a trial. Keep the free
+            plan forever, or unlock all the coaching modes with no three-a-day
+            limit. The longer you commit, the less you pay each week. Prices
+            here are before sales tax, which Stripe works out at checkout from
+            your address and adds on top.
           </p>
         </Reveal>
       </section>

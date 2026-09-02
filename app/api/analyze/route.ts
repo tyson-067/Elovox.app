@@ -700,9 +700,19 @@ export async function POST(req: NextRequest) {
   // Checked before the body is buffered so a paused pipeline costs nothing.
   // getOpsFlags FAILS OPEN and caches per instance for 60s: a Firestore blip
   // can never pause the product, and the hot path pays one read a minute.
-  const pausedFlags = await getOpsFlags(getAdminDb());
-  if (pausedFlags.pauseAnalyze) {
+  //
+  // The same read also answers the GLOBAL AI spend question (see the ceiling
+  // note in lib/opsMetrics.ts), which is why it asks for it here and nowhere
+  // cheap: this is the most expensive route in the app, so it is the first one
+  // that should stop spending on a runaway day.
+  const pausedFlags = await getOpsFlags(getAdminDb(), { withAiSpend: true });
+  if (pausedFlags.pauseAnalyze || pausedFlags.aiSpendOver) {
     await recordAnalyzeOutcome(getAdminDb(), { outcome: "paused" });
+    // Deliberately the SAME answer for both, and it says nothing about money.
+    // A caller who can tell "the operator paused this" from "the day's spend
+    // ceiling tripped" learns exactly what to do next; an honest user only
+    // needs to know their recording is safe and roughly when to come back.
+    // 503 so lib/analyze.ts marks it retryable and keeps the take.
     return NextResponse.json(
       {
         error: "analysis-paused",

@@ -39,8 +39,9 @@ export async function POST(req: NextRequest) {
   }
 
   // The Portal throws if it has no configuration in this mode, a live-mode
-  // setup that was only ever done in test is the usual cause. Surface Stripe's
-  // message instead of letting it collapse into a bare 500.
+  // setup that was only ever done in test is the usual cause. Caught so it
+  // reaches the server log as that diagnosis instead of collapsing into a bare
+  // 500 with no body.
   try {
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
@@ -49,10 +50,18 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (err) {
+    // Same rule as /api/stripe/checkout: Stripe's message is addressed to the
+    // account owner and names internal objects (the customer id, the Portal
+    // configuration id, which mode the key is in). It goes to the log next to
+    // the uid and customer id; the browser gets a sentence a customer can act
+    // on, since none of the real causes are anything they can fix.
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[stripe] portal failed for ${uid} (customer ${customerId})`, err);
+    console.error(
+      `[stripe] portal failed for ${uid} (customer ${customerId}): ${message}`,
+      err
+    );
     return NextResponse.json(
-      { error: `Couldn't open billing: ${message}` },
+      { error: "Couldn't open billing. Please try again in a moment." },
       { status: 502 }
     );
   }

@@ -132,9 +132,19 @@ export interface CategoryPolicy {
 export type EmailPrefKey = "progress" | "streak" | "product" | "tips";
 
 export const CATEGORY: Record<MailCategory, CategoryPolicy> = {
-  // 1.0 — a security notice may use the last message of the day. If the
-  // choice is between sending this and staying tidy, send this.
-  security: { optional: false, dailyShare: 1.0, prefKey: null },
+  // First in CATEGORY_RANK, so a security notice still outranks everything else
+  // when the day gets tight — but NOT the largest share of the budget, and
+  // deliberately below billing's and transactional's.
+  // It is no longer 1.0, and the reason is that the one message in this
+  // category — the lockout notice — is reachable by a caller who has not
+  // authenticated: a stuffing run against a hundred known addresses turns
+  // into a hundred lockout notices, and at 1.0 those could take the whole
+  // daily allowance and drop every payment-failed and export-ready email
+  // until midnight. A category that can starve every other category is not a
+  // priority, it is a single point of failure. The global "lockout-notice"
+  // ceiling in lib/rateLimit.ts is the other half of that fix; this half
+  // holds whatever the trigger turns out to be.
+  security: { optional: false, dailyShare: 0.5, prefKey: null },
   billing: { optional: false, dailyShare: 1.0, prefKey: null },
   transactional: { optional: false, dailyShare: 0.9, prefKey: null },
   lifecycle: { optional: true, dailyShare: 0.6, prefKey: "progress" },

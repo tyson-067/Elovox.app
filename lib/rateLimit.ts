@@ -28,6 +28,7 @@ const COLLECTION = "rateLimits";
 
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
 
 interface Policy {
   /** Requests allowed per window, per key. */
@@ -187,6 +188,25 @@ export const LIMITS = {
   flags: { limit: 600, windowMs: MINUTE, batch: 25, failOpen: true },
   // The same ceiling we'd want on a login route.
   "auth-audit": { limit: 10, windowMs: MINUTE },
+  // The lockout notice, capped GLOBALLY: the key is a constant, so every
+  // lockout in the whole app spends from these same twenty units a day.
+  //
+  // Per-address would have been the obvious shape and would have fixed
+  // nothing. The ledger already sends at most one notice per lockout per
+  // address; the drain that mattered used MANY addresses. Roughly a thousand
+  // unauthenticated requests spread over a hundred known addresses is a
+  // hundred perfectly legitimate "one per address" notices, which is the free
+  // plan's ENTIRE daily allowance (FREE_PLAN.daily, lib/email/config.ts) —
+  // after which every payment-failed, welcome and export-ready email is
+  // dropped until midnight. An unauthenticated caller must not be able to
+  // reach that, so the ceiling has to be global or it is not a ceiling.
+  //
+  // Twenty a day is a fifth of the plan's 100 and far more genuine lockouts
+  // than this app has ever seen in a day. Past it the LOCKOUT still applies in
+  // full — only the courtesy email is suppressed, and the operator log says
+  // so, because a notice we did not send must never be recorded as sent.
+  // Fails closed, like everything here that spends something.
+  "lockout-notice": { limit: 20, windowMs: DAY },
   "email-preview": { limit: 60, windowMs: MINUTE },
   "email-unsubscribe": { limit: 30, windowMs: MINUTE },
 

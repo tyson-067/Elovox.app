@@ -108,38 +108,65 @@ export async function redeemInvite(
   }
 
   const referralRef = db.doc(`users/${uid}/score/referral`);
+  const progressRef = db.doc(`users/${uid}/score/progress`);
+  const inviterReferralRef = db.doc(`users/${inviterUid}/score/referral`);
 
-  // An account that has already scored a session isn't a new signup, whatever
-  // the link says. This is the check that stops existing users pairing up.
-  const progress = await db.doc(`users/${uid}/score/progress`).get();
-  if (progress.exists) {
-    return { ok: false, reason: "Invite links are for new accounts." };
-  }
+  // All three guards read INSIDE one transaction, because the reciprocity one
+  // below is a read of a document this call does not write, and outside a
+  // transaction that is only a snapshot of a moment already past. A and B
+  // POSTing each other's codes at the same instant each read the other's
+  // referral doc before either had written one, so both passed, both wrote,
+  // and the pair collected the 400 XP the check exists to deny. Firestore
+  // aborts and retries a transaction whose reads were touched by another
+  // writer, so the second redemption now re-reads the first one's write and
+  // takes the rejection.
+  const result = await db.runTransaction<RedeemResult>(async (tx) => {
+    // Reads first, all of them: a transaction may not read after it writes.
+    const [progress, inviterReferral, mine] = await Promise.all([
+      tx.get(progressRef),
+      tx.get(inviterReferralRef),
+      tx.get(referralRef),
+    ]);
 
-  // Reciprocity: the check above only stops ESTABLISHED users pairing up. Two
-  // brand-new accounts could still redeem each other's codes — neither has a
-  // progress doc, so both passed — and collect 100 XP as invitee plus 100 as
-  // inviter, 400 XP total for two free Daily Minutes. XP is what ranks the
-  // public board, so that is the number worth forging.
-  const inviterReferral = await db.doc(`users/${inviterUid}/score/referral`).get();
-  if (inviterReferral.data()?.inviterUid === uid) {
-    return { ok: false, reason: "You two can't invite each other." };
-  }
+    // An account that has already scored a session isn't a new signup,
+    // whatever the link says. This is the check that stops existing users
+    // pairing up.
+    if (progress.exists) {
+      return { ok: false, reason: "Invite links are for new accounts." };
+    }
 
-  try {
-    await referralRef.create({
+    // Reciprocity: the check above only stops ESTABLISHED users pairing up.
+    // Two brand-new accounts could still redeem each other's codes — neither
+    // has a progress doc, so both passed — and collect 100 XP as invitee plus
+    // 100 as inviter, 400 XP total for two free Daily Minutes. XP is what
+    // ranks the public board, so that is the number worth forging.
+    if (inviterReferral.data()?.inviterUid === uid) {
+      return { ok: false, reason: "You two can't invite each other." };
+    }
+
+    // Was `create()`, which threw when the doc already existed. The existence
+    // check is a plain read now because it is inside the transaction, which
+    // gives the same once-ever guarantee.
+    if (mine.exists) {
+      return { ok: false, reason: "This account already used an invite link." };
+    }
+
+    tx.set(referralRef, {
       inviterUid,
       code,
       bonusPaid: false,
       at: FieldValue.serverTimestamp(),
     });
-  } catch {
-    // create() failed: this account already redeemed something.
-    return { ok: false, reason: "This account already used an invite link." };
-  }
+    return { ok: true, inviterUid };
+  });
+
+  if (!result.ok) return result;
 
   // Friendship is mutual and written from here, so neither side can add
   // themselves to anyone's list (both paths are deny-all in the rules).
+  // Deliberately outside the transaction above: these are idempotent sets that
+  // nothing races on, and the referral record is the thing that has to be
+  // decided once.
   await Promise.all([
     db.doc(`users/${uid}/friends/${inviterUid}`).set({
       since: FieldValue.serverTimestamp(),

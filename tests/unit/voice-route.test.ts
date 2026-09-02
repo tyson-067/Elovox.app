@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Mock, MockInstance } from "vitest";
 import { makeDb, type FakeDb } from "../helpers/firestore-fake";
 import { VOICE_TEXT_MAX } from "@/lib/fishAudio";
-import { FELIX_TAKE_VERSION } from "@/lib/felixTake";
+import { FELIX_TAKE_MAX_WORDS, FELIX_TAKE_VERSION } from "@/lib/felixTake";
 
 type AnyMock = Mock<(...args: unknown[]) => unknown>;
 
@@ -340,6 +340,44 @@ describe("/api/voice — a session's take", () => {
     withTake({ version: FELIX_TAKE_VERSION - 1 });
     expect((await POST(voiceReq({ sessionId: "s1" }))).status).toBe(409);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  /* The session document is the BROWSER's to write (lib/store.ts), so the
+     take on it is caller-controlled text, not server data. An email-verified
+     user who pasted a novel into felix.text used to have every character of
+     it read aloud by Fish Audio, which bills per character: the daily meter
+     caps how many syntheses they buy, never how big each one is. Both halves
+     of the fix are pinned here, because each one alone leaves a hole. */
+  it("refuses a stored take longer than Felix is allowed to speak", async () => {
+    withTake({ text: "word ".repeat(FELIX_TAKE_MAX_WORDS + 1).trim() });
+    const res = await POST(voiceReq({ sessionId: "s1" }));
+    expect(res.status).toBe(409);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(reserveMeteredUse).not.toHaveBeenCalled();
+  });
+
+  it("caps the stored take's characters too, since seventy words can still be huge", async () => {
+    // Ten words, half a megabyte: under the word ceiling, far over the one
+    // that costs money.
+    const bloated = Array.from({ length: 10 }, () => "a".repeat(50_000)).join(" ");
+    withTake({ text: bloated });
+    const res = await POST(voiceReq({ sessionId: "s1" }));
+    expect(res.status).toBe(200);
+    const sent = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string) as {
+      text: string;
+    };
+    expect(sent.text.length).toBe(VOICE_TEXT_MAX);
+  });
+
+  it("sanitises the stored take, exactly as it sanitises posted text", async () => {
+    withTake({ text: `<script>steal()</script>${TAKE}` });
+    const res = await POST(voiceReq({ sessionId: "s1" }));
+    expect(res.status).toBe(200);
+    const sent = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string) as {
+      text: string;
+    };
+    expect(sent.text).toBe(`steal()${TAKE}`);
+    expect(sent.text).not.toContain("<");
   });
 
   it("404 for someone else's session, by construction of the path", async () => {

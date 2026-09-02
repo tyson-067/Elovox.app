@@ -87,6 +87,20 @@ function safeHref(href: string): string {
   return /^https?:\/\//i.test(trimmed) ? esc(trimmed) : esc(siteUrl());
 }
 
+/**
+ * The postal address CAN-SPAM wants in every commercial message, or "" when
+ * the operator has not supplied one yet.
+ *
+ * Both footers go through this so the two halves cannot disagree, and both
+ * drop the line entirely when it is empty: a footer reading "Elovox &middot;
+ * undefined" or ending in a bare separator is worse than one that is merely
+ * missing a line, and it is the failure mode a template string invites.
+ * lib/legal.ts carries the full note on why the value is blank today.
+ */
+function postalAddress(): string {
+  return LEGAL.postalAddress.trim();
+}
+
 /* --- HTML ----------------------------------------------------------------- */
 
 const FONT =
@@ -139,6 +153,13 @@ function blockHtml(b: Block): string {
 
 export function renderHtml(doc: EmailDoc): string {
   const site = siteUrl();
+  // Its own paragraph rather than a fourth item on the brand line: the statute
+  // asks for the address to be there, and a phone-width footer that wraps a
+  // street address mid-town around three middots is how it stops being read.
+  const postal = postalAddress();
+  const footerPostal = postal
+    ? `<p style="margin:6px 0 0;font-size:12px;line-height:1.5;color:${SOFT};">${esc(postal)}</p>`
+    : "";
   const footerUnsub = doc.unsubscribeUrl
     ? `<p style="margin:10px 0 0;font-size:12px;line-height:1.5;color:${SOFT};">You're getting this because of your ${esc(
         doc.unsubscribeLabel ?? "email settings"
@@ -195,6 +216,7 @@ export function renderHtml(doc: EmailDoc): string {
         LEGAL.emails.support
       )}</a>
     </p>
+    ${footerPostal}
     ${footerUnsub}
   </td></tr>
 </tbody>
@@ -231,9 +253,13 @@ export function renderText(doc: EmailDoc): string {
     .filter((l): l is string => Boolean(l))
     .join("\n\n");
 
+  // `filter(Boolean)` is what keeps an empty postal address from leaving a
+  // blank line in the middle of the footer, the same way it already handles
+  // mail that carries no unsubscribe link.
   const footer = [
     `— ${LEGAL.serviceName}`,
     site,
+    postalAddress() || null,
     doc.unsubscribeUrl ? `Unsubscribe: ${doc.unsubscribeUrl}` : null,
   ]
     .filter(Boolean)

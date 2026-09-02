@@ -6,6 +6,7 @@ import { limited } from "@/lib/rateLimit";
 import { recordAdminDenied } from "@/lib/opsMetrics";
 import { recordAdminAction } from "@/lib/adminAudit";
 import { seedCoins } from "@/lib/coins";
+import { readJsonObject } from "@/lib/requestBody";
 
 // Operator coin adjustment: a make-good for a shop bug, a community prize.
 // POST {uid, delta} — positive grants, negative corrects, balance floors at 0.
@@ -26,6 +27,14 @@ export const runtime = "nodejs";
 const UID_RE = /^[A-Za-z0-9]{1,128}$/;
 const MAX_ABS_DELTA = 100_000;
 
+async function readBody(req: NextRequest): Promise<Record<string, unknown>> {
+  // Through the shared reader (lib/requestBody.ts): size cap + shape check,
+  // one implementation. Admin routes are authenticated, which bounds WHO can
+  // post a huge body, not how big it is.
+  const parsed = await readJsonObject(req);
+  return parsed.ok ? parsed.body : {};
+}
+
 export async function POST(req: NextRequest) {
   const admin = await adminIdentity(req);
   if (!admin) {
@@ -40,15 +49,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 
-  let body: Record<string, unknown> = {};
-  try {
-    const parsed = await req.json();
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      body = parsed;
-    }
-  } catch {
-    // falls through to validation below
-  }
+  const body = await readBody(req);
   const uid = typeof body.uid === "string" ? body.uid : "";
   const delta = Number(body.delta);
   if (!UID_RE.test(uid)) {

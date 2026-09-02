@@ -9,6 +9,7 @@ import {
 import { limitOr429 } from "@/lib/rateLimit";
 import { sanitizeText } from "@/lib/validation";
 import { getAdminDb } from "@/lib/firebaseAdmin";
+import { overAiSpendCeiling, recordAiOperation } from "@/lib/opsMetrics";
 import { isRestricted } from "@/lib/moderation";
 import { usageDateKey, reserveMeteredUse } from "@/lib/quota";
 import { readJsonObject } from "@/lib/requestBody";
@@ -161,6 +162,18 @@ export async function POST(req: NextRequest) {
   // A sample report is invented data; a model take about it would be too.
   if (analysis.isSample) return fallback(analysis, "sample");
 
+  // The GLOBAL daily AI spend ceiling (lib/opsMetrics.ts). Checked AFTER the
+  // stored-take lookup above, deliberately: a take that already exists costs
+  // nothing to serve, and a spend brake that stopped people re-reading reports
+  // they have already paid for would be punishing the wrong day.
+  //
+  // Degrades rather than refuses — the same fallback take the route already
+  // returns when the model is unavailable, assembled from the user's own
+  // report. They still get thirty words from Felix, nothing is stored, and the
+  // next open asks the model again. `busy` is not one of the client's final
+  // reasons (lib/felixTakeClient.ts), so it isn't remembered.
+  if (await overAiSpendCeiling(db)) return fallback(analysis, "busy");
+
   const key = geminiKey();
   if (!key) return fallback(analysis, "unconfigured");
 
@@ -209,6 +222,12 @@ export async function POST(req: NextRequest) {
     console.error("felix take failed:", err instanceof Error ? err.name : err);
   }
   if (wordCount(text) < FELIX_TAKE_MIN_WORDS) return fallback(analysis, "model-failed");
+
+  // Count the call against the day's global ceiling. Counted once a take
+  // exists rather than before the call: a model failure above was a Gemini
+  // request we still paid for, so this undercounts by the failure rate, which
+  // is well inside the rounding on the per-call cost estimate itself.
+  await recordAiOperation(db, "felix");
 
   const take: FelixTake = {
     text,

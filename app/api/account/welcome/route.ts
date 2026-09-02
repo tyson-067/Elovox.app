@@ -6,6 +6,7 @@ import { isMailConfigured } from "@/lib/email/config";
 import { send } from "@/lib/email/send";
 import { welcome } from "@/lib/email/messages";
 import { claimOnce, confirmOnce, releaseOnce } from "@/lib/email/once";
+import { recordTermsAcceptance } from "@/lib/termsConsent";
 
 /**
  * The welcome email, sent once per account.
@@ -37,6 +38,16 @@ export async function POST(req: NextRequest) {
   // No token, unverified address, or Firebase unreachable. Answer the same
   // bland ok in every case: this endpoint reveals nothing about accounts.
   if (!uid || uid === "unverified") return NextResponse.json({ ok: true });
+
+  // Consent BEFORE the mail gating, and not inside the once-claim below.
+  // This route is the only server-side moment a new account exists (sign-up is
+  // browser-to-Firebase, see above), so it is the only place the accepted
+  // Terms version can be recorded — and that must not depend on whether mail
+  // happens to be configured, nor be skipped on the second ping because the
+  // welcome email already went. Its own first-write-wins guard makes the
+  // repeat harmless. Awaited, but it swallows its own errors by design, so a
+  // consent write cannot fail somebody's sign-in.
+  await recordTermsAcceptance(getAdminDb(), uid);
 
   const app = getAdminApp();
   if (!isMailConfigured() || !app) return NextResponse.json({ ok: true });

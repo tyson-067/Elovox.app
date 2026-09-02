@@ -106,7 +106,12 @@ export async function GET(req: NextRequest) {
   if (!allowed) return new NextResponse("Not found", { status: 404 });
 
   const type = req.nextUrl.searchParams.get("type");
-  if (!type || !GALLERY[type]) {
+  // `Object.hasOwn`, not a truthiness check on `GALLERY[type]`: GALLERY is an
+  // object literal, so `?type=constructor` (or `toString`, `valueOf`) found a
+  // function on Object.prototype, passed the guard, and was then CALLED — the
+  // index never rendered and the route answered 500 on a request that is
+  // simply a name we don't have.
+  if (!type || !Object.hasOwn(GALLERY, type)) {
     // The index. Plain, deliberately — this is a tool, not a page.
     const links = Object.keys(GALLERY)
       .map(

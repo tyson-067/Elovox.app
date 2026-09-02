@@ -3,6 +3,9 @@ import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import type Stripe from "stripe";
 import { getStripe } from "./stripe";
 import { refundUnusedPortion } from "./refunds";
+import { foldHandle } from "./leaderboardServer";
+import { deleteContact } from "./email/audience";
+import { audienceId } from "./email/config";
 
 // The account-erasure sequence, shared by the self-serve route
 // (/api/account/delete — the deletion right promised in /privacy) and the
@@ -18,6 +21,11 @@ import { refundUnusedPortion } from "./refunds";
 // account that no longer exists. Billing records themselves stay with Stripe,
 // tax and accounting law requires it, and the privacy policy says so.
 //
+// THE OTHER ORDERING RULE: everything that can only be BEST-EFFORT — anything
+// whose failure must not deny somebody their deletion — comes after the
+// irreversible steps, and is bounded. Step 7 is the whole of it, and the
+// reason is that it is the only call here that leaves the building.
+//
 // AUTH IS THE CALLER'S JOB. The self route requires a fresh sign-in from the
 // account itself; the admin route requires adminIdentity plus a typed email
 // confirmation. Nothing here checks anything — it erases the uid it is given.
@@ -31,6 +39,201 @@ const LIVE_SUB = ["trialing", "active", "past_due", "unpaid"];
 export type EraseFailure = "billing" | "cleanup" | "data" | "auth-record";
 
 export type EraseResult = { ok: true } | { ok: false; step: EraseFailure };
+
+/* --- The Resend Audience purge queue --------------------------------------- */
+
+/**
+ * Addresses that have been erased here but not yet removed from the Resend
+ * Audience. Written by step 7, drained by `reconcileAudiencePurges`.
+ *
+ * Top-level rather than under users/{uid} for the obvious reason: by the time
+ * a row is written the uid has no documents left.
+ */
+const AUDIENCE_PURGE_QUEUE = "audiencePurges";
+
+/**
+ * How long an erasure will wait for Resend to confirm a removal.
+ *
+ * lib/email/client.ts is tuned for sends, not for this: three attempts, an 8s
+ * timeout each, plus ~0.6s then ~1.8s of backoff, so a Resend outage can hold
+ * `deleteContact` for around 26 seconds. That is longer than the default
+ * function budget of /api/account/delete, which declares no maxDuration — so
+ * a bad minute at a third party turned into a timed-out erasure, and the user
+ * saw a failure for an account that was already half gone. A healthy round
+ * trip is well under a second; anything past this is an outage, and an outage
+ * belongs on the queue rather than in somebody's request.
+ */
+const AUDIENCE_PURGE_TIMEOUT_MS = 3000;
+
+/** Firestore throws synchronously out of `db.doc()` for an id matching
+ *  `__x__`, and `__a@b.co__` is a valid address — the same guard, for the same
+ *  reason, as lib/email/suppression.ts and the leads route. */
+function purgeDocId(email: string): string | null {
+  const id = encodeURIComponent(email.trim().toLowerCase());
+  if (!id || /^__.*__$/.test(id) || id === "." || id === "..") return null;
+  return id;
+}
+
+/**
+ * Race `work` against a deadline, resolving `null` if the deadline wins or the
+ * work throws — so a caller only ever sees a CONFIRMED result and can never
+ * mistake "we never found out" for "it is gone".
+ */
+function withDeadline<T>(
+  work: Promise<T>,
+  ms: number,
+  label: string
+): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  // The work promise gets its own catch rather than relying on the race: a
+  // rejection arriving after the deadline has already won would otherwise be
+  // an unhandled rejection, which Node treats as fatal.
+  const guarded: Promise<T | null> = work.catch((err) => {
+    console.error(`[account] ${label} threw`, err);
+    return null;
+  });
+  return Promise.race([
+    guarded,
+    new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), ms);
+    }),
+  ]).finally(() => {
+    if (timer !== undefined) clearTimeout(timer);
+  });
+}
+
+/**
+ * Ask Resend to drop one contact, leaving a durable note when that cannot be
+ * confirmed.
+ *
+ * The queue row is written BEFORE the attempt and cleared only on a confirmed
+ * removal. The other order looks tidier and is wrong: a timeout, a thrown
+ * request, or a serverless function frozen the instant it returns all leave
+ * the work unfinished, and the row is the only thing that remembers. A
+ * leftover row for an address that was in fact removed costs one wasted DELETE
+ * on the next reconcile; a missing row for an address that was not costs an
+ * erased user their plaintext address, live at a US processor, with nothing
+ * anywhere recording that it is still there.
+ *
+ * The row holds the address and nothing else — deliberately no uid. The uid
+ * has just been erased from every other store, and pairing the two again here
+ * would rebuild the one link this whole sequence exists to break.
+ */
+async function purgeFromAudience(
+  db: Firestore,
+  uid: string,
+  email: string
+): Promise<boolean> {
+  // Nothing is mirrored anywhere when no Audience is configured, so there is
+  // nothing to remove and nothing to queue. Queueing anyway would fill the
+  // collection with rows no reconcile could ever clear.
+  if (!audienceId()) return true;
+
+  const id = purgeDocId(email);
+  const ref = id ? db.doc(`${AUDIENCE_PURGE_QUEUE}/${id}`) : null;
+  if (ref) {
+    try {
+      await ref.set({
+        email: email.trim().toLowerCase(),
+        at: Date.now(),
+        attempts: 0,
+      });
+    } catch (err) {
+      // Loud, because from here on nothing durable remembers this address.
+      console.error(`[account] could not queue the audience purge for ${uid}`, err);
+    }
+  }
+
+  const removed = await withDeadline(
+    deleteContact(email),
+    AUDIENCE_PURGE_TIMEOUT_MS,
+    `resend contact delete for ${uid}`
+  );
+  if (removed === true) {
+    if (ref) {
+      try {
+        await ref.delete();
+      } catch (err) {
+        // Harmless: the next reconcile issues one redundant DELETE.
+        console.warn(`[account] audience purge row left behind for ${uid}`, err);
+      }
+    }
+    return true;
+  }
+
+  // Loud on a plain `false` too, not just on a throw or a timeout:
+  // deleteContact reports "Resend refused" the same way it reports success,
+  // and both leave an address that somebody or something has to come back for.
+  console.error(
+    `[account] resend contact NOT removed for ${uid} — queued at ${AUDIENCE_PURGE_QUEUE}/${id ?? "(unqueueable address)"} for the reconcile sweep`
+  );
+  return false;
+}
+
+/**
+ * Retry the addresses step 7 could not confirm.
+ *
+ * Idempotent and reconciled against "what is still queued now" rather than
+ * against what happened last time, the same shape as the retention sweeps in
+ * lib/email/retention.ts and lib/opsMetrics.ts — a double run removes nothing
+ * extra, and a missed run is picked up by the next one. Meant to be called
+ * from the daily cron; until it is, the queue is at least a queryable list of
+ * the addresses a human has to remove by hand, which is what the erasure had
+ * no way of telling anyone before.
+ *
+ * `attempts` is only ever counted up. A row that will not clear is a Resend
+ * problem needing a person, and dropping it after N tries would silently throw
+ * away the only record that the address is still out there.
+ */
+export async function reconcileAudiencePurges(
+  db: Firestore | null,
+  limit = 100
+): Promise<{ removed: number; pending: number }> {
+  if (!db || !audienceId()) return { removed: 0, pending: 0 };
+  let snap;
+  try {
+    snap = await db.collection(AUDIENCE_PURGE_QUEUE).orderBy("at").limit(limit).get();
+  } catch (err) {
+    console.error("[account] audience purge sweep could not read the queue", err);
+    return { removed: 0, pending: 0 };
+  }
+
+  let removed = 0;
+  let pending = 0;
+  for (const doc of snap.docs) {
+    const row = doc.data() as { email?: unknown; attempts?: unknown };
+    const email = typeof row.email === "string" ? row.email : null;
+    if (!email) {
+      // A row with no address is unusable and unfixable; keeping it would make
+      // the queue length meaningless forever.
+      await doc.ref.delete().catch(() => {});
+      continue;
+    }
+    const ok = await withDeadline(
+      deleteContact(email),
+      AUDIENCE_PURGE_TIMEOUT_MS,
+      "resend contact delete (sweep)"
+    );
+    if (ok === true) {
+      try {
+        await doc.ref.delete();
+        removed += 1;
+      } catch {
+        pending += 1;
+      }
+      continue;
+    }
+    pending += 1;
+    const attempts = typeof row.attempts === "number" ? row.attempts + 1 : 1;
+    await doc.ref.set({ attempts, lastTriedAt: Date.now() }, { merge: true }).catch(() => {});
+  }
+  if (pending > 0) {
+    console.error(
+      `[account] ${pending} erased address(es) still present in the Resend audience — remove them by hand if this persists`
+    );
+  }
+  return { removed, pending };
+}
 
 export async function eraseAccount(
   app: App,
@@ -131,7 +334,8 @@ export async function eraseAccount(
   //    invite code, and friend mirrors behind — and redeeming the orphaned
   //    invite code would resurrect a plan/score doc under the deleted uid.
   try {
-    const [friendsSnap, invitesSnap] = await Promise.all([
+    const [rowSnap, friendsSnap, invitesSnap] = await Promise.all([
+      db.doc(`leaderboard/${uid}`).get(),
       db.collection(`users/${uid}/friends`).get(),
       db.collection("invites").where("uid", "==", uid).get(),
     ]);
@@ -144,6 +348,30 @@ export async function eraseAccount(
       // The reciprocal mirror: everyone who has THIS user as a friend.
       ...friendsSnap.docs.map((d) => db.doc(`users/${d.id}/friends/${uid}`)),
     ];
+
+    // The handle reservation goes with the row it belongs to. handles/{folded}
+    // holds { uid, handle } — the deleted account's id and the public name
+    // they picked — and nothing else in this sequence reaches it, so an erased
+    // account was leaving both behind for good, in the one collection that can
+    // map a display name back to an account id (see firestore.rules, which
+    // denies clients even read for exactly that reason).
+    //
+    // Released rather than kept as an anonymous tombstone. The reservation
+    // exists to stop two LIVE rows appearing under one name, and the row is
+    // being deleted in this same batch — after this there is nobody left to be
+    // confused with, so holding the name would burn it forever to prevent an
+    // impersonation that no longer has a target. It is also what the rest of
+    // the codebase already does the moment a handle stops being displayed:
+    // setHandle frees the previous fold on a rename, and /api/admin/leaderboard
+    // frees it when an operator clears an offensive one. The cost — the name
+    // becomes available to someone else — is the ordinary state of a name
+    // nobody is using, and the brand names nobody may take are protected by
+    // RESERVED_HANDLES, not by leftovers.
+    const previousHandle = rowSnap.data()?.handle;
+    if (typeof previousHandle === "string") {
+      const folded = foldHandle(previousHandle);
+      if (folded) refs.push(db.doc(`handles/${folded}`));
+    }
     for (let i = 0; i < refs.length; i += 500) {
       const batch = db.batch();
       for (const ref of refs.slice(i, i + 500)) batch.delete(ref);
@@ -160,13 +388,29 @@ export async function eraseAccount(
   //    sitting in a mailing list. Best-effort: an address that was never
   //    submitted simply isn't there, and failing to remove a lead must not
   //    block the deletion the user asked for.
+  //
+  //    Firestore is only half of it. The address was also mirrored into the
+  //    Resend Audience when it was submitted (/api/leads,
+  //    /api/account/email-prefs), and Resend is a US processor that fans out
+  //    broadcasts from ITS copy, not from ours. That removal is step 7, at the
+  //    very end: it is the only part of this sequence that depends on a third
+  //    party being awake, so it happens where a slow one cannot cost anybody
+  //    their deletion.
+  //
+  //    The address is read here rather than in step 7 because step 6 deletes
+  //    the Auth record it comes from.
+  let email: string | undefined;
   try {
-    const email = (await getAuth(app).getUser(uid)).email;
-    if (email) {
-      await db.doc(`leads/${encodeURIComponent(email.toLowerCase())}`).delete();
-    }
+    email = (await getAuth(app).getUser(uid)).email ?? undefined;
   } catch (err) {
-    console.error(`[account] lead cleanup failed for ${uid}`, err);
+    console.error(`[account] lead lookup failed for ${uid}`, err);
+  }
+  if (email) {
+    try {
+      await db.doc(`leads/${encodeURIComponent(email.toLowerCase())}`).delete();
+    } catch (err) {
+      console.error(`[account] lead cleanup failed for ${uid}`, err);
+    }
   }
 
   // 4. The deletion-reason log. sessionDeletions lives outside users/{uid}
@@ -229,6 +473,26 @@ export async function eraseAccount(
   } catch (err) {
     console.error(`[account] auth delete failed for ${uid}`, err);
     return { ok: false, step: "auth-record" };
+  }
+
+  // 7. The Resend Audience mirror of the address. LAST, and hard-bounded.
+  //
+  //    This used to sit inside step 3, ahead of recursiveDelete and the Auth
+  //    delete, and it is the one call in the sequence that leaves the building.
+  //    lib/email/client.ts retries it three times with an 8s timeout and
+  //    ~0.6s/1.8s of backoff, so a Resend outage could hold the request for
+  //    ~26 seconds — past the default function budget of a route that declares
+  //    no maxDuration. The user then saw a FAILED deletion for an account
+  //    whose leaderboard row, handle and subscription were already gone: the
+  //    worst possible outcome for the one operation that has to feel reliable.
+  //
+  //    Here, everything irreversible has already happened and succeeded, so a
+  //    slow third party can no longer change the answer this function gives.
+  //    It is still bounded on top of that, because the caller is holding a
+  //    request open either way, and an unconfirmed removal goes on the durable
+  //    queue above instead of being reported as done.
+  if (email) {
+    await purgeFromAudience(db, uid, email);
   }
 
   return { ok: true };

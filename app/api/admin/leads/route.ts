@@ -5,6 +5,7 @@ import { limited } from "@/lib/rateLimit";
 import { recordAdminDenied } from "@/lib/opsMetrics";
 import { recordAdminAction } from "@/lib/adminAudit";
 import { validateEmail } from "@/lib/validation";
+import { readJsonObject } from "@/lib/requestBody";
 
 // The tips list, from the operator side. /privacy promises the address is
 // used "only to send those tips" and that anyone can "come off the list any
@@ -19,6 +20,14 @@ import { validateEmail } from "@/lib/validation";
 // contract with these addresses.
 
 export const runtime = "nodejs";
+
+async function readBody(req: NextRequest): Promise<Record<string, unknown>> {
+  // Through the shared reader (lib/requestBody.ts): size cap + shape check,
+  // one implementation. Admin routes are authenticated, which bounds WHO can
+  // post a huge body, not how big it is.
+  const parsed = await readJsonObject(req);
+  return parsed.ok ? parsed.body : {};
+}
 
 export async function GET(req: NextRequest) {
   const admin = await adminIdentity(req);
@@ -70,15 +79,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 
-  let body: Record<string, unknown> = {};
-  try {
-    const parsed = await req.json();
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      body = parsed;
-    }
-  } catch {
-    // falls through to validation below
-  }
+  const body = await readBody(req);
   const check = validateEmail(body.email);
   if (!check.ok) {
     return NextResponse.json({ error: "Bad email." }, { status: 400 });

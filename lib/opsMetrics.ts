@@ -29,6 +29,271 @@ export function utcDayKey(now: number = Date.now()): string {
   return new Date(now).toISOString().slice(0, 10);
 }
 
+// --- The global AI spend ceiling (opsDaily/{yyyy-mm-dd}) ------------------
+//
+// WHY THIS EXISTS. Every paid pipeline is bounded PER USER and PER IP, and
+// nothing bounded the TOTAL. Those per-user numbers are abuse ceilings, not
+// budgets: /api/analyze allows 12 an hour and 120 a day, /api/speech 30 an
+// hour and 100 a day, /api/felix 60 an hour and 60 a day. One account running
+// all three flat out buys roughly $9 of upstream AssemblyAI and Gemini in a
+// day, against the $0.22 a day the cheapest subscription (annual, $79.99)
+// actually pays — about forty times its own revenue. That is a fine trade for
+// one enthusiastic subscriber and a catastrophe for two hundred fraudulent
+// ones, and until this existed nothing in the app could see the second case
+// happening, let alone stop it: the rate limiters would have refused nobody,
+// because every one of those accounts was inside its own limit.
+//
+// So: one durable counter for the whole day, across every instance, on the
+// opsDaily doc the analyze pipeline already writes — no new collection, no new
+// write on the hot path — plus a circuit breaker reading it.
+//
+// This is NOT a product limit. No advertised quota moves, and the default is
+// set so only a day unlike any real day reaches it; the routes degrade rather
+// than refuse (a cached answer where one exists, otherwise "try again
+// shortly"), and the operator hears about it at three quarters of the way up.
+
+/** The paid calls counted here. /api/voice (Fish Audio) is not yet wired in. */
+export type AiOperation = "analyze" | "speech" | "felix";
+
+/**
+ * Rough upstream cost of one operation, in US cents.
+ *
+ * Deliberately a constant per route rather than a real usage read: the
+ * providers only bill after the fact, and a breaker that needs an accurate
+ * bill to fire is a breaker that never fires. Rounded UP — over-estimating
+ * trips the brake early, which is the safe direction to be wrong in.
+ */
+const AI_OP_COST_CENTS: Record<AiOperation, number> = {
+  // AssemblyAI on a take of a minute or two, plus the Gemini report over its
+  // transcript. The most expensive thing the app does.
+  analyze: 5,
+  // One Gemini generation of a few hundred words.
+  speech: 2,
+  // Thirty to sixty words, but the 3.x models bill their thinking too.
+  felix: 1,
+};
+
+/** Premium camera analysis: a second Gemini pass over up to 12 frames. */
+const CAMERA_PASS_COST_CENTS = 3;
+
+/** Firestore field on opsDaily holding the day's estimated spend, in cents. */
+const SPEND_FIELD = "aiCostCents";
+
+const AI_OP_FIELD: Record<AiOperation, string> = {
+  analyze: "aiOpsAnalyze",
+  speech: "aiOpsSpeech",
+  felix: "aiOpsFelix",
+};
+
+/**
+ * The ceiling, in whole US dollars of estimated spend per UTC day.
+ *
+ * ENV: AI_DAILY_CEILING_USD. Read per call rather than at module load so it
+ * can be changed without waiting for every warm instance to recycle.
+ *
+ * $500 a day is ~10,000 analyses: more than 800 daily-active subscribers each
+ * recording a dozen takes, which is a level of traffic that arrives with an
+ * order of magnitude more revenue than the bill, and ~55x what a single
+ * account can spend at its own daily ceiling. It is meant to be unreachable on
+ * a real day and reachable on a fraudulent one. Raise it as real traffic
+ * grows: the 75% warning below is the signal that the day has come, and it
+ * arrives in the operator alert before anybody is refused anything.
+ */
+const DEFAULT_AI_DAILY_CEILING_USD = 500;
+
+function aiCeilingCents(): number {
+  const raw = Number(process.env.AI_DAILY_CEILING_USD);
+  const usd = Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_AI_DAILY_CEILING_USD;
+  return Math.round(usd * 100);
+}
+
+/** Tell the operator from here up, while there is still room to act. */
+const AI_WARN_FRACTION = 0.75;
+
+export interface AiSpendState {
+  /** Estimated upstream spend so far today, in US cents. */
+  cents: number;
+  /** Today's ceiling in cents (AI_DAILY_CEILING_USD). */
+  ceilingCents: number;
+  /** At or past the ceiling: paid routes should degrade, not spend. */
+  over: boolean;
+  /** Past AI_WARN_FRACTION of it: worth an operator's attention. */
+  near: boolean;
+}
+
+const AI_SPEND_CACHE_MS = 60 * 1000;
+let aiSpendCache: { day: string; at: number; cents: number } | null = null;
+
+/** Firestore hands back whatever the field holds, and a hand edit or a
+ *  half-written document is not a number of cents. NaN in a brake is a brake
+ *  with no opinion, so anything unreadable counts as nothing spent. */
+function centsOf(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function aiStateFor(cents: number): AiSpendState {
+  const ceilingCents = aiCeilingCents();
+  return {
+    cents,
+    ceilingCents,
+    over: cents >= ceilingCents,
+    near: cents >= ceilingCents * AI_WARN_FRACTION,
+  };
+}
+
+/**
+ * Today's estimated global AI spend, FAIL-OPEN and cached per instance for a
+ * minute — the same posture, and the same reasons, as getOpsFlags below. A
+ * Firestore blip must never be able to stop the paid pipelines by itself: the
+ * cost of failing open is one minute of unbounded spend on a day that is
+ * almost certainly ordinary, and the cost of failing closed is refusing every
+ * paying customer over a database hiccup.
+ *
+ * The cached value is kept current by recordAiOperation, so an instance sees
+ * its own spending immediately and only the OTHER instances' spending is up to
+ * a minute stale.
+ */
+export async function getAiSpend(db: Firestore | null): Promise<AiSpendState> {
+  if (!db) return aiStateFor(0);
+  const day = utcDayKey();
+  const now = Date.now();
+  if (aiSpendCache && aiSpendCache.day === day && now - aiSpendCache.at < AI_SPEND_CACHE_MS) {
+    return aiStateFor(aiSpendCache.cents);
+  }
+  try {
+    const snap = await db.doc(`opsDaily/${day}`).get();
+    aiSpendCache = { day, at: now, cents: centsOf(snap.data()?.[SPEND_FIELD]) };
+    return aiStateFor(aiSpendCache.cents);
+  } catch (err) {
+    // Not cached: an unreadable answer must not be remembered for a minute.
+    console.error("[ops] AI spend read failed", err);
+    return aiStateFor(0);
+  }
+}
+
+/**
+ * The question the paid routes ask before they spend: is the day's global
+ * ceiling already reached? True means degrade — serve a cache or say "try
+ * again shortly" — never means say why.
+ */
+export async function overAiSpendCeiling(db: Firestore | null): Promise<boolean> {
+  return (await getAiSpend(db)).over;
+}
+
+/** Drop this instance's cached spend and its alert memo, so the next read goes
+ *  to Firestore and the next crossing of a level alerts again.
+ *
+ *  Used by the tests. Nothing in the running app calls it: the daily ops alert
+ *  (lib/email/opsAlert.ts) invalidates only the FLAGS cache, because a paused
+ *  pipeline it misses goes unreported for a whole day, while a spend total up
+ *  to a minute stale is still the right number to the cent it matters at. If
+ *  that mail ever reports the day's spend itself, it should call this first. */
+export function invalidateAiSpendCache(): void {
+  aiSpendCache = null;
+  alerted = { day: "", near: false, over: false };
+}
+
+/**
+ * The increments for one operation, merged into whatever opsDaily write the
+ * caller is already making. recordAnalyzeOutcome uses this so the most
+ * expensive route in the app pays ZERO extra Firestore writes for the ceiling.
+ */
+function aiSpendIncrements(op: AiOperation, cents: number): Record<string, unknown> {
+  return {
+    aiOps: FieldValue.increment(1),
+    [AI_OP_FIELD[op]]: FieldValue.increment(1),
+    [SPEND_FIELD]: FieldValue.increment(cents),
+  };
+}
+
+/** Keep this instance's cached estimate honest between reads, so a single
+ *  instance in a hot loop trips its own brake without waiting for the cache
+ *  to expire. */
+function noteLocalSpend(cents: number): void {
+  const day = utcDayKey();
+  if (aiSpendCache && aiSpendCache.day === day) aiSpendCache.cents += cents;
+}
+
+/**
+ * Count one paid AI call. Best-effort and never throws, like everything else
+ * in this file: instrumentation must not break the money path it observes.
+ *
+ * Charged when the paid call is CERTAIN, not when it succeeds — a Gemini
+ * request that times out was still bought.
+ */
+export async function recordAiOperation(
+  db: Firestore | null,
+  op: AiOperation
+): Promise<void> {
+  if (!db) return;
+  const cents = AI_OP_COST_CENTS[op];
+  try {
+    await db.doc(`opsDaily/${utcDayKey()}`).set(
+      { ...aiSpendIncrements(op, cents), updatedAt: FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+    noteLocalSpend(cents);
+    await alertOnAiSpend(db);
+  } catch (err) {
+    console.error("[ops] couldn't record AI operation", err);
+  }
+}
+
+// --- Telling somebody ----------------------------------------------------
+// Once per instance per day per level, so an instance in a hot loop writes two
+// documents, not two thousand. Other instances repeat the write to the SAME
+// day-keyed document id, which merges rather than duplicating.
+
+let alerted = { day: "", near: false, over: false };
+
+/**
+ * Raise the alarm on the path the codebase already has: a `billingAlerts` doc
+ * with `resolved: false`, which is what the admin Billing queue lists and what
+ * the daily operator email (lib/email/opsAlert.ts) counts as urgent. Nothing
+ * new to wire up, and nothing that only exists if somebody opens a console.
+ */
+async function alertOnAiSpend(db: Firestore): Promise<void> {
+  // No cached read means this instance has only ever seen its OWN spending,
+  // and a total we know is too low is not a number to raise an alarm on. Every
+  // route that records an operation checks the ceiling first, which fills the
+  // cache, so this is the cold-start case rather than a gap.
+  const state = aiSpendCache ? aiStateFor(aiSpendCache.cents) : null;
+  if (!state || !state.near) return;
+  const day = utcDayKey();
+  if (alerted.day !== day) alerted = { day, near: false, over: false };
+  const level = state.over ? "over" : "near";
+  if (alerted[level]) return;
+  alerted[level] = true;
+
+  const spent = (state.cents / 100).toFixed(2);
+  const ceiling = (state.ceilingCents / 100).toFixed(2);
+  try {
+    await db.doc(`billingAlerts/ai-spend-${level}-${day}`).set(
+      {
+        kind: "ai-spend-ceiling",
+        context:
+          level === "over"
+            ? `Estimated AI spend for ${day} reached the daily ceiling ($${spent} of $${ceiling}). The paid routes are degrading gracefully until UTC midnight: analysis and speech writing answer "try again shortly", Felix falls back to a written-from-the-report take. Check /admin for a usage spike before raising AI_DAILY_CEILING_USD.`
+            : `Estimated AI spend for ${day} is at $${spent} of the $${ceiling} daily ceiling. Nothing is refused yet. If this is real traffic, raise AI_DAILY_CEILING_USD before it trips; if it is not, /admin has the accounts.`,
+        uid: null,
+        amount: Math.round(state.cents),
+        currency: "usd",
+        resolved: false,
+        at: Date.now(),
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    console.error("[ops] couldn't write AI spend alert", err);
+  }
+  // Also on the console, because the email is once a day and this may be the
+  // afternoon somebody is already watching the logs.
+  const line = `[ops] AI spend ${level === "over" ? "CEILING REACHED" : "warning"}: $${spent} of $${ceiling} for ${day}`;
+  if (level === "over") console.error(line);
+  else console.warn(line);
+}
+
 // --- Analyze pipeline health (opsDaily/{yyyy-mm-dd}) ---------------------
 // Pure counters + duration sums, incremented best-effort from /api/analyze.
 // Sums-plus-counts rather than averages so the day's numbers merge correctly
@@ -77,6 +342,18 @@ export async function recordAnalyzeOutcome(
     };
     if (o.premium) update.premiumRuns = inc(1);
     if (o.camera) update.cameraRuns = inc(1);
+    // The global spend counter rides on THIS write. Every terminal path in
+    // /api/analyze already calls this exactly once, so the ceiling gets an
+    // accurate count of pipeline runs for no extra Firestore write at all —
+    // including the failures, which cost AssemblyAI and Gemini just the same.
+    // `paused` is the one outcome that spent nothing: the kill switch refused
+    // the run before the body was even read.
+    if (o.outcome !== "paused") {
+      const cents =
+        AI_OP_COST_CENTS.analyze + (o.camera ? CAMERA_PASS_COST_CENTS : 0);
+      Object.assign(update, aiSpendIncrements("analyze", cents));
+      noteLocalSpend(cents);
+    }
     if (typeof o.totalMs === "number" && Number.isFinite(o.totalMs)) {
       update.totalMsSum = inc(Math.round(o.totalMs));
       update.totalMsCount = inc(1);
@@ -90,6 +367,7 @@ export async function recordAnalyzeOutcome(
       update.modelMsCount = inc(1);
     }
     await db.doc(`opsDaily/${utcDayKey()}`).set(update, { merge: true });
+    if (o.outcome !== "paused") await alertOnAiSpend(db);
   } catch (err) {
     console.error("[ops] couldn't record analyze outcome", err);
   }
@@ -232,6 +510,20 @@ export interface OpsFlags {
    * to prevent. Callers that must not fail open read this.
    */
   unavailable?: boolean;
+  /**
+   * Today's global AI spend has passed the ceiling (see getAiSpend above).
+   *
+   * Present ONLY when the caller asks for it with `{ withAiSpend: true }`.
+   * It rides on the flags OBJECT, not on the flags READ: getOpsFlags reads
+   * `ops/flags` and getAiSpend separately reads `opsDaily/{day}`, so asking
+   * for it is a second Firestore read, not a free field on the first. Both
+   * are cached per instance for the same minute, so a route that asks "may I
+   * spend?" pays two reads per instance-minute rather than two per recording
+   * — which is what makes one gate returning both answers affordable.
+   * /api/flags, which every client polls on load, does not ask, so the public
+   * path pays nothing for the ceiling.
+   */
+  aiSpendOver?: boolean;
 }
 
 const FLAGS_CACHE_MS = 60 * 1000;
@@ -242,7 +534,16 @@ let flagsCache: { at: number; flags: OpsFlags } | null = null;
  * can never pause the product by itself. The flag exists to stop spend in an
  * emergency; its absence of evidence must never act like evidence.
  */
-export async function getOpsFlags(db: Firestore | null): Promise<OpsFlags> {
+export async function getOpsFlags(
+  db: Firestore | null,
+  opts?: { withAiSpend?: boolean }
+): Promise<OpsFlags> {
+  const flags = await readOpsFlags(db);
+  if (!opts?.withAiSpend) return flags;
+  return { ...flags, aiSpendOver: (await getAiSpend(db)).over };
+}
+
+async function readOpsFlags(db: Firestore | null): Promise<OpsFlags> {
   if (!db) return {};
   const now = Date.now();
   if (flagsCache && now - flagsCache.at < FLAGS_CACHE_MS) return flagsCache.flags;

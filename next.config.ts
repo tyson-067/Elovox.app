@@ -40,10 +40,13 @@ warnOnLegalPlaceholders();
 const csp = [
   "default-src 'self'",
 
-  // Next's App Router inlines hydration payloads as <script> tags, so
-  // 'unsafe-inline' is required unless we move to nonces (which needs
-  // middleware on every request). Even with it, this still blocks scripts
-  // from any origin we haven't listed — the actual XSS delivery vector.
+  // Next's App Router inlines hydration payloads as <script> tags, and
+  // app/layout.tsx ships its own inline bootstrap (the native/theme stamp
+  // that must settle before first paint), so 'unsafe-inline' is required
+  // until a nonce exists — see the block under script-src-attr for why that
+  // is not a change this file can make alone. Even with it, this still
+  // blocks scripts from any origin we haven't listed — the actual XSS
+  // delivery vector.
   // Dev additionally needs 'unsafe-eval' for React Fast Refresh.
   // www.google.com + www.gstatic.com are reCAPTCHA v3, which backs Firebase
   // App Check (lib/appCheck.ts). reCAPTCHA loads its own second script from
@@ -54,6 +57,37 @@ const csp = [
   // `next dev` too, so without it every local run logs a CSP violation and
   // analytics never initializes locally.
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval' https://va.vercel-scripts.com" : ""} https://apis.google.com https://accounts.google.com https://www.google.com https://www.gstatic.com`,
+
+  // 'unsafe-inline' above also re-enables inline event handlers, and those
+  // are the cheaper half of the XSS surface: injected markup like
+  // <img onerror=fetch(...)> needs no <script> tag and no allow-listed
+  // origin, so the host list above does nothing to stop it. React binds
+  // every listener with addEventListener and never emits an on* attribute,
+  // and nothing in app/ or components/ writes one by hand, so switching them
+  // off costs us nothing. Browsers that don't implement script-src-attr
+  // (Firefox, Safari) ignore the directive rather than mis-parsing the
+  // policy, so the worst case here is no change, not a broken page.
+  "script-src-attr 'none'",
+
+  // TODO(csp): the remaining weakness is 'unsafe-inline' in script-src, and
+  // removing it takes more than this file. Next 16 only nonces its inline
+  // scripts when the REQUEST carries a Content-Security-Policy header with a
+  // 'nonce-…' in it, and headers() here sets response headers, so the whole
+  // migration is:
+  //   1. a proxy.ts (Next 16's renamed middleware) that mints a fresh
+  //      base64 nonce per request and sets the CSP on both the forwarded
+  //      request headers and the response, with a matcher that skips
+  //      /_next/static, /_next/image and next/link prefetches;
+  //   2. `nonce` props on the hand-written inline scripts — the bootstrap in
+  //      app/layout.tsx and the JSON-LD block on every marketing page — read
+  //      from headers().get("x-nonce"), since Next only nonces its own tags;
+  //   3. accepting that every nonced page becomes dynamically rendered. A
+  //      nonce cannot be baked in at build time, so /, /pricing, /about and
+  //      the legal pages all lose static generation. That is the real cost,
+  //      and it is a deploy-shape decision, not a header tweak.
+  // Half of this is worse than none of it: a proxy that sets the header but
+  // misses the layout bootstrap ships an app whose theme stamp is blocked on
+  // first paint, which is precisely the flicker that script exists to avoid.
 
   // Tailwind injects styles inline.
   "style-src 'self' 'unsafe-inline'",

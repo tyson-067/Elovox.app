@@ -6,6 +6,7 @@ import { limited } from "@/lib/rateLimit";
 import { recordAdminDenied } from "@/lib/opsMetrics";
 import { recordAdminAction } from "@/lib/adminAudit";
 import { refundUnusedPortion } from "@/lib/refunds";
+import { readJsonObject } from "@/lib/requestBody";
 
 // Operator subscription controls, for the support requests that arrive by
 // email instead of through the Portal ("please cancel my subscription, I
@@ -30,6 +31,14 @@ const UID_RE = /^[A-Za-z0-9]{1,128}$/;
 const ACTIONS = ["cancel_at_period_end", "resume", "cancel_now_refund"] as const;
 type Action = (typeof ACTIONS)[number];
 
+async function readBody(req: NextRequest): Promise<Record<string, unknown>> {
+  // Through the shared reader (lib/requestBody.ts): size cap + shape check,
+  // one implementation. Admin routes are authenticated, which bounds WHO can
+  // post a huge body, not how big it is.
+  const parsed = await readJsonObject(req);
+  return parsed.ok ? parsed.body : {};
+}
+
 export async function POST(req: NextRequest) {
   const admin = await adminIdentity(req);
   if (!admin) {
@@ -45,15 +54,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 
-  let body: Record<string, unknown> = {};
-  try {
-    const parsed = await req.json();
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      body = parsed;
-    }
-  } catch {
-    // falls through to validation below
-  }
+  const body = await readBody(req);
   const uid = typeof body.uid === "string" ? body.uid : "";
   const action = body.action as Action;
   if (!UID_RE.test(uid)) {

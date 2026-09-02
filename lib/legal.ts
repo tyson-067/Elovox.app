@@ -5,7 +5,9 @@
 // TODO before launch, the three values marked NEEDS REVIEW must be filled
 // in (and the whole of /terms and /privacy read by a lawyer). They're the
 // facts only the operator knows; everything else on those pages is drawn
-// from what the code actually does.
+// from what the code actually does. `postalAddress` is the same kind of gap
+// and the most urgent of them: it is empty, and CAN-SPAM makes every
+// marketing email illegal until it is not.
 
 export const LEGAL = {
   /** Trading name shown throughout the documents. */
@@ -32,7 +34,31 @@ export const LEGAL = {
   // own: bumping one date must never make the other claim a change it didn't
   // have. Same stale-but-honest rule as the sitemap.
   privacyUpdated: "August 5, 2026", // transcript language screening step disclosed
-  termsUpdated: "August 5, 2026", // automated language screening + strike thresholds disclosed
+  // Moved off August 5 because the Terms gained an arbitration agreement, a
+  // class-action waiver and an indemnity, and those are exactly the clauses
+  // whose enforceability turns on the reader having been told they arrived: a
+  // date still claiming August would have the page swearing nothing had
+  // changed while displaying them. It is also the date the 30-day arbitration
+  // opt-out runs from for anyone who already held an account, so it has to be
+  // the day the wording actually changed.
+  termsUpdated: "September 2, 2026", // arbitration, class-action waiver, indemnity added
+  /**
+   * The same event as `termsUpdated`, written as a sortable date: it is the
+   * string /terms prints as "this is version X" and the string the sign-up
+   * screen prints at the moment of consent, so what was accepted and what was
+   * published can be compared later. Bump it with `termsUpdated`, in the edit
+   * that changes the wording.
+   *
+   * It lives here, and not in app/terms/page.tsx where it is displayed,
+   * because components/AuthForm.tsx cannot import a route module: a
+   * "use client" file that does drags the route's `metadata` export across the
+   * client boundary and Turbopack refuses to build it. The workaround was a
+   * second copy of the literal in AuthForm, which is how the version at the
+   * consent point could silently drift from the version on the page — and a
+   * version nobody can trust is worth less than no version at all. Only
+   * lib/legal.ts is imported by both sides, so only lib/legal.ts can hold it.
+   */
+  termsVersion: "2026-09-02",
   // Published and then revised the same day: the recording countdown is now
   // announced to screen readers, so it moved off "where we fall short".
   accessibilityUpdated: "August 1, 2026",
@@ -69,6 +95,35 @@ export const LEGAL = {
     /** Vulnerability reports. Must match public/.well-known/security.txt. */
     security: "security@elovox.app",
   },
+  /**
+   * The physical postal address that CAN-SPAM requires in every commercial
+   * message, rendered into both email footers by lib/email/render.ts.
+   *
+   * EMPTY BY DECISION (2026-09-02), NOT BY OVERSIGHT. 15 U.S.C.
+   * §7704(a)(5)(A)(iii) requires a valid physical postal address in every
+   * commercial message and the FTC counts each message lacking one as its own
+   * violation. Rather than publish an address, the choice was to hold the
+   * commercial mail — so `commercialBlocked` in lib/email/send.ts refuses the
+   * `lifecycle` and `marketing` categories outright while this is blank.
+   *
+   * That gate is the enforcement. The commercial sends run from a daily cron
+   * (the weekly tips drip pitches the product roughly every fourth message;
+   * weeklyProgress, streakAtRisk and winBack all promote it), so "remember not
+   * to send" was never a control that could hold. Nothing is held that anyone
+   * is owed: `security`, `billing` and `transactional` — lockout notices,
+   * receipts, failed-payment warnings — are relationship mail the statute does
+   * not reach, and they send exactly as before.
+   *
+   * FILL THIS IN AND THE HELD MAIL RESUMES on the next cron run, with no other
+   * change. A street address, a registered agent's address, or a USPS PO Box /
+   * mailbox at a Commercial Mail Receiving Agency all satisfy the statute — a
+   * bare email address or a URL does not. An invented address is worse than
+   * none, which is why this stays empty until a real one exists.
+   *
+   * Format it as one line, e.g. "Elovox, 123 Example St, New York, NY 10001".
+   */
+  postalAddress: "" as string, // blank holds lifecycle + marketing mail; see above
+
   instagramHandle: "elovox.app",
   instagramUrl: "https://www.instagram.com/elovox.app/",
   siteUrl: "https://elovox.app",

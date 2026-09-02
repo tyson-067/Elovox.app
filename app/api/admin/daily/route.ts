@@ -5,6 +5,7 @@ import { limited } from "@/lib/rateLimit";
 import { recordAdminDenied } from "@/lib/opsMetrics";
 import { recordAdminAction } from "@/lib/adminAudit";
 import { sanitizeText } from "@/lib/validation";
+import { readJsonObject } from "@/lib/requestBody";
 
 // Editorial control over the Daily Minute — the one piece of content every
 // user shares. /api/daily auto-generates a topic the first time a day is
@@ -41,6 +42,14 @@ function daysFromToday(date: string): number {
   const t = Date.parse(`${utcKey(0)}T00:00:00Z`);
   const d = Date.parse(`${date}T00:00:00Z`);
   return Math.round((d - t) / DAY_MS);
+}
+
+async function readBody(req: NextRequest): Promise<Record<string, unknown>> {
+  // Through the shared reader (lib/requestBody.ts): size cap + shape check,
+  // one implementation. Admin routes are authenticated, which bounds WHO can
+  // post a huge body, not how big it is.
+  const parsed = await readJsonObject(req);
+  return parsed.ok ? parsed.body : {};
 }
 
 export async function GET(req: NextRequest) {
@@ -99,15 +108,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 
-  let body: Record<string, unknown> = {};
-  try {
-    const parsed = await req.json();
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      body = parsed;
-    }
-  } catch {
-    // falls through to validation below
-  }
+  const body = await readBody(req);
 
   const date = typeof body.date === "string" ? body.date : "";
   if (!DATE_RE.test(date)) {
@@ -181,15 +182,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 
-  let body: Record<string, unknown> = {};
-  try {
-    const parsed = await req.json();
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      body = parsed;
-    }
-  } catch {
-    // falls through to validation below
-  }
+  const body = await readBody(req);
   const date = typeof body.date === "string" ? body.date : "";
   if (!DATE_RE.test(date)) {
     return NextResponse.json({ error: "Bad date." }, { status: 400 });

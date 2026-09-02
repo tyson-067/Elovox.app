@@ -143,12 +143,55 @@ export function tipsWelcome(email: string): AppMessage {
 
 /* --- Billing --------------------------------------------------------------- */
 
+/**
+ * The post-purchase acknowledgement, and the one email a subscription
+ * regulator would ask to see.
+ *
+ * California's Automatic Renewal Law (Bus. & Prof. Code §17602) requires the
+ * acknowledgement to state the recurring charge, how often it recurs, and how
+ * to cancel; the FTC's negative-option rule wants the same three facts. This
+ * message used to name none of them — it said "you're on the monthly plan"
+ * and "it renews on the 4th", which tells a subscriber the date of a charge
+ * whose SIZE they are never told. That is the shape of an ARL claim.
+ *
+ * `amount` and `manageUrl` are optional so the existing callers keep working
+ * (app/api/stripe/webhook/route.ts and the preview gallery both pass four
+ * arguments today). WITHOUT `amount` the message still cannot state the
+ * recurring charge, so it says so honestly and points at the receipt rather
+ * than inventing a figure — but that branch is NOT ARL-compliant, and the
+ * webhook should be passing the amount off the Stripe subscription.
+ *
+ * `manageUrl` defaults to /account, which is the page the billing-portal
+ * button lives on, so there is always a cancellation path in the message and
+ * never a dead end. The URL is printed as a bare `link` block as well as
+ * being described, because "cancel from your account" in a text-only client
+ * with no address to go to is not a cancellation path.
+ */
 export function subscriptionStarted(
   email: string,
   uid: string,
   cycle: string,
-  renewsOn: string | null
+  renewsOn: string | null,
+  amount?: string | null,
+  manageUrl?: string | null
 ): AppMessage {
+  // The cycle string comes from Stripe by way of the webhook, so it is
+  // "monthly"/"annual" today but must not be trusted to stay that way: an
+  // unrecognised value falls back to "billing period" rather than telling a
+  // subscriber they are charged "a premium".
+  const interval = /^month/i.test(cycle)
+    ? "month"
+    : /^(annual|year)/i.test(cycle)
+      ? "year"
+      : null;
+  const every = interval ? `every ${interval}` : "every billing period";
+  const cancelUrl = manageUrl && manageUrl.trim() ? manageUrl : `${app()}/account`;
+
+  const charge = amount
+    ? `Premium is ${amount} ${interval ? `a ${interval}` : "per billing period"}, charged automatically ${every} until you cancel.`
+    : `Premium renews automatically ${every} until you cancel. The amount is on the receipt Stripe sent you and on your account page.`;
+  const nextCharge = renewsOn ? ` The next charge is on ${renewsOn}.` : "";
+
   return {
     to: email,
     category: "billing",
@@ -165,12 +208,12 @@ export function subscriptionStarted(
       heading: "Premium is on",
       blocks: [
         { kind: "lead", text: `You're on the ${cycle} plan.` },
+        { kind: "p", text: `${charge}${nextCharge}` },
         {
           kind: "p",
-          text: renewsOn
-            ? `It renews on ${renewsOn}. You can cancel any time from your account — no email required, no retention offer.`
-            : "You can cancel any time from your account — no email required, no retention offer.",
+          text: "Cancel any time from your account — no email required, no retention offer. Cancelling stops the next charge.",
         },
+        { kind: "link", href: cancelUrl },
         { kind: "cta", label: "Open Elovox", href: `${app()}/practice` },
         {
           // This said "cancel early and we refund the part you didn't use",

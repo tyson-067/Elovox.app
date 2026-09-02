@@ -34,9 +34,90 @@ import type { Firestore } from "firebase-admin/firestore";
 
 /* --- The policy, in one place ---------------------------------------------- */
 
-/** Requests to the login endpoint allowed per IP per minute. */
-export const LOGIN_IP_LIMIT = 10;
+/**
+ * Requests to the login endpoint allowed per IP per minute.
+ *
+ * WHY THIS IS NOT A SMALL NUMBER, and what raising it did and did not cost.
+ *
+ * One sign-in costs TWO requests here — `check` before the credentials go to
+ * Firebase and `result` after — so this number halved is how many sign-in
+ * attempts an entire egress address gets in a minute. It was 10, which is five
+ * attempts a minute shared by everyone behind one IP, and Elovox is mostly a
+ * phone app: carrier-grade NAT puts thousands of unrelated people behind a
+ * single address and an office or a campus puts hundreds. The refusal is
+ * deliberately indistinguishable from a wrong password, so the user who tripped
+ * it was told "Incorrect email or password" about a password that was correct —
+ * a limit that misfires on real people and lies to them while doing it.
+ *
+ * 120 is 60 attempts a minute from one address: above any real crowd this app
+ * will see, and still orders of magnitude below a script running flat out.
+ *
+ * WHAT THE RAISE DID LOOSEN, because it is one thing and it is not nothing.
+ * The per-ACCOUNT ledger below is untouched: five failures lock the account no
+ * matter how many addresses they arrive from, the progressive delay climbs per
+ * account, and every failure must carry a ticket that only `check` can mint. The
+ * one axis a per-account ledger cannot see is password SPRAYING — a single
+ * attempt each against many DIFFERENT addresses, where no account ever reaches
+ * its second failure. This limit was the only thing bounding that, and raising
+ * it took a sprayer from 5 attempts a minute to 60: a 12x loosening on the one
+ * axis this number ever covered. LOGIN_IP_FAILURE_LIMIT is what puts that back,
+ * and puts it back tighter than 10 ever had it.
+ *
+ * The in-process prefilter in app/api/auth/login/route.ts must stay LOOSER than
+ * this, or it, and not this, becomes the policy.
+ */
+export const LOGIN_IP_LIMIT = 120;
 export const LOGIN_IP_WINDOW_MS = 60_000;
+
+/**
+ * Wrong passwords allowed per IP per hour, net of that address's successes.
+ *
+ * THE CONTROL THAT ACTUALLY BOUNDS SPRAYING, and why it counts failures rather
+ * than requests.
+ *
+ * A request ceiling has to be generous enough for a whole carrier NAT signing in
+ * at once, and anything that generous is generous to a sprayer too. The two
+ * populations do not separate on volume; they separate on outcome. People behind
+ * a shared address overwhelmingly SUCCEED, and a sprayer — one password against
+ * a list of addresses — overwhelmingly FAILS. So the request window above stays
+ * wide, and this one, which counts only wrong passwords, stays narrow.
+ *
+ * THE ARITHMETIC, because a ceiling without one is a guess. Spraying spends
+ * exactly one failure per address it tries, so failures per hour IS distinct
+ * accounts per hour from that address:
+ *
+ *   - at 30 failures/hour: at most 30 accounts an hour from one address;
+ *   - at the old limit of 10 requests/min: 10 / 2 requests per sign-in = 5
+ *     attempts a minute = 300 an hour, so 300 accounts. This is 10x tighter
+ *     than the control it replaces;
+ *   - at the raised request ceiling alone: 120 / 2 = 60 a minute = 3600 an
+ *     hour, so 3600 accounts. This is 120x tighter than that.
+ *
+ * WHY A REAL CROWD NEVER FEELS IT. Every sign-in that is PROVEN successful — an
+ * ID token verified at Google, not a claim in a request body — forgives one
+ * recorded failure for that address, so what is counted is failures minus
+ * successes, floored at zero. An address whose users are getting in never
+ * accumulates, however many of them there are and however often they mistype.
+ * Reaching 30 takes thirty more wrong passwords than sign-ins inside one hour,
+ * and a real user who has genuinely forgotten their password contributes at most
+ * LOCKOUT_AFTER_FAILURES of them before the per-account lock stops that account
+ * cold — so 30 is six such people behind one address in one hour with not a
+ * single successful sign-in between them.
+ *
+ * WHAT IT COSTS WHEN IT DOES FIRE, stated rather than glossed. The ceiling
+ * blocks the address, not the account, so a real user who shares an address with
+ * a sprayer is throttled alongside them until the failures age out of the window
+ * one at a time — or sooner, because any success that does get through forgives
+ * one. That is the trade, and it is now charged at thirty NET failures instead
+ * of at the five attempts a minute the old request limit charged everybody.
+ *
+ * WHAT IT DOES NOT COVER. A caller that simply never reports its failures is not
+ * counted here. It gains nothing by that: it could skip this route altogether
+ * and talk to Google's identitytoolkit directly, which no code in this
+ * repository can see. Read the note at the top of this file for that half.
+ */
+export const LOGIN_IP_FAILURE_LIMIT = 30;
+export const LOGIN_IP_FAILURE_WINDOW_MS = 60 * 60_000;
 
 /** Consecutive failures that trigger a lockout. */
 export const LOCKOUT_AFTER_FAILURES = 5;
@@ -124,8 +205,12 @@ export interface LoginLedger {
    * `{outcome: "success"}` and wipe a lockout that was doing its job.
    *
    * A ticket is issued only by `phase: "check"`, which is IP-rate-limited, and
-   * is single-use. So every forged failure now costs one of the attacker's ten
-   * requests a minute from that IP, instead of being free.
+   * is single-use. So every forged failure now costs one of that address's
+   * LOGIN_IP_LIMIT requests a minute instead of being free — and, because only
+   * a failure the ledger accepted feeds the per-IP spray ceiling, a forged one
+   * cannot get a shared address throttled on somebody else's behalf either. The
+   * constant is named rather than spelled out: this sentence said "ten" for a
+   * while after the number became 120, contradicting the policy it cited.
    *
    * It does NOT make lockout-as-denial-of-service impossible — an attacker with
    * many source IPs can still spend 5 tickets against an address. That is
@@ -242,12 +327,25 @@ export async function checkLoginAllowed(
     const snap = await tx.get(ref);
     const ledger = readLedger(snap.data(), now);
 
+    // Both refusals below write the one field the allow path writes anyway, so
+    // a refused check costs the same single read and single write a permitted
+    // one does. Without it the two branches had visibly different Firestore
+    // profiles: the refusal skipped the commit and came back sooner, which
+    // made "this account is locked" separable from "that password was wrong"
+    // by timing alone — the same oracle the identical response body exists to
+    // close, restored in the latency. It also keeps a locked row from being
+    // swept while the lock is still open.
+    const touch = () =>
+      tx.set(ref, { expiresAt: new Date(now + LEDGER_TTL_MS) }, { merge: true });
+
     if (ledger.lockedUntil > now) {
+      touch();
       return { allowed: false, retryAfterMs: ledger.lockedUntil - now };
     }
     const wait = delayForFailures(ledger.failures);
     const readyAt = ledger.lastFailureAt + wait;
     if (wait > 0 && readyAt > now) {
+      touch();
       return { allowed: false, retryAfterMs: readyAt - now };
     }
 
@@ -280,6 +378,9 @@ export interface FailureOutcome {
  * Transactional because two tabs (or two hosts in a stuffing run) racing on
  * the same account would otherwise both read 4 and both write 5, and the fifth
  * failure — the one that locks — would be counted once instead of twice.
+ *
+ * A failure arriving while a lock is ALREADY open is counted and nothing else:
+ * see `alreadyLocked` below for the invariant that protects.
  */
 export async function recordLoginFailure(
   db: Firestore,
@@ -301,19 +402,42 @@ export async function recordLoginFailure(
     );
 
     const failures = ledger.failures + 1;
+    /**
+     * AN OPEN LOCK IS NEVER EXTENDED. This is the whole of that guarantee.
+     *
+     * A lock does not stop tickets that were already issued: up to MAX_TICKETS
+     * of them survive the lock and stay valid for TICKET_TTL_MS afterwards, so
+     * someone with a few tabs open can hold spare tickets when the fifth
+     * failure trips the lock and spend them a minute later. Before this check
+     * the branch below simply ran again — `lockedUntil` was pushed another
+     * LOCKOUT_MS into the future and another of the account's three hourly
+     * locks was spent, so the owner's fifteen minutes became half an hour and
+     * their lock budget was burned by someone else's requests. Under the
+     * documented policy the owner can wait out a lock; under that behaviour
+     * they could not, which is a denial of service the docs promised was
+     * closed. The failure still counts (the operator log wants to see it), the
+     * clock does not move, and no notice is re-sent.
+     */
+    const alreadyLocked = ledger.lockedUntil > now;
     // A hard lock is available only while this account has locks left in the
     // current window. Past that the failures still count and the progressive
     // delay still climbs — the door just stops being bolted shut. See
     // MAX_LOCKS_PER_WINDOW.
     const locksLeft = ledger.locks < MAX_LOCKS_PER_WINDOW;
-    const trip = failures >= LOCKOUT_AFTER_FAILURES && locksLeft;
-    const exhausted = failures >= LOCKOUT_AFTER_FAILURES && !locksLeft;
+    const trip =
+      !alreadyLocked && failures >= LOCKOUT_AFTER_FAILURES && locksLeft;
+    const exhausted =
+      !alreadyLocked && failures >= LOCKOUT_AFTER_FAILURES && !locksLeft;
     if (exhausted) {
       console.warn(
         "[login] lock budget exhausted for one account this hour — throttling only. Someone is hammering it."
       );
     }
-    const lockedUntil = trip ? now + LOCKOUT_MS : 0;
+    const lockedUntil = alreadyLocked
+      ? ledger.lockedUntil
+      : trip
+        ? now + LOCKOUT_MS
+        : 0;
     // One notice per lockout, not one per failed attempt after it: a stuffing
     // run against a real address would otherwise mail its owner every second.
     const justLocked = trip && now - ledger.notifiedAt > LOCKOUT_MS;
@@ -360,11 +484,51 @@ export async function clearLoginFailures(
 /* --- Durable per-IP limiting ----------------------------------------------- */
 
 /**
- * A cross-instance sliding-window counter for one IP.
+ * How long a per-IP row lives after it is last touched.
+ *
+ * It has to outlive the LONGER of the two windows below, not the shorter one.
+ * This used to be ten request windows — ten minutes — which was fine while
+ * `hits` was the only thing in the row, and would silently have handed a
+ * sprayer a free reset once `fails` moved in: the daily purge (or a Firestore
+ * TTL policy, which deletes on exactly the same field) would drop a row whose
+ * failure history still had fifty minutes left to run.
+ */
+const IP_ROW_TTL_MS = Math.max(
+  LOGIN_IP_WINDOW_MS * 10,
+  LOGIN_IP_FAILURE_WINDOW_MS
+);
+
+/**
+ * The IP is hashed for the same reason the address is: this collection is an
+ * attack ledger, and it should not double as a visitor log.
+ */
+function ipKey(ip: string): string {
+  return createHash("sha256")
+    .update(`${process.env.LOGIN_HASH_SALT ?? "elovox-login-ledger"}:ip:${ip}`)
+    .digest("hex");
+}
+
+/** Timestamps still inside their window. Dropping the stale ones on every read
+ *  is what makes both counters sliding windows rather than fixed buckets that
+ *  hand out a full allowance the instant the clock rolls over. */
+function liveHits(raw: unknown, cutoff: number): number[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((t: unknown): t is number => typeof t === "number" && t > cutoff);
+}
+
+/**
+ * The two cross-instance sliding windows for one IP: how many REQUESTS it made
+ * in the last minute, and how many WRONG PASSWORDS it has to its name in the
+ * last hour. They share one document, so checking both costs the one
+ * transaction checking either used to.
  *
  * A login limit has to hold across instances or it isn't a limit at all, so
  * this one lives in Firestore. It costs one transaction per login attempt,
- * which is the right trade on the app's lowest-volume endpoint.
+ * which is the right trade on the app's lowest-volume endpoint. The
+ * per-instance `makeRateLimiter` cannot do this job: it is empty after every
+ * cold start and every instance keeps its own copy, so on Vercel the real
+ * ceiling would be `instances x limit` and would reset whenever the platform
+ * felt like it.
  *
  * This predates lib/rateLimit.ts, which now does the same job generically for
  * every other route, and it stays separate on purpose: a login refusal has to
@@ -377,29 +541,99 @@ export async function rateLimitIp(
   ip: string,
   now = Date.now()
 ): Promise<{ allowed: boolean; retryAfterMs: number }> {
-  // The IP is hashed for the same reason the address is: this collection is
-  // an attack ledger, and it should not double as a visitor log.
-  const key = createHash("sha256")
-    .update(`${process.env.LOGIN_HASH_SALT ?? "elovox-login-ledger"}:ip:${ip}`)
-    .digest("hex");
-  const ref = db.doc(`loginRates/${key}`);
+  const ref = db.doc(`loginRates/${ipKey(ip)}`);
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
-    const cutoff = now - LOGIN_IP_WINDOW_MS;
-    const raw = snap.data()?.hits;
-    const hits: number[] = Array.isArray(raw)
-      ? raw.filter((t: unknown) => typeof t === "number" && t > cutoff)
-      : [];
+    const data = snap.data();
+    const hits = liveHits(data?.hits, now - LOGIN_IP_WINDOW_MS);
+    const fails = liveHits(data?.fails, now - LOGIN_IP_FAILURE_WINDOW_MS);
+    // The spray ceiling is asked first because it is the tighter of the two,
+    // but the two refusals are the same refusal: same shape, same caller
+    // handling, and nothing in the answer says which window closed. A caller
+    // able to tell "you are throttled" from "you have been guessing" would
+    // learn which of its guesses were wrong, which is the whole game.
+    if (fails.length >= LOGIN_IP_FAILURE_LIMIT) {
+      return {
+        allowed: false,
+        retryAfterMs: fails[0] + LOGIN_IP_FAILURE_WINDOW_MS - now,
+      };
+    }
     if (hits.length >= LOGIN_IP_LIMIT) {
       return { allowed: false, retryAfterMs: hits[0] + LOGIN_IP_WINDOW_MS - now };
     }
     hits.push(now);
+    // `fails` is written back pruned, so an address that stops failing sheds
+    // its history on its own traffic rather than waiting for the sweep.
     tx.set(
       ref,
-      { hits, expiresAt: new Date(now + LOGIN_IP_WINDOW_MS * 10) },
+      { hits, fails, expiresAt: new Date(now + IP_ROW_TTL_MS) },
       { merge: true }
     );
     return { allowed: true, retryAfterMs: 0 };
+  });
+}
+
+/**
+ * Charge this address for one wrong password. See LOGIN_IP_FAILURE_LIMIT.
+ *
+ * The caller must only reach this for a failure the ACCOUNT ledger accepted —
+ * one that carried a valid single-use ticket. A failure anyone can assert is a
+ * failure anyone can use to throttle a shared address on purpose, which would
+ * turn a spray control into a denial-of-service tool aimed at a carrier NAT.
+ */
+export async function recordIpFailure(
+  db: Firestore,
+  ip: string,
+  now = Date.now()
+): Promise<void> {
+  const ref = db.doc(`loginRates/${ipKey(ip)}`);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const fails = liveHits(snap.data()?.fails, now - LOGIN_IP_FAILURE_WINDOW_MS);
+    // Never grows past the ceiling. Past it every request from this address is
+    // refused anyway, so the extra entries would buy nothing and an array that
+    // grows with an attacker's patience is a write-amplification bug.
+    if (fails.length >= LOGIN_IP_FAILURE_LIMIT) return;
+    fails.push(now);
+    tx.set(
+      ref,
+      { fails, expiresAt: new Date(now + IP_ROW_TTL_MS) },
+      { merge: true }
+    );
+  });
+}
+
+/**
+ * Forgive one of this address's recorded failures, because somebody behind it
+ * just signed in for real.
+ *
+ * This is the half that keeps the ceiling off real crowds: the count is
+ * failures MINUS successes, so an address whose users are getting in sits at
+ * zero no matter how many of them mistype. The oldest failure is the one
+ * dropped, which keeps the remaining timestamps a true sliding window.
+ *
+ * THE PROOF IS THE POINT. The caller must have verified a Firebase ID token
+ * belonging to the address being cleared before it gets here. A credit that
+ * could be claimed by asserting success would be minted by the sprayer faster
+ * than it spent failures, and the ceiling would be decoration.
+ */
+export async function creditIpSuccess(
+  db: Firestore,
+  ip: string,
+  now = Date.now()
+): Promise<void> {
+  const ref = db.doc(`loginRates/${ipKey(ip)}`);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const fails = liveHits(snap.data()?.fails, now - LOGIN_IP_FAILURE_WINDOW_MS);
+    // Floored at zero rather than banked: an address cannot build up credit
+    // during a quiet hour and spend it on a burst of guesses later.
+    if (fails.length === 0) return;
+    tx.set(
+      ref,
+      { fails: fails.slice(1), expiresAt: new Date(now + IP_ROW_TTL_MS) },
+      { merge: true }
+    );
   });
 }
 

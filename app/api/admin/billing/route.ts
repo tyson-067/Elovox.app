@@ -7,6 +7,7 @@ import { limited } from "@/lib/rateLimit";
 import { recordAdminDenied } from "@/lib/opsMetrics";
 import { recordAdminAction } from "@/lib/adminAudit";
 import { refundUnusedPortion } from "@/lib/refunds";
+import { readJsonObject } from "@/lib/requestBody";
 
 // The billing-alerts queue. lib/refunds.ts and the webhook have been writing
 // `billingAlerts` docs "for manual follow-up" since they shipped — a failed
@@ -31,6 +32,14 @@ export const runtime = "nodejs";
 // validate like the leads route does before handing anything to db.doc():
 // no path separators, no reserved __id__ forms.
 const ID_RE = /^[A-Za-z0-9_-]{1,200}$/;
+
+async function readBody(req: NextRequest): Promise<Record<string, unknown>> {
+  // Through the shared reader (lib/requestBody.ts): size cap + shape check,
+  // one implementation. Admin routes are authenticated, which bounds WHO can
+  // post a huge body, not how big it is.
+  const parsed = await readJsonObject(req);
+  return parsed.ok ? parsed.body : {};
+}
 
 export async function GET(req: NextRequest) {
   const admin = await adminIdentity(req);
@@ -100,15 +109,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 
-  let body: Record<string, unknown> = {};
-  try {
-    const parsed = await req.json();
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      body = parsed;
-    }
-  } catch {
-    // falls through to validation below
-  }
+  const body = await readBody(req);
   const id = typeof body.id === "string" ? body.id : "";
   const action = body.action;
   if (!ID_RE.test(id) || /^__.*__$/.test(id)) {

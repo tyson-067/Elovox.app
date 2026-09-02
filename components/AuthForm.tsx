@@ -34,6 +34,13 @@ import {
   useAgeCorrectionAvailable,
 } from "@/lib/age";
 import { useIsNative } from "@/lib/native";
+// LEGAL.termsVersion, not a copy of it: this screen names the version being
+// accepted and /terms names the version being read, and an acceptance record
+// that disagrees with the published document proves nothing. lib/legal.ts is
+// the one module both sides can import — a "use client" file cannot import
+// app/terms/page.tsx, because that would pull its `metadata` export across the
+// client boundary and Turbopack refuses to build it.
+import { LEGAL } from "@/lib/legal";
 
 // If the visitor arrived from a pricing CTA (/signup?plan=premium&cycle=…),
 // resume Stripe Checkout the moment the account exists. Read from the URL
@@ -759,18 +766,27 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       {/* Terms/Privacy acceptance at the point of sign-up. Covers both the email
           form above and the Google button, since either one creates an account.
           This is what turns the Terms from something nobody saw into something a
-          user agreed to — every protective clause in them leans on it. */}
+          user agreed to — every protective clause in them leans on it.
+
+          The version and the arbitration clause are named here on purpose. An
+          arbitration agreement is the clause most likely to be challenged, and
+          the two usual challenges are "I never agreed to that" and "it was
+          buried" — so the notice says which version, says the clause is in
+          there, and says it can be opted out of, all before the account
+          exists. */}
       {isSignup && (
         <p className="mt-5 text-label leading-5 text-on-surface-variant">
           By creating an account you agree to our{" "}
           <Link href="/terms" className="font-semibold text-primary underline">
             Terms
           </Link>{" "}
-          and{" "}
+          (version {LEGAL.termsVersion}) and{" "}
           <Link href="/privacy" className="font-semibold text-primary underline">
             Privacy Policy
           </Link>
-          .
+          . The Terms include an agreement to settle disputes by individual
+          arbitration and a waiver of class actions, which you can opt out of
+          within 30 days.
         </p>
       )}
 

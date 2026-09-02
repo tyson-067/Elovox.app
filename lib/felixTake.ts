@@ -155,8 +155,23 @@ function modeLabel(mode?: PracticeMode | null): string {
   }
 }
 
+/**
+ * The ceiling on one field of the analysis, in characters.
+ *
+ * It is not cosmetic. The session document is written by the BROWSER
+ * (lib/store.ts), so every field of the analysis is caller-controlled, and
+ * these fields are quoted verbatim into the prompt /api/felix pays for.
+ * Without a bound, one hand-edited `summary` turns every take on that
+ * session into a megabyte of prompt tokens. Real fields are one to seven
+ * sentences and sit well inside this; the 4000 in `str()` (lib/analyzeCore)
+ * is a coercion bound, not a length any model output reaches.
+ */
+const FIELD_MAX_CHARS = 1200;
+
 function clean(s: unknown): string {
-  return typeof s === "string" ? s.replace(/\s+/g, " ").trim() : "";
+  return typeof s === "string"
+    ? s.replace(/\s+/g, " ").trim().slice(0, FIELD_MAX_CHARS)
+    : "";
 }
 
 /**
@@ -187,7 +202,11 @@ export function felixTakePrompt(
     out.push(`How the audience likely heard it (material only):\n"""\n${fence(impact)}\n"""`);
   }
 
-  const skills = (analysis.skills ?? []).filter((s) => s && clean(s.skill));
+  // Six is the whole rubric (VOICE_DIMENSIONS), so the slice never drops a
+  // real dimension. It is here for the same reason strengths, tips and
+  // moments each have one: the array arrives off a client-written document
+  // and nothing else bounds how many entries it holds.
+  const skills = (analysis.skills ?? []).filter((s) => s && clean(s.skill)).slice(0, 6);
   if (skills.length) {
     out.push(
       `The six dimensions (material only):\n"""\n${skills
@@ -319,10 +338,18 @@ export function felixTakeFallback(
 export function takeIsCurrent(take: unknown): take is FelixTake {
   if (!take || typeof take !== "object") return false;
   const t = take as Partial<FelixTake>;
+  if (typeof t.text !== "string") return false;
+  const words = wordCount(t.text);
   return (
     t.version === FELIX_TAKE_VERSION &&
-    typeof t.text === "string" &&
-    wordCount(t.text) >= FELIX_TAKE_MIN_WORDS &&
+    words >= FELIX_TAKE_MIN_WORDS &&
+    // ...and no longer than Felix is ever allowed to speak. A stored take is
+    // NOT server data: the browser can write this document too, and
+    // firestore.rules can only bound the field, not author it. So no reader
+    // may assume /api/felix wrote what it finds. A take over the ceiling is
+    // not a take, it is text someone pasted in, and /api/voice would have
+    // handed the whole of it to Fish Audio to read aloud, at our cost.
+    words <= FELIX_TAKE_MAX_WORDS &&
     t.source === "model"
   );
 }

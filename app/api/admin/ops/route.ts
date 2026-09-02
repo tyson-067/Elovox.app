@@ -12,15 +12,17 @@ import {
   invalidateOpsFlagsCache,
 } from "@/lib/opsMetrics";
 import { recordAdminAction } from "@/lib/adminAudit";
+import { readJsonObject } from "@/lib/requestBody";
 
 // The Ops tab: pipeline health, security events, and the emergency brake.
 //
 // GET → the last 14 days of opsDaily counters (written best-effort by
-// /api/analyze), the recent security-event log, the current flags, and the
-// operator config worth eyeballing (who is on ADMIN_EMAILS, whether App
-// Check is enforcing). Reading the events also schedules a purge of expired
-// ones via after(), which is what keeps the privacy policy's "short
-// operational window" true in practice.
+// /api/analyze), including the estimated AI spend and per-route paid-call
+// counts that drive the daily ceiling, the recent security-event log, the
+// current flags, and the operator config worth eyeballing (who is on
+// ADMIN_EMAILS, whether App Check is enforcing). Reading the events also
+// schedules a purge of expired ones via after(), which is what keeps the
+// privacy policy's "short operational window" true in practice.
 //
 // POST {pauseAnalyze} → flip the analyze kill switch (ops/flags). The flag is
 // read FAIL-OPEN with a 60s per-instance cache on the analyze hot path, so:
@@ -29,6 +31,14 @@ import { recordAdminAction } from "@/lib/adminAudit";
 // audit-logged and dropped into the event log.
 
 export const runtime = "nodejs";
+
+async function readBody(req: NextRequest): Promise<Record<string, unknown>> {
+  // Through the shared reader (lib/requestBody.ts): size cap + shape check,
+  // one implementation. Admin routes are authenticated, which bounds WHO can
+  // post a huge body, not how big it is.
+  const parsed = await readJsonObject(req);
+  return parsed.ok ? parsed.body : {};
+}
 
 export async function GET(req: NextRequest) {
   const admin = await adminIdentity(req);
@@ -82,6 +92,17 @@ export async function GET(req: NextRequest) {
         avgTotalMs: avg(x.totalMsSum, x.totalMsCount),
         avgTranscribeMs: avg(x.transcribeMsSum, x.transcribeMsCount),
         avgModelMs: avg(x.modelMsSum, x.modelMsCount),
+        // The counters behind the global AI spend ceiling (lib/opsMetrics.ts).
+        // Without them the breaker is an alarm with no dial: the operator is
+        // told the day's estimate crossed 75% and has no way to see whether it
+        // is a slow real-traffic climb (raise AI_DAILY_CEILING_USD) or a spike
+        // in one route (find the accounts). Estimated cents, not a bill —
+        // AI_OP_COST_CENTS rounds well above real provider pricing on purpose.
+        aiCostCents: num(x.aiCostCents),
+        aiOps: num(x.aiOps),
+        aiOpsAnalyze: num(x.aiOpsAnalyze),
+        aiOpsSpeech: num(x.aiOpsSpeech),
+        aiOpsFelix: num(x.aiOpsFelix),
       };
     })
     .reverse(); // oldest → newest for charting
@@ -138,15 +159,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Slow down." }, { status: 429 });
   }
 
-  let body: Record<string, unknown> = {};
-  try {
-    const parsed = await req.json();
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      body = parsed;
-    }
-  } catch {
-    // falls through to validation below
-  }
+  const body = await readBody(req);
   // Partial updates: only the fields present are written, so flipping one
   // switch can't clobber another set from a different tab.
   const update: Record<string, unknown> = {};

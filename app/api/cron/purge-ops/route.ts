@@ -3,6 +3,7 @@ import { getAdminDb } from "@/lib/firebaseAdmin";
 import { purgeExpiredOpsEvents } from "@/lib/opsMetrics";
 import { purgeExpiredLoginRows } from "@/lib/loginGuard";
 import { purgeExpiredEmailLog } from "@/lib/email/retention";
+import { reconcileAudiencePurges } from "@/lib/accountDeletion";
 import { clientIp, timingSafeCompare } from "@/lib/verify";
 import { limited, purgeExpiredRateLimits } from "@/lib/rateLimit";
 
@@ -76,11 +77,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Not available." }, { status: 503 });
   }
 
-  // Both sweeps, independently. The login ledgers are here for the same reason
+  // Five jobs, independently. The login ledgers are here for the same reason
   // opsEvents is: a Firestore TTL policy is the natural home for this and
   // creating one needs an IAM grant the console currently answers 403 to.
   // Retention should not wait on that.
-  // Four sweeps, independently. The email delivery log joins them for the
+  // The email delivery log joins the sweeps for the
   // same reason the other two are here: it holds addresses, so it lives under
   // the privacy policy's "short operational window", and a Firestore TTL
   // policy — the natural home for all four — needs an IAM grant the console
@@ -88,14 +89,30 @@ export async function GET(req: NextRequest) {
   // the set (one document per key per window across every route), so they are
   // given a larger batch: left unswept they would outgrow the other three
   // combined.
-  const [deleted, logins, mail, rates] = await Promise.all([
+  // The fifth is not a purge but a reconcile, and it is here because it is the
+  // same promise: erasing an account removes the address from Resend too, and
+  // that call is deliberately made AFTER the irreversible steps and under a
+  // short deadline, so a Resend outage cannot fail or stall a deletion. What it
+  // leaves behind is a queued address, and a queue nothing drains is just a
+  // slower way of keeping the data. This drains it, idempotently, against
+  // "what is still queued now" like everything else in this route.
+  const [deleted, logins, mail, rates, audience] = await Promise.all([
     purgeExpiredOpsEvents(db, 500),
     purgeExpiredLoginRows(db, 500),
     purgeExpiredEmailLog(db, 500),
     purgeExpiredRateLimits(db, 2000),
+    reconcileAudiencePurges(db, 100),
   ]);
   console.info(
-    `[cron] purged ${deleted} expired opsEvents, ${logins} expired login rows, ${mail} expired email log rows, ${rates} expired rate rows`
+    `[cron] purged ${deleted} expired opsEvents, ${logins} expired login rows, ${mail} expired email log rows, ${rates} expired rate rows; removed ${audience.removed} queued address(es) from the email audience, ${audience.pending} still pending`
   );
-  return NextResponse.json({ ok: true, deleted, logins, mail, rates });
+  return NextResponse.json({
+    ok: true,
+    deleted,
+    logins,
+    mail,
+    rates,
+    audienceRemoved: audience.removed,
+    audiencePending: audience.pending,
+  });
 }

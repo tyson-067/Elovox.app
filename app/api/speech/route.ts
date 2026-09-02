@@ -10,6 +10,7 @@ import {
 import { limitOr429 } from "@/lib/rateLimit";
 import { sanitizeText } from "@/lib/validation";
 import { getAdminDb } from "@/lib/firebaseAdmin";
+import { overAiSpendCeiling, recordAiOperation } from "@/lib/opsMetrics";
 import { isRestricted } from "@/lib/moderation";
 import { usageDateKey, reserveMeteredUse } from "@/lib/quota";
 import { readJsonObject } from "@/lib/requestBody";
@@ -269,6 +270,27 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // The GLOBAL daily AI spend ceiling (lib/opsMetrics.ts): the brake for the
+  // day where the per-user and per-IP limits are all being respected and the
+  // bill is still runaway. Checked before the meter is charged, so a user who
+  // is turned away here keeps their day's allowance.
+  //
+  // Nothing here has a cache to fall back on — a speech is written to order —
+  // so the honest degradation is "not right now". No hint that a spend ceiling
+  // exists, and not a 500: this is a wait, not a fault. The client shows
+  // `error` verbatim (lib/generated.ts), hence a sentence rather than a code.
+  if (await overAiSpendCeiling(db)) {
+    return NextResponse.json(
+      {
+        error: "Felix is writing for a lot of people right now. Try again shortly.",
+        message: "Felix is writing for a lot of people right now. Try again shortly.",
+      },
+      // Long enough that a client which honours it doesn't come straight back
+      // into the same wall, short enough to be a plausible wait.
+      { status: 503, headers: { "Retry-After": "600" } }
+    );
+  }
+
   const key = geminiKey();
   if (!key) {
     return NextResponse.json(
@@ -306,6 +328,10 @@ export async function POST(req: NextRequest) {
 
     const overLimit = await chargeGeneration();
     if (overLimit) return overLimit;
+    // Against the day's global ceiling, at the point the paid call becomes
+    // certain. Counted here rather than on success because a generation that
+    // times out was still bought.
+    await recordAiOperation(db, "speech");
 
     try {
       const result = await generateJson<{ questions: string[] }>(key, {
@@ -393,6 +419,7 @@ Length: ${wordTarget(durationSec)} (about ${durationSec} seconds read aloud).`;
 
   const overLimit = await chargeGeneration();
   if (overLimit) return overLimit;
+  await recordAiOperation(db, "speech");
 
   try {
     const result = await generateJson<Omit<GeneratedSpeech, "id">>(key, {

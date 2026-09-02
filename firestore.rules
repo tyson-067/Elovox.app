@@ -19,10 +19,16 @@ service cloud.firestore {
     //
     // `felix` (Felix's spoken take, lib/felixTake.ts) is merged onto the doc
     // by /api/felix through the Admin SDK. The owner can read it back with
-    // the rest of the session; the tolerant create/update rule below does not
-    // stop a client writing one, and does not need to: the voice route reads
-    // the take from THIS doc, so at worst a user makes Felix say something to
-    // themselves. The cached audio lives in a subcollection,
+    // the rest of the session, and the tolerant rule below cannot tell the
+    // two writers apart, so the browser can author a take too. What a user
+    // makes Felix say to themselves is their business; what it COSTS is
+    // ours. /api/voice reads felix.text off this document and hands it to
+    // Fish Audio, which bills by the character, so an unbounded string here
+    // was a megabyte synthesis for the price of one request. Hence the size
+    // caps below on felix.text and on the two analysis strings /api/felix
+    // quotes into the paid model prompt.
+    //
+    // The cached audio lives in a subcollection,
     // users/{uid}/sessions/{sessionId}/felix/voice, which no rule matches:
     // server-only, and deleted with the session by the delete route.
     match /users/{uid}/sessions/{sessionId} {
@@ -43,7 +49,28 @@ service cloud.firestore {
                 && request.resource.data.analysis.overall >= 0
                 && request.resource.data.analysis.overall <= 100))
         && (!('withVideo' in request.resource.data)
-            || request.resource.data.withVideo is bool);
+            || request.resource.data.withVideo is bool)
+        // 1200 characters is a roomy ceiling on the seventy-word take
+        // FELIX_TAKE_MAX_WORDS allows, and the same number as VOICE_TEXT_MAX,
+        // which is what /api/voice would send anyway. A real take is a third
+        // of it. lib/felixTake.ts holds the same line for every reader and
+        // /api/voice caps again before it spends; this is the cheapest of the
+        // three, because it stops the bytes ever landing.
+        && (!('felix' in request.resource.data)
+            || (request.resource.data.felix is map
+                && (!('text' in request.resource.data.felix)
+                    || (request.resource.data.felix.text is string
+                        && request.resource.data.felix.text.size() <= 1200))))
+        // The two analysis fields that reach a paid model prompt verbatim
+        // (lib/felixTake.ts felixTakePrompt). 4000 is exactly what
+        // `str()` in lib/analyzeCore.ts already writes, so no report the
+        // pipeline produced is ever refused — only one a console rewrote.
+        && (!('summary' in request.resource.data.analysis)
+            || (request.resource.data.analysis.summary is string
+                && request.resource.data.analysis.summary.size() <= 4000))
+        && (!('audienceImpact' in request.resource.data.analysis)
+            || (request.resource.data.analysis.audienceImpact is string
+                && request.resource.data.analysis.audienceImpact.size() <= 4000));
     }
 
     // Daily-challenge attempts: three per day, per user, for EVERYONE. The

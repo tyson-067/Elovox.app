@@ -208,11 +208,25 @@ async function syncSubscription(
           // which inverts the incentive and is less generous than the refunds
           // page promises for exactly this case. Caught in the same second (a
           // double-click) the two modes agree anyway.
+          //
+          // `supersededAfter` is what makes "in full" true. Without it
+          // lib/refunds cannot know which of the duplicate's invoices were
+          // double-billed, falls back to the duplicate's own current period,
+          // and refunds one or two of them — a six-month duplicate came back
+          // as $24 of $72 while the alert said resolved. The double billing
+          // starts when the KEPT subscription started, so that is the cutoff:
+          // `source.start_date`, NOT the kept subscription's
+          // `current_period_start` read a few lines below. That one is only
+          // the latest billing cycle — on a monthly plan it is a month old
+          // however long both subscriptions have been running, so it would
+          // have reproduced the same under-refund with an authoritative-
+          // looking number attached.
           if (canceled) {
             await refundUnusedPortion(stripe, db, dupe, {
               uid: uid ?? null,
               context: "superseded-subscription",
               mode: "full",
+              supersededAfter: source.start_date,
             });
           }
           try {

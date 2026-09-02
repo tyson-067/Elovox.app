@@ -197,4 +197,45 @@ describe("takeIsCurrent", () => {
     expect(takeIsCurrent(null)).toBe(false);
     expect(takeIsCurrent("Good take.")).toBe(false);
   });
+
+  /* The session document is written by the browser (lib/store.ts), so a take
+     found on one is not proof /api/felix wrote it. A user who pasted a novel
+     into felix.text used to pass every check here and have /api/voice read
+     the whole thing aloud at Fish Audio's per-character rate. Felix is
+     allowed seventy words; so is anything claiming to be him. */
+  it("refuses a stored take longer than Felix is allowed to speak", () => {
+    const overLong = { ...good, text: "word ".repeat(FELIX_TAKE_MAX_WORDS + 1).trim() };
+    expect(wordCount(overLong.text)).toBeGreaterThan(FELIX_TAKE_MAX_WORDS);
+    expect(takeIsCurrent(overLong)).toBe(false);
+    // Exactly at the ceiling is still a take.
+    const atMax = { ...good, text: "word ".repeat(FELIX_TAKE_MAX_WORDS).trim() };
+    expect(takeIsCurrent(atMax)).toBe(true);
+  });
+});
+
+/* The prompt is paid for by the token and every field in it comes off that
+   same client-written document, so each one is bounded before it is quoted.
+   Without this a single hand-edited `summary` billed a megabyte of prompt on
+   every take of that session. */
+describe("felixTakePrompt — bounds on client-written material", () => {
+  it("caps each field, and the number of dimensions", () => {
+    const huge = "x".repeat(50_000);
+    const p = felixTakePrompt({
+      ...analysis,
+      summary: huge,
+      audienceImpact: huge,
+      strengths: [huge, huge, huge, huge],
+      tips: [huge, huge, huge, huge],
+      skills: Array.from({ length: 40 }, (_, i) => ({
+        skill: "Clarity",
+        score: i,
+        note: huge,
+      })) as Analysis["skills"],
+      drills: [{ title: huge, how: huge }],
+    });
+    expect(p.length).toBeLessThan(30_000);
+    expect(p).not.toContain("x".repeat(2_000));
+    // Six dimensions is the whole rubric; the other thirty-four are dropped.
+    expect((p.match(/Clarity /g) ?? []).length).toBe(6);
+  });
 });

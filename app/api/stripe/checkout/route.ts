@@ -117,7 +117,8 @@ export async function POST(req: NextRequest) {
   // paired with a live key, an unsupported parameter) surfaces as a thrown
   // StripeError. Uncaught, that becomes a bare 500 with no JSON body, and the
   // browser can only say "Something went wrong", which hides the one detail
-  // that would explain it. Log Stripe's own message and pass it back.
+  // that would explain it. The detail goes to the server log; the browser gets
+  // a sentence a customer can act on (see the catch at the bottom).
   try {
     if (!customerId) {
       // Before minting a new customer, look for one already on this email.
@@ -371,10 +372,20 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (err) {
+    // Stripe's own message is written for whoever holds the API key, not for a
+    // customer: it names price ids, customer ids and account configuration
+    // ("No such price: price_1Ab…", "your account cannot currently make live
+    // charges"). Echoing it into the browser handed an unauthenticated-ish
+    // reader a map of the billing setup, and told the one person who could act
+    // on it nothing they could act on. The detail stays in the server log,
+    // where the uid, cycle and price id are already alongside it.
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[stripe] checkout failed for ${uid} (${cycle}, ${priceId})`, err);
+    console.error(
+      `[stripe] checkout failed for ${uid} (${cycle}, ${priceId}): ${message}`,
+      err
+    );
     return NextResponse.json(
-      { error: `Checkout couldn't start: ${message}` },
+      { error: "Checkout couldn't start. Please try again in a moment." },
       { status: 502 }
     );
   }

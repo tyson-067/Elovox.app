@@ -55,10 +55,15 @@ function fmtMoney(minorUnits: number, currency: string): string {
   }).format(minorUnits / 100);
 }
 
-// Billing history, straight from Stripe Invoicing. Every subscription charge
-// produces an invoice (including the $0 one that opens a trial), so this is a
-// read-only view, receipts and PDFs are Stripe-hosted links, not files we
+// Billing history, straight from Stripe: every subscription charge (including
+// the $0 invoice that opens a trial) and every refund made against one. A
+// read-only view — receipts and PDFs are Stripe-hosted links, not files we
 // generate. Only rendered once a Stripe customer exists.
+//
+// Refunds are listed because we issue them without being asked (deleting an
+// account refunds the unused period), and a list of charges with the refund
+// missing tells the one lie a billing page cannot afford: that the money never
+// came back.
 function BillingHistory() {
   const [rows, setRows] = useState<InvoiceRow[] | null>(null);
   const [error, setError] = useState("");
@@ -97,15 +102,25 @@ function BillingHistory() {
           <li key={inv.id} className="flex items-center justify-between gap-3 py-2.5">
             <span className="text-sm text-on-surface">
               {fmtDate(inv.created)}
-              {inv.number ? ` · ${inv.number}` : ""}
+              {inv.kind === "refund"
+                ? " · Refund"
+                : inv.number
+                  ? ` · ${inv.number}`
+                  : ""}
             </span>
             <span className="flex items-center gap-3 text-sm">
               <span className="font-mono text-on-surface">
                 {fmtMoney(inv.total, inv.currency)}
               </span>
-              {inv.status && inv.status !== "paid" && (
-                <span className="text-on-surface-variant">{inv.status}</span>
-              )}
+              {/* The happy status of each kind is the one worth NOT printing:
+                  a paid invoice and a succeeded refund are what the row
+                  already implies. Anything else (open, uncollectible, a refund
+                  still pending at the bank) is news. */}
+              {inv.status &&
+                inv.status !== "paid" &&
+                inv.status !== "succeeded" && (
+                  <span className="text-on-surface-variant">{inv.status}</span>
+                )}
               {(inv.hostedUrl || inv.pdfUrl) && (
                 <a
                   href={(inv.hostedUrl || inv.pdfUrl)!}
@@ -120,6 +135,13 @@ function BillingHistory() {
           </li>
         ))}
       </ul>
+      {/* Said plainly, because the route caps what it fetches and a list that
+          simply stops looks like a complete history to anyone who doesn't know
+          there is a cap. */}
+      <p className="mt-2 text-xs text-on-surface-variant">
+        Showing your {rows.length} most recent {rows.length === 1 ? "entry" : "entries"}.
+        Manage billing opens Stripe&apos;s portal, which has the full history.
+      </p>
     </div>
   );
 }
@@ -700,10 +722,30 @@ function DeleteAccountSection({ hasPassword }: { hasPassword: boolean }) {
       <h2 className="font-headline text-lg font-semibold text-error">
         Delete account
       </h2>
+      {/* The refund sentence is here because the code has always issued one
+          and this paragraph didn't say so: lib/accountDeletion.ts cancels the
+          subscription and then calls refundUnusedPortion. Silence read as
+          "delete now and forfeit the rest of the month", which pushed people
+          into sitting on a deletion to use the period up. Deliberately
+          qualitative — no fraction, no formula — because the exact amount is
+          lib/refunds.ts's business and copy that quotes arithmetic goes stale
+          the first time that file changes. /refunds makes the same three
+          exceptions in the same voice.
+
+          The third exception is the newest and the least obvious: prorated
+          mode refunds against the invoice for the CURRENT period, so a
+          past_due or unpaid subscriber — whose current period is precisely the
+          charge that bounced — has nothing paid to give back. Saying "what
+          you've paid for" and then naming the case keeps someone whose card
+          failed from expecting money that was never taken. */}
       <p className="mt-1 text-sm text-on-surface-variant">
         Permanently erases your practice history, your progress, and your
-        login. If you have a subscription it&apos;s canceled immediately. This
-        cannot be undone, and we can&apos;t recover any of it afterwards.
+        login. If you have a subscription it&apos;s canceled immediately, and
+        we put what&apos;s left of the period you&apos;ve already paid for back
+        on your card — automatically, you don&apos;t have to ask. (Nothing to
+        refund on a free trial, once a period has run its course, or where the
+        current period&apos;s payment never went through.) This cannot be
+        undone, and we can&apos;t recover any of it afterwards.
       </p>
 
       {!open ? (

@@ -138,8 +138,11 @@ export async function POST(req: NextRequest) {
   let cacheRef: ReturnType<NonNullable<typeof db>["doc"]> | null = null;
 
   if (sessionId && db && uid !== "local-dev") {
-    // The take is the server's copy, whatever the request said: a session
-    // can only be voiced with the words /api/felix wrote for it.
+    // The stored take wins over anything the request said: a session is
+    // voiced with the words on its own document, not with words posted to
+    // this route. That is not the same as trusting them — the document is
+    // client-writable (firestore.rules bounds the field, it does not author
+    // it), so the text off it is treated exactly like text off the wire.
     const snap = await db.doc(`users/${uid}/sessions/${sessionId}`).get();
     if (!snap.exists) {
       return NextResponse.json(
@@ -154,7 +157,19 @@ export async function POST(req: NextRequest) {
         { status: 409 }
       );
     }
-    text = take.text;
+    // Same sanitise-and-cap as the request-text branch below, for the same
+    // reason: this string reaches Fish Audio, which charges by the
+    // character. takeIsCurrent already refuses anything over
+    // FELIX_TAKE_MAX_WORDS, but words are not bytes — seventy pasted words
+    // can still be a hundred kilobytes — and the daily meter caps how MANY
+    // syntheses a user buys, never how big each one is.
+    text = sanitizeText(take.text).slice(0, VOICE_TEXT_MAX);
+    if (!text) {
+      return NextResponse.json(
+        { error: "no-take", message: "Felix hasn't written his take on this one yet." },
+        { status: 409 }
+      );
+    }
     cacheRef = db.doc(`users/${uid}/sessions/${sessionId}/felix/voice`);
     const cached = await cacheRef.get().catch(() => null);
     const hit = cached?.exists ? cached.data() : undefined;

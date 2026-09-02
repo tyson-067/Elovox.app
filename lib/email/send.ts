@@ -8,10 +8,12 @@
  *
  * The order below is deliberate and each step earns its place:
  *
- *   configured? → suppressed? → budget? → render → send → log
+ *   configured? → commercial mail allowed? → suppressed? → budget? → render
+ *   → send → log
  *
- * Suppression is checked BEFORE the budget, so a bounced address never spends
- * an allowance. The budget is claimed BEFORE the send and released on failure,
+ * The commercial gate is second because it is free and it is absolute: see
+ * `commercialBlocked` below. Suppression is checked BEFORE the budget, so a
+ * bounced address never spends an allowance. The budget is claimed BEFORE the send and released on failure,
  * so a provider outage doesn't silently eat the day. The log is written AFTER,
  * because its only job is to be joinable with the webhook events that follow.
  *
@@ -25,6 +27,7 @@ import {
   type EmailPrefKey,
   type MailCategory,
 } from "./config";
+import { LEGAL } from "../legal";
 import { chunkForBatch, sendBatch, sendEmail, throttle, type ResendTag } from "./client";
 import { release, reserve } from "./budget";
 import { filterSuppressed, suppressionFor } from "./suppression";
@@ -68,6 +71,7 @@ export interface AppMessage {
 export type SendOutcome =
   | "sent"
   | "not-configured"
+  | "no-postal-address"
   | "suppressed"
   | "budget"
   | "failed";
@@ -76,8 +80,44 @@ export interface AppSendResult {
   sent: boolean;
   outcome: SendOutcome;
   id?: string | null;
-  /** Present when outcome is "suppressed" or "budget" — the specific reason. */
+  /** Present when outcome is "suppressed", "budget" or "no-postal-address". */
   detail?: string;
+}
+
+/**
+ * Whether a category may go out at all right now.
+ *
+ * CAN-SPAM (15 U.S.C. §7704(a)(5)(A)(iii)) requires a valid physical postal
+ * address in every COMMERCIAL message, and treats each message that lacks one
+ * as its own violation. It does not reach transactional and relationship mail:
+ * a password reset, a receipt, a failed-payment warning and a lockout notice
+ * are all owed to someone about an account they already have.
+ *
+ * `policy.optional` already draws exactly that line and is the reason this is
+ * two lines rather than a list of message types to keep in sync — a category
+ * you can unsubscribe from is a category you did not ask for, which is the
+ * same set the statute is about. So: `security`, `billing` and `transactional`
+ * are never gated; `lifecycle` and `marketing` are, and stay gated until
+ * LEGAL.postalAddress is filled in.
+ *
+ * This is a deliberate product decision (2026-09-02): rather than publish an
+ * address, the commercial sends pause. The gate is the enforcement, not a note
+ * in a document — the tips drip and win-back run from a daily cron, so
+ * "remember not to send" was never going to hold. Fill LEGAL.postalAddress and
+ * both resume on the next run with no other change.
+ */
+function commercialBlocked(category: MailCategory): boolean {
+  return CATEGORY[category].optional && LEGAL.postalAddress.trim() === "";
+}
+
+/** Once per instance, not once per message: the cron sends in bulk. */
+let warnedNoPostal = false;
+function warnNoPostal(category: MailCategory): void {
+  if (warnedNoPostal) return;
+  warnedNoPostal = true;
+  console.warn(
+    `[mail] ${category} mail is on hold: LEGAL.postalAddress is empty and CAN-SPAM requires one in commercial mail. Transactional, billing and security mail are unaffected.`
+  );
 }
 
 function tagsFor(m: AppMessage): ResendTag[] {
@@ -94,6 +134,15 @@ export async function send(
   message: AppMessage
 ): Promise<AppSendResult> {
   if (!isMailConfigured()) return { sent: false, outcome: "not-configured" };
+
+  if (commercialBlocked(message.category)) {
+    warnNoPostal(message.category);
+    return {
+      sent: false,
+      outcome: "no-postal-address",
+      detail: "commercial mail is on hold until LEGAL.postalAddress is set",
+    };
+  }
 
   const policy = CATEGORY[message.category];
   const prefKey = message.prefKey ?? policy.prefKey;
@@ -200,6 +249,10 @@ export async function sendBulk(
     sentTo: [],
   };
   if (!isMailConfigured() || messages.length === 0) return empty;
+  if (commercialBlocked(category)) {
+    warnNoPostal(category);
+    return empty;
+  }
 
   const policy = CATEGORY[category];
   const prefKey = messages[0]?.prefKey ?? policy.prefKey;

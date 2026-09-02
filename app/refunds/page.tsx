@@ -117,11 +117,27 @@ export default function RefundsPage() {
                 non-refundable, including for time you didn't use" below, a
                 reasonable person concluded deletion forfeited the rest of the
                 period — and might sit on a deletion for weeks to "use it up".
-                lib/accountDeletion.ts refunds it. */}
+                lib/accountDeletion.ts refunds it.
+
+                Kept qualitative on purpose, and making the same exceptions
+                as the delete copy on /account. lib/refunds.ts owns how much
+                comes back and that calculation moves; a page that publishes
+                the arithmetic becomes a promise we have to honour after the
+                code stops matching it. The three honest "nothing owed" cases (a trial that
+                was never paid for, a period that has already ended, and a
+                current period whose charge never succeeded — the past_due
+                subscriber, whose only unpaid invoice IS the current one) are
+                named rather than left for someone to discover on their
+                statement. */}
             Deleting your account (also in settings) cancels immediately, and we
-            put the unused part of the period you&apos;ve paid for back on your
-            card. You don&apos;t have to ask, and you don&apos;t have to wait
-            out the period first.
+            put what&apos;s left of the period you&apos;ve already paid for back
+            on your card. You don&apos;t have to ask, and you don&apos;t have to
+            wait out the period first. What we give back is the part of a paid
+            period you haven&apos;t used, so there&apos;s nothing to return on a
+            free trial, which you never paid for, once a period has run its
+            course, or where the payment for the period you&apos;re in never
+            went through. If a charge you did make doesn&apos;t come back,
+            email us and we&apos;ll sort it.
           </p>
         </Section>
 
@@ -140,7 +156,8 @@ export default function RefundsPage() {
           <p>
             Payments are generally non-refundable, including for time you
             didn&apos;t use — that&apos;s what the free trial is for, so you can
-            decide before you pay. But this isn&apos;t a wall:
+            decide before you pay. Deleting your account is the standing
+            exception, above. Otherwise this isn&apos;t a wall:
           </p>
           <Bullets
             items={[
