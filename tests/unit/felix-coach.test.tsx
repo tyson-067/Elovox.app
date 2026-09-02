@@ -210,17 +210,23 @@ describe("FelixCoach — the take", () => {
 
   it("shows the take as text, counts it as shown, and asks for it exactly once", async () => {
     renderCoach();
-    await waitFor(() => expect(screen.getByText(TAKE)).toBeTruthy());
+    // shown is emitted from an effect keyed on [text, loading], so it lands
+    // after the commit that paints the take. Waiting on the text and then
+    // asserting the event synchronously leaves the same passive-effect gap
+    // the completed assertion below had; wait on the event instead.
+    await waitFor(() =>
+      expect(trackEvent).toHaveBeenCalledWith("felix_feedback_shown", {
+        surface: "report",
+        variant: "web",
+        mode: "own",
+        goal: "leader",
+        source: "model",
+        cached: false,
+      })
+    );
+    expect(screen.getByText(TAKE)).toBeTruthy();
     expect(loadFelixTake).toHaveBeenCalledTimes(1);
     expect(loadFelixTake).toHaveBeenCalledWith(session);
-    expect(trackEvent).toHaveBeenCalledWith("felix_feedback_shown", {
-      surface: "report",
-      variant: "web",
-      mode: "own",
-      goal: "leader",
-      source: "model",
-      cached: false,
-    });
     expect(screen.getByRole("button", { name: "Hear Felix's feedback" })).toBeTruthy();
     // A portrait, not a whole fox: the crop is the head.
     expect(document.querySelector('svg[data-crop="portrait"]')).not.toBeNull();
@@ -233,7 +239,10 @@ describe("FelixCoach — the take", () => {
     // The intro is there from the first paint, before the take.
     expect(screen.getByText("Here's how you came across.")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Try again, beat this score" })).toBeTruthy();
-    await waitFor(() => expect(screen.getByText(TAKE)).toBeTruthy());
+    // Wait on the event, not the take: shown is emitted from an effect, so
+    // calls[0] is still undefined in the window right after the commit.
+    await waitFor(() => expect(trackEvent).toHaveBeenCalled());
+    expect(screen.getByText(TAKE)).toBeTruthy();
     expect(trackEvent.mock.calls[0][1]).toMatchObject({ surface: "daily" });
   });
 
@@ -268,6 +277,13 @@ describe("FelixCoach — the take", () => {
 
 describe("FelixCoach — hearing it", () => {
   it("plays a stored take by session id; replays from memory; counts each step once", async () => {
+    // The default 80ms of "playback" is only ~5 ticks of the 16ms frame loop
+    // (rAF is stubbed as setTimeout in beforeEach), and the mouth assertion
+    // below needs at least one frame to land while the source is still
+    // playing. On a loaded runner those callbacks slip past onended, the
+    // engine resets --felix-open to 0, and no amount of waiting recovers it.
+    // A longer window costs a third of a second and removes the race.
+    endAfterMs = 400;
     renderCoach();
     await waitFor(() => expect(screen.getByText(TAKE)).toBeTruthy());
 
@@ -280,22 +296,42 @@ describe("FelixCoach — hearing it", () => {
     expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
     expect(document.querySelector(".felix-coach-portrait")).toHaveAttribute("data-state", "speaking");
     // The mouth is moving with the sound.
-    await waitFor(() => {
-      const el = document.querySelector(".felix-coach-portrait") as HTMLElement;
-      expect(parseFloat(el.style.getPropertyValue("--felix-open"))).toBeGreaterThan(0.5);
-    });
+    await waitFor(
+      () => {
+        const el = document.querySelector(".felix-coach-portrait") as HTMLElement;
+        expect(parseFloat(el.style.getPropertyValue("--felix-open"))).toBeGreaterThan(0.5);
+      },
+      // Headroom for the frame loop to tick; the window it has to land in is
+      // set by endAfterMs above, which is the part that actually matters.
+      { timeout: 2000 }
+    );
 
-    await waitFor(() => expect(status()).toBe("finished"), { timeout: 2000 });
+    // Wait on the EVENT, not the status. The event is emitted from an effect
+    // keyed on status (FelixCoach.tsx), and React flushes passive effects
+    // after the commit — so there is a window where the DOM already says
+    // "finished" and the third event has not been recorded yet. Waiting on
+    // the status let CI poll inside that window and see two events; waiting
+    // on the last thing in the chain means everything below it is settled.
+    await waitFor(
+      () =>
+        expect(events()).toEqual([
+          "felix_feedback_shown",
+          "felix_feedback_played",
+          "felix_feedback_completed",
+        ]),
+      { timeout: 2000 }
+    );
+    expect(status()).toBe("finished");
     expect(screen.getByRole("button", { name: "Replay" })).toBeTruthy();
     const portrait = document.querySelector(".felix-coach-portrait") as HTMLElement;
     expect(portrait.style.getPropertyValue("--felix-open")).toBe("0.000");
     expect(portrait).toHaveAttribute("data-state", "idle");
-    expect(events()).toEqual(["felix_feedback_shown", "felix_feedback_played", "felix_feedback_completed"]);
 
     fireEvent.click(screen.getByRole("button", { name: "Replay" }));
-    await waitFor(() => expect(status()).toBe("speaking"));
+    // Same effect, same race: replayed lands a tick after the status flips.
+    await waitFor(() => expect(events()).toContain("felix_feedback_replayed"));
+    expect(status()).toBe("speaking");
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(events()).toContain("felix_feedback_replayed");
   });
 
   it("pauses and resumes where it left off", async () => {

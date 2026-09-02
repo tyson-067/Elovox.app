@@ -118,6 +118,12 @@ describe("FelixSpeaks", () => {
 
   it("plays a file: fetches, decodes, opens the mouth to the sound, shuts it at the end", async () => {
     level = 150;
+    // The default 80ms of "playback" is only ~5 ticks of the 16ms frame loop
+    // (rAF is stubbed as setTimeout in beforeEach). The mouth assertion below
+    // needs one of those to land while the source is still playing; when the
+    // suite runs files in parallel those callbacks slip past onended, the
+    // engine shuts the mouth to 0, and waiting longer cannot recover it.
+    endAfterMs = 400;
     render(<FelixSpeaks src="/felix-hello.mp3" mood="listening" speakingMood="coach" />);
     fireEvent.click(screen.getByRole("button"));
 
