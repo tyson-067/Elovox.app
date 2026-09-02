@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   },
 };
 
-const mailto = `mailto:${LEGAL.contactEmail}`;
+const mailto = `mailto:${LEGAL.emails.privacy}`;
 const SITE = "https://elovox.app";
 const modified = (() => {
   const d = new Date(LEGAL.biometricsUpdated);
@@ -116,7 +116,7 @@ export default function BiometricsPage() {
           <p>
             Email{" "}
             <a className="text-accent-strong hover:underline" href={mailto}>
-              {LEGAL.contactEmail}
+              {LEGAL.emails.privacy}
             </a>{" "}
             with anything about your voice or camera data and we&apos;ll respond
             within 30 days.

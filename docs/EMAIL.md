@@ -15,6 +15,10 @@ are not things a caller should have to remember.
 Steps 1–3 are the ones a person has to do; nothing in the code can do them.
 Until step 2 is finished, **nothing sends at all**.
 
+For the concrete elovox.app walkthrough — the exact Porkbun records, inbound
+forwarding so `support@elovox.app` is a mailbox and not just a From address, and
+replying as it from Gmail — see **[EMAIL-DOMAIN-SETUP.md](./EMAIL-DOMAIN-SETUP.md)**.
+
 ### 1. API key
 
 resend.com → **API Keys** → **Create API Key**.
@@ -44,7 +48,7 @@ have required it from bulk senders since February 2024:
 ```
 Host:  _dmarc
 Type:  TXT
-Value: v=DMARC1; p=none; rua=mailto:dmarc@elovox.app
+Value: v=DMARC1; p=none; rua=mailto:support@elovox.app
 ```
 
 Start at `p=none` (monitor only, nothing is rejected). Move to `p=quarantine`
@@ -58,7 +62,7 @@ this later means re-verifying and re-warming from zero, so it is much cheaper to
 decide now.
 
 Set `MAIL_FROM` to an address on the verified domain. A display name is worth
-having: `Elovox <hello@elovox.app>`.
+having: `Elovox <support@elovox.app>`.
 
 ### 3. Webhook
 

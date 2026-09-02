@@ -55,7 +55,7 @@ const ABOUT_SCHEMA = {
 //
 // No per-person contact details on purpose. These are personal addresses, and
 // a public page is where spam crawlers harvest them. The footer's Contact link
-// (LEGAL.contactEmail) is the single way in, and it can be redirected or
+// (LEGAL.emails.support) is the single way in, and it can be redirected or
 // retired without touching anyone's inbox.
 // Everyone here is a co-founder as well as running their own area, so the card
 // carries both: the shared standing as a badge, the individual remit as the

@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   },
 };
 
-const mailto = `mailto:${LEGAL.contactEmail}`;
+const mailto = `mailto:${LEGAL.emails.privacy}`;
 const SITE = "https://elovox.app";
 const modified = (() => {
   const d = new Date(LEGAL.childrenUpdated);
@@ -69,7 +69,7 @@ export default function ChildrenPage() {
             account. If you believe a child under {LEGAL.minimumAge} has given us
             personal information anyway, email{" "}
             <a className="text-accent-strong hover:underline" href={mailto}>
-              {LEGAL.contactEmail}
+              {LEGAL.emails.privacy}
             </a>{" "}
             and we&apos;ll delete it.
           </p>
@@ -97,7 +97,7 @@ export default function ChildrenPage() {
           <p>
             To see, correct, or delete your child&apos;s information, email{" "}
             <a className="text-accent-strong hover:underline" href={mailto}>
-              {LEGAL.contactEmail}
+              {LEGAL.emails.privacy}
             </a>
             . Deleting the account erases the history, the profile, and the
             login. The fuller picture is in the{" "}

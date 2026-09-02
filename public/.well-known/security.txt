@@ -3,7 +3,7 @@
 # address below rather than filing it publicly. We will acknowledge and
 # work with you in good faith.
 
-Contact: mailto:elovox.app@gmail.com
+Contact: mailto:security@elovox.app
 Preferred-Languages: en
 Canonical: https://elovox.app/.well-known/security.txt
 

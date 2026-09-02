@@ -191,8 +191,8 @@ export function renderHtml(doc: EmailDoc): string {
     <p style="margin:0;font-size:12px;line-height:1.5;color:${SOFT};">
       ${esc(LEGAL.serviceName)} &middot; <a href="${safeHref(site)}" style="color:${LAPIS};">${esc(
         site.replace(/^https?:\/\//, "")
-      )}</a> &middot; <a href="mailto:${esc(LEGAL.contactEmail)}" style="color:${LAPIS};">${esc(
-        LEGAL.contactEmail
+      )}</a> &middot; <a href="mailto:${esc(LEGAL.emails.support)}" style="color:${LAPIS};">${esc(
+        LEGAL.emails.support
       )}</a>
     </p>
     ${footerUnsub}

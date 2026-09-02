@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   },
 };
 
-const mailto = `mailto:${LEGAL.contactEmail}`;
+const mailto = `mailto:${LEGAL.emails.privacy}`;
 
 // Same literal the rest of the site's JSON-LD uses, so @id refs resolve to one
 // entity graph. privacyUpdated is a human string ("July 31, 2026"); parse it
@@ -93,7 +93,7 @@ export default function PrivacyPage() {
           {LEGAL.serviceName} is operated by {LEGAL.entity}. For anything in
           this policy, whether a question, a request, or a complaint, email{" "}
           <a className="text-accent-strong hover:underline" href={mailto}>
-            {LEGAL.contactEmail}
+            {LEGAL.emails.privacy}
           </a>
           . We are the data controller for the information described below.
         </p>
@@ -113,7 +113,7 @@ export default function PrivacyPage() {
           shared. Every one of those emails has an unsubscribe link that works
           without signing in, or you can email{" "}
           <a className="text-accent-strong hover:underline" href={mailto}>
-            {LEGAL.contactEmail}
+            {LEGAL.emails.privacy}
           </a>
           .
         </p>
@@ -289,7 +289,7 @@ export default function PrivacyPage() {
           anonymous note of why a session was deleted, which stops being
           connected to you. For anything else, email{" "}
           <a className="text-accent-strong hover:underline" href={mailto}>
-            {LEGAL.contactEmail}
+            {LEGAL.emails.privacy}
           </a>{" "}
           and we&apos;ll respond within 30 days.
         </p>

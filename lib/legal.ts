@@ -43,7 +43,32 @@ export const LEGAL = {
   childrenUpdated: "August 1, 2026", // first published
   dmcaUpdated: "August 1, 2026", // first published
 
-  contactEmail: "elovox.app@gmail.com",
+  /**
+   * Public addresses, one per kind of mail. All three are Porkbun forwards
+   * onto a single Gmail (see docs/EMAIL-DOMAIN-SETUP.md), so this split costs
+   * nothing to run — it buys a filterable, separately-dated intake for the two
+   * kinds of mail where the date matters:
+   *
+   * - `privacy` — GDPR/CCPA erasure, BIPA and COPPA requests all start a
+   *   statutory clock on arrival. Mixed into the support queue there is no
+   *   defensible record of when one landed.
+   * - `security` — researchers try `security@` before they read
+   *   /.well-known/security.txt, and RFC 9116 expects the file to name an
+   *   address that already works.
+   *
+   * `support` is the default for everything else, and is deliberately a real
+   * monitored mailbox rather than a `noreply@`: it is also MAIL_FROM and the
+   * Reply-To on every email the app sends (lib/email/config.ts explains why a
+   * no-reply From is a self-inflicted deliverability wound).
+   */
+  emails: {
+    /** The general-purpose address. Footer, terms, refunds, DMCA, LICENSE. */
+    support: "support@elovox.app",
+    /** Data-rights requests: privacy policy, biometrics (BIPA), children (COPPA). */
+    privacy: "privacy@elovox.app",
+    /** Vulnerability reports. Must match public/.well-known/security.txt. */
+    security: "security@elovox.app",
+  },
   instagramHandle: "elovox.app",
   instagramUrl: "https://www.instagram.com/elovox.app/",
   siteUrl: "https://elovox.app",

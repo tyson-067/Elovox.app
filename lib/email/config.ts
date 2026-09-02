@@ -66,7 +66,7 @@ export function mailFrom(): string | null {
  * Defaults to the public contact address, which is a mailbox a human reads.
  */
 export function mailReplyTo(): string {
-  return process.env.MAIL_REPLY_TO?.trim() || LEGAL.contactEmail;
+  return process.env.MAIL_REPLY_TO?.trim() || LEGAL.emails.support;
 }
 
 /** Absolute base URL for links inside emails. Emails have no "current origin",

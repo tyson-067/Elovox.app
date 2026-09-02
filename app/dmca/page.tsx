@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   },
 };
 
-const mailto = `mailto:${LEGAL.contactEmail}`;
+const mailto = `mailto:${LEGAL.emails.support}`;
 const SITE = "https://elovox.app";
 const modified = (() => {
   const d = new Date(LEGAL.dmcaUpdated);
@@ -82,7 +82,7 @@ export default function DmcaPage() {
           <p>
             Email{" "}
             <a className="text-accent-strong hover:underline" href={mailto}>
-              {LEGAL.contactEmail}
+              {LEGAL.emails.support}
             </a>{" "}
             with &ldquo;Copyright&rdquo; in the subject line and include:
           </p>

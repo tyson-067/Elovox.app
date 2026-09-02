@@ -53,7 +53,7 @@ export const metadata: Metadata = {
   },
 };
 
-const mailto = `mailto:${LEGAL.contactEmail}`;
+const mailto = `mailto:${LEGAL.emails.support}`;
 
 // Same literal the rest of the site's JSON-LD uses, so @id refs resolve to one
 // entity graph. accessibilityUpdated is a human string ("August 1, 2026");
@@ -168,7 +168,7 @@ export default function AccessibilityPage() {
             is unusable with your assistive technology, or the product assumes
             something about you that isn&apos;t true, email{" "}
             <a className="text-accent-strong hover:underline" href={mailto}>
-              {LEGAL.contactEmail}
+              {LEGAL.emails.support}
             </a>{" "}
             with what you were trying to do and what happened. Put
             &ldquo;Accessibility&rdquo; in the subject line and it gets read

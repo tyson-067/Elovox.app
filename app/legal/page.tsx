@@ -106,9 +106,9 @@ export default function LegalHubPage() {
           can actually get through — if any of it isn&apos;t clear, email{" "}
           <a
             className="text-accent-strong hover:underline"
-            href={`mailto:${LEGAL.contactEmail}`}
+            href={`mailto:${LEGAL.emails.support}`}
           >
-            {LEGAL.contactEmail}
+            {LEGAL.emails.support}
           </a>
           .
         </p>

@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   },
 };
 
-const mailto = `mailto:${LEGAL.contactEmail}`;
+const mailto = `mailto:${LEGAL.emails.support}`;
 const SITE = "https://elovox.app";
 const modified = (() => {
   const d = new Date(LEGAL.refundsUpdated);
@@ -152,7 +152,7 @@ export default function RefundsPage() {
           <p>
             To ask about a refund, email{" "}
             <a className="text-accent-strong hover:underline" href={mailto}>
-              {LEGAL.contactEmail}
+              {LEGAL.emails.support}
             </a>{" "}
             from your account&apos;s address and tell us what happened. We aim to
             reply within 5 business days.

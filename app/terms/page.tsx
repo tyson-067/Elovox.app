@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   },
 };
 
-const mailto = `mailto:${LEGAL.contactEmail}`;
+const mailto = `mailto:${LEGAL.emails.support}`;
 
 // Same literal the rest of the site's JSON-LD uses, so @id refs resolve to one
 // entity graph. termsUpdated is a human string; parse to ISO for dateModified.
@@ -107,7 +107,7 @@ export default function TermsPage() {
           for what happens under your account. Give us accurate information, and
           tell us promptly at{" "}
           <a className="text-accent-strong hover:underline" href={mailto}>
-            {LEGAL.contactEmail}
+            {LEGAL.emails.support}
           </a>{" "}
           if you think someone else has access to it.
         </p>
@@ -173,7 +173,7 @@ export default function TermsPage() {
           didn&apos;t use. That&apos;s what the free trial is for. If something
           went genuinely wrong, email{" "}
           <a className="text-accent-strong hover:underline" href={mailto}>
-            {LEGAL.contactEmail}
+            {LEGAL.emails.support}
           </a>{" "}
           and we&apos;ll look at it fairly.
         </p>
@@ -314,7 +314,7 @@ export default function TermsPage() {
         <p>
           Questions about any of this go to{" "}
           <a className="text-accent-strong hover:underline" href={mailto}>
-            {LEGAL.contactEmail}
+            {LEGAL.emails.support}
           </a>
           . We&apos;re also on Instagram as{" "}
           <a

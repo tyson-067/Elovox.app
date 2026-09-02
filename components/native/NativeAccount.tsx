@@ -1086,7 +1086,7 @@ function AboutSection() {
       <NvGroup>
         <NvRow icon={iconInfo} label="About Elovox" href="/about" />
         <ExternalRow
-          href={`mailto:${LEGAL.contactEmail}`}
+          href={`mailto:${LEGAL.emails.support}`}
           icon={iconChat}
           label="Support"
         />

@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   },
 };
 
-const mailto = `mailto:${LEGAL.contactEmail}`;
+const mailto = `mailto:${LEGAL.emails.support}`;
 const SITE = "https://elovox.app";
 const modified = (() => {
   const d = new Date(LEGAL.aiUpdated);
@@ -136,7 +136,7 @@ export default function AiPage() {
           <p>
             If anything about how Felix works is unclear, email{" "}
             <a className="text-accent-strong hover:underline" href={mailto}>
-              {LEGAL.contactEmail}
+              {LEGAL.emails.support}
             </a>
             .
           </p>
