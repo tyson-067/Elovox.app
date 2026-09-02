@@ -286,6 +286,48 @@ describe("/api/voice — a session's take", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  /* A clip is the take, the voice, AND the model. Keying the cache on the
+     text alone meant changing FISH_AUDIO_VOICE_ID gave Felix a new voice on
+     new reports while every report anyone had already opened kept the old
+     one for good. The operator changes one setting and expects one voice. */
+  it("a new voice re-synthesizes the same take, and replaces the clip", async () => {
+    withTake();
+    await POST(voiceReq({ sessionId: "s1" }));
+    expect(db!.data.get(CACHE)!.voiceId).toBe("voice_felix");
+
+    vi.stubEnv("FISH_AUDIO_VOICE_ID", "voice_new");
+    const res = await POST(voiceReq({ sessionId: "s1" }));
+    expect(res.headers.get("x-felix-voice")).toBe("fresh");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse((fetchMock.mock.calls[1][1] as RequestInit).body as string).reference_id).toBe("voice_new");
+    // Replaced, not appended: the next play is a hit again.
+    expect(db!.data.get(CACHE)!.voiceId).toBe("voice_new");
+    const again = await POST(voiceReq({ sessionId: "s1" }));
+    expect(again.headers.get("x-felix-voice")).toBe("cached");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("a new model does the same", async () => {
+    withTake();
+    await POST(voiceReq({ sessionId: "s1" }));
+    vi.stubEnv("FISH_AUDIO_MODEL", "s2.1-pro");
+    const res = await POST(voiceReq({ sessionId: "s1" }));
+    expect(res.headers.get("x-felix-voice")).toBe("fresh");
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({
+      headers: expect.objectContaining({ model: "s2.1-pro" }),
+    });
+    expect(db!.data.get(CACHE)!.model).toBe("s2.1-pro");
+  });
+
+  it("dropping back to the stock voice is a change too, not a hit", async () => {
+    withTake();
+    await POST(voiceReq({ sessionId: "s1" }));
+    vi.stubEnv("FISH_AUDIO_VOICE_ID", "");
+    const res = await POST(voiceReq({ sessionId: "s1" }));
+    expect(res.headers.get("x-felix-voice")).toBe("fresh");
+    expect(db!.data.get(CACHE)!.voiceId).toBeNull();
+  });
+
   it("409 when Felix hasn't written a take for it yet", async () => {
     db!.data.set(SESSION, { id: "s1", createdAt: 1, analysis: { overall: 74, summary: "x" } });
     expect((await POST(voiceReq({ sessionId: "s1", text: TAKE }))).status).toBe(409);

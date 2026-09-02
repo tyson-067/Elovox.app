@@ -159,7 +159,21 @@ export async function POST(req: NextRequest) {
     const cached = await cacheRef.get().catch(() => null);
     const hit = cached?.exists ? cached.data() : undefined;
     const bytes = asBytes(hit?.bytes);
-    if (hit && bytes && hit.textHash === textHash(text)) return audio(bytes, true);
+    // A clip is only this take, in THIS voice, from THIS model. The text
+    // alone isn't enough: changing FISH_AUDIO_VOICE_ID gives Felix a new
+    // voice for every new report and left every already-heard one playing
+    // the old one for good, which is a voice change that only half happens.
+    // Both are stored on the write below, so an old clip simply misses and
+    // is re-synthesized once, on the next play, and replaced.
+    if (
+      hit &&
+      bytes &&
+      hit.textHash === textHash(text) &&
+      (hit.voiceId ?? null) === (fishAudioVoiceId() ?? null) &&
+      hit.model === fishAudioModel()
+    ) {
+      return audio(bytes, true);
+    }
   } else {
     // Free text that came from our own model, but through the client, so it
     // gets the same treatment as anything a user could have typed. In local
