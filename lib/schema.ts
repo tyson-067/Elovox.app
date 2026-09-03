@@ -36,6 +36,51 @@ export const ORGANIZATION = {
   ],
 };
 
+// The person behind three separate sites, given one identifier they all repeat.
+//
+// Elovox, 4Form AI and The Bridge Up Project are unrelated domains with their
+// own Organization nodes, so a crawler that reads "Tyson Youm" on each has no
+// reason to treat them as one human rather than three coincidental strings.
+// The shared `@id` is the join: JSON-LD merges nodes carrying the same
+// identifier, so emitting this exact URI from all three documents collapses
+// them into a single entity, and `affiliation` names the organizations it
+// belongs to.
+//
+// The @id points at bridgeupproject.org/about rather than anything here
+// because an @id is worth more when it resolves, and that is the only page
+// across the three sites that is about the person instead of about a product.
+// This node is deliberately NOT in pageGraph's shared set: it goes on /about,
+// the one page here that visibly names him. Asserting an affiliation on
+// /privacy, where he is not the subject, is the kind of mismatch between
+// markup and visible content that Google reads as noise.
+//
+// No `founder` edge on ORGANIZATION either. All four of the team are
+// co-founders (see the TEAM note in app/about/page.tsx), and a founder list
+// naming one of them would be a claim the visible page contradicts.
+export const PERSON = {
+  "@type": "Person",
+  "@id": "https://bridgeupproject.org/about#person",
+  name: "Tyson Youm",
+  url: "https://bridgeupproject.org/about",
+  description:
+    "Tyson Youm is the founder of The Bridge Up Project, a co-founder of 4Form AI, and a co-founder of Elovox, where he leads product development.",
+  affiliation: [
+    {
+      "@type": "NGO",
+      "@id": "https://bridgeupproject.org/#organization",
+      name: "The Bridge Up Project",
+      url: "https://bridgeupproject.org/",
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://4formai.com/#organization",
+      name: "4Form AI",
+      url: "https://4formai.com/",
+    },
+    { "@type": "Organization", "@id": `${SITE}/#organization`, name: "Elovox", url: SITE },
+  ],
+};
+
 // Carries the site name for search results. Google reads WebSite.name when
 // deciding what to print above the URL, and left to infer it, it tends to
 // pick the <title> tail or the domain.

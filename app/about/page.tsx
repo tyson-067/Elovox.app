@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Reveal } from "@/components/Reveal";
 import { Parallax } from "@/components/Parallax";
 import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
-import { pageGraph } from "@/lib/schema";
+import { pageGraph, PERSON } from "@/lib/schema";
 
 // Marketing "about" page: why Elovox exists, and who builds it. Part of the
 // signed-out site only. RedirectIfAuthed sends a logged-in visitor to
@@ -76,7 +76,7 @@ export default function AboutPage() {
       <script
         type="application/ld+json"
         // Not executable script, a data block crawlers parse.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(pageGraph(ABOUT_SCHEMA)) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pageGraph(ABOUT_SCHEMA, PERSON)) }}
       />
       <RedirectIfAuthed />
 
