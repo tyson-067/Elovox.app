@@ -14,9 +14,13 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { synthesize, fishAudioModel, fishAudioVoiceId } from "../lib/fishAudio.ts";
 import { FELIX_SAMPLE_TAKE } from "../lib/felixSample.ts";
+import { fingerprint, voiceFingerprint } from "../lib/felixSampleStamp.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const OUT = join(ROOT, "public", "felix-hello.mp3");
+// Which voice went into it. Read by next.config.ts on every build and by
+// tests/unit/felix-sample-stamp.test.ts on every run — see lib/felixSampleStamp.ts.
+const STAMP = join(ROOT, "lib", "felixSample.stamp.json");
 
 // What he says: a real Felix take, the shape every report gets (one thing
 // that worked, the one thing to fix, one instruction for the next attempt),
@@ -57,4 +61,19 @@ const bytes = await synthesize(key, {
   timeoutMs: 45_000,
 });
 writeFileSync(OUT, Buffer.from(bytes));
-console.log(`Wrote ${OUT} (${(bytes.byteLength / 1024).toFixed(1)} KB). Commit it.`);
+writeFileSync(
+  STAMP,
+  JSON.stringify(
+    {
+      voice: voiceFingerprint(fishAudioVoiceId()),
+      model: fishAudioModel(),
+      text: fingerprint(FELIX_SAMPLE_TAKE),
+      bytes: bytes.byteLength,
+      generatedAt: new Date().toISOString(),
+    },
+    null,
+    2
+  ) + "\n"
+);
+console.log(`Wrote ${OUT} (${(bytes.byteLength / 1024).toFixed(1)} KB).`);
+console.log(`Wrote ${STAMP}. Commit BOTH.`);

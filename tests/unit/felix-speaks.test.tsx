@@ -220,3 +220,81 @@ describe("FelixSpeaks", () => {
     expect(screen.getByRole("button")).toBeDisabled();
   });
 });
+
+/* ---------------------------------------------------------------------------
+   The cue pill. It replaced a speaker icon alone in a circle, which named an
+   output device rather than an action — on a card that is already visibly
+   recording, that mark reads as "there is sound here", and nobody presses a
+   status light. What makes the replacement work is the WORDS, so these are
+   the assertions that keep them: that they are there, that they say what
+   pressing does, and that the accessible name still contains them.
+   --------------------------------------------------------------------------- */
+const cue = () => document.querySelector(".felix-speaks-cue") as HTMLElement;
+const cueText = () => cue().textContent?.trim() ?? "";
+const name = () => screen.getByRole("button").getAttribute("aria-label") ?? "";
+
+describe("the cue pill", () => {
+  it("asks in words, not in a speaker icon", () => {
+    render(<FelixSpeaks src="/felix-hello.mp3" />);
+    expect(cueText()).toBe("Hear Felix");
+    // The old mark had two paths: a cone and the two arcs radiating off it.
+    // A play triangle is one path and no strokes.
+    const paths = cue().querySelectorAll("svg path");
+    expect(paths).toHaveLength(1);
+    expect(paths[0].getAttribute("stroke")).toBeNull();
+  });
+
+  it("lets the caller shorten the words without touching the spoken name", () => {
+    render(<FelixSpeaks src="/x.mp3" cue="Play" label="Hear Felix read a report" />);
+    expect(cueText()).toBe("Play");
+    expect(name()).toBe("Hear Felix read a report");
+  });
+
+  it("keeps the visible words inside the accessible name, in every state", async () => {
+    // WCAG 2.5.3. A button that SHOWS "Stop" but ANSWERS to "Hear Felix's
+    // voice" cannot be pressed by anyone driving the page with their voice,
+    // and nothing else in this suite would notice.
+    level = 150;
+    endAfterMs = 5000;
+    render(<FelixSpeaks src="/felix-hello.mp3" label="Hear Felix\u2019s voice" />);
+    expect(name()).toContain(cueText());
+
+    fireEvent.click(screen.getByRole("button"));
+    await waitFor(() => expect(status()).toBe("speaking"));
+    expect(cueText()).toBe("Stop");
+    expect(name()).toContain(cueText());
+
+    fireEvent.click(screen.getByRole("button"));
+    await waitFor(() => expect(status()).toBe("idle"));
+    expect(name()).toContain(cueText());
+  });
+
+  it("offers the retry it can actually do when he loses his voice", async () => {
+    fetchMock.mockResolvedValue(new Response("", { status: 500 }));
+    render(<FelixSpeaks src="/felix-hello.mp3" showNote={false} />);
+    fireEvent.click(screen.getByRole("button"));
+
+    await waitFor(() => expect(status()).toBe("error"));
+    expect(cueText()).toBe("Try again");
+    expect(name()).toContain("Try again");
+    // The "!" mark, not the play triangle: pressing repeats a failure.
+    expect(cue().querySelectorAll("svg rect")).toHaveLength(0);
+  });
+
+  it("says he is coming rather than going quiet while the audio loads", async () => {
+    let release!: (r: Response) => void;
+    fetchMock.mockImplementation(() => new Promise<Response>((r) => (release = r)));
+    render(<FelixSpeaks src="/felix-hello.mp3" />);
+    fireEvent.click(screen.getByRole("button"));
+
+    await waitFor(() => expect(status()).toBe("loading"));
+    expect(cueText()).toBe("One moment");
+    expect(name()).toContain("One moment");
+    release(new Response(new Uint8Array(8), { status: 200 }));
+  });
+
+  it("is announced once, not twice: the pill is decoration over a named button", () => {
+    render(<FelixSpeaks src="/x.mp3" />);
+    expect(cue().getAttribute("aria-hidden")).toBe("true");
+  });
+});

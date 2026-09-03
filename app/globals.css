@@ -1463,13 +1463,20 @@ html[data-backdrop-tone] .ground-panel {
   .felix-muzzle {
     transform: none;
   }
-  .felix-speaks[data-status="loading"] .felix-speaks-badge {
+  .felix-speaks[data-status="loading"] .felix-speaks-cue,
+  .felix-speaks[data-status="idle"] .felix-speaks-cue::before {
     animation: none;
   }
   .felix-speaks-btn,
   .felix-speaks-btn:hover,
   .felix-speaks-btn:active {
     transform: none;
+    transition: none;
+  }
+  /* The pill's own transform is POSITION, not motion — dropping it would
+     move it off his feet — so only the hover nudge on top of it goes. */
+  .felix-speaks-btn:hover .felix-speaks-cue {
+    transform: translateY(62%);
     transition: none;
   }
   /* The coaching module: the resting breath goes, the progress hairline
@@ -1631,9 +1638,17 @@ html[data-backdrop-tone] .ground-panel {
 }
 
 /* The pressable fox (components/FelixSpeaks.tsx). The fox is the button; the
-   badge at his feet is what says so: a speaker at rest, a stop square while
-   he talks, a "!" when he can't. Sized against the fox so it reads at 40px
-   and at 112px alike. */
+   pill at his feet is what says so: PLAY + a verb at rest, a stop square
+   while he talks, dots while he loads, a "!" when he can't.
+
+   It was a speaker icon alone in a circle, and that is the wrong mark. A
+   speaker names an output device — it is what a volume slider, a mute
+   toggle and a "sound is playing here" indicator all wear — so on a card
+   that is already visibly recording audio it reads as status and not as a
+   control. Nobody presses a status light. The fix is not a better icon, it
+   is WORDS: a triangle says press, and "Hear Felix" says what happens when
+   you do. The pill carries its own ground and hairline so it stays legible
+   over the dark hero card, a white section, or a bought backdrop. */
 .felix-speaks {
   display: inline-block;
 }
@@ -1658,40 +1673,100 @@ html[data-backdrop-tone] .ground-panel {
 .felix-speaks-btn:disabled {
   cursor: progress;
 }
-.felix-speaks-badge {
+.felix-speaks-cue {
   position: absolute;
-  right: 2%;
-  bottom: 4%;
+  /* Anchored to his right foot and grown leftward, so the pill lengthens
+     into the card it sits on rather than off the edge of the page — the fox
+     is placed hard against the right margin on the landing page. */
+  right: 0;
+  bottom: 0;
+  /* Just clear of his paws. Higher and the pill covers the white of his
+     chest and he looks like he is holding a sign; lower and it detaches
+     from him and becomes a stray button on the page. */
+  transform: translateY(62%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42em;
+  padding: 0.46em 0.82em 0.46em 0.62em;
+  border-radius: 9999px;
+  /* accent-strong, not accent: white on #ff6b35 is 2.84:1 and fails AA the
+     moment the mark carries text. This is 5.2:1 and the same hue. */
+  background: var(--color-accent-strong);
+  color: #fff;
+  font-family: var(--font-body);
+  /* Scales with the viewport rather than with the fox, because a pill of
+     WORDS has a floor a fox does not: below ~10.5px it stops being read and
+     goes back to being decoration. */
+  font-size: clamp(10.5px, 1.05vw, 12.5px);
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  box-shadow:
+    0 6px 16px rgba(11, 8, 41, 0.34),
+    0 0 0 2px var(--color-surface);
+  transition:
+    background 160ms ease-out,
+    transform 160ms ease-out,
+    box-shadow 160ms ease-out;
+}
+.felix-speaks-cue-icon {
   display: grid;
   place-items: center;
-  width: 27%;
-  min-width: 20px;
-  max-width: 34px;
-  aspect-ratio: 1;
+  width: 1.05em;
+  height: 1.05em;
   border-radius: 9999px;
-  background: var(--color-primary);
-  color: var(--color-on-primary);
+  background: rgba(255, 255, 255, 0.22);
+}
+.felix-speaks-cue-icon svg {
+  width: 68%;
+  height: 68%;
+}
+
+/* The resting nudge: one soft ring, every few seconds, only while he has
+   never been pressed. It stops the moment the pointer arrives (the hover
+   lift takes over as the affordance) and after a first play — a control
+   that keeps asking after you have answered it is nagging, not helping. */
+.felix-speaks-cue::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 2px solid var(--color-accent);
+  opacity: 0;
+  pointer-events: none;
+}
+.felix-speaks[data-status="idle"] .felix-speaks-cue::before {
+  animation: felix-cue-ring 3.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+.felix-speaks-btn:hover .felix-speaks-cue::before,
+.felix-speaks-btn:focus-visible .felix-speaks-cue::before {
+  animation: none;
+}
+.felix-speaks-btn:hover .felix-speaks-cue {
+  transform: translateY(calc(62% - 1px));
   box-shadow:
-    0 4px 12px rgba(11, 8, 41, 0.28),
+    0 10px 22px rgba(11, 8, 41, 0.4),
     0 0 0 2px var(--color-surface);
-  transition: background 160ms ease-out, transform 160ms ease-out;
+  filter: brightness(1.06);
 }
-.felix-speaks-badge svg {
-  width: 58%;
-  height: 58%;
+.felix-speaks[data-status="speaking"] .felix-speaks-cue {
+  background: var(--color-primary);
 }
-.felix-speaks[data-status="speaking"] .felix-speaks-badge {
-  background: var(--color-accent);
-}
-.felix-speaks[data-status="loading"] .felix-speaks-badge {
+.felix-speaks[data-status="loading"] .felix-speaks-cue {
   animation: felix-speaks-pulse 700ms ease-in-out infinite alternate;
 }
-.felix-speaks[data-status="error"] .felix-speaks-badge {
+.felix-speaks[data-status="error"] .felix-speaks-cue {
   background: var(--color-error);
 }
 @keyframes felix-speaks-pulse {
-  from { transform: scale(0.9); opacity: 0.7; }
-  to { transform: scale(1.06); opacity: 1; }
+  from { opacity: 0.75; }
+  to { opacity: 1; }
+}
+@keyframes felix-cue-ring {
+  0% { opacity: 0.9; transform: scale(1); }
+  55% { opacity: 0; transform: scale(1.28); }
+  100% { opacity: 0; transform: scale(1.28); }
 }
 .felix-speaks-note {
   display: block;

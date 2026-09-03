@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import type { NextConfig } from "next";
 
@@ -36,6 +37,78 @@ function warnOnLegalPlaceholders() {
   }
 }
 warnOnLegalPlaceholders();
+
+// The landing page's "tap Felix to hear him" sample is a committed binary
+// (public/felix-hello.mp3), so unlike every signed-in surface it does NOT
+// follow FISH_AUDIO_VOICE_ID — change the voice and the front door keeps
+// playing the old one until someone re-runs `npm run felix:voice`. Nothing
+// fails, nothing looks wrong in the diff, and the person who made the change
+// has the old file cached, so they can't hear it either.
+//
+// scripts/felix-voice-sample.mjs records what went into the MP3 in
+// lib/felixSample.stamp.json (see lib/felixSampleStamp.ts for why it stores
+// fingerprints rather than the voice id). This compares that against the
+// environment the build will actually speak in. A warning, not a thrown
+// error, for the same reason as the legal copy above: refusing to deploy a
+// working app over a stale audio file would be worse than the audio file.
+//
+// Deliberately duplicated rather than imported: this file is loaded before
+// any path alias exists, and the check has to survive a missing stamp, a
+// missing key and a malformed JSON without taking the build with it.
+function warnOnStaleFelixSample() {
+  try {
+    const voiceId = process.env.FISH_AUDIO_VOICE_ID || "";
+    // No key configured (a local build, a preview without secrets) means
+    // nothing here can be compared against anything. Say nothing.
+    if (!process.env.FISH_AUDIO_API_KEY) return;
+
+    const fingerprint = (v: string) =>
+      createHash("sha256").update(v).digest("hex").slice(0, 16);
+
+    const take = readFileSync(new URL("./lib/felixSample.ts", import.meta.url), "utf8");
+    // The exported string, reassembled from its "…" + "…" concatenation.
+    const literal = take.slice(take.indexOf("FELIX_SAMPLE_TAKE"));
+    const words = [...literal.matchAll(/"((?:[^"\\]|\\.)*)"/g)]
+      .map((m) => m[1].replace(/\\(.)/g, "$1"))
+      .join("");
+
+    const expected = {
+      voice: voiceId ? fingerprint(voiceId) : "stock",
+      model: process.env.FISH_AUDIO_MODEL || "s2.1-pro-free",
+      text: fingerprint(words),
+    };
+
+    let stamp: Record<string, unknown> | null = null;
+    try {
+      stamp = JSON.parse(
+        readFileSync(new URL("./lib/felixSample.stamp.json", import.meta.url), "utf8")
+      );
+    } catch {
+      stamp = null;
+    }
+
+    const drift: string[] = [];
+    if (!stamp) drift.push("public/felix-hello.mp3 has never been stamped");
+    else {
+      if (stamp.voice !== expected.voice)
+        drift.push(`the voice changed (sample cut in ${stamp.voice}, FISH_AUDIO_VOICE_ID is now ${expected.voice})`);
+      if (stamp.model !== expected.model)
+        drift.push(`the model changed (sample cut on ${stamp.model}, now ${expected.model})`);
+      if (stamp.text !== expected.text)
+        drift.push("FELIX_SAMPLE_TAKE changed, so the audio and its caption no longer agree");
+    }
+    if (drift.length === 0) return;
+
+    console.warn(
+      "\n⚠️  The landing page's Felix sample is out of date — visitors will hear the OLD voice:"
+    );
+    for (const line of drift) console.warn(`      ${line}`);
+    console.warn("      Fix: npm run felix:voice, then commit the MP3 and its stamp.\n");
+  } catch {
+    // Never let a check on an audio file break the build.
+  }
+}
+warnOnStaleFelixSample();
 
 const csp = [
   "default-src 'self'",
