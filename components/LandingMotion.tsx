@@ -253,7 +253,10 @@ export function LandingMotion() {
             // from nothing, so the top of the pin is a finished report that
             // has not been marked up yet rather than a blank card.
             tl.from(".lp-mark", { backgroundSize: "0% 3px", duration: 0.7, stagger: 0.4 }, 1.2)
-              .from("[data-lp-note]", { y: 14, duration: 0.6 }, 2.7)
+              // Three notes now, one per mark, so they come in as a column
+              // rather than all at once — and the stagger lands them in the
+              // same order the underlines above were drawn.
+              .from("[data-lp-note]", { y: 14, duration: 0.6, stagger: 0.18 }, 2.7)
               .from("[data-lp-scorerow]", { x: -18, duration: 0.5, stagger: 0.17 }, 3.2)
               .from("[data-lp-bar]", { scaleX: 0, duration: 0.75, stagger: 0.17, ease: E }, 3.3)
               .to(

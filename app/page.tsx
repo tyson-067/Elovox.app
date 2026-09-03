@@ -71,6 +71,27 @@ const SCORES: Array<[string, number]> = [
   ["Audience engagement", 88],
 ];
 
+// One line per marked phrase in the quote, in the order the words are spoken.
+// Every underline on the card is now accounted for — a mark with no note is a
+// claim the report draws and never explains, and the card used to draw three
+// and explain one. `soft` tracks .lp-mark-soft on the phrase it refers to, so
+// a note's rule is the same colour as the underline it belongs to.
+const REPORT_NOTES: Array<{ time: string; note: string; soft?: boolean }> = [
+  {
+    time: "0:23",
+    note: "“Didn’t just meet” sets the bar before you clear it. That’s the setup working — keep the shape.",
+  },
+  {
+    time: "0:25",
+    note: "“Doubled” is the whole story, and you said it once and moved on. Exactly right.",
+  },
+  {
+    time: "0:27",
+    note: "“Um, basically” hands the win straight back. Cut it and the sentence closes hard.",
+    soft: true,
+  },
+];
+
 // The waveform in the hero card. Twenty-seven bars, each on its own phase of
 // the CSS equalizer so the row never pulses in unison; anime.js re-randomises
 // the heights once it loads (components/LandingMotion.tsx). The delays are
@@ -499,15 +520,28 @@ export default function LandingPage() {
                   ahead of schedule.
                 </p>
 
-                <p
-                  data-lp-note
-                  className="mt-5 flex gap-3 text-[15px] leading-[1.6] text-white/85"
-                >
-                  <span className="w-[3px] flex-none rounded-full bg-accent" aria-hidden="true" />
-                  Cut &ldquo;um, basically&rdquo; at 0:27 — it undercuts the win
-                  right before it. The close is your strongest line; land it and
-                  stop.
-                </p>
+                {/* The timestamp leads rather than sitting mid-sentence, so
+                    three notes read as a scannable column against the quote
+                    above rather than three paragraphs that each have to be
+                    read to find their moment. */}
+                <div className="mt-5 flex flex-col gap-2.5">
+                  {REPORT_NOTES.map(({ time, note, soft }) => (
+                    <p
+                      key={time}
+                      data-lp-note
+                      className="flex gap-3 text-[15px] leading-[1.6] text-white/85"
+                    >
+                      <span
+                        className={`w-[3px] flex-none rounded-full ${soft ? "bg-orange" : "bg-accent"}`}
+                        aria-hidden="true"
+                      />
+                      <span>
+                        <span className="mr-2 font-data text-white/80">{time}</span>
+                        {note}
+                      </span>
+                    </p>
+                  ))}
+                </div>
 
                 <div className="mt-[30px] grid grid-cols-1 gap-x-[34px] gap-y-3.5 sm:grid-cols-2">
                   {SCORES.map(([name, value]) => (
@@ -546,8 +580,16 @@ export default function LandingPage() {
                     </span>
                   </p>
                   <p data-lp-verdict className="max-w-[34ch] text-[15px] leading-[1.55] text-white/85">
+                    {/* Both halves name a mark that is actually drawn above:
+                        the two accent underlines are the CLAIM ("didn't just
+                        meet" / "doubled"), and the hedge is the soft one. This
+                        used to read "Strong close", which named the one part
+                        of the sentence carrying no mark at all — "ahead of
+                        schedule" is unmarked, and the strong phrases are the
+                        opening. Harmless while every underline looked alike;
+                        wrong the moment each one got a note pointing at it. */}
                     <span className="font-semibold text-white">
-                      Strong close. Lose the hedge.
+                      Strong claim. Lose the hedge.
                     </span>
                     <br />
                     142 words per minute · 3 fillers · 2 pauses over 1.2s
