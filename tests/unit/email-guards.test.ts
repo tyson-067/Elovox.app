@@ -1384,3 +1384,56 @@ describe("subscription confirmation (California ARL)", () => {
     expect(unknown.text).not.toContain("The next charge is on");
   });
 });
+
+describe("the settings panel tells the truth about held mail", () => {
+  /* The bug this pins is the one the tips form already had once: closing the
+     send path and leaving the surface that promises it. Every switch in the
+     email panel is on a `lifecycle` or `marketing` category, and both are
+     held while LEGAL.postalAddress is blank — so a panel headed "which
+     optional emails you get" was describing something that was not
+     happening, and one blurb pointed at a signup form that had been deleted. */
+
+  it("reports paused exactly when send() would hold those categories", async () => {
+    const { optionalMailPaused } = await import("@/lib/email/prefs");
+    const saved = setPostal("");
+    try {
+      expect(optionalMailPaused()).toBe(true);
+      setPostal(TEST_POSTAL);
+      expect(optionalMailPaused()).toBe(false);
+    } finally {
+      setPostal(saved);
+    }
+  });
+
+  it("every switch is on a category send() actually holds", async () => {
+    // The blanket sentence ("all optional email is paused") is only true while
+    // every switch sits on an optional category — those are the ones the gate
+    // holds. A future switch added on billing or transactional would make the
+    // panel's copy false, and this is what would catch it.
+    const { CATEGORY } = await import("@/lib/email/config");
+    const { PREF_LABELS } = await import("@/lib/email/prefs");
+    const optionalPrefKeys = new Set(
+      Object.values(CATEGORY)
+        .filter((c) => c.optional)
+        .map((c) => c.prefKey)
+        .filter(Boolean)
+    );
+    // progress and tips are the category defaults; streak and product are
+    // per-message overrides on lifecycle, which is itself optional.
+    expect(optionalPrefKeys.has("progress")).toBe(true);
+    expect(optionalPrefKeys.has("tips")).toBe(true);
+    // And no switch is offered for a category that always sends.
+    const alwaysSends = Object.values(CATEGORY)
+      .filter((c) => !c.optional)
+      .map((c) => c.prefKey)
+      .filter(Boolean);
+    for (const key of Object.keys(PREF_LABELS)) {
+      expect(alwaysSends).not.toContain(key);
+    }
+  });
+
+  it("no longer points at the signup form that was removed", async () => {
+    const { PREF_LABELS } = await import("@/lib/email/prefs");
+    expect(PREF_LABELS.tips.blurb).not.toMatch(/join from the site|from the site/i);
+  });
+});

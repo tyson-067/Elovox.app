@@ -24,6 +24,8 @@ import { getUser, isFirebaseConfigured } from "@/lib/firebase";
 type PrefKey = "progress" | "streak" | "product" | "tips";
 
 interface Payload {
+  paused?: boolean;
+  pausedNote?: string;
   prefs: Record<PrefKey, boolean>;
   blocked: "hard-bounce" | "complaint" | null;
   labels: Record<PrefKey, { title: string; blurb: string }>;
@@ -100,6 +102,18 @@ export function EmailPrefs({ className = "" }: { className?: string }) {
         Which optional emails you get. Account and billing emails always come
         through — you&apos;d want the one about a failed sign-in.
       </p>
+
+      {/* Said plainly because the switches below are all on categories
+          lib/email/send.ts is currently holding, so "which optional emails
+          you get" describes something that is not happening. Shown above the
+          bounce/complaint notice, which is about this address; this is about
+          all of them. The switches stay usable — the preference is real and
+          applies the moment sending resumes. */}
+      {data.paused && !data.blocked && (
+        <p className="mt-3 rounded-lg bg-surface-container p-3 text-sm text-on-surface-variant">
+          {data.pausedNote}
+        </p>
+      )}
 
       {data.blocked && (
         <p className="mt-3 rounded-lg bg-surface-container p-3 text-sm text-on-surface-variant">

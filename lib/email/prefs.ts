@@ -23,10 +23,36 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import type { Firestore } from "firebase-admin/firestore";
 import { siteUrl, type EmailPrefKey } from "./config";
+import { LEGAL } from "../legal";
 import { getSuppression, suppress, unsuppress } from "./suppression";
 
 /** Every switch a user gets, in the order the account page shows them. */
 export const PREF_KEYS: EmailPrefKey[] = ["progress", "streak", "product", "tips"];
+
+/**
+ * Whether optional email is paused right now.
+ *
+ * Every one of the four switches below is on a `lifecycle` or `marketing`
+ * category, and lib/email/send.ts holds both while LEGAL.postalAddress is
+ * blank — CAN-SPAM wants a postal address in commercial mail and we chose to
+ * hold the mail rather than publish one. So while this is true these switches
+ * record a preference for mail that is not being sent, and a panel headed
+ * "which optional emails you get" would be describing something that is not
+ * happening.
+ *
+ * The switches deliberately stay usable: the preference is real and applies
+ * the moment sending resumes, so a hidden switch would silently discard an
+ * intent the user expressed. What changes is that the panel says so.
+ *
+ * Reads the same constant the server gate reads, so filling the address in
+ * un-pauses the copy and the mail together and neither can drift.
+ */
+export function optionalMailPaused(): boolean {
+  return LEGAL.postalAddress.trim() === "";
+}
+
+export const OPTIONAL_MAIL_PAUSED_NOTE =
+  "We've paused all optional email for now, so these won't arrive until we start sending again. Your choices are saved. Account and billing emails are unaffected.";
 
 export const PREF_LABELS: Record<EmailPrefKey, { title: string; blurb: string }> = {
   progress: {
@@ -43,7 +69,7 @@ export const PREF_LABELS: Record<EmailPrefKey, { title: string; blurb: string }>
   },
   tips: {
     title: "Speaking tips",
-    blurb: "The tips list you can also join from the site.",
+    blurb: "The occasional speaking tip, when there's one worth sending.",
   },
 };
 

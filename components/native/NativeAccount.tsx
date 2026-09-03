@@ -987,6 +987,8 @@ interface NvPrefPayload {
   prefs: Record<NvPrefKey, boolean>;
   blocked: "hard-bounce" | "complaint" | null;
   labels: Record<NvPrefKey, { title: string; blurb: string }>;
+  paused?: boolean;
+  pausedNote?: string;
   order: NvPrefKey[];
 }
 
@@ -1072,7 +1074,9 @@ function EmailPrefsSection() {
             : "Email to this address bounced, so we've stopped sending. Check the address above, or reply to us and we'll look."
           : failed
             ? "Couldn't save that. Try again."
-            : "Account and billing emails always come through \u2014 you'd want the one about a failed sign-in."}
+            : data.paused && data.pausedNote
+              ? data.pausedNote
+              : "Account and billing emails always come through \u2014 you'd want the one about a failed sign-in."}
       </p>
     </>
   );

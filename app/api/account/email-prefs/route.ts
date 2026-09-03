@@ -8,6 +8,8 @@ import { markUnsubscribed, upsertContact } from "@/lib/email/audience";
 import {
   PREF_KEYS,
   PREF_LABELS,
+  OPTIONAL_MAIL_PAUSED_NOTE,
+  optionalMailPaused,
   readPrefs,
   writePrefs,
   type PrefState,
@@ -40,6 +42,9 @@ interface Payload {
   blocked: "hard-bounce" | "complaint" | null;
   labels: typeof PREF_LABELS;
   order: EmailPrefKey[];
+  /** Every switch here is on a category send() currently holds. */
+  paused: boolean;
+  pausedNote: string;
 }
 
 /** The address on the account, or null. Admin SDK only — the token gives a
@@ -68,7 +73,14 @@ async function payloadFor(email: string): Promise<Payload> {
     record && (record.reason === "hard-bounce" || record.reason === "complaint")
       ? record.reason
       : null;
-  return { prefs, blocked, labels: PREF_LABELS, order: PREF_KEYS };
+  return {
+    prefs,
+    blocked,
+    labels: PREF_LABELS,
+    order: PREF_KEYS,
+    paused: optionalMailPaused(),
+    pausedNote: OPTIONAL_MAIL_PAUSED_NOTE,
+  };
 }
 
 export async function GET(req: NextRequest) {
