@@ -382,16 +382,17 @@ export async function eraseAccount(
     return { ok: false, step: "cleanup" };
   }
 
-  // 3. The tips-list signup, which lives outside users/{uid} (keyed by email,
-  //    see /api/leads) and so survived every step above. "Permanently erases
+  // 3. The tips-list signup, which lives outside users/{uid} (keyed by email)
+  //    and so survived every step above. The signup form and its route are
+  //    gone, but the rows they wrote are not, so this step still has work. "Permanently erases
   //    everything" has to include it, or a deleted account's address is still
   //    sitting in a mailing list. Best-effort: an address that was never
   //    submitted simply isn't there, and failing to remove a lead must not
   //    block the deletion the user asked for.
   //
   //    Firestore is only half of it. The address was also mirrored into the
-  //    Resend Audience when it was submitted (/api/leads,
-  //    /api/account/email-prefs), and Resend is a US processor that fans out
+  //    Resend Audience when it was submitted (by the removed tips form, and
+  //    still by /api/account/email-prefs), and Resend is a US processor that fans out
   //    broadcasts from ITS copy, not from ours. That removal is step 7, at the
   //    very end: it is the only part of this sequence that depends on a third
   //    party being awake, so it happens where a slow one cannot cost anybody

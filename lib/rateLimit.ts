@@ -180,7 +180,6 @@ export const LIMITS = {
   "session-delete": { limit: 20, windowMs: HOUR },
 
   // --- Unauthenticated surfaces. Anyone on the internet can reach these. ----
-  leads: { limit: 10, windowMs: MINUTE },
   // The Firestore read behind /api/flags is already capped by getOpsFlags' 60s
   // cache, so what's worth limiting is the FUNCTION INVOCATION, which the cache
   // doesn't touch. Every client polls this on load, so it claims in blocks and

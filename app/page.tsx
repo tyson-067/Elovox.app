@@ -10,7 +10,6 @@ import { GOALS } from "@/lib/goals";
 import { TRIAL_DAYS, formatUSD, planFor } from "@/lib/pricing";
 import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
 import { NativeEntry } from "@/components/NativeEntry";
-import { EmailCapture } from "@/components/EmailCapture";
 import { LevelLadder } from "@/components/LevelLadder";
 import { pageGraph, WEBAPP } from "@/lib/schema";
 
@@ -889,24 +888,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ================= NOT READY YET ================= */}
-      <section className="mt-[var(--space-section)]">
-        <Reveal>
-          <div className="grid grid-cols-1 items-center gap-[clamp(24px,4vw,56px)] border-t border-primary/15 pt-[clamp(32px,4vw,48px)] md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
-            <div>
-              <h2 className="font-headline text-[clamp(1.5rem,2.2vw,2.2rem)] font-extrabold tracking-[-0.03em] text-primary">
-                Not ready yet?
-              </h2>
-              <p className="mt-3 max-w-[48ch] text-base leading-[1.6] text-on-surface-variant">
-                Leave your email and we&apos;ll send the occasional speaking tip
-                when we have one worth sending. No spam, and you can drop off
-                the list any time.
-              </p>
-            </div>
-            <EmailCapture />
-          </div>
-        </Reveal>
-      </section>
 
       {/* ================= CLOSING ================= */}
       {/* No bottom margin: Footer owns the gap above itself

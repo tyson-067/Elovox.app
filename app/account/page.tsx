@@ -742,7 +742,8 @@ function DeleteAccountSection({ hasPassword }: { hasPassword: boolean }) {
         Permanently erases your practice history, your progress, and your
         login. If you have a subscription it&apos;s canceled immediately, and
         we put what&apos;s left of the period you&apos;ve already paid for back
-        on your card — automatically, you don&apos;t have to ask. (Nothing to
+        on your card, less the card processing fee our payment provider keeps
+        either way — automatically, you don&apos;t have to ask. (Nothing to
         refund on a free trial, once a period has run its course, or where the
         current period&apos;s payment never went through.) This cannot be
         undone, and we can&apos;t recover any of it afterwards.

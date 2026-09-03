@@ -57,9 +57,11 @@ const SANITIZE_MAX = 8192;
  *
  *  - The length cap runs FIRST. The tag pattern backtracks quadratically on
  *    unclosed tags, and validateEmail called this before its own length check
- *    — so `/api/leads`, which is public and unauthenticated, would run a
- *    multi-second regex on a multi-megabyte body. Ten of those pin an instance
- *    each; the per-IP limiter caps request COUNT, not per-request cost.
+ *    — so a public, unauthenticated route taking an address (this used to be
+ *    /api/leads, removed with the tips signup) would run a multi-second regex
+ *    on a multi-megabyte body. Ten of those pin an instance each; the per-IP
+ *    limiter caps request COUNT, not per-request cost. The cap stays because
+ *    the next such route will not remember to add it.
  *  - The tag scan is bounded (`[^>]{0,2000}`) rather than open-ended.
  *
  * The old `<script>…</script>` pass is gone deliberately: the `[<>]` strip

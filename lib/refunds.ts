@@ -12,9 +12,22 @@ import type { Firestore } from "firebase-admin/firestore";
  * Two modes, and picking the right one is a fairness decision, not a technical
  * one:
  *
- * - `"prorated"` (default) — `amount_paid * (time_remaining / period_length)`
- *   of the invoice for THE CURRENT PERIOD. Correct when the subscription was
- *   legitimate and is ending early: they had the thing for the elapsed part.
+ * - `"prorated"` (default) — the unused fraction of the invoice for THE
+ *   CURRENT PERIOD, computed on what we actually RECEIVED rather than on what
+ *   the customer was charged: `(amount_paid - processing fee) * fraction`.
+ *   Correct when the subscription was legitimate and is ending early — they
+ *   had the thing for the elapsed part.
+ *
+ *   WHY NET THE FEE. Stripe keeps its processing fee when a charge is
+ *   refunded; it is money we never held and cannot return. Refunding the full
+ *   `amount_paid` therefore costs us the fee on top of the service already
+ *   delivered, which made a self-serve loop profitable to run against us:
+ *   /api/account/delete refunds on deletion with no operator in the loop, so
+ *   buy the annual plan, use it for a day, delete, repeat — the customer got
+ *   ~99.7% back and we were down the fee every cycle. Netting it makes each
+ *   cycle cost the person running it instead of us, while an honest cancel
+ *   loses about a dollar of an eighty-dollar refund. The fee is read from the
+ *   charge's balance transaction, not guessed.
  *
  * - `"full"` — the whole invoice, for every invoice that overlaps the
  *   subscription which superseded this one. Correct when the charge should
@@ -24,7 +37,10 @@ import type { Firestore } from "firebase-admin/firestore";
  *   publish ("If you were charged because of a bug on our side… we'll refund
  *   it"). Caught seconds later the two modes agree; caught after months — the
  *   real incident, a Portal plan switch that left both subscriptions live —
- *   they do not, and prorating quietly kept most of the money.
+ *   they do not, and prorating quietly kept most of the money. `full` mode
+ *   does NOT net the fee: when the charge was our bug the customer is owed
+ *   every cent of it, and eating our own processing cost is the price of
+ *   having billed them twice.
  *
  * `amount_paid` is tax-inclusive, so the proportional tax comes back too.
  *
@@ -35,6 +51,36 @@ import type { Firestore } from "firebase-admin/firestore";
  * Idempotent on the subscription id, so a retry can't double-refund. Refunds
  * nothing for a trial (never paid) or a fully-elapsed period (nothing unused).
  */
+/**
+ * What Stripe kept on this charge, in the charge's currency's minor unit.
+ *
+ * Refunding does not return the processing fee, so it is not ours to give
+ * back — see the `prorated` note above. Read from the charge's balance
+ * transaction rather than estimated, because the rate varies by card, country
+ * and account, and a guess that runs high silently short-changes the customer.
+ *
+ * Returns 0, not null, when it cannot be read. Failing OPEN here means the
+ * customer gets slightly more back, which is the right direction to be wrong
+ * in: the alternative is withholding money on the strength of a number we
+ * could not confirm.
+ */
+async function nonRefundableFeeCents(
+  stripe: Stripe,
+  chargeId: string | undefined
+): Promise<number> {
+  if (!chargeId) return 0;
+  try {
+    const charge = await stripe.charges.retrieve(chargeId, {
+      expand: ["balance_transaction"],
+    });
+    const bt = charge.balance_transaction;
+    const fee = typeof bt === "string" ? 0 : (bt?.fee ?? 0);
+    return Number.isFinite(fee) && fee > 0 ? fee : 0;
+  } catch {
+    return 0;
+  }
+}
+
 export async function refundUnusedPortion(
   stripe: Stripe,
   db: Firestore,
@@ -216,13 +262,11 @@ export async function refundUnusedPortion(
     for (const invoice of targets) {
       const invoiceId = invoice.id;
       if (!invoiceId || !invoice.amount_paid) continue;
-      const amount = full
-        ? invoice.amount_paid
-        : Math.floor(invoice.amount_paid * unusedFraction);
-      if (amount <= 0) continue;
 
       // The payment to refund against. This API version keeps it on
-      // invoice.payments, not a top-level charge field.
+      // invoice.payments, not a top-level charge field. Looked up BEFORE the
+      // amount is computed, because prorated mode nets the fee off this
+      // charge's balance transaction.
       const pays = await stripe.invoicePayments.list({
         invoice: invoiceId,
         limit: 1,
@@ -238,6 +282,16 @@ export async function refundUnusedPortion(
         failures.push(`${invoiceId}:no-payment`);
         continue;
       }
+
+      // `full` returns the whole charge — our bug, our processing cost. The
+      // prorated share is taken from what we actually received, so a refund
+      // cannot cost more than the sale brought in.
+      const feeCents = full ? 0 : await nonRefundableFeeCents(stripe, charge);
+      const refundable = Math.max(0, invoice.amount_paid - feeCents);
+      const amount = full
+        ? invoice.amount_paid
+        : Math.floor(refundable * unusedFraction);
+      if (amount <= 0) continue;
 
       try {
         const refund = await stripe.refunds.create(

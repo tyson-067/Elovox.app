@@ -133,7 +133,9 @@ export default function RefundsPage() {
             put what&apos;s left of the period you&apos;ve already paid for back
             on your card. You don&apos;t have to ask, and you don&apos;t have to
             wait out the period first. What we give back is the part of a paid
-            period you haven&apos;t used, so there&apos;s nothing to return on a
+            period you haven&apos;t used, less the card processing fee — our
+            payment provider keeps that whether or not we refund you, so it
+            isn&apos;t ours to hand back. There&apos;s nothing to return on a
             free trial, which you never paid for, once a period has run its
             course, or where the payment for the period you&apos;re in never
             went through. If a charge you did make doesn&apos;t come back,

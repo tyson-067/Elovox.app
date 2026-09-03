@@ -553,8 +553,8 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             typing — so on the highest-stakes forms in the product (signup,
             login) a screen-reader user got "edit text, blank" and anyone
             revisiting a half-filled field lost the only hint of what it was.
-            Visually hidden to keep the design, exactly as EmailCapture and
-            DobPicker already do it. */}
+            Visually hidden to keep the design, the same way DobPicker
+            already does it. */}
         {isSignup && (
           <>
             <label htmlFor="auth-name" className="sr-only">

@@ -69,12 +69,36 @@ function subscription(periodStart: number, periodEnd: number, status = "active")
   };
 }
 
-function makeStripe(invoices: unknown[]) {
+/**
+ * `fee` opts in to the charge Stripe actually settled. Left off, the payment
+ * carries no charge id at all — which is the pre-existing shape every test
+ * below was written against, and the path where the fee cannot be read.
+ */
+function makeStripe(
+  invoices: unknown[],
+  fee?: { cents: number } | { throws: true }
+) {
   let n = 0;
+  const hasCharge = fee !== undefined;
   return {
     invoices: { list: vi.fn().mockResolvedValue({ data: invoices }) },
     invoicePayments: {
-      list: vi.fn().mockResolvedValue({ data: [{ payment: { payment_intent: "pi_1" } }] }),
+      list: vi.fn().mockResolvedValue({
+        data: [
+          {
+            payment: {
+              payment_intent: "pi_1",
+              ...(hasCharge ? { charge: "ch_1" } : {}),
+            },
+          },
+        ],
+      }),
+    },
+    charges: {
+      retrieve: vi.fn().mockImplementation(async () => {
+        if (fee && "throws" in fee) throw new Error("stripe down");
+        return { balance_transaction: { fee: (fee as { cents: number }).cents } };
+      }),
     },
     refunds: {
       create: vi.fn().mockImplementation(async () => ({ id: `re_${++n}` })),
@@ -344,5 +368,93 @@ describe("the refund email", () => {
 
     const message = send.mock.calls[0][1] as { subject: string };
     expect(message.subject).toContain("$12.00");
+  });
+});
+
+describe("the processing fee Stripe keeps", () => {
+  /* The hole this closes: /api/account/delete refunds on deletion with no
+     operator in the loop (lib/accountDeletion.ts), and Stripe does not return
+     its fee when a charge is refunded. Paying back the full amount_paid
+     therefore cost us the fee on top of the service already delivered, so
+     buy -> use a day -> delete -> repeat was profitable to run against us.
+     Netting the fee makes the loop cost the person running it instead. */
+
+  it("takes the prorated share of what we RECEIVED, not of what was charged", async () => {
+    // 1200 charged, 65 kept by Stripe, ~99.4% of the period unused.
+    const stripe = makeStripe(
+      [invoice("in_current", NOW - 1 * DAY, NOW + 364 * DAY)],
+      { cents: 65 }
+    );
+
+    await refundUnusedPortion(
+      stripe as never,
+      db as never,
+      subscription(NOW - 1 * DAY, NOW + 364 * DAY) as never,
+      { uid: "u1", context: "test" }
+    );
+
+    const { amount } = stripe.refunds.create.mock.calls[0][0] as { amount: number };
+    // (1200 - 65) * fraction, never (1200) * fraction.
+    expect(amount).toBeLessThanOrEqual(1200 - 65);
+    expect(amount).toBeGreaterThan(1100);
+    // The whole point: the sale can no longer end up net-negative.
+    expect(1200 - amount).toBeGreaterThanOrEqual(65);
+  });
+
+  it("does NOT net the fee in full mode, because that charge was our bug", async () => {
+    // A duplicate subscription is our error. Making the customer absorb our
+    // processing cost for a charge that should never have existed would be
+    // less generous than /refunds promises.
+    const stripe = makeStripe(
+      [invoice("in_dupe", NOW - 10 * DAY, NOW + 20 * DAY)],
+      { cents: 65 }
+    );
+
+    await refundUnusedPortion(
+      stripe as never,
+      db as never,
+      subscription(NOW - 10 * DAY, NOW + 20 * DAY) as never,
+      { uid: "u1", context: "test", mode: "full", supersededAfter: NOW - 400 * DAY }
+    );
+
+    const { amount } = stripe.refunds.create.mock.calls[0][0] as { amount: number };
+    expect(amount).toBe(1200);
+    expect(stripe.charges.retrieve).not.toHaveBeenCalled();
+  });
+
+  it("fails OPEN when the fee cannot be read, so the customer gets more rather than less", async () => {
+    // Withholding money on the strength of a number we could not confirm is
+    // the wrong direction to be wrong in.
+    const stripe = makeStripe(
+      [invoice("in_current", NOW - 1 * DAY, NOW + 29 * DAY)],
+      { throws: true }
+    );
+
+    await refundUnusedPortion(
+      stripe as never,
+      db as never,
+      subscription(NOW - 1 * DAY, NOW + 29 * DAY) as never,
+      { uid: "u1", context: "test" }
+    );
+
+    expect(stripe.refunds.create).toHaveBeenCalledTimes(1);
+    const { amount } = stripe.refunds.create.mock.calls[0][0] as { amount: number };
+    expect(amount).toBeGreaterThan(1100);
+  });
+
+  it("never refunds a negative amount when the fee exceeds what is left", async () => {
+    const stripe = makeStripe(
+      [invoice("in_current", NOW - 1 * DAY, NOW + 29 * DAY)],
+      { cents: 5000 }
+    );
+
+    await refundUnusedPortion(
+      stripe as never,
+      db as never,
+      subscription(NOW - 1 * DAY, NOW + 29 * DAY) as never,
+      { uid: "u1", context: "test" }
+    );
+
+    expect(stripe.refunds.create).not.toHaveBeenCalled();
   });
 });
