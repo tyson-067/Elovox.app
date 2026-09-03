@@ -135,9 +135,18 @@ export async function POST(req: NextRequest) {
   // Keep Resend's own contact record in step, so a Broadcast — which this app
   // does not filter itself — respects the tips switch too. Best-effort: the
   // local store is the one that decides, and it has already been written.
+  //
+  // The two directions are NOT symmetrical while optional mail is paused.
+  // Removing someone is always safe and always runs. ADDING them copies an
+  // address to a US processor for a send that cannot happen — the same
+  // collection-without-a-purpose that the tips form was removed for — so it
+  // waits. The local preference is still recorded above, so switching the
+  // address on here and filling in LEGAL.postalAddress later ends up in the
+  // right state: the next resumed send is what needs the mirror, not this
+  // request.
   if (next.tips === false) {
     void markUnsubscribed(email).catch(() => {});
-  } else if (next.tips === true) {
+  } else if (next.tips === true && !optionalMailPaused()) {
     void upsertContact({ email, unsubscribed: false }).catch(() => {});
   }
 

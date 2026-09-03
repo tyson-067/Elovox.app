@@ -107,11 +107,13 @@ export default function PrivacyPage() {
           password. We also record whether your email has been verified.
         </p>
         <p>
-          <strong>The tips list.</strong> If you leave your email on our
-          speaking-tips form, we store that address and use it only to send
-          those tips — one a week, and nothing else. It is never sold or
-          shared. Every one of those emails has an unsubscribe link that works
-          without signing in, or you can email{" "}
+          <strong>The tips list.</strong> We used to collect addresses for a
+          speaking-tips list from a form on the site. That form is gone and we
+          are not collecting for it or sending it at present. Addresses given
+          before then are still stored, still used for nothing else, still
+          never sold or shared, and still yours to remove: every email we sent
+          carries an unsubscribe link that works without signing in, deleting
+          your account removes the address, or you can email{" "}
           <a className="text-accent-strong hover:underline" href={mailto}>
             {LEGAL.emails.privacy}
           </a>
