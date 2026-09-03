@@ -174,7 +174,8 @@ export function AdminCommunityScreen({ onDenied }: { onDenied?: () => void }) {
         }
       >
         <p className="text-sm text-on-surface-variant">
-          Addresses from the speaking-tips form. The policy is one sentence:
+          Addresses from the speaking-tips form, which has been removed — this
+          is the historical list, no longer growing. The policy is one sentence:
           used only to send those tips, removable on request — the Remove
           button is that request, honored.
         </p>
