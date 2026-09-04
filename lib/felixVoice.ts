@@ -20,7 +20,10 @@ import {
   type FelixFrame,
   type LipState,
 } from "@/lib/lipSync";
-import { anchorToFelix } from "@/lib/pitchShift";
+import { anchorDistance, anchorToFelix, CLOSE_ENOUGH, MAX_TAKES } from "@/lib/pitchShift";
+import { isNativeApp } from "@/lib/native";
+import { preparePlayback } from "@/lib/nativeExtras";
+import type { AnchorRequest, AnchorResponse } from "@/lib/felixAnchor.worker";
 
 export type { FelixFrame };
 
@@ -85,6 +88,39 @@ function cacheKey(src: FelixVoiceSource): string {
   }
 }
 
+/**
+ * A tenth of a second of nothing, as a WAV: 8 kHz, 8-bit, mono, every sample
+ * at the unsigned midpoint. 844 bytes, built here rather than shipped as a
+ * file so there is nothing to fetch and nothing for a CSP to allow beyond
+ * the blob: that media-src already permits.
+ */
+function silentWav(): Blob {
+  const n = 800;
+  const buf = new ArrayBuffer(44 + n);
+  const v = new DataView(buf);
+  const ascii = (at: number, text: string) => {
+    for (let i = 0; i < text.length; i++) v.setUint8(at + i, text.charCodeAt(i));
+  };
+  ascii(0, "RIFF");
+  v.setUint32(4, 36 + n, true);
+  ascii(8, "WAVE");
+  ascii(12, "fmt ");
+  v.setUint32(16, 16, true); // fmt chunk size
+  v.setUint16(20, 1, true); // PCM
+  v.setUint16(22, 1, true); // mono
+  v.setUint32(24, 8000, true); // sample rate
+  v.setUint32(28, 8000, true); // byte rate
+  v.setUint16(32, 1, true); // block align
+  v.setUint16(34, 8, true); // bits per sample
+  ascii(36, "data");
+  v.setUint32(40, n, true);
+  new Uint8Array(buf, 44).fill(128);
+  return new Blob([buf], { type: "audio/wav" });
+}
+
+/** A decoded take with the pitch it was measured at before any correction. */
+type MeasuredBuffer = AudioBuffer & { felixFrom?: number | null };
+
 export class FelixVoice {
   private ctx: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
@@ -103,6 +139,20 @@ export class FelixVoice {
   // double tap.
   private buffers = new Map<string, AudioBuffer>();
   private pending = new Map<string, Promise<AudioBuffer>>();
+
+  // The pitch anchor's worker (lib/felixAnchor.worker.ts). `undefined` is
+  // "not tried yet", `null` is "tried, can't": from then on the correction
+  // runs inline, which is the same maths on the main thread.
+  private worker: Worker | null | undefined;
+  private anchorSeq = 0;
+  private anchorWaiting = new Map<
+    number,
+    { resolve: (r: AnchorResponse) => void; reject: (e: unknown) => void }
+  >();
+
+  // The media element held open while he talks, in the iOS shell only. See
+  // holdMedia() for why it exists.
+  private hold: HTMLAudioElement | null = null;
 
   private frameListeners = new Set<(f: FelixFrame) => void>();
   private progressListeners = new Set<(p: number) => void>();
@@ -147,6 +197,11 @@ export class FelixVoice {
     const ctx = this.context();
     const resumed =
       ctx.state === "suspended" ? ctx.resume().catch(() => {}) : Promise.resolve();
+    // Also inside the tap, and for the same reason: both are the iOS shell's
+    // "yes, out loud" — the session category from the native side, and a
+    // media element WebKit will only start for a gesture.
+    void preparePlayback();
+    this.holdMedia();
     this.setStatus("loading");
     let buffer: AudioBuffer;
     try {
@@ -254,6 +309,9 @@ export class FelixVoice {
     this.statusListeners.clear();
     this.buffers.clear();
     this.pending.clear();
+    this.dropWorker(new Error("disposed"));
+    this.worker = undefined;
+    this.releaseMedia();
     void this.ctx?.close().catch(() => {});
     this.ctx = null;
   }
@@ -284,6 +342,7 @@ export class FelixVoice {
   }
 
   private setStatus(s: FelixVoiceStatus, error?: string) {
+    if (s === "idle" || s === "finished" || s === "error") this.releaseMedia();
     this.status = s;
     this.error = s === "error" ? (error ?? "Felix lost his voice.") : null;
     for (const cb of this.statusListeners) cb(s, this.error ?? undefined);
@@ -337,20 +396,125 @@ export class FelixVoice {
    * channel at a time, and shifting one channel and not the other would be a
    * worse artefact than the mismatch it is fixing.
    */
-  private anchor(buffer: AudioBuffer): AudioBuffer {
+  private async anchor(buffer: AudioBuffer): Promise<MeasuredBuffer> {
     if (buffer.numberOfChannels !== 1) return buffer;
     try {
-      const { samples, ratio } = anchorToFelix(
+      const { samples, from, ratio } = await this.correct(
         buffer.getChannelData(0),
         buffer.sampleRate
       );
-      if (ratio === 1) return buffer;
-      const out = this.context().createBuffer(1, samples.length, buffer.sampleRate);
-      out.copyToChannel(new Float32Array(samples), 0);
+      const out: MeasuredBuffer =
+        ratio === 1 ? buffer : this.context().createBuffer(1, samples.length, buffer.sampleRate);
+      if (ratio !== 1) out.copyToChannel(new Float32Array(samples), 0);
+      // The pitch it came in at, for bestTake() to compare renders by.
+      out.felixFrom = from;
       return out;
     } catch {
       // Never let a cosmetic correction be the reason Felix does not speak.
       return buffer;
+    }
+  }
+
+  /**
+   * The correction itself, on the worker when there is one, inline when not.
+   *
+   * The worker is what keeps a phone usable: a 25-second take costs seconds
+   * of arithmetic there, and on the main thread those are seconds in which
+   * the report does not scroll. The inline path is the fallback for a
+   * runtime without Workers (tests) or a chunk that failed to load — same
+   * function, same audio.
+   */
+  private correct(
+    channel: Float32Array,
+    sr: number
+  ): Promise<{ samples: Float32Array; from: number | null; ratio: number }> {
+    const w = this.anchorWorker();
+    if (!w) return Promise.resolve(anchorToFelix(channel, sr));
+    // A copy, because getChannelData() hands back the AudioBuffer's own
+    // storage and transferring THAT would detach it under the context.
+    const samples = new Float32Array(channel);
+    return new Promise((resolve, reject) => {
+      const id = ++this.anchorSeq;
+      this.anchorWaiting.set(id, { resolve, reject });
+      const req: AnchorRequest = { id, samples, sr };
+      w.postMessage(req, [samples.buffer]);
+    });
+  }
+
+  private anchorWorker(): Worker | null {
+    if (this.worker !== undefined) return this.worker;
+    try {
+      // The URL form is what the bundler recognises: the file becomes its
+      // own same-origin chunk, which the CSP's default-src already allows.
+      const w = new Worker(new URL("./felixAnchor.worker.ts", import.meta.url));
+      w.onmessage = (e: MessageEvent<AnchorResponse>) => {
+        const waiting = this.anchorWaiting.get(e.data.id);
+        if (!waiting) return;
+        this.anchorWaiting.delete(e.data.id);
+        waiting.resolve(e.data);
+      };
+      w.onerror = () => {
+        // The chunk didn't load or the maths threw. Everything in flight
+        // resolves to "leave it as it came" through anchor()'s catch, and
+        // every later take runs inline rather than trying again.
+        this.dropWorker(new Error("anchor worker failed"));
+      };
+      this.worker = w;
+    } catch {
+      this.worker = null;
+    }
+    return this.worker;
+  }
+
+  private dropWorker(reason: unknown) {
+    this.worker?.terminate();
+    this.worker = null;
+    for (const { reject } of this.anchorWaiting.values()) reject(reason);
+    this.anchorWaiting.clear();
+  }
+
+  /**
+   * Keep a (silent) media element playing while he talks — iOS shell only.
+   *
+   * On an iPhone, sound from the Web Audio API is a "sound effect" as far as
+   * the system is concerned and the ringer switch mutes it; sound from a
+   * media element is "playback" and is not. WebKit picks the audio session's
+   * category from what the page is playing, so while an <audio> element is
+   * going, everything the page plays is audible with the switch on, Felix
+   * included. The native side asks for the same category directly
+   * (preparePlayback); this is the half that holds regardless of what
+   * WebKit decides on its own.
+   *
+   * Started inside the tap because that is when WebKit allows it, and
+   * released the moment he stops for any reason, so the app never holds
+   * the session open with nothing to say.
+   */
+  private holdMedia() {
+    if (this.hold || !isNativeApp() || typeof document === "undefined") return;
+    try {
+      const el = document.createElement("audio");
+      el.src = URL.createObjectURL(silentWav());
+      el.loop = true;
+      el.setAttribute("aria-hidden", "true");
+      el.style.display = "none";
+      document.body.appendChild(el);
+      void el.play().catch(() => {});
+      this.hold = el;
+    } catch {
+      // No media element, no hold; Felix still plays, at the switch's mercy.
+    }
+  }
+
+  private releaseMedia() {
+    const el = this.hold;
+    if (!el) return;
+    this.hold = null;
+    try {
+      el.pause();
+      el.remove();
+      URL.revokeObjectURL(el.src);
+    } catch {
+      // Already gone.
     }
   }
 
@@ -362,10 +526,7 @@ export class FelixVoice {
     if (inflight) return inflight;
 
     const p = (async () => {
-      const bytes = await this.fetchAudio(src);
-      // decodeAudioData needs its own copy: some browsers detach the buffer.
-      const decoded = await this.context().decodeAudioData(bytes.slice(0));
-      const buffer = this.anchor(decoded);
+      const buffer = src.kind === "url" ? await this.oneTake(src, 0) : await this.bestTake(src);
       this.buffers.set(key, buffer);
       return buffer;
     })().finally(() => this.pending.delete(key));
@@ -373,7 +534,46 @@ export class FelixVoice {
     return p;
   }
 
-  private async fetchAudio(src: FelixVoiceSource): Promise<ArrayBuffer> {
+  /** Fetch, decode and anchor one render. `felixFrom` is its pitch before the anchor. */
+  private async oneTake(src: FelixVoiceSource, take: number): Promise<MeasuredBuffer> {
+    const bytes = await this.fetchAudio(src, take);
+    // decodeAudioData needs its own copy: some browsers detach the buffer.
+    const decoded = await this.context().decodeAudioData(bytes.slice(0));
+    return this.anchor(decoded);
+  }
+
+  /**
+   * The landing page's treatment for a synthesised take: render, measure,
+   * and if the voice came back far from the landing anchor, render again,
+   * up to MAX_TAKES, keeping the one nearest. Every render is a different
+   * generic voice on the free model; the nearest one both needs the
+   * smallest correction and, in practice, sounds the most like him.
+   *
+   * A render that cannot be measured (nothing voiced in it, or a decoder
+   * that hands back no channels) ends the search rather than driving it:
+   * "unknown" is not "far", and it is what tests' fake decoders return.
+   * A second or third render that fails to arrive (a limit, a timeout) is
+   * not an error either — the best so far plays.
+   */
+  private async bestTake(src: FelixVoiceSource): Promise<AudioBuffer> {
+    let best: { buffer: AudioBuffer; distance: number } | null = null;
+    for (let take = 0; take < MAX_TAKES; take++) {
+      let buffer: MeasuredBuffer;
+      try {
+        buffer = await this.oneTake(src, take);
+      } catch (err) {
+        if (!best) throw err;
+        break;
+      }
+      const from = buffer.felixFrom ?? null;
+      const distance = anchorDistance(from);
+      if (!best || distance < best.distance) best = { buffer, distance };
+      if (from === null || distance <= CLOSE_ENOUGH) break;
+    }
+    return best!.buffer;
+  }
+
+  private async fetchAudio(src: FelixVoiceSource, take = 0): Promise<ArrayBuffer> {
     if (src.kind === "url") {
       const res = await fetch(src.url);
       if (!res.ok) {
@@ -385,10 +585,11 @@ export class FelixVoice {
       }
       return res.arrayBuffer();
     }
-    const body =
+    const body: Record<string, unknown> =
       src.kind === "session"
         ? { sessionId: src.sessionId, text: src.text }
         : { text: src.text };
+    if (take > 0) body.take = take;
     const res = await fetch("/api/voice", {
       method: "POST",
       headers: await authHeaders(),

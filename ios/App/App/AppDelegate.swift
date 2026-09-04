@@ -1,5 +1,37 @@
 import UIKit
+import AVFoundation
 import Capacitor
+
+/// The app's audio session, so that Felix is heard.
+///
+/// Under the default category (`soloAmbient`) everything the webview plays
+/// through the Web Audio API obeys the ringer switch, and a phone on silent
+/// is a Felix with his mouth moving and no sound coming out. `.playback` is
+/// the category for content the user asked to hear; it plays through the
+/// switch. `.duckOthers` turns the user's music down under him rather than
+/// stopping it, and brings it back when he is done.
+///
+/// `.playAndRecord` is left alone: it is what WebKit sets while the booth
+/// records, it also plays through the switch, and replacing it mid-take
+/// would cut the microphone.
+enum ElovoxAudio {
+    @discardableResult
+    static func preparePlayback() -> (category: String, changed: Bool) {
+        let session = AVAudioSession.sharedInstance()
+        let before = session.category
+        if before == .playback || before == .playAndRecord {
+            return (before.rawValue, false)
+        }
+        do {
+            try session.setCategory(.playback, mode: .default, options: [.duckOthers])
+        } catch {
+            NSLog("[elovox] audio session category not set: %@", error.localizedDescription)
+        }
+        let after = session.category
+        NSLog("[elovox] audio session %@ -> %@", before.rawValue, after.rawValue)
+        return (after.rawValue, after != before)
+    }
+}
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -8,6 +40,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        ElovoxAudio.preparePlayback()
         return true
     }
 
@@ -27,6 +60,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationDidBecomeActive(_ application: UIApplication) {
         // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+        // A phone call or another app's audio can leave the session in a
+        // category of the system's choosing; re-choose ours on the way back.
+        ElovoxAudio.preparePlayback()
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

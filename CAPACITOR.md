@@ -667,6 +667,35 @@ target, a token stored per user (with `firestore.rules` to match), and
 something to trigger sends — there is no cron in this repo today, and a
 per-user local send time would need an hourly one.
 
+### Felix out loud, on a phone
+
+The report's Felix speaks through the same engine as the website
+(`lib/felixVoice.ts`: `/api/voice`, the Web Audio API, the pitch anchor onto
+the landing clip, and the re-roll: up to three renders of a take, keeping the
+one nearest the landing voice, each cached on its own doc). Two things are
+different inside the shell, and both live in the app rather than the site:
+
+- **The ringer switch.** Web Audio is a "sound effect" to iOS and the mute
+  switch silences it under the default session category; a media element's
+  playback is not. `AppDelegate.swift` (`ElovoxAudio`) puts the session in
+  `.playback` at launch and on every return to the foreground, and the
+  engine asks again through `ElovoxNative.prepareAudioSession()` inside the
+  tap that starts him, because WebKit re-chooses the category as media
+  starts and stops and a recording in the booth is exactly such a change.
+  The engine also keeps a silent `<audio loop>` element playing while he
+  talks (native shell only), which is the half WebKit itself honours.
+  `.playAndRecord` is never replaced: it is what recording sets, and it
+  plays through the switch too.
+- **The pitch anchor's cost.** The correction runs in a Worker
+  (`lib/felixAnchor.worker.ts`) and measures pitch on a decimated copy, so a
+  25-second take does not freeze the report for seconds on a phone. Without
+  a Worker it runs inline; the audio is identical either way.
+
+Neither can be verified in the Simulator, which has no ringer switch. The
+category in force is logged as `[elovox] audio session <before> -> <after>`
+(`xcrun simctl spawn booted log stream --predicate 'eventMessage contains
+"elovox"'`), which at least shows whether WebKit reset it.
+
 ### Working on it without deploying
 
 The app always loads the *deployed* site, so native-UI changes are not in it

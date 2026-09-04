@@ -19,7 +19,11 @@
 // not correct — it cannot conjure the chosen voice out of a render that never
 // contained it. Corrections are around ±12%, which is the size that survives
 // the technique; a 20% push once produced something nobody would call a fox.
-// API credit is what actually fixes this, and it deletes this whole file.
+// The other half of the answer is choosing WHICH render to correct: the
+// report asks for up to MAX_TAKES renders of a take and keeps the one nearest
+// the anchor (lib/felixVoice.ts, bestTake), the way the landing clips were
+// re-rolled until they landed. API credit is what actually fixes this, and it
+// deletes this whole file.
 //
 // Pure functions over Float32Array on purpose: no AudioContext, no DOM. That
 // is what makes it testable in Node against real audio rather than guessed at
@@ -39,6 +43,32 @@ export const FELIX_ANCHOR_HZ = profile.anchorHz;
  *  effect. A render this far out is left alone: a consistent-but-wrong voice
  *  is worse than an inconsistent one that at least sounds human. */
 export const MAX_SHIFT = 1.18;
+
+/**
+ * How many renders of one take the report may ask for before settling.
+ *
+ * The landing page got its match by rendering and re-rolling until the
+ * voice landed near the anchor. The report does the same, bounded: the free
+ * model hands back a different generic voice on every call, and a render
+ * more than MAX_SHIFT from the anchor cannot be corrected at all, so a
+ * second and third try are what turn "sometimes a different fox" into
+ * "nearly always this one". Each try is cached on its own doc, so a replay
+ * never pays for it twice.
+ */
+export const MAX_TAKES = 3;
+
+/**
+ * A render this close to the anchor (as |ln(f0 / anchor)|, so 0.06 is about
+ * 6% either way) is kept without asking for another: the correction that
+ * follows is small enough to be inaudible, and the wait for one more render
+ * would buy nothing a listener could hear.
+ */
+export const CLOSE_ENOUGH = 0.06;
+
+/** Distance from the anchor on the scale CLOSE_ENOUGH is stated in. */
+export function anchorDistance(f0: number | null, anchorHz = FELIX_ANCHOR_HZ): number {
+  return f0 === null ? Infinity : Math.abs(Math.log(f0 / anchorHz));
+}
 
 /**
  * Median fundamental frequency of a mono signal.
@@ -161,7 +191,10 @@ export function timeStretch(x: Float32Array, sr: number, factor: number): Float3
         const from = ana + off;
         if (from < 0 || from + probe >= x.length) continue;
         let dot = 0;
-        for (let i = 0; i < probe; i += 2) dot += out[syn + i] * x[from + i];
+        // Every fourth sample is plenty to pick an alignment: the score is
+        // a correlation over a 12 ms probe, not a waveform. Was every second;
+        // the search is most of what this costs on a phone.
+        for (let i = 0; i < probe; i += 4) dot += out[syn + i] * x[from + i];
         if (dot > bestScore) {
           bestScore = dot;
           bestOff = off;
@@ -201,6 +234,38 @@ export function resample(x: Float32Array, factor: number): Float32Array {
   return out;
 }
 
+/** The rate pitch is measured at. A speaking fundamental sits under 400 Hz,
+ *  so 16 kHz is generous, and the detector's cost goes with the SQUARE of the
+ *  rate (a longer window over more lags): 48 kHz took 630 ms for 11.6 s of
+ *  audio on a laptop, 16 kHz 123 ms, and the two readings differ by 0.4%. */
+export const MEASURE_SR = 16000;
+
+/**
+ * Cut the rate by an integer factor, averaging each run of samples.
+ *
+ * A box average is a crude low-pass, and that is all measuring pitch needs:
+ * the lags that matter are 40+ samples long at the target rate, and whatever
+ * folds down from above 8 kHz is noise the correlation already ignores. Not
+ * for anything that will be listened to; the shift runs at the full rate.
+ */
+export function decimate(
+  x: Float32Array,
+  sr: number,
+  targetSr = MEASURE_SR
+): { samples: Float32Array; sr: number } {
+  const factor = Math.floor(sr / targetSr);
+  if (factor < 2) return { samples: x, sr };
+  const n = Math.floor(x.length / factor);
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const base = i * factor;
+    let acc = 0;
+    for (let k = 0; k < factor; k++) acc += x[base + k];
+    out[i] = acc / factor;
+  }
+  return { samples: out, sr: sr / factor };
+}
+
 /**
  * Multiply the pitch by `ratio`, keeping the duration.
  *
@@ -226,7 +291,11 @@ export function anchorToFelix(
   sr: number,
   anchorHz = FELIX_ANCHOR_HZ
 ): { samples: Float32Array; from: number | null; ratio: number } {
-  const from = medianF0(channel, sr);
+  // Measured at MEASURE_SR, shifted at `sr`: the reading is the same and the
+  // measurement is most of the cost, which matters on a phone, where this
+  // runs on a 25-second take before the first word can play.
+  const m = decimate(channel, sr);
+  const from = medianF0(m.samples, m.sr);
   if (from === null) return { samples: channel, from, ratio: 1 };
 
   const ratio = anchorHz / from;

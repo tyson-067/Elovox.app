@@ -422,3 +422,42 @@ describe("/api/voice — a session's take", () => {
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(MP3);
   });
 });
+
+/* ---------------------------------------------------------------------------
+   Second and third renders of one take (`take: 1|2`), asked for by the
+   client when the first came back far from the landing voice. Each is its
+   own render AND its own cache doc: the point of the re-roll is that the free
+   model gives a different voice per call, so a second ask for take 1 must be
+   the same clip take 1 was, not a fourth voice.
+   --------------------------------------------------------------------------- */
+describe("/api/voice — re-rolled takes", () => {
+  beforeEach(() => {
+    fetchMock.mockImplementation(async () => upstream());
+  });
+
+  it("caches each take on its own doc, and serves a repeat of it from there", async () => {
+    withTake();
+    await POST(voiceReq({ sessionId: "s1" }));
+    const second = await POST(voiceReq({ sessionId: "s1", take: 1 }));
+    expect(second.status).toBe(200);
+    expect(second.headers.get("x-felix-voice")).toBe("fresh");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(db!.data.get(CACHE)).toBeDefined();
+    expect(db!.data.get(`${CACHE}-1`)).toBeDefined();
+
+    const again = await POST(voiceReq({ sessionId: "s1", take: 1 }));
+    expect(again.headers.get("x-felix-voice")).toBe("cached");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats a take it does not offer as the first one", async () => {
+    withTake();
+    await POST(voiceReq({ sessionId: "s1" }));
+    for (const take of [7, -1, 1.5, "1"]) {
+      const res = await POST(voiceReq({ sessionId: "s1", take }));
+      expect(res.headers.get("x-felix-voice")).toBe("cached");
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(db!.data.get(`${CACHE}-7`)).toBeUndefined();
+  });
+});

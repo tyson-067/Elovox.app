@@ -39,6 +39,7 @@ interface ElovoxNativePlugin {
     totalAttempts: number;
   }): Promise<{ started: boolean }>;
   endTake(): Promise<void>;
+  prepareAudioSession(): Promise<{ category: string; changed: boolean }>;
 }
 
 /**
@@ -106,5 +107,32 @@ export async function endTakeActivity(): Promise<void> {
     await ElovoxNative.endTake();
   } catch {
     /* Nothing running, or no plugin. */
+  }
+}
+
+
+/**
+ * Make sure Felix will be heard: put the app's audio session in a category
+ * that plays through the ringer switch.
+ *
+ * Web Audio in a WKWebView is silenced by the phone's mute switch under the
+ * default (`soloAmbient`) session category, the way a game's sound effects
+ * are; a media element's playback is not. The native side sets `.playback`
+ * at launch and whenever the app comes to the front, but WebKit sets the
+ * category to its own taste as media starts and stops, and a recording just
+ * made in the booth is exactly such a change. So the engine asks again, in
+ * the tap, right before it fetches the take.
+ *
+ * Fire-and-forget like everything else here: the bridge call resolves in a
+ * few milliseconds, long before the audio arrives, and a shell without the
+ * method (an older build) simply plays as it did before.
+ */
+export async function preparePlayback(): Promise<void> {
+  if (!isNativeApp()) return;
+  try {
+    await ElovoxNative.prepareAudioSession();
+  } catch {
+    // Older shell without the method, or the bridge is unavailable. Felix
+    // plays anyway, at the mercy of the switch.
   }
 }

@@ -23,7 +23,8 @@ public class ElovoxNativePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "setWidgetData", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "startTake", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "endTake", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "capabilities", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "capabilities", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "prepareAudioSession", returnType: CAPPluginReturnPromise)
     ]
 
     /// What the caller is allowed to expect from this device. The web side
@@ -45,6 +46,15 @@ public class ElovoxNativePlugin: CAPPlugin, CAPBridgedPlugin {
             // widget is broken" when someone reports it.
             "sharedStorage": ElovoxShared.defaults != nil
         ])
+    }
+
+    /// Put the audio session where Felix can be heard. The web side calls
+    /// this in the tap that starts him talking, because WebKit re-chooses
+    /// the category as media starts and stops and the app's own choice at
+    /// launch (AppDelegate) does not survive a recording. See ElovoxAudio.
+    @objc func prepareAudioSession(_ call: CAPPluginCall) {
+        let result = ElovoxAudio.preparePlayback()
+        call.resolve(["category": result.category, "changed": result.changed])
     }
 
     /// Push what the Home Screen widget draws into the shared container.

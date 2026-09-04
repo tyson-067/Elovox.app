@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import {
   anchorToFelix,
+  decimate,
   medianF0,
   shiftPitch,
   timeStretch,
   FELIX_ANCHOR_HZ,
   MAX_SHIFT,
+  MEASURE_SR,
 } from "@/lib/pitchShift";
 
 /* ---------------------------------------------------------------------------
@@ -76,6 +78,41 @@ describe("medianF0", () => {
   });
 });
 
+describe("decimate", () => {
+  it("reads the same pitch at the measuring rate as at the phone's rate", () => {
+    // The anchor measures on a decimated copy (a phone decodes at 44.1 or
+    // 48 kHz, and the detector's cost grows with the square of the rate).
+    // The reading has to be the one the full-rate signal would give, or the
+    // cheap path corrects toward a different fox than the tests above check.
+    for (const sr of [44100, 48000]) {
+      const full = vowel(185, 1.2, sr);
+      const m = decimate(full, sr);
+      expect(m.sr).toBeLessThanOrEqual(sr / 2);
+      expect(m.sr).toBeGreaterThanOrEqual(MEASURE_SR);
+      expect(m.samples.length).toBeCloseTo((full.length * m.sr) / sr, -1);
+      const direct = medianF0(full, sr)!;
+      const cheap = medianF0(m.samples, m.sr)!;
+      expect(Math.abs(cheap / direct - 1)).toBeLessThan(0.02);
+    }
+  });
+
+  it("leaves a signal already at the measuring rate alone", () => {
+    const x = vowel(150, 0.5, MEASURE_SR);
+    const m = decimate(x, MEASURE_SR);
+    expect(m.samples).toBe(x);
+    expect(m.sr).toBe(MEASURE_SR);
+  });
+
+  it("anchors a 48 kHz clip onto the same pitch as a 16 kHz one", () => {
+    const offHz = FELIX_ANCHOR_HZ / 1.06;
+    const lo = anchorToFelix(vowel(offHz, 1.5, SR), SR);
+    const hi = anchorToFelix(vowel(offHz, 1.5, 48000), 48000);
+    expect(lo.ratio).toBeGreaterThan(1);
+    expect(Math.abs(hi.ratio / lo.ratio - 1)).toBeLessThan(0.02);
+    expect(medianF0(hi.samples, 48000)!).toBeCloseTo(FELIX_ANCHOR_HZ, -1);
+  });
+});
+
 describe("timeStretch", () => {
   it("changes the length by the factor and leaves the pitch alone", () => {
     const x = vowel(180, 2);
@@ -102,16 +139,13 @@ describe("shiftPitch", () => {
 
 describe("anchorToFelix", () => {
   it("pulls an off-pitch clip onto the anchor", () => {
-    // Inside MAX_SHIFT of the anchor but outside its 2% dead band, and stated
-    // RELATIVE to the anchor rather than as a number.
-    //
-    // It was a hard-coded 190 Hz, which only tested anything while the anchor
-    // happened to be 197.5. Re-cutting Felix moved the anchor to 193, 190 fell
-    // inside the dead band, and this then failed for asserting the one thing
-    // anchorToFelix is documented NOT to do — correct a clip already close
-    // enough to hear as the same voice. A fixture that has to be re-tuned
-    // every time the anchor moves is a fixture that is measuring the anchor
-    // instead of the function.
+    // Inside MAX_SHIFT of the anchor: this is the case the anchor exists for,
+    // a render that came back a little low and can be pulled up without the
+    // correction becoming audible.
+    // Relative to the anchor, not a fixed 190 Hz: the anchor is whatever
+    // the last cut of the landing clip measured, and a fixed tone that
+    // happened to land within 2% of it once turned this into a test of
+    // "does nothing", which passed the wrong way.
     const offHz = FELIX_ANCHOR_HZ / 1.06;
     const off = vowel(offHz, 2);
     const { samples, from, ratio } = anchorToFelix(off, SR);

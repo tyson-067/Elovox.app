@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { MAX_TAKES } from "@/lib/pitchShift";
 import { NextRequest, NextResponse } from "next/server";
 import {
   verifyVerifiedUser,
@@ -132,6 +133,15 @@ export async function POST(req: NextRequest) {
   const sessionId =
     typeof body.sessionId === "string" && SESSION_ID.test(body.sessionId) ? body.sessionId : "";
 
+  // Which render of this take. The client asks for a second and third when
+  // the first came back far from the landing voice (lib/pitchShift.ts,
+  // MAX_TAKES); each is its own render and its own cache doc. Anything else
+  // is the first take, so an old client and a malformed body both behave.
+  const takeIndex =
+    typeof body.take === "number" && Number.isInteger(body.take) && body.take > 0 && body.take < MAX_TAKES
+      ? body.take
+      : 0;
+
   let text = "";
   let cacheRef: ReturnType<NonNullable<typeof db>["doc"]> | null = null;
 
@@ -168,7 +178,9 @@ export async function POST(req: NextRequest) {
         { status: 409 }
       );
     }
-    cacheRef = db.doc(`users/${uid}/sessions/${sessionId}/felix/voice`);
+    cacheRef = db.doc(
+      `users/${uid}/sessions/${sessionId}/felix/${takeIndex ? `voice-${takeIndex}` : "voice"}`
+    );
     const cached = await cacheRef.get().catch(() => null);
     const hit = cached?.exists ? cached.data() : undefined;
     const bytes = asBytes(hit?.bytes);
