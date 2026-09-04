@@ -55,15 +55,16 @@ export const ORGANIZATION = {
 // markup and visible content that Google reads as noise.
 //
 // No `founder` edge on ORGANIZATION either. All four of the team are
-// co-founders (see the TEAM note in app/about/page.tsx), and a founder list
-// naming one of them would be a claim the visible page contradicts.
+// co-founders (see the TEAM note in app/about/page.tsx, and LEGAL.entity in
+// lib/legal.ts, which /terms and /privacy print), and a founder list naming
+// one of them would be a claim the visible page contradicts.
 export const PERSON = {
   "@type": "Person",
   "@id": "https://bridgeupproject.org/about#person",
   name: "Tyson Youm",
   url: "https://bridgeupproject.org/about",
   description:
-    "Tyson Youm is the founder of The Bridge Up Project, a co-founder of 4Form AI, and a co-founder of Elovox, where he leads product development.",
+    "Tyson Youm is the founder of The Bridge Up Project, a co-founder of 4Form AI, and a co-founder of Elovox, where he is president.",
   affiliation: [
     {
       "@type": "NGO",

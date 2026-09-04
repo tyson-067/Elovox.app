@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LEVELS } from "@/lib/levels";
+import { MOTION_ALWAYS_ON, reducedMotion } from "@/lib/motion";
 
 // The twelve levels as a ladder you CLIMB by scrolling, not a strip you have
 // to discover you can swipe.
@@ -93,7 +94,7 @@ export function LevelLadder() {
     const rail = railRef.current;
     if (!win || !rail) return;
 
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (reducedMotion()) {
       travelRef.current = 0;
       runwayRef.current = 0;
       setRunway(0);
@@ -130,7 +131,9 @@ export function LevelLadder() {
     const ro = new ResizeObserver(measure);
     if (railRef.current) ro.observe(railRef.current);
     if (windowRef.current) ro.observe(windowRef.current);
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const mq = window.matchMedia(
+      MOTION_ALWAYS_ON ? "not all" : "(prefers-reduced-motion: reduce)",
+    );
     mq.addEventListener("change", measure);
     return () => {
       ro.disconnect();
@@ -141,7 +144,7 @@ export function LevelLadder() {
   useEffect(() => {
     const section = sectionRef.current;
     if (!section) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (reducedMotion()) {
       paint(1);
       return;
     }

@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect } from "react";
+import { reducedMotion } from "@/lib/motion";
 
 // The landing page's cinematic layer, ported from the Claude Design project
 // "Elovox.app UI overhaul" (Elovox Website.dc.html).
 //
 // It renders nothing. Everything it touches is already on the page, already
 // readable, already laid out — this only adds the set pieces the stylesheet
-// cannot express: a report that assembles itself as you scroll, a rail that
-// draws, six cards that travel sideways under a pin, four story beats that
-// cross-fade, and the small pointer manners (magnetic buttons, tilting price
-// cards) that make a page feel handled rather than served.
+// cannot express: a report that assembles itself as you scroll, six cards
+// that travel sideways under a pin, and the small pointer manners (magnetic
+// buttons, tilting price cards) that make a page feel handled rather than
+// served.
 //
 // THE RULE, and it is the reason this file is shaped the way it is: motion
 // may only ever ADD. Nothing here is load-bearing for reading the page. The
@@ -32,7 +33,6 @@ import { useEffect } from "react";
  *  frame is still settling at first paint and a snapshot there never
  *  re-evaluates. */
 const DESKTOP = "(min-width: 860px) and (min-height: 480px)";
-const PHONE = "(max-width: 859px), (max-height: 479px)";
 
 export function LandingMotion() {
   useEffect(() => {
@@ -66,7 +66,9 @@ export function LandingMotion() {
         /* keep power3.out */
       }
 
-      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      // The landing page's set pieces play for everyone — see lib/motion.ts
+      // for the policy and for what the preference still governs.
+      const reduce = reducedMotion();
 
       const q = <T extends Element>(s: string) =>
         document.querySelector<T>(s);
@@ -103,15 +105,22 @@ export function LandingMotion() {
               { y: 54, opacity: 0, scale: 0.94, filter: "blur(14px)", duration: 1.15 },
               0.3,
             )
+            // The brand line and the sentence under it arrive together, a
+            // beat apart — one idea in two sizes, not two separate entrances.
+            .from(
+              "[data-lp-line]",
+              { y: 20, opacity: 0, filter: "blur(8px)", duration: 0.8 },
+              0.58,
+            )
             .from(
               "[data-lp-sub]",
               { y: 20, opacity: 0, filter: "blur(8px)", duration: 0.8 },
-              0.62,
+              0.68,
             )
             .from(
               "[data-lp-cta] > *",
               { y: 18, opacity: 0, duration: 0.6, stagger: 0.1 },
-              0.74,
+              0.8,
             )
             .from(
               "[data-lp-herofox]",
@@ -283,25 +292,10 @@ export function LandingMotion() {
           });
         });
 
-        // ---- the four-step rail draws itself ------------------------------
-        safe("rail", () => {
-          const rail = q<SVGElement>("[data-lp-rail]");
-          if (!rail || reduce) return;
-          gsap.fromTo(
-            rail,
-            { drawSVG: "0%" },
-            {
-              drawSVG: "100%",
-              ease: "none",
-              scrollTrigger: {
-                trigger: "#how",
-                start: "top 72%",
-                end: "bottom 78%",
-                scrub: 0.7,
-              },
-            },
-          );
-        });
+        // The drawn rail lived here: a gradient line that filled itself down
+        // the four "How it works" steps as the section passed. That section is
+        // off the homepage, so the effect went with it rather than staying to
+        // query a #how that no longer exists.
 
         // ---- six ways to practice: pinned horizontal scroll ---------------
         // Without a pin there is no horizontal scrub, so the row has to be
@@ -334,72 +328,29 @@ export function LandingMotion() {
           });
         });
 
-        // ---- Felix's story: four beats, cross-faded under a pin -----------
-        // The beats and the four moods of Felix are rendered IN FLOW and
-        // fully opaque. Stacking them is an upgrade applied here, and only
-        // here, so the section cannot go missing if this file never runs.
-        safe("story", () => {
-          const beatsWrap = q<HTMLElement>("[data-lp-beats]");
-          const foxWrap = q<HTMLElement>("[data-lp-foxes]");
-          const beats = qa<HTMLElement>("[data-lp-beat]");
-          const foxes = qa<HTMLElement>("[data-lp-fox]");
-          if (!beatsWrap || beats.length < 2 || reduce) return;
+        // Felix's story used to live here: four beats and four moods of the
+        // fox, cross-faded under a pin. The section came off the homepage —
+        // the front door sells the product and the reader's own objective,
+        // not the mascot's biography — so the effect that drove it went with
+        // it rather than sitting here querying selectors that no longer
+        // exist. The copy is kept in lib/felixStory.ts for the About page.
+        // (.lp-beats / .lp-foxes are still in globals.css for the same
+        // reason.)
 
-          mm.add(DESKTOP, () => {
-            beatsWrap.classList.add("is-stacked");
-            foxWrap?.classList.add("is-stacked");
-            gsap.set(beats.slice(1), { opacity: 0 });
-            gsap.set(foxes.slice(1), { opacity: 0 });
-
-            const tl = gsap.timeline({
-              scrollTrigger: {
-                trigger: "[data-lp-story]",
-                start: "top top",
-                end: "+=3200",
-                pin: true,
-                scrub: 0.8,
-                anticipatePin: 1,
-              },
-            });
-            for (let i = 1; i < beats.length; i++) {
-              const at = i;
-              tl.to(
-                beats[i - 1],
-                { opacity: 0, y: -34, filter: "blur(8px)", duration: 0.5, ease: "power2.in" },
-                at,
-              )
-                .to(foxes[i - 1], { opacity: 0, scale: 0.9, duration: 0.5 }, at)
-                .fromTo(
-                  beats[i],
-                  { opacity: 0, y: 34, filter: "blur(8px)" },
-                  { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: E },
-                  at + 0.3,
-                )
-                .fromTo(
-                  foxes[i],
-                  { opacity: 0, scale: 0.9 },
-                  { opacity: 1, scale: 1, duration: 0.5, ease: E },
-                  at + 0.3,
-                );
-            }
-            // Returning the teardown means leaving the desktop breakpoint
-            // puts every beat back in the page, opaque, in flow.
-            return () => {
-              beatsWrap.classList.remove("is-stacked");
-              foxWrap?.classList.remove("is-stacked");
-              gsap.set(beats, { clearProps: "all" });
-              gsap.set(foxes, { clearProps: "all" });
-            };
-          });
-          mm.add(PHONE, () => {
-            beatsWrap.classList.remove("is-stacked");
-            foxWrap?.classList.remove("is-stacked");
-          });
-        });
-
-        // ---- goal pills stagger in ----------------------------------------
-        // Hidden and animated inside the SAME callback, never before it: if
-        // the trigger is never created the pills simply stay where they are.
+        // ---- impact-mode pills stagger in ---------------------------------
+        // TRANSFORM ONLY. This used to set opacity 0 and animate back to 1,
+        // which made eight readable, clickable buttons depend on anime.js
+        // arriving — the exact shape this file's own rule forbids. It was
+        // invisible while reduced motion skipped the whole block; the moment
+        // the site started playing its motion for everyone,
+        // tests/e2e/reduced-motion.spec.ts caught the last pill still at
+        // opacity 0 a second after the trigger fired. A failed import, a slow
+        // phone or a reader who scrolls fast would all have seen the same
+        // thing.
+        //
+        // So the pills are never hidden. They travel and settle instead, which
+        // is the same bargain the report's scrub already makes: everything it
+        // animates is legible before it moves.
         safe("goals", () => {
           const pills = qa<HTMLElement>("[data-lp-goal]");
           if (!pills.length || reduce) return;
@@ -408,9 +359,7 @@ export function LandingMotion() {
             start: "top 88%",
             once: true,
             onEnter: () => {
-              gsap.set(pills, { opacity: 0 });
               anime.animate(pills, {
-                opacity: [0, 1],
                 y: [16, 0],
                 scale: [0.94, 1],
                 duration: 620,

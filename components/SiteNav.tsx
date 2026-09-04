@@ -28,8 +28,6 @@ import { useAuth } from "@/components/AuthProvider";
 interface NavSection {
   href: string;
   label: string;
-  /** Playfair italic, the one serif accent in the row. */
-  serif?: boolean;
   /** Hidden inside the iOS shell — a reachable price is an App Store
    *  rejection (guideline 3.1.1). */
   webOnly?: boolean;
@@ -39,10 +37,9 @@ interface NavSection {
 // not only from the page that owns the sections.
 const SECTIONS: NavSection[] = [
   { href: "/#report", label: "The report" },
-  { href: "/#how", label: "How it works" },
   { href: "/#modes", label: "Ways to practice" },
   { href: "/pricing", label: "Pricing", webOnly: true },
-  { href: "/about", label: "About", serif: true },
+  { href: "/about", label: "About" },
 ];
 
 export function SiteNav() {
@@ -54,7 +51,7 @@ export function SiteNav() {
   // react-hooks/set-state-in-effect exists to catch).
   //
   // That alone is not enough, and the gap is not theoretical: three of the
-  // five section links are same-page hashes (/#report, /#how, /#modes), and
+  // the section links are same-page hashes (/#report, /#modes), and
   // usePathname() deliberately excludes the hash. Tapping one from / left
   // pathname unchanged, so the overlay stayed up at full opacity over the
   // section the user had just asked for. Same for Pricing tapped from
@@ -173,19 +170,19 @@ export function SiteNav() {
         // transition with it.
         aria-hidden={!open}
       >
-        {SECTIONS.map((s) => (
-          <Link
-            key={s.href}
-            href={s.href}
-            onClick={close}
-            tabIndex={open ? undefined : -1}
-            className={`site-menu-item${s.serif ? " site-menu-item-serif" : ""}${
-              s.webOnly ? " web-only" : ""
-            }`}
-          >
-            {s.label}
-          </Link>
-        ))}
+        <nav className="site-menu-list" aria-label="Sections">
+          {SECTIONS.map((s) => (
+            <Link
+              key={s.href}
+              href={s.href}
+              onClick={close}
+              tabIndex={open ? undefined : -1}
+              className={`site-menu-item${s.webOnly ? " web-only" : ""}`}
+            >
+              {s.label}
+            </Link>
+          ))}
+        </nav>
         <div className="site-menu-foot">
           {marketing ? (
             <>

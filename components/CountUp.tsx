@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { reducedMotion } from "@/lib/motion";
 
 // A numeral that rolls up to its value — the odometer moment for the one
 // number the page is about. Web-only by usage (the landing hero's score);
@@ -32,7 +33,7 @@ export function CountUp({
     // "no synchronous setState in the effect body" rule as the roll itself.
     const reduced =
       typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      reducedMotion();
     if (reduced) {
       raf = requestAnimationFrame(() => setShown(value));
       return () => cancelAnimationFrame(raf);

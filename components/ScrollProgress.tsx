@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { reducedMotion } from "@/lib/motion";
 
 // Reading-progress hairline for the sticky header: a gradient line that
 // fills left-to-right as the user scrolls the page. Drives a CSS var on
@@ -13,7 +14,7 @@ export function ScrollProgress() {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (reducedMotion()) return;
 
     let raf = 0;
     const update = () => {

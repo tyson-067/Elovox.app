@@ -126,7 +126,7 @@ test("a menu link closes the menu, and the page cannot scroll behind it", async 
   //
   // 1. Openness was derived as `openedOn === usePathname()`, and usePathname
   //    excludes the hash. Three of the five section links are same-page
-  //    hashes, so tapping "How it works" from / scrolled the page behind an
+  //    hashes, so tapping a section link from / scrolled the page behind an
   //    overlay that stayed at full opacity until you found the burger again.
   // 2. The scroll lock was `body { overflow: hidden }`, which works by
   //    overflow propagating from body to the viewport — and that propagation
@@ -150,7 +150,10 @@ test("a menu link closes the menu, and the page cannot scroll behind it", async 
     "the page scrolled behind the open menu"
   ).toBeLessThan(8);
 
-  await page.getByRole("link", { name: "How it works" }).click();
+  // "Ways to practice" (/#modes), not "How it works": that section came off
+  // the homepage, and with it its menu entry. Any same-page hash link proves
+  // the same two things.
+  await page.getByRole("link", { name: "Ways to practice" }).click();
   await page.waitForTimeout(700);
   await expect(panel, "a same-page hash link left the menu open").toBeHidden();
   // The lock is handed back, not left on: the page has to scroll again.

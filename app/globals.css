@@ -1392,12 +1392,9 @@ html[data-backdrop-tone] .ground-panel {
     filter: none;
     transition: none;
   }
-  /* The ambient drift is exactly the class of motion this preference asks
-     to remove: untriggered, continuous, peripheral. */
-  .orb-float,
-  .orb-float-slow {
-    animation: none;
-  }
+  /* Ambient drift is handled by the guarded :is() list further down, which
+     is the rule that actually wins — this pair used to be restated here and
+     the duplicate only made it look like the drift had two owners. */
   /* Restated at the swipe variant's own specificity: the plain .reveal rule
      above would lose to .reveal-swipe[data-dir="up"] and leave content
      translated off to the side. */
@@ -1433,21 +1430,32 @@ html[data-backdrop-tone] .ground-panel {
     transform: none;
     filter: none;
   }
-  .text-gradient,
-  .orb-float,
-  .orb-float-slow,
-  .navy-gradient,
-  .den-gradient,
-  .dusk-gradient,
-  .flame,
-  .felix-idle,
-  .felix-cheer,
-  .felix-blink,
+  /* The website's ambient decoration — drifting orbs, travelling gradients,
+     Felix breathing and blinking. Guarded by data-motion, so under the site's
+     always-on policy (lib/motion.ts) these keep running. The .wr rule ABOVE
+     is not guarded and must never be: it is what puts the headline on the
+     screen, not what moves it. */
+  :where(html:not([data-motion="always"])) :is(
+    .text-gradient,
+    .orb-float,
+    .orb-float-slow,
+    .navy-gradient,
+    .den-gradient,
+    .dusk-gradient,
+    .flame,
+    .felix-idle,
+    .felix-cheer,
+    .felix-blink
+  ) {
+    animation: none;
+  }
+  /* NOT guarded. These are in-app surfaces, not the marketing site, and each
+     one loops for as long as a screen is open — the quest tick, the XP bar's
+     travelling sheen, and the record-button halo, which pulses for the entire
+     length of a recording. That is the worst place to leave motion running
+     for someone who asked for none, and "our website" was never these. */
   .quest-done,
   .felix-bar,
-  /* The record-button halo: the one infinite animation this block was
-     missing, and it loops for the entire length of a recording — the worst
-     place to leave motion running for someone who asked for none. */
   .pulse-ring,
   .xp-bar-fill::after {
     animation: none;
@@ -3294,6 +3302,13 @@ html[data-native][data-theme="dark"] .apple-signin-btn {
     line-height: 1.5;
     margin-top: 14px;
   }
+  /* Felix's read is the card's new first line — the impression the report
+     leads with. It compacts with everything else here, or the card grows
+     past the pinned stage on a shallow window and clips its own footer. */
+  .lp-report-read {
+    font-size: 17px;
+    margin-top: 6px;
+  }
   .lp-score {
     font-size: 2.6rem;
   }
@@ -3313,7 +3328,7 @@ html[data-native][data-theme="dark"] .apple-signin-btn {
        about which of these classes it has an opinion on. */
     opacity: 0.04;
   }
-  .lp-ticker {
+  :where(html:not([data-motion="always"])) .lp-ticker {
     animation: none;
   }
   /* Never `opacity: 0` — the beats stay in flow, all four readable, which
@@ -3331,7 +3346,7 @@ html[data-native][data-theme="dark"] .apple-signin-btn {
   .lp-beats.is-stacked .lp-beat + .lp-beat {
     margin-top: 40px;
   }
-  .lp-spot {
+  :where(html:not([data-motion="always"])) .lp-spot {
     transition: none;
   }
 }
@@ -3360,7 +3375,7 @@ html[data-native][data-theme="dark"] .apple-signin-btn {
 @media (prefers-reduced-motion: reduce) {
   /* Hold the final frame — a waveform that has stopped mid-bounce reads as
      broken; one held at a steady level reads as a still of the real thing. */
-  .lp-eq-bar {
+  :where(html:not([data-motion="always"])) .lp-eq-bar {
     animation: none;
     transform: scaleY(0.6);
   }
@@ -3592,26 +3607,54 @@ html[data-native][data-theme="dark"] .apple-signin-btn {
     display: none;
   }
 }
+/* The menu is back in Montserrat, the face it was always set in: the Playfair
+   italic it wore briefly is a display serif, and a whole column of it read as
+   a wedding invitation rather than as navigation.
+
+   COLOUR IS ONE GRADIENT ACROSS THE BLOCK, not a value per item. Painting the
+   first labels navy and the last two orange put a hard edge between two
+   neighbouring lines; running a single vertical ramp behind the whole list and
+   clipping it to the glyphs means each label samples its own slice of the same
+   transition, so the column arrives at orange without ever stepping. */
+.site-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* Navy is held through the top of the list and released late, so the warm
+     end lands on the last two labels rather than washing the whole column. */
+  background-image: linear-gradient(
+    180deg,
+    var(--color-oxford) 0%,
+    var(--color-oxford) 34%,
+    #7c3118 68%,
+    var(--color-accent-strong) 92%
+  );
+}
+/* The transparent ink is applied ONLY where the clip is actually supported.
+   `color: transparent` without a painted background behind it is an invisible
+   menu, and this file has shipped invisible content twice already. */
+@supports (background-clip: text) or (-webkit-background-clip: text) {
+  .site-menu-list {
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+  .site-menu-list .site-menu-item {
+    color: transparent;
+  }
+}
 .site-menu-item {
   font-family: var(--font-headline);
   font-size: clamp(30px, 9vw, 48px);
   font-weight: 800;
   letter-spacing: -0.035em;
   line-height: 1.18;
+  /* The fallback ink, and what every label shows if the clip is unsupported. */
   color: var(--color-oxford);
   transform: translateY(24px);
   opacity: 0;
   transition:
     transform var(--dur-slow) var(--ease-emphasized),
     opacity var(--dur-slow) var(--ease-emphasized);
-}
-/* The one serif accent, as in the hero: a short word, never running prose. */
-.site-menu-item-serif {
-  font-family: var(--font-slogan);
-  font-style: italic;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  color: var(--color-accent-strong);
 }
 .site-menu-foot {
   display: flex;

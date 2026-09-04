@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { reducedMotion } from "@/lib/motion";
 
 // Parallax wrapper: the inner element drifts against scroll at `speed`
 // (positive = slower than the page, negative = faster). The outer div is
@@ -42,7 +43,7 @@ export function Parallax({
     const outer = outerRef.current;
     const inner = innerRef.current;
     if (!outer || !inner) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (reducedMotion()) return;
 
     let raf = 0;
     const update = () => {

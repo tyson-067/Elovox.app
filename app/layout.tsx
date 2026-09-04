@@ -8,6 +8,7 @@ import { NativeShell } from "@/components/NativeShell";
 import { NativeRuntime } from "@/components/NativeRuntime";
 import { SiteBackdrop } from "@/components/SiteBackdrop";
 import { SiteBanner } from "@/components/SiteBanner";
+import { MOTION_ALWAYS_ON } from "@/lib/motion";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 // After globals on purpose: the native theme re-points the web's semantic
@@ -113,6 +114,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      // The site's motion plays regardless of the OS "reduce motion" setting.
+      // Rendered on the server, not stamped by script, because the decision
+      // does not depend on the client — see lib/motion.ts for the policy and,
+      // importantly, for the half of the accommodation that is KEPT: the
+      // rules that bring <Reveal>/<WordReveal> content to opacity 1 are not
+      // guarded by this attribute, so nothing can end up invisible.
+      data-motion={MOTION_ALWAYS_ON ? "always" : undefined}
       // The inline script below stamps data-native and data-theme onto this
       // element before React hydrates, which is the whole point of it — the
       // server cannot know which client is asking. React sees attributes it

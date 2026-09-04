@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Felix, type FelixMood } from "@/components/FoxLogo";
+import { Felix } from "@/components/FoxLogo";
 import { FelixSpeaks } from "@/components/FelixSpeaks";
 import { Reveal } from "@/components/Reveal";
 import { Parallax } from "@/components/Parallax";
 import { WordReveal } from "@/components/WordReveal";
 import { LandingMotion } from "@/components/LandingMotion";
-import { GOALS } from "@/lib/goals";
+import { ImpactModes, ImpactCta } from "@/components/ImpactModes";
 import { TRIAL_DAYS, formatUSD, planFor } from "@/lib/pricing";
 import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
 import { NativeEntry } from "@/components/NativeEntry";
-import { LevelLadder } from "@/components/LevelLadder";
 import { pageGraph, WEBAPP } from "@/lib/schema";
 
 // Marketing landing page. The app itself lives behind /dashboard.
@@ -20,8 +19,15 @@ import { pageGraph, WEBAPP } from "@/lib/schema";
 // primitives: the palette the design was drawn in is already the @theme
 // block in globals.css, so almost nothing here is a literal colour. The
 // cinematic layer — the pinned report, the drawn rail, the sideways card
-// rail, the story cross-fade — lives in components/LandingMotion.tsx and is
-// strictly additive; every word on this page is readable without it.
+// rail — lives in components/LandingMotion.tsx and is strictly additive;
+// every word on this page is readable without it.
+//
+// The order is the argument: hero, the report, the impact modes, how it
+// works, the ways to practice, the ladder, the price. The modes used to sit
+// second from last; they are the differentiator, so they now follow the
+// report directly. Felix's backstory used to be a pinned section between the
+// practice cards and the ladder — it is gone from here, and its copy is
+// parked in lib/felixStory.ts.
 //
 // The design's floating nav pill is site-wide chrome and lives in
 // components/SiteNav.tsx; its footer is the existing shared <Footer />, which
@@ -79,15 +85,15 @@ const SCORES: Array<[string, number]> = [
 const REPORT_NOTES: Array<{ time: string; note: string; soft?: boolean }> = [
   {
     time: "0:23",
-    note: "“Didn’t just meet” sets the bar before you clear it. That’s the setup working — keep the shape.",
+    note: "Good lead-in. Keep it.",
   },
   {
     time: "0:25",
-    note: "“Doubled” is the whole story, and you said it once and moved on. Exactly right.",
+    note: "You said the number once. Good.",
   },
   {
     time: "0:27",
-    note: "“Um, basically” hands the win straight back. Cut it and the sentence closes hard.",
+    note: "Cut “um, basically.”",
     soft: true,
   },
 ];
@@ -99,54 +105,6 @@ const REPORT_NOTES: Array<{ time: string; note: string; soft?: boolean }> = [
 const WAVE_DELAYS = [
   0, 60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 660, 720, 780, 840, 900,
   960, 20, 340, 520, 700, 880, 140, 460, 620, 800, 260,
-];
-
-// The loop, in the order it happens: speak, see, hear, go again. Every claim
-// is a thing the code does — the Daily Minute and its three attempts
-// (lib/daily.ts), the report (app/api/analyze/route.ts), Felix's take
-// (lib/felixTake.ts), XP and the twelve levels (lib/levels.ts).
-const STEPS = [
-  {
-    title: "Record yourself",
-    body: "Felix sets a fresh topic and three points to hit each morning — the same one for everybody — and you improvise for a minute with no script. Free, forever. Or bring a speech, an interview answer, a pitch.",
-  },
-  {
-    title: "See how you came across",
-    body: "Six scores out of 100, your own words marked up, the numbers you can't hear yourself, and a read on whether the room trusted you, doubted you, or drifted.",
-  },
-  {
-    title: "Hear Felix's coaching",
-    body: "Thirty seconds, in his voice: the one thing that worked, the one thing to fix, and what to do on the next take. Written from your report, and always there as text.",
-  },
-  {
-    title: "Practice again",
-    body: "Three attempts a day on the Daily Minute, on every plan, each one scored — so you can watch your delivery improve in a single sitting. Every rep earns XP; streaks multiply it.",
-  },
-];
-
-// Felix's story, four beats. Cross-faded under a pin on a desktop-sized
-// window, stacked in flow everywhere else — see .lp-beats in globals.css.
-const STORY: Array<{ mood: FelixMood; title: string; body: string }> = [
-  {
-    mood: "sleepy",
-    title: "Felix used to hate this",
-    body: "Ears flat, tail down, rehearsing the same first line forty times and still losing it the moment anyone looked at him.",
-  },
-  {
-    mood: "coach",
-    title: "So he practiced out loud",
-    body: "Every evening, one minute, in the den with the light on. Not reading. Speaking, badly at first, and listening back to it.",
-  },
-  {
-    mood: "listening",
-    title: "And he learned to hear it",
-    body: "Where he rushed. Where he trailed off. Which pause landed and which one was just fear with a stopwatch on it.",
-  },
-  {
-    mood: "cheer",
-    title: "Now he listens for you",
-    body: "Same den, same minute, same honest ear. He'll tell you what the room heard, and exactly what to change before tomorrow.",
-  },
 ];
 
 const stroke = {
@@ -174,7 +132,7 @@ const MODES = [
   {
     tag: "Premium",
     title: "Interview practice",
-    body: "Real panel questions: jobs, college admissions, scholarships, grad school, med and law.",
+    body: "Earn trust in the room. Real panel questions: jobs, college admissions, scholarships, grad school, med and law.",
     glyph: (
       <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
         <path d="M4 5.5h16v10H9l-5 4z" />
@@ -185,7 +143,7 @@ const MODES = [
   {
     tag: "Premium",
     title: "Social skills",
-    body: "Small talk, saying no, saying sorry. Practice for the speaking you do every day.",
+    body: "Hold small talk, say no, make an apology land. Practice for the speaking you do every day.",
     glyph: (
       <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
         <path d="M3.5 4.5h11v7.5H8.5l-5 3.5z" />
@@ -307,7 +265,7 @@ export default function LandingPage() {
       <LandingMotion />
 
       {/* ================= HERO ================= */}
-      <section id="top" className="relative scroll-mt-24 pt-10 md:pt-16">
+      <section id="top" className="relative scroll-mt-24 pt-8 md:pt-11">
         {/* Brand circles drifting at different depths, over a faint dot grid
             so the warm paper doesn't read as flat. Both orbs are decoration
             and carry aria-hidden on the wrapper. */}
@@ -351,17 +309,30 @@ export default function LandingPage() {
           </span>
         </h1>
 
-        <div className="mt-11 grid grid-cols-1 items-start gap-[clamp(24px,4vw,56px)] md:grid-cols-12">
+        {/* The brand line, directly under the headline and across the full
+            measure — in the left-hand column it wrapped to two lines and read
+            as a caption. Out here it is one line, and it is the deck: the
+            headline is the claim, this is what the product asks of you.
+            The sentence below it says what "impact" means here, a listener's
+            response, and then stops. There is no second paragraph on purpose;
+            the report a screen down explains better than more copy would. */}
+        <p
+          data-lp-line
+          className="mt-5 font-headline text-[clamp(20px,2vw,30px)] font-semibold leading-[1.3] tracking-[-0.02em] text-primary"
+        >
+          Choose your impact. Practice until it lands.
+        </p>
+
+        <div className="mt-6 grid grid-cols-1 items-start gap-[clamp(24px,4vw,56px)] md:grid-cols-12">
           <div className="md:col-span-5">
             <p
               data-lp-sub
-              className="max-w-[34ch] text-[clamp(17px,1.35vw,21px)] leading-[1.55] text-on-surface-variant"
+              className="max-w-[34ch] text-[clamp(19px,1.5vw,23px)] leading-[1.55] text-on-surface-variant"
             >
-              Record a speech, a pitch or an interview answer. Elovox scores it
-              out of 100, marks the lines that landed, and counts the fillers
-              you didn&apos;t hear yourself say.
+              Decide what you want your listener to feel, think, or do. Elovox
+              helps you practice for the response you want.
             </p>
-            <div data-lp-cta className="mt-[34px] flex flex-wrap items-center gap-[22px]">
+            <div data-lp-cta className="mt-[30px] flex flex-wrap items-center gap-[22px]">
               <Link
                 href="/signup"
                 data-lp-magnet
@@ -372,12 +343,9 @@ export default function LandingPage() {
                   <Arrow />
                 </span>
               </Link>
-              <Link
-                href="#report"
-                className="border-b-2 border-primary/30 pb-0.5 text-base font-semibold text-primary"
-              >
-                See what comes back
-              </Link>
+              <ImpactCta className="border-b-2 border-primary/30 pb-0.5 text-base font-semibold text-primary">
+                Choose your impact
+              </ImpactCta>
             </div>
             <p className="mt-4 font-data text-[11.5px] tracking-[0.04em] text-on-surface-variant">
               No card required · One minute a day, free for good
@@ -475,20 +443,45 @@ export default function LandingPage() {
               <p className="font-data text-[11.5px] font-medium uppercase tracking-[0.16em] text-shrimp/80">
                 What comes back
               </p>
+              {/* The section now answers the question the impact modes ask.
+                  "land?" keeps the Playfair-italic orange that "this." had —
+                  same lockup, same three-or-four-word rule the serif is held
+                  to everywhere on this site.
+
+                  The break is hard rather than left to the box: "How did you"
+                  is 11 characters and clears one line at the clamp's 32px
+                  floor with room to spare on a 320px screen, so this is always
+                  two lines and never a ragged three. */}
               <h2 className="mt-[18px] font-headline text-[clamp(2rem,3.4vw,3.6rem)] font-extrabold leading-[1.02] tracking-[-0.035em]">
-                One minute.
+                How did you
                 <br />
-                Then{" "}
                 <span className="font-slogan italic font-semibold text-orange">
-                  this.
+                  land?
                 </span>
               </h2>
-              <p className="mt-5 max-w-[32ch] text-[16.5px] leading-[1.65] text-white/80">
-                Every mode ends in the same report. Six scores, your own words
-                marked up, and the numbers you can&apos;t hear yourself.
+              <p className="mt-5 max-w-[34ch] text-[16.5px] leading-[1.65] text-white/80">
+                Felix shows you how you came across, what shaped that
+                impression, and what to try next.
               </p>
-              <div data-lp-report-fox className="mt-[34px] w-[130px]">
-                <Felix mood="listening" className="h-[130px] w-[130px]" />
+              <p className="mt-3.5 max-w-[34ch] text-[16.5px] leading-[1.65] text-white/80">
+                The report: your scores, your words, your pace, pauses,
+                fillers, and delivery.
+              </p>
+              {/* The same playable Felix as the hero, not a still. This is
+                  the section that names him as the coach reading your take, so
+                  hearing him here is the shortest possible proof of it. Wrapper
+                  and data attribute unchanged — LandingMotion slides this in on
+                  the report's own trigger. */}
+              <div data-lp-report-fox className="mt-[34px]">
+                <FelixSpeaks
+                  src="/felix-note.mp3"
+                  mood="listening"
+                  speakingMood="coach"
+                  animate
+                  label="Hear Felix's voice"
+                  showNote={false}
+                  foxClassName="h-[130px] w-[130px]"
+                />
               </div>
             </div>
 
@@ -502,8 +495,28 @@ export default function LandingPage() {
                     Report · 0:31
                   </span>
                   <span className="rounded-full bg-violet/30 px-3 py-[5px] text-[11.5px] font-semibold tracking-[0.04em] text-white">
-                    Goal: sound like a leader
+                    Impact: sound like a leader
                   </span>
+                </div>
+
+                {/* The card now leads with the ANSWER — how you came across —
+                    because that is the question the impact mode above asked.
+                    Everything below it is the working: your words, then the
+                    scores, then the numbers. The measurements did not move and
+                    nothing was dropped; they stopped being the headline.
+
+                    The read is derived from the figures on this very card, not
+                    invented for the mock: Confidence 84 is the highest score
+                    but one, Pacing 79 is the lowest, and 142 wpm is the brisk
+                    end of conversational. If those numbers change, this line
+                    has to change with them. */}
+                <div className="mt-6">
+                  <p className="font-data text-[11px] font-medium uppercase tracking-[0.14em] text-shrimp/80">
+                    Felix&apos;s read
+                  </p>
+                  <p className="lp-report-read mt-2.5 text-[clamp(18px,1.6vw,26px)] leading-[1.35] font-semibold tracking-[-0.02em] text-white">
+                    You sounded confident — and a little rushed.
+                  </p>
                 </div>
 
                 {/* Your own words, with the marks the report actually draws:
@@ -565,34 +578,66 @@ export default function LandingPage() {
                   ))}
                 </div>
 
-                <div className="mt-[34px] flex flex-wrap items-end justify-between gap-5 border-t border-white/12 pt-[26px]">
-                  <p className="flex items-baseline gap-2 font-data font-medium leading-none tracking-[-0.03em]">
-                    {/* Scrubbed 0 → 86 by the pin. Rendered at its finished
-                        value so it is right with no JS at all. */}
-                    <span
-                      data-lp-score
-                      className="lp-score text-[clamp(3rem,5.6vw,5.4rem)] text-orange"
+                {/* The measurements that explain the read, sitting with the
+                    scores rather than inside the verdict where they used to
+                    live. Same three numbers, moved up one step: they are
+                    EVIDENCE for the impression, not the closing word on it. */}
+                <p className="mt-4 font-data text-[12.5px] leading-[1.5] text-white/80">
+                  142 words per minute · 3 fillers · 2 pauses over 1.2s
+                </p>
+
+                <div className="mt-[30px] flex flex-wrap items-end justify-between gap-5 border-t border-white/12 pt-[24px]">
+                  <div>
+                    <p className="flex items-baseline gap-2 font-data font-medium leading-none tracking-[-0.03em]">
+                      {/* Scrubbed 0 → 86 by the pin. Rendered at its finished
+                          value so it is right with no JS at all. */}
+                      <span
+                        data-lp-score
+                        className="lp-score text-[clamp(3rem,5.6vw,5.4rem)] text-orange"
+                      >
+                        86
+                      </span>
+                      <span className="text-[clamp(1rem,1.4vw,1.4rem)] text-white/80">
+                        / 100
+                      </span>
+                    </p>
+                    {/* The loop closing, and a real one: the control the app
+                        puts here starts another take, and so does this. */}
+                    <Link
+                      href="/signup"
+                      className="mt-3.5 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 py-2 pl-3.5 pr-4 text-[13.5px] font-semibold text-white"
                     >
-                      86
-                    </span>
-                    <span className="text-[clamp(1rem,1.4vw,1.4rem)] text-white/80">
-                      / 100
-                    </span>
-                  </p>
-                  <p data-lp-verdict className="max-w-[34ch] text-[15px] leading-[1.55] text-white/85">
-                    {/* Both halves name a mark that is actually drawn above:
-                        the two accent underlines are the CLAIM ("didn't just
-                        meet" / "doubled"), and the hedge is the soft one. This
-                        used to read "Strong close", which named the one part
-                        of the sentence carrying no mark at all — "ahead of
-                        schedule" is unmarked, and the strong phrases are the
-                        opening. Harmless while every underline looked alike;
-                        wrong the moment each one got a note pointing at it. */}
-                    <span className="font-semibold text-white">
-                      Strong claim. Lose the hedge.
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        {...stroke}
+                        aria-hidden="true"
+                      >
+                        <path d="M20 12a8 8 0 1 1-2.6-5.9" />
+                        <path d="M20 4v4h-4" />
+                      </svg>
+                      Try again
+                    </Link>
+                  </div>
+                  <p data-lp-verdict className="max-w-[32ch] text-[15px] leading-[1.55] text-white/85">
+                    {/* An INSTRUCTION for the next take, which is what the
+                        label promises. It used to read "Strong claim. Lose the
+                        hedge. Say 'doubled' and stop." — a compliment the
+                        Felix's read at the top of the card already pays, a
+                        metaphor, and a fix the 0:27 note already gives. What
+                        was left for this line to do was tell the reader what
+                        to actually do next, so that is all it says now.
+
+                        It still names only marks that are drawn above: the
+                        filler is the soft underline. */}
+                    <span className="font-data text-[11px] font-medium uppercase tracking-[0.14em] text-shrimp/80">
+                      What to try next
                     </span>
                     <br />
-                    142 words per minute · 3 fillers · 2 pauses over 1.2s
+                    <span className="font-semibold text-white">
+                      Run it again. Same sentence, no filler.
+                    </span>
                   </p>
                 </div>
               </div>
@@ -601,67 +646,19 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ================= HOW IT WORKS ================= */}
-      <section id="how" className="mt-[var(--space-section-lg)] scroll-mt-24">
-        <Kicker>How it works</Kicker>
-
-        <div className="relative mt-13 pl-[clamp(28px,4vw,60px)]">
-          {/* The rail is drawn by DrawSVGPlugin as the section passes. The
-              grey line under it is always there, so the four steps read as a
-              sequence whether or not the draw ever runs. */}
-          <svg
-            aria-hidden="true"
-            preserveAspectRatio="none"
-            viewBox="0 0 2 1000"
-            className="absolute left-0 top-1.5 h-[calc(100%-12px)] w-0.5 overflow-visible"
-          >
-            <defs>
-              <linearGradient id="lp-railgrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-accent)" />
-                <stop offset="100%" stopColor="var(--color-violet)" />
-              </linearGradient>
-            </defs>
-            <line x1="1" y1="0" x2="1" y2="1000" stroke="rgba(0,78,137,.16)" strokeWidth="2" />
-            <line
-              data-lp-rail
-              x1="1"
-              y1="0"
-              x2="1"
-              y2="1000"
-              stroke="url(#lp-railgrad)"
-              strokeWidth="2"
-            />
-          </svg>
-
-          {STEPS.map((step, i) => (
-            <Reveal key={step.title}>
-              <div
-                className={`relative grid grid-cols-1 gap-[clamp(20px,3vw,48px)] md:grid-cols-[minmax(0,7fr)_minmax(0,9fr)] ${
-                  i === STEPS.length - 1 ? "" : "pb-[clamp(40px,5vw,72px)]"
-                }`}
-              >
-                <span
-                  aria-hidden="true"
-                  className="absolute top-3.5 -left-[calc(clamp(28px,4vw,60px)+5px)] h-2.5 w-2.5 rounded-full bg-accent-strong shadow-[0_0_0_5px_rgba(194,65,12,0.16)]"
-                />
-                <div>
-                  <span
-                    aria-hidden="true"
-                    className="ghost-num ghost-num-sm text-violet"
-                  >
-                    0{i + 1}
-                  </span>
-                  <h3 className="mt-1.5 font-headline text-[clamp(21px,1.8vw,27px)] font-bold tracking-[-0.02em] text-primary">
-                    {step.title}
-                  </h3>
-                </div>
-                <p className="max-w-[58ch] self-center text-base leading-[1.7] text-on-surface-variant">
-                  {step.body}
-                </p>
-              </div>
-            </Reveal>
-          ))}
-        </div>
+      {/* ================= IMPACT MODES ================= */}
+      {/* Moved up out of the bottom third of the page, where it sat between
+          the levels ladder and the price cards. It is the single thing on
+          this site that no filler-word counter has, so it belongs directly
+          under the report the reader has just watched assemble — the report
+          answers "how did I come across", this answers "against what". The
+          pills are interactive now (components/ImpactModes.tsx); the eight
+          modes themselves are untouched, and are still lib/goals.ts. */}
+      <section
+        id="impact"
+        className="mt-[var(--space-section-lg)] scroll-mt-24"
+      >
+        <ImpactModes />
       </section>
 
       {/* ================= WAYS TO PRACTICE ================= */}
@@ -735,89 +732,6 @@ export default function LandingPage() {
                 </article>
               ))}
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ================= FELIX'S STORY ================= */}
-      <section
-        id="story"
-        data-lp-story
-        className="lp-bleed mt-[clamp(48px,7vw,90px)] scroll-mt-24"
-      >
-        <div className="lp-stage flex min-h-[100svh] items-center bg-[linear-gradient(150deg,#f9dfc6_0%,#fdf6ee_48%,#f7e1c6_100%)]">
-          <div className="lp-stage-pad mx-auto grid w-full max-w-[var(--container-page)] grid-cols-1 items-center gap-[clamp(28px,4vw,64px)] px-4 py-[clamp(48px,6vw,90px)] md:grid-cols-12 md:px-10 xl:px-16 2xl:px-24">
-            <div
-              data-lp-foxes
-              className="lp-foxes relative mx-auto aspect-square w-full max-w-[400px] md:col-span-5"
-            >
-              {STORY.map((beat) => (
-                <div key={beat.mood} data-lp-fox className="lp-fox">
-                  <Felix mood={beat.mood} className="h-full w-full" />
-                </div>
-              ))}
-            </div>
-            <div className="md:col-span-7">
-              <p className="mb-[26px] font-data text-[11.5px] font-medium uppercase tracking-[0.16em] text-on-surface-variant">
-                Felix&apos;s story
-              </p>
-              {/* Rendered in flow and fully opaque. LandingMotion stacks and
-                  cross-fades them only once it holds a live ScrollTrigger —
-                  a story that needs JavaScript to be readable is a story
-                  that goes missing. */}
-              <div data-lp-beats className="lp-beats">
-                {STORY.map((beat, i) => (
-                  <div key={beat.title} data-lp-beat className="lp-beat">
-                    <p className="font-data text-xs tracking-[0.14em] text-accent-strong">
-                      0{i + 1} / 0{STORY.length}
-                    </p>
-                    <h3 className="mt-3.5 font-headline text-[clamp(1.9rem,3.4vw,3.5rem)] font-extrabold leading-[1.03] tracking-[-0.035em] text-oxford">
-                      {beat.title}
-                    </h3>
-                    <p className="mt-[18px] max-w-[40ch] text-[clamp(16px,1.4vw,20px)] leading-[1.65] text-on-surface-variant">
-                      {beat.body}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ================= TWELVE LEVELS ================= */}
-      {/* The ladder is its own component: it climbs with the scroll, pins
-          only when the rail overflows, and renders every rung lit with no
-          JS at all. */}
-      <LevelLadder />
-
-      {/* ================= GOALS ================= */}
-      <section className="mt-[var(--space-section)]">
-        <div className="grid grid-cols-1 items-center gap-[clamp(28px,4vw,64px)] md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-          <div>
-            <Reveal>
-              <h2 className="font-headline text-[clamp(1.7rem,2.6vw,2.7rem)] font-extrabold leading-[1.08] tracking-[-0.03em] text-primary">
-                Tell Felix what you&apos;re going for.
-              </h2>
-            </Reveal>
-            <Reveal delay={80}>
-              <p className="mt-4 max-w-[40ch] text-[16.5px] leading-[1.65] text-on-surface-variant">
-                The same words can build trust or lose it, depending on the
-                delivery. Pick the outcome, and Felix judges every rep against
-                it.
-              </p>
-            </Reveal>
-          </div>
-          <div data-lp-goals className="flex flex-wrap gap-2.5">
-            {GOALS.map((goal) => (
-              <span
-                key={goal.id}
-                data-lp-goal
-                className="rounded-full border border-primary/20 bg-white/55 px-[18px] py-2.5 text-[15px] text-primary"
-              >
-                {goal.label}
-              </span>
-            ))}
           </div>
         </div>
       </section>

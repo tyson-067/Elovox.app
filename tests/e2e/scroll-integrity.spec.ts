@@ -77,75 +77,16 @@ test.describe("the page is the height it says it is", () => {
   });
 });
 
-test.describe("the level ladder", () => {
-  /* The reported bug: "the chart thingy doesn't fully load". Every rung was
-     wrapped in <Reveal>, which flips on an IntersectionObserver — and an
-     observer measures against the VIEWPORT, so rungs sitting off the right
-     edge of a horizontal scroller never intersected, never flipped, and stayed
-     at opacity 0 for the life of the page. Eight of the twelve levels were
-     simply not on the homepage at iPhone width.
+/* The level ladder's two tests lived here, and they are gone with the section
+   they guarded: "Twelve levels, earned out loud" was taken off the homepage,
+   so `.ladder-name` and `.ladder-rail` match nothing on `/` and both tests
+   failed on a selector rather than on a regression.
 
-     The replacement (components/LevelLadder.tsx) is driven by scroll POSITION,
-     so there is no callback that can fail to arrive. These tests pin the
-     property that matters — every level is legible by the end — rather than
-     the mechanism, so the next redesign of this section inherits the check. */
-
-  test("all twelve levels become legible on a phone", async ({ page }) => {
-    await page.setViewportSize(PHONE);
-    await page.goto("/");
-    await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(700);
-
-    const names = page.locator(".ladder-name");
-    await expect(names).toHaveCount(12);
-
-    // Scroll to the end of the ladder's own runway, which is where the climb
-    // completes. With no runway (a rail that fits) a viewport of scrolling
-    // past the section does the same job.
-    await page.evaluate(async () => {
-      const sec = document.querySelector(".ladder-rail")!.closest("section")!;
-      const spacer = sec.lastElementChild as HTMLElement;
-      const runway = spacer.style.height ? parseFloat(spacer.style.height) : window.innerHeight;
-      const base = sec.getBoundingClientRect().top + window.scrollY - 72;
-      // Stepped by integer twentieths, not by `f += 0.05`: accumulating 0.05
-      // in binary overshoots 1 on the twenty-first pass, so that loop stops at
-      // 0.95 — and the twelfth rung sits at 95.83% of the rail, so it is still
-      // legitimately dark there. The test would have failed on a working
-      // ladder.
-      for (let i = 0; i <= 20; i++) {
-        window.scrollTo(0, base + (i / 20) * runway);
-        await new Promise((r) => setTimeout(r, 20));
-      }
-      await new Promise((r) => setTimeout(r, 300));
-    });
-
-    const faded = await names.evaluateAll((els) =>
-      els
-        .filter((el) => parseFloat(getComputedStyle(el).opacity) < 0.9)
-        .map((el) => (el.textContent || "").trim())
-    );
-    expect(faded, "levels still dimmed after the whole climb").toEqual([]);
-  });
-
-  test("every level is reachable, not just lit", async ({ page }) => {
-    await page.setViewportSize(PHONE);
-    await page.goto("/");
-    await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(700);
-    // The rail is wider than the phone by design; what must not happen is the
-    // rail's BOX staying at the window's width while its rungs overflow it,
-    // which is what left the connecting line drawn only under the first four.
-    const rail = await page.locator(".ladder-rail").evaluate((el) => ({
-      box: Math.round(el.getBoundingClientRect().width),
-      content: el.scrollWidth,
-      line: Math.round(el.querySelector(".ladder-line")!.getBoundingClientRect().width),
-    }));
-    expect(rail.box, "the rail's box must cover its rungs").toBe(rail.content);
-    expect(rail.line, "the rail line must run the length of the ladder").toBeGreaterThan(
-      rail.content * 0.9
-    );
-  });
-});
+   components/LevelLadder.tsx is still in the tree, unrendered. If it is ever
+   put back on a page, restore these from git history rather than writing new
+   ones: they pin the property that mattered (every level legible and reachable
+   by the end of the climb) rather than the mechanism, which is why they
+   survived the section's last rewrite. */
 
 test.describe("a live recording can always be stopped", () => {
   /* Not reported — found looking for the two above, and the worst of the
