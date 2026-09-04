@@ -3284,6 +3284,21 @@ html[data-native][data-theme="dark"] .apple-signin-btn {
   );
 }
 
+/* A safety valve one step ahead of the block below, and the reason it exists:
+   Felix's read grew from one line to a read plus a line of coaching, which put
+   ~100px on the report card. The stage is centred, so this padding only ever
+   binds when the card is TALLER than the window — where it fits, the flex
+   centring owns the spacing and nothing here is visible. So this buys the new
+   copy its height back out of dead padding on every laptop-sized window,
+   without touching a type size. Nothing but padding may go in this block; the
+   moment it needs to shrink text, it belongs in the block below. */
+@media (max-height: 1000px) {
+  .lp-stage-pad {
+    padding-top: 44px;
+    padding-bottom: 44px;
+  }
+}
+
 /* A short window cannot hold a 100svh set piece AND the copy inside it, and
    a pinned box taller than the window has no way to scroll the rest into
    view. Rather than drop the pins — which would gut the two centrepieces on
@@ -3307,6 +3322,14 @@ html[data-native][data-theme="dark"] .apple-signin-btn {
      past the pinned stage on a shallow window and clips its own footer. */
   .lp-report-read {
     font-size: 17px;
+    margin-top: 6px;
+  }
+  /* The coaching line under the read. It is the newest thing on the card and
+     therefore the newest way for the card to outgrow the pin, so it compacts
+     with the rest rather than being the one line that does not. */
+  .lp-report-readsub {
+    font-size: 13.5px;
+    line-height: 1.5;
     margin-top: 6px;
   }
   .lp-score {

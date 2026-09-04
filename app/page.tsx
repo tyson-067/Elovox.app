@@ -77,23 +77,23 @@ const SCORES: Array<[string, number]> = [
   ["Audience engagement", 88],
 ];
 
-// One line per marked phrase in the quote, in the order the words are spoken.
-// Every underline on the card is now accounted for — a mark with no note is a
-// claim the report draws and never explains, and the card used to draw three
-// and explain one. `soft` tracks .lp-mark-soft on the phrase it refers to, so
-// a note's rule is the same colour as the underline it belongs to.
+// Delivery coaching against the impact mode named on the card, "sound like a
+// leader". Each line says what the LISTENER is taking from a moment and what
+// to change, because a note that only identifies a mechanic ("you said the
+// number once") is a scorekeeper's observation, not coaching — it never tells
+// the reader why the moment mattered or what it cost them.
+//
+// One note per mark, and now two of each: the result, and the hedge in front
+// of it. `soft` tracks .lp-mark-soft on the phrase the note refers to, so a
+// note's rule is the same colour as the underline it belongs to.
 const REPORT_NOTES: Array<{ time: string; note: string; soft?: boolean }> = [
   {
     time: "0:23",
-    note: "Good lead-in. Keep it.",
-  },
-  {
-    time: "0:25",
-    note: "You said the number once. Good.",
+    note: "Stress “doubled it.” This is your strongest point.",
   },
   {
     time: "0:27",
-    note: "Cut “um, basically.”",
+    note: "Cut “um” and “basically.” The filler and qualifier make you sound less certain. Start clean: “We’re well ahead of schedule.”",
     soft: true,
   },
 ];
@@ -499,34 +499,56 @@ export default function LandingPage() {
                   </span>
                 </div>
 
-                {/* The card now leads with the ANSWER — how you came across —
+                {/* The card leads with the ANSWER — how you came across —
                     because that is the question the impact mode above asked.
                     Everything below it is the working: your words, then the
-                    scores, then the numbers. The measurements did not move and
-                    nothing was dropped; they stopped being the headline.
+                    scores, then the numbers.
 
-                    The read is derived from the figures on this very card, not
-                    invented for the mock: Confidence 84 is the highest score
-                    but one, Pacing 79 is the lowest, and 142 wpm is the brisk
-                    end of conversational. If those numbers change, this line
-                    has to change with them. */}
+                    Read against the impact mode named in the pill, not in the
+                    abstract. "Sound like a leader" is won and lost on whether
+                    the strongest claim gets emphasis and room, so the read
+                    names the moment that decides it — and the line under it
+                    says what the listener needed from that moment. The old
+                    copy ("confident and a little rushed") described the
+                    speaker's mechanics and left the reader to work out what
+                    they cost him.
+
+                    Still derived from the figures on this very card, not
+                    invented for the mock: Confidence 84 is the second-highest
+                    score, which is why the read grants confidence and spends
+                    its argument on emphasis instead. */}
                 <div className="mt-6">
                   <p className="font-data text-[11px] font-medium uppercase tracking-[0.14em] text-shrimp/80">
                     Felix&apos;s read
                   </p>
                   <p className="lp-report-read mt-2.5 text-[clamp(18px,1.6vw,26px)] leading-[1.35] font-semibold tracking-[-0.02em] text-white">
-                    You sounded confident, and a little rushed.
+                    You sounded confident, but your strongest result didn&apos;t
+                    get the emphasis it deserved.
+                  </p>
+                  {/* The interpretation, one step down in the hierarchy: the
+                      read is the verdict, this is the coaching that follows
+                      from it. Body scale, not a second headline. */}
+                  <p className="lp-report-readsub mt-2.5 text-[15px] leading-[1.55] text-white/85">
+                    &ldquo;Doubled it&rdquo; is the moment that proves your
+                    result. Emphasize those words, then pause. Give the listener
+                    a second to take it in.
                   </p>
                 </div>
 
                 {/* Your own words, with the marks the report actually draws:
-                    the enum is ["strong", "flag"] and nothing else. */}
+                    the enum is ["strong", "flag"] and nothing else.
+
+                    Two marks, not three. "didn't just meet" was underlined and
+                    then never spoken about, and a mark the report draws and
+                    never explains is a claim it cannot back. What is left is
+                    the pair the coaching is actually about: the result, and
+                    the hedge in front of it. */}
                 <p
                   data-lp-report-quote
-                  className="lp-report-quote mt-6 text-[clamp(17px,1.5vw,24px)] leading-[1.75] text-white"
+                  className="lp-report-quote mt-5 text-[clamp(17px,1.5vw,24px)] leading-[1.75] text-white"
                 >
-                  We <span className="lp-mark">didn&apos;t just meet</span> the
-                  goal, we <span className="lp-mark">doubled</span> it,{" "}
+                  We didn&apos;t just meet the goal, we{" "}
+                  <span className="lp-mark">doubled</span> it,{" "}
                   <span className="lp-mark lp-mark-soft text-white/80">
                     um, basically
                   </span>{" "}
@@ -537,7 +559,7 @@ export default function LandingPage() {
                     three notes read as a scannable column against the quote
                     above rather than three paragraphs that each have to be
                     read to find their moment. */}
-                <div className="mt-5 flex flex-col gap-2.5">
+                <div className="mt-4 flex flex-col gap-2">
                   {REPORT_NOTES.map(({ time, note, soft }) => (
                     <p
                       key={time}
@@ -556,7 +578,7 @@ export default function LandingPage() {
                   ))}
                 </div>
 
-                <div className="mt-[30px] grid grid-cols-1 gap-x-[34px] gap-y-3.5 sm:grid-cols-2">
+                <div className="mt-6 grid grid-cols-1 gap-x-[34px] gap-y-3.5 sm:grid-cols-2">
                   {SCORES.map(([name, value]) => (
                     <div
                       key={name}
@@ -586,7 +608,7 @@ export default function LandingPage() {
                   142 words per minute · 3 fillers · 2 pauses over 1.2s
                 </p>
 
-                <div className="mt-[30px] flex flex-wrap items-end justify-between gap-5 border-t border-white/12 pt-[24px]">
+                <div className="mt-6 flex flex-wrap items-end justify-between gap-5 border-t border-white/12 pt-[22px]">
                   <div>
                     <p className="flex items-baseline gap-2 font-data font-medium leading-none tracking-[-0.03em]">
                       {/* Scrubbed 0 → 86 by the pin. Rendered at its finished

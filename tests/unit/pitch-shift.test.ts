@@ -102,12 +102,20 @@ describe("shiftPitch", () => {
 
 describe("anchorToFelix", () => {
   it("pulls an off-pitch clip onto the anchor", () => {
-    // Inside MAX_SHIFT of the anchor: this is the case the anchor exists for,
-    // a render that came back a little low and can be pulled up without the
-    // correction becoming audible.
-    const off = vowel(190, 2);
+    // Inside MAX_SHIFT of the anchor but outside its 2% dead band, and stated
+    // RELATIVE to the anchor rather than as a number.
+    //
+    // It was a hard-coded 190 Hz, which only tested anything while the anchor
+    // happened to be 197.5. Re-cutting Felix moved the anchor to 193, 190 fell
+    // inside the dead band, and this then failed for asserting the one thing
+    // anchorToFelix is documented NOT to do — correct a clip already close
+    // enough to hear as the same voice. A fixture that has to be re-tuned
+    // every time the anchor moves is a fixture that is measuring the anchor
+    // instead of the function.
+    const offHz = FELIX_ANCHOR_HZ / 1.06;
+    const off = vowel(offHz, 2);
     const { samples, from, ratio } = anchorToFelix(off, SR);
-    expect(from!).toBeCloseTo(190, -1);
+    expect(from!).toBeCloseTo(offHz, -1);
     expect(ratio).toBeGreaterThan(1);
     expect(medianF0(samples, SR)!).toBeCloseTo(FELIX_ANCHOR_HZ, -1);
   });

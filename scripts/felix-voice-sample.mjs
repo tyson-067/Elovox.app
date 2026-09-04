@@ -8,6 +8,11 @@
 // Reads FISH_AUDIO_API_KEY (and the optional VOICE_ID / MODEL) from
 // .env.local, the same way the server does. Re-run whenever the voice or
 // the line changes; commit the MP3.
+//
+// Every take it writes comes out at FELIX_TARGET_HZ (lib/voicePitch.ts), the
+// landing hero's pitch. A draw the model returns too far from that is thrown
+// away and re-rendered rather than committed, so re-cutting a LINE cannot
+// quietly change the VOICE.
 
 import { readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -19,12 +24,18 @@ import {
   pcm,
   splitByText,
   pitchRatio,
+  normalizeToPitch,
   TAKE_SEPARATOR,
   PITCH_TOLERANCE,
+  FELIX_PITCH_BAND,
+  FELIX_TARGET_HZ,
+  FELIX_MATCH_TOLERANCE,
+  FELIX_REROLL_RATIO,
 } from "../lib/voicePitch.ts";
 
 import { FELIX_SAMPLE_TAKE, FELIX_SAMPLE_NOTE } from "../lib/felixSample.ts";
 import { fingerprint, voiceFingerprint } from "../lib/felixSampleStamp.ts";
+import { transcribeClip, startsRight } from "../lib/verifyCut.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
@@ -75,6 +86,14 @@ if (!key) {
   process.exit(1);
 }
 
+// Optional, and the script says so rather than refusing: without it the cut
+// cannot be checked, which is exactly how a clip that opened mid-sentence got
+// committed. Present in .env.local for the report pipeline anyway.
+const aaiKey = process.env.ASSEMBLYAI_API_KEY;
+if (!aaiKey) {
+  console.warn("ASSEMBLYAI_API_KEY is not set — cuts will not be verified. Listen to both MP3s before committing.");
+}
+
 console.log(`Asking Fish Audio (${fishAudioModel()}${fishAudioVoiceId() ? `, voice ${fishAudioVoiceId()}` : ", stock voice"})…`);
 
 // ONE REQUEST, ONE VOICE.
@@ -109,7 +128,16 @@ if (hasFfmpeg()) {
   // do not match, up to ATTEMPTS times. The bar is the same PITCH_TOLERANCE
   // the committed-file test enforces, so this script cannot produce something
   // that test would reject.
-  const ATTEMPTS = 5;
+  //
+  // Then MATCH IT TO FELIX. One render is one voice, but it is a voice the
+  // model picked at random, and "whoever answered today" is not a character.
+  // The landing hero's pitch is declared canonical as FELIX_TARGET_HZ, so a
+  // draw too far from it is thrown away, and what remains is corrected the
+  // rest of the way — the same normalisation the browser applies to runtime
+  // report clips (anchorToFelix in lib/pitchShift.ts). Every clip Elovox ever
+  // plays therefore comes out at one pitch: this one.
+  const ATTEMPTS = 6;
+  const [BAND_LO, BAND_HI] = FELIX_PITCH_BAND;
   for (let n = 1; n <= ATTEMPTS; n++) {
     console.log(`  one render for all ${SAMPLES.length} takes (attempt ${n}/${ATTEMPTS})…`);
     const whole = Buffer.from(
@@ -123,10 +151,45 @@ if (hasFfmpeg()) {
     );
     const tmp = join(ROOT, "public", ".felix-joined.tmp.mp3");
     writeFileSync(tmp, whole);
-    const cut = splitByText(tmp, SAMPLES.map((s) => s.text));
+
+    // WHERE THE CUT GOES, CHECKED RATHER THAN ASSUMED.
+    //
+    // splitByText can only GUESS the boundary from the takes' character
+    // counts, and it guessed wrong once in a way every other check passed:
+    // the model pauses after the bare "um" that opens the report take, and
+    // that hesitation beat the separator on both distance and length. The
+    // committed sample opened on "and basically" for a day.
+    //
+    // So each candidate boundary is tried in turn and the clips are
+    // TRANSCRIBED, and the first cut whose halves actually begin with the
+    // words they were cut for is the one used. Nothing else can tell a clean
+    // cut from a fluent-sounding broken one.
+    let cut = null;
+    for (let rank = 0; rank < 4; rank++) {
+      const candidate = splitByText(tmp, SAMPLES.map((s) => s.text), rank);
+      if (!candidate) break;
+      if (!aaiKey) {
+        console.warn("    ASSEMBLYAI_API_KEY not set — taking the first cut UNVERIFIED.");
+        cut = candidate;
+        break;
+      }
+      const heard = [];
+      for (const clip of candidate) heard.push(await transcribeClip(clip, aaiKey));
+      const checks = SAMPLES.map((sample, i) => startsRight(heard[i], sample.text));
+      const bad = checks.findIndex((c) => !c.ok);
+      if (bad === -1) {
+        console.log(`    cut ${rank} verified: every clip opens on its own words.`);
+        cut = candidate;
+        break;
+      }
+      console.warn(
+        `    cut ${rank} is wrong — ${SAMPLES[bad].label} opens "${checks[bad].got}", ` +
+          `should be "${checks[bad].want}"; trying the next boundary.`
+      );
+    }
     rmSync(tmp, { force: true });
     if (!cut) {
-      console.warn("    could not place the cut; re-rendering.");
+      console.warn("    no boundary produced clips that say the right words; re-rendering.");
       continue;
     }
     const f0 = cut.map((c) => medianF0(pcm(c)));
@@ -137,22 +200,55 @@ if (hasFfmpeg()) {
     const worst = Math.max(
       ...f0.flatMap((a, i) => f0.slice(i + 1).map((b) => pitchRatio(a, b)))
     );
-    console.log(`    ${f0.map((f) => `${f.toFixed(0)} Hz`).join(", ")} (spread x${worst.toFixed(2)})`);
-    if (worst <= PITCH_TOLERANCE) {
-      clips = cut;
-      break;
+    console.log(
+      `    ${f0.map((f) => `${f.toFixed(0)} Hz`).join(", ")} ` +
+        `(spread x${worst.toFixed(2)}, hero x${pitchRatio(f0[0], FELIX_TARGET_HZ).toFixed(2)} off Felix)`
+    );
+    if (worst > PITCH_TOLERANCE) {
+      console.warn(`    the model changed voice mid-render (x${worst.toFixed(2)} > x${PITCH_TOLERANCE}); re-rendering.`);
+      continue;
     }
-    console.warn(`    the model changed voice mid-render (x${worst.toFixed(2)} > x${PITCH_TOLERANCE}); re-rendering.`);
+    if (f0.some((f) => f < BAND_LO || f > BAND_HI)) {
+      console.warn(`    a clip is outside ${BAND_LO}-${BAND_HI} Hz, the band a real render lands in; re-rendering.`);
+      continue;
+    }
+    // The hero is the one measured against Felix himself: it is the clip the
+    // others are cut beside and the one the profile is written from.
+    const off = pitchRatio(f0[0], FELIX_TARGET_HZ);
+    if (off > FELIX_REROLL_RATIO) {
+      console.warn(
+        `    this draw is x${off.toFixed(2)} from Felix (${FELIX_TARGET_HZ} Hz), ` +
+          `further than x${FELIX_REROLL_RATIO} is worth correcting; re-rendering.`
+      );
+      continue;
+    }
+
+    // Every take onto Felix's pitch, hero included.
+    const tuned = cut.map((c) => normalizeToPitch(c, FELIX_TARGET_HZ));
+    const after = tuned.map((t) => t.to ?? medianF0(pcm(t.bytes)));
+    console.log(
+      `    tuned to ${FELIX_TARGET_HZ} Hz: ` +
+        tuned.map((t, i) => `x${t.ratio.toFixed(3)} -> ${after[i]?.toFixed(0) ?? "?"} Hz`).join(", ")
+    );
+    const missed = after.some(
+      (f) => f === null || pitchRatio(f, FELIX_TARGET_HZ) > FELIX_MATCH_TOLERANCE
+    );
+    if (missed) {
+      console.warn(`    a clip would not sit within x${FELIX_MATCH_TOLERANCE} of Felix; re-rendering.`);
+      continue;
+    }
+    clips = tuned.map((t) => t.bytes);
+    break;
   }
   if (!clips) {
-    console.warn("  no attempt produced one voice across every take. Run it again.");
+    console.warn("  no attempt produced Felix's voice across every take. Run it again.");
   }
 } else {
   console.warn("  ffmpeg not found — falling back to one call per take, so the voices may differ.");
 }
 
 for (const [i, sample] of SAMPLES.entries()) {
-  const bytes = clips
+  let bytes = clips
     ? Buffer.from(clips[i])
     : Buffer.from(
         await synthesize(key, {
@@ -163,6 +259,22 @@ for (const [i, sample] of SAMPLES.entries()) {
           timeoutMs: 45_000,
         })
       );
+
+  // The fallback path renders each take on its own, so nothing above has put
+  // it on Felix's pitch. Do it here rather than commit a clip that is not him
+  // — separate calls are still separate VOICES, which one number cannot fix,
+  // but a clip at the right pitch is the closest this path can get and it is
+  // strictly better than leaving the draw where it landed.
+  if (!clips && hasFfmpeg()) {
+    const tuned = normalizeToPitch(bytes, FELIX_TARGET_HZ);
+    if (tuned.ratio !== 1) {
+      console.warn(
+        `  ${sample.label}: fallback render tuned x${tuned.ratio.toFixed(3)} ` +
+          `(${tuned.from?.toFixed(0)} -> ${tuned.to?.toFixed(0)} Hz). Timbre may still differ; re-run.`
+      );
+      bytes = Buffer.from(tuned.bytes);
+    }
+  }
 
   if (hasFfmpeg()) {
     const f0 = medianF0(pcm(bytes));
@@ -188,18 +300,34 @@ for (const [i, sample] of SAMPLES.entries()) {
     `  ${sample.label}: wrote ${sample.out} (${(bytes.byteLength / 1024).toFixed(1)} KB) and its stamp.`
   );
 }
-// The pitch the runtime anchors report clips to, measured from the clip that
-// was actually written rather than typed into a constant by hand. Re-cutting
-// therefore keeps lib/pitchShift.ts pointed at the voice on the front door.
+// The pitch the runtime anchors report clips to.
+//
+// This is FELIX_TARGET_HZ, not the measurement — the takes above were tuned
+// ONTO that number, so it is what the landing page is, and re-measuring only
+// re-introduces the correction's own residual (the median moves a percent or
+// two when the re-encode changes which frames pass the voicing gate). Anchoring
+// the browser to a wobble would mean every re-cut nudged the runtime voice for
+// no reason. `heroHz` records what the committed clip actually measured, so a
+// drift between the two is visible here rather than inferred.
 if (hasFfmpeg()) {
   const heroPitch = medianF0(pcm(readFileSync(SAMPLES[0].out)));
-  if (heroPitch) {
-    writeFileSync(
-      join(ROOT, "lib", "felixVoiceProfile.json"),
-      JSON.stringify({ anchorHz: Math.round(heroPitch * 10) / 10, from: "public/felix-hello.mp3", generatedAt: new Date().toISOString() }, null, 2) + "\n"
-    );
-    console.log(`  wrote lib/felixVoiceProfile.json (anchor ${heroPitch.toFixed(1)} Hz).`);
-  }
+  writeFileSync(
+    join(ROOT, "lib", "felixVoiceProfile.json"),
+    JSON.stringify(
+      {
+        anchorHz: FELIX_TARGET_HZ,
+        heroHz: heroPitch ? Math.round(heroPitch * 10) / 10 : null,
+        from: "public/felix-hello.mp3",
+        generatedAt: new Date().toISOString(),
+      },
+      null,
+      2
+    ) + "\n"
+  );
+  console.log(
+    `  wrote lib/felixVoiceProfile.json (anchor ${FELIX_TARGET_HZ} Hz, ` +
+      `hero measured ${heroPitch?.toFixed(1) ?? "?"} Hz).`
+  );
 }
 
 console.log("Commit the MP3s, their stamps, and the voice profile.");

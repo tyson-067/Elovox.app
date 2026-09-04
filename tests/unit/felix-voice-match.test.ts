@@ -4,8 +4,10 @@ import {
   pitchOf,
   pitchRatio,
   FELIX_PITCH_BAND,
-  PITCH_TOLERANCE,
+  FELIX_TARGET_HZ,
+  FELIX_MATCH_TOLERANCE,
 } from "@/lib/voicePitch";
+import profile from "@/lib/felixVoiceProfile.json";
 
 /* ---------------------------------------------------------------------------
    Do the committed samples actually sound like the same fox?
@@ -16,11 +18,16 @@ import {
    `reference_id` and returns a different generic voice per CALL, so the fix
    was to stop making two calls.
 
-   What is left for a test is the failure that survives that: a file committed
-   some other way. Two calls, a fallback path, a hand-edit, an over-eager pitch
-   correction. Each clip has to sit in the band a real render lands in, and the
-   two have to sit near each other — loosely, because one speaker's median
-   pitch moves with what the sentence is doing.
+   That is not enough on its own, and the reason this file got stricter: one
+   render is one voice, but it is a voice the model picked at random. A re-cut
+   of the report LINE came back at 178 Hz beside a 193 Hz hero — a ratio of
+   1.08, comfortably inside the old ceiling of 1.25, and audibly not the same
+   fox to anyone who pressed both buttons on the landing page.
+
+   So the bar is no longer "near each other". Every committed clip has to be at
+   FELIX_TARGET_HZ, the pitch the landing hero has always had, which
+   scripts/felix-voice-sample.mjs now tunes each take onto. Near each other is
+   implied by that and is no longer the thing being asked.
    --------------------------------------------------------------------------- */
 
 const SAMPLES = ["public/felix-hello.mp3", "public/felix-note.mp3"];
@@ -53,14 +60,30 @@ run("the committed Felix samples are the same voice", () => {
     }
   });
 
-  it("and every clip is at the same pitch as the others", () => {
-    const [a, b] = pitches;
-    const ratio = pitchRatio(a.f0!, b.f0!);
+  it("and every clip is Felix, not merely near the clip beside it", () => {
+    // THE test. Each file measured against the character, not against its
+    // neighbour: two clips can agree with each other and both be a stranger.
+    for (const { path, f0 } of pitches) {
+      const off = pitchRatio(f0!, FELIX_TARGET_HZ);
+      expect(
+        off,
+        `\n${path} is ${f0!.toFixed(1)} Hz, x${off.toFixed(3)} from Felix ` +
+          `(${FELIX_TARGET_HZ} Hz, ceiling x${FELIX_MATCH_TOLERANCE}).\n` +
+          "Fix: npm run felix:voice, then run this test before committing.\n"
+      ).toBeLessThan(FELIX_MATCH_TOLERANCE);
+    }
+  });
+
+  it("and the runtime is pulling report clips toward that same voice", () => {
+    // lib/pitchShift.ts anchors every browser-side clip to profile.anchorHz.
+    // If the profile drifts from FELIX_TARGET_HZ, the static samples and the
+    // live ones are two different foxes and nothing else here would notice.
+    const off = pitchRatio(profile.anchorHz, FELIX_TARGET_HZ);
     expect(
-      ratio,
-      `\n${a.path} ${a.f0!.toFixed(1)} Hz\n${b.path} ${b.f0!.toFixed(1)} Hz\n` +
-        `ratio ${ratio.toFixed(3)}, ceiling ${PITCH_TOLERANCE} — not the same fox.\n` +
-        "Fix: npm run felix:voice, then run this test before committing.\n"
-    ).toBeLessThan(PITCH_TOLERANCE);
+      off,
+      `\nlib/felixVoiceProfile.json anchors runtime clips to ${profile.anchorHz} Hz, ` +
+        `x${off.toFixed(3)} from Felix (${FELIX_TARGET_HZ} Hz).\n` +
+        "Fix: npm run felix:voice, which rewrites the profile from the clip it cut.\n"
+    ).toBeLessThan(FELIX_MATCH_TOLERANCE);
   });
 });

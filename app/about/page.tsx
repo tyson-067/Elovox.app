@@ -142,14 +142,22 @@ export default function AboutPage() {
       />
       <RedirectIfAuthed />
 
-      {/* ================= HERO ================= */}
-      {/* Built to rhyme with the landing hero rather than to match it: same
-          eyebrow, same Montserrat-then-Playfair two-line lockup, one size
-          down. "Speak with impact." / "Everyone should feel heard." are the
-          two halves of the same sentence, and a reader who arrives here from
-          the homepage should feel that before reading a word of the body. */}
+      {/* ================= WHY WE BUILT IT ================= */}
+      {/* The page's opening section now, and it wears the hero's clothes: the
+          Montserrat-then-Playfair two-line lockup that "Everyone should / feel
+          heard." had, at the same sizes, so the About page still opens on a
+          display line rather than a section heading. Only the words changed.
+          The 5fr/7fr split went with the old h2 — a display lockup wants the
+          full measure, and the paragraphs sit under it the way the hero's did.
+
+          The ambient layer — dot grid and two drifting orbs — used to belong
+          to the hero above and was clipped to that section's box. With the
+          hero cut, `inset-0` would have cropped a 560px grid down to a few
+          dozen pixels of stray banding under the nav, so the layer is given
+          its own fixed canvas at the top of the page instead of inheriting
+          whatever height this section happens to have. */}
       <section className="relative pt-10 md:pt-14">
-        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
+        <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[620px] overflow-hidden" aria-hidden="true">
           <div className="dot-grid absolute -inset-x-10 -top-16 h-[560px]" />
           <Parallax speed={0.24} className="absolute top-6 right-[6%]">
             <div className="orb-float h-[240px] w-[240px] rounded-full bg-[radial-gradient(circle,rgba(255,132,0,0.2),rgba(255,132,0,0)_70%)] blur-[14px]" />
@@ -159,67 +167,41 @@ export default function AboutPage() {
           </Parallax>
         </div>
 
+        {/* The old eyebrow said "Why we built Elovox" and the old h2 said
+            "It started with a pattern we kept noticing." Those were two ways
+            of announcing the same paragraph, so the label became the heading
+            and the heading was cut. The brand name takes the serif line the
+            way "feel heard." did — one or two words, which is the only length
+            Playfair is allowed on this site. */}
         <Reveal>
-          <Eyebrow>About Elovox</Eyebrow>
-        </Reveal>
-
-        <Reveal delay={60}>
           <h1 className="mt-5 font-bold tracking-[-0.04em]">
             <span className="block font-headline text-[clamp(2.35rem,8.2vw,6.4rem)] font-extrabold leading-[1.08] text-oxford">
-              Everyone should
+              Why we built
             </span>
             {/* font-size on the WRAPPER, as in the landing hero: .lp-serif-grad
                 is 1em, so the em-based padding that keeps Playfair's descender
                 off the baseline has to resolve against the display size. */}
             <span className="mt-[0.04em] block overflow-hidden pb-[0.09em] text-[clamp(2.55rem,8.9vw,6.9rem)] leading-[1.14]">
-              <span className="lp-serif-grad">feel heard.</span>
+              <span className="lp-serif-grad">Elovox</span>
             </span>
           </h1>
         </Reveal>
 
-        {/* One paragraph, on its own, at a measure that stays comfortable at
-            every width. It was a two-up spread; the second column has been
-            cut rather than stacked, because the line that follows the
-            headline should be the only thing competing with it. */}
-        <Reveal delay={130}>
-          <p className="mt-[clamp(34px,5vw,60px)] max-w-[46ch] text-[clamp(18px,1.35vw,22px)] leading-[1.6] text-on-surface-variant">
-            Communication isn&apos;t only about finding the right words.
-            It&apos;s about how those words make someone feel.
-          </p>
-        </Reveal>
-      </section>
-
-      {/* ================= WHY WE BUILT IT ================= */}
-      {/* The landing page's 5fr/7fr split, so the eyebrow and heading sit
-          against the copy instead of on top of it. One column below md. */}
-      <section className="mt-[var(--space-section-lg)]">
-        <div className="grid grid-cols-1 gap-x-[clamp(28px,4vw,64px)] gap-y-7 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-          <div>
-            <Reveal>
-              <Eyebrow>Why we built Elovox</Eyebrow>
-            </Reveal>
-            <Reveal delay={70}>
-              <h2 className="mt-[18px] font-headline text-[clamp(1.7rem,2.6vw,2.6rem)] font-extrabold leading-[1.08] tracking-[-0.03em] text-primary">
-                It started with a pattern we kept noticing.
-              </h2>
-            </Reveal>
-          </div>
-          <div className="max-w-[54ch] text-[clamp(17px,1.1vw,19px)] leading-[1.68] text-on-surface-variant">
-            <Reveal delay={110}>
-              <p>
-                We met in San Diego in the summer of 2026, coming from debate,
-                speech, competitions, and startup pitches.
-              </p>
-            </Reveal>
-            <Reveal delay={160}>
-              <p className="mt-5">
-                Across all of them, we kept seeing the same thing: having
-                something worth saying isn&apos;t enough. How people experience
-                you can change whether they trust you, understand you, or want
-                to keep listening.
-              </p>
-            </Reveal>
-          </div>
+        <div className="mt-[clamp(34px,5vw,60px)] max-w-[54ch] text-[clamp(17px,1.1vw,19px)] leading-[1.68] text-on-surface-variant">
+          <Reveal delay={110}>
+            <p>
+              We met in San Diego in the summer of 2026, coming from debate,
+              speech, competitions, and startup pitches.
+            </p>
+          </Reveal>
+          <Reveal delay={160}>
+            <p className="mt-5">
+              Across all of them, we kept seeing the same thing: having
+              something worth saying isn&apos;t enough. How people experience
+              you can change whether they trust you, understand you, or want
+              to keep listening.
+            </p>
+          </Reveal>
         </div>
       </section>
 
