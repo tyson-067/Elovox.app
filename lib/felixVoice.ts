@@ -20,6 +20,7 @@ import {
   type FelixFrame,
   type LipState,
 } from "@/lib/lipSync";
+import { anchorToFelix } from "@/lib/pitchShift";
 
 export type { FelixFrame };
 
@@ -317,6 +318,42 @@ export class FelixVoice {
     // too. speak() resumes it inside the next tap; nothing to do here.
   }
 
+  /**
+   * Pull a clip onto the landing page's pitch.
+   *
+   * The free Fish Audio model returns a different generic voice on every call,
+   * so a report synthesised from the take you just recorded arrives in a
+   * different fox than the one on the front door. The landing page avoids that
+   * by cutting both its takes from a single render; a report cannot, because
+   * its words do not exist until you speak them. Vercel's Node runtime has no
+   * ffmpeg, so the correction that build-time uses is done here instead.
+   *
+   * Once per clip, on load rather than on play, and cached with the buffer —
+   * the work is a few hundred milliseconds of arithmetic on a phone and there
+   * is no reason to repeat it every time someone presses the button.
+   *
+   * Mono in practice (Fish Audio returns one channel). If a stereo clip ever
+   * arrives it is left alone rather than half-corrected: lib/pitchShift works a
+   * channel at a time, and shifting one channel and not the other would be a
+   * worse artefact than the mismatch it is fixing.
+   */
+  private anchor(buffer: AudioBuffer): AudioBuffer {
+    if (buffer.numberOfChannels !== 1) return buffer;
+    try {
+      const { samples, ratio } = anchorToFelix(
+        buffer.getChannelData(0),
+        buffer.sampleRate
+      );
+      if (ratio === 1) return buffer;
+      const out = this.context().createBuffer(1, samples.length, buffer.sampleRate);
+      out.copyToChannel(new Float32Array(samples), 0);
+      return out;
+    } catch {
+      // Never let a cosmetic correction be the reason Felix does not speak.
+      return buffer;
+    }
+  }
+
   private load(src: FelixVoiceSource): Promise<AudioBuffer> {
     const key = cacheKey(src);
     const cached = this.buffers.get(key);
@@ -327,7 +364,8 @@ export class FelixVoice {
     const p = (async () => {
       const bytes = await this.fetchAudio(src);
       // decodeAudioData needs its own copy: some browsers detach the buffer.
-      const buffer = await this.context().decodeAudioData(bytes.slice(0));
+      const decoded = await this.context().decodeAudioData(bytes.slice(0));
+      const buffer = this.anchor(decoded);
       this.buffers.set(key, buffer);
       return buffer;
     })().finally(() => this.pending.delete(key));

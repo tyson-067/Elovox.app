@@ -29,12 +29,35 @@ export function fishAudioKey(): string | undefined {
   return process.env.FISH_AUDIO_API_KEY || undefined;
 }
 
+/**
+ * Felix's speaking rate, everywhere he speaks.
+ *
+ * Shared rather than restated: /api/voice reads it per request and
+ * scripts/felix-voice-sample.mjs bakes it into the committed MP3s, and those
+ * two sounding like the same fox is the whole point. Tuning it in one place
+ * and not the other gives the landing page and the report the same voice at
+ * different speeds, which is exactly as wrong as two different voices and
+ * much harder to spot.
+ */
+export const FELIX_SPEED = 1.04;
+
 export function fishAudioVoiceId(): string | undefined {
   return process.env.FISH_AUDIO_VOICE_ID || undefined;
 }
 
+/**
+ * Always the free model.
+ *
+ * FISH_AUDIO_MODEL is deliberately NOT read any more. It used to override this,
+ * which meant a paid tier was one environment variable away — set once on
+ * Vercel and every take, every report, every re-cut of the landing samples
+ * bills per character with nothing in the product to say it had happened. The
+ * free model is what Elovox ships on, so it is the only model it can ask for.
+ *
+ * To move off it, change this constant deliberately and in the open.
+ */
 export function fishAudioModel(): string {
-  return process.env.FISH_AUDIO_MODEL || FISH_AUDIO_DEFAULT_MODEL;
+  return FISH_AUDIO_DEFAULT_MODEL;
 }
 
 export class FishAudioError extends Error {

@@ -168,11 +168,14 @@ describe("/api/voice — what gets sent", () => {
     expect(sent.format).toBe("mp3");
   });
 
-  it("honours FISH_AUDIO_MODEL when set", async () => {
+  it("IGNORES FISH_AUDIO_MODEL: the free model is the only one it asks for", async () => {
+    // This used to assert the opposite. The override is gone on purpose — a
+    // paid tier one env var away is a bill that arrives with nothing in the
+    // product having said it would. See fishAudioModel in lib/fishAudio.ts.
     vi.stubEnv("FISH_AUDIO_MODEL", "s2.1-pro");
     await POST(voiceReq({ text: "Read this." }));
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect((init.headers as Record<string, string>).model).toBe("s2.1-pro");
+    expect((init.headers as Record<string, string>).model).toBe("s2.1-pro-free");
   });
 
   it("charges the daily meter exactly once, on its own field, before the call", async () => {
@@ -307,16 +310,18 @@ describe("/api/voice — a session's take", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("a new model does the same", async () => {
+  it("cannot be knocked off the free model by the environment", async () => {
+    // The cache keys on model as well as voice, so this once proved that a
+    // model change invalidated a clip. The model can no longer change from the
+    // environment, so what it proves now is the stronger thing: the cached
+    // clip stays a HIT, because nothing about the request moved.
     withTake();
     await POST(voiceReq({ sessionId: "s1" }));
     vi.stubEnv("FISH_AUDIO_MODEL", "s2.1-pro");
     const res = await POST(voiceReq({ sessionId: "s1" }));
-    expect(res.headers.get("x-felix-voice")).toBe("fresh");
-    expect(fetchMock.mock.calls[1][1]).toMatchObject({
-      headers: expect.objectContaining({ model: "s2.1-pro" }),
-    });
-    expect(db!.data.get(CACHE)!.model).toBe("s2.1-pro");
+    expect(res.headers.get("x-felix-voice")).toBe("cached");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(db!.data.get(CACHE)!.model).toBe("s2.1-pro-free");
   });
 
   it("dropping back to the stock voice is a change too, not a hit", async () => {

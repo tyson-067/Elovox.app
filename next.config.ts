@@ -66,41 +66,58 @@ function warnOnStaleFelixSample() {
       createHash("sha256").update(v).digest("hex").slice(0, 16);
 
     const take = readFileSync(new URL("./lib/felixSample.ts", import.meta.url), "utf8");
-    // The exported string, reassembled from its "…" + "…" concatenation.
-    const literal = take.slice(take.indexOf("FELIX_SAMPLE_TAKE"));
-    const words = [...literal.matchAll(/"((?:[^"\\]|\\.)*)"/g)]
-      .map((m) => m[1].replace(/\\(.)/g, "$1"))
-      .join("");
+    // Pinned, not read from the environment: lib/fishAudio.ts only ever asks
+    // for the free model, so that is the only thing a sample can have been cut
+    // on and the only thing worth comparing against.
+    const model = "s2.1-pro-free";
+    const voice = voiceId ? fingerprint(voiceId) : "stock";
 
-    const expected = {
-      voice: voiceId ? fingerprint(voiceId) : "stock",
-      model: process.env.FISH_AUDIO_MODEL || "s2.1-pro-free",
-      text: fingerprint(words),
+    // The exported string, reassembled from its "…" + "…" concatenation.
+    // BOUNDED at the next top-level `export`: there is more than one sample in
+    // that file now, and an unbounded slice would swallow the next one's words
+    // and report drift on a file that is perfectly current.
+    const literalOf = (name: string) => {
+      const from = take.indexOf(name);
+      if (from < 0) return null;
+      const rest = take.slice(from + name.length);
+      const end = rest.indexOf("\nexport ");
+      return [...(end < 0 ? rest : rest.slice(0, end)).matchAll(/"((?:[^"\\]|\\.)*)"/g)]
+        .map((m) => m[1].replace(/\\(.)/g, "$1"))
+        .join("");
     };
 
-    let stamp: Record<string, unknown> | null = null;
-    try {
-      stamp = JSON.parse(
-        readFileSync(new URL("./lib/felixSample.stamp.json", import.meta.url), "utf8")
-      );
-    } catch {
-      stamp = null;
-    }
+    const SAMPLES = [
+      { name: "FELIX_SAMPLE_TAKE", file: "public/felix-hello.mp3", stamp: "./lib/felixSample.stamp.json" },
+      { name: "FELIX_SAMPLE_NOTE", file: "public/felix-note.mp3", stamp: "./lib/felixSampleNote.stamp.json" },
+    ];
 
     const drift: string[] = [];
-    if (!stamp) drift.push("public/felix-hello.mp3 has never been stamped");
-    else {
-      if (stamp.voice !== expected.voice)
-        drift.push(`the voice changed (sample cut in ${stamp.voice}, FISH_AUDIO_VOICE_ID is now ${expected.voice})`);
-      if (stamp.model !== expected.model)
-        drift.push(`the model changed (sample cut on ${stamp.model}, now ${expected.model})`);
-      if (stamp.text !== expected.text)
-        drift.push("FELIX_SAMPLE_TAKE changed, so the audio and its caption no longer agree");
+    for (const sample of SAMPLES) {
+      const words = literalOf(sample.name);
+      if (words === null) continue;
+
+      let stamp: Record<string, unknown> | null = null;
+      try {
+        stamp = JSON.parse(readFileSync(new URL(sample.stamp, import.meta.url), "utf8"));
+      } catch {
+        stamp = null;
+      }
+
+      if (!stamp) {
+        drift.push(`${sample.file} has never been stamped`);
+        continue;
+      }
+      if (stamp.voice !== voice)
+        drift.push(`${sample.file}: the voice changed (cut in ${stamp.voice}, FISH_AUDIO_VOICE_ID is now ${voice})`);
+      if (stamp.model !== model)
+        drift.push(`${sample.file}: the model changed (cut on ${stamp.model}, now ${model})`);
+      if (stamp.text !== fingerprint(words))
+        drift.push(`${sample.name} changed, so ${sample.file} and its caption no longer agree`);
     }
     if (drift.length === 0) return;
 
     console.warn(
-      "\n⚠️  The landing page's Felix sample is out of date — visitors will hear the OLD voice:"
+      "\n⚠️  A landing page Felix sample is out of date — visitors will hear the OLD voice:"
     );
     for (const line of drift) console.warn(`      ${line}`);
     console.warn("      Fix: npm run felix:voice, then commit the MP3 and its stamp.\n");

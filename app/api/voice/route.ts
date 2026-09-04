@@ -18,6 +18,7 @@ import {
   fishAudioKey,
   fishAudioModel,
   fishAudioVoiceId,
+  FELIX_SPEED,
   synthesize,
   VOICE_TEXT_MAX,
 } from "@/lib/fishAudio";
@@ -47,9 +48,6 @@ export const maxDuration = 30;
 
 /** Durable per-user daily ceiling on the Fish Audio meter. */
 const VOICE_GENS_PER_DAY = 200;
-
-/** A shade brisk. Felix coaches; he does not read bedtime stories. */
-const FELIX_SPEED = 1.04;
 
 /**
  * Cache ceiling. A Firestore document holds 1 MiB; a take is ~150 KB at the

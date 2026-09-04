@@ -6,6 +6,10 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    // Lets node: scripts and the browser share a module by relative path
+    // with its extension — see the import in lib/voicePitch.ts. Safe only
+    // because noEmit is on, which it is.
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
