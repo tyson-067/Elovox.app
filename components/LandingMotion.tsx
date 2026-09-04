@@ -121,12 +121,11 @@ export function LandingMotion() {
               "[data-lp-cta] > *",
               { y: 18, opacity: 0, duration: 0.6, stagger: 0.1 },
               0.8,
-            )
-            .from(
-              "[data-lp-herofox]",
-              { y: 34, opacity: 0, scale: 0.75, duration: 0.9, ease: "back.out(1.6)" },
-              0.95,
             );
+            // The hero fox used to land here on a back-ease at 0.95, after the
+            // CTA. He is no longer on the card, and a tween whose target does
+            // not exist is a silent no-op that outlives everyone who could
+            // remember what it was for.
 
           // Failsafe. A throttled rAF — a background tab, a blocked frame —
           // must never leave the hero parked at its hidden start state.

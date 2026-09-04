@@ -378,33 +378,22 @@ export default function LandingPage() {
                 ))}
               </div>
 
-              <p className="mt-4 text-[clamp(16px,1.25vw,19px)] leading-[1.7] text-white/95">
-                We didn&apos;t just meet the goal, we doubled it,{" "}
-                <span className="text-white/80">um, basically</span> ahead of
-                schedule.
-              </p>
-              <p className="mt-3.5 flex items-center gap-2.5 font-data text-[11.5px] uppercase tracking-[0.05em] text-white/80">
+              {/* The card is a take IN PROGRESS, and it now says only that:
+                  a running clock, a live waveform, and the word Listening.
+                  It used to print the transcript mid-recording, which is not
+                  a thing a recorder does — the words belong to the report
+                  further down, which is where they are read back and marked
+                  up. Felix sat on the corner of it as the play control for
+                  the finished sample; he goes with the same reasoning, since
+                  what this card shows is the take being captured rather than
+                  anything there is yet to hear.
+
+                  The waveform keeps its own bottom margin, so Listening sits
+                  the same distance under it as it always did. */}
+              <p className="mt-4 flex items-center gap-2.5 font-data text-[11.5px] uppercase tracking-[0.05em] text-white/80">
                 <span className="h-px w-[22px] bg-white/35" aria-hidden="true" />
                 Listening
               </p>
-            </div>
-
-            {/* Felix, sitting on the corner of the card. He is also the play
-                control for a real thirty-second take — the design's fox is
-                decoration, but there is no reason for it to be. */}
-            <div
-              data-lp-herofox
-              className="absolute -bottom-7 right-0 drop-shadow-[0_16px_28px_rgba(11,8,41,0.35)] sm:-bottom-11 sm:-right-4"
-            >
-              <FelixSpeaks
-                src="/felix-hello.mp3"
-                mood="coach"
-                speakingMood="coach"
-                animate
-                label="Hear Felix's voice"
-                showNote={false}
-                foxClassName="h-[104px] w-[104px] sm:h-[150px] sm:w-[150px]"
-              />
             </div>
           </div>
         </div>
