@@ -45,8 +45,13 @@ export default defineConfig({
         // surface renders from the localStorage fallback — the project's own
         // demo mode, which is the only way to reach those screens without an
         // account. See lib/firebase.ts.
+        // NEXT_PUBLIC_DEMO_MODE=1 is required now, and saying so is the point:
+        // blanking the Firebase vars no longer opens the app on its own (see
+        // isDemoMode in lib/firebase.ts — a missing key must fail closed). The
+        // recording specs need the signed-in surface, so this server asks for
+        // it out loud.
         command:
-          "NEXT_PUBLIC_FIREBASE_API_KEY= NEXT_PUBLIC_FIREBASE_PROJECT_ID= NEXT_PUBLIC_FIREBASE_APP_ID= npm run build && npm run start -- -p 3100",
+          "NEXT_PUBLIC_FIREBASE_API_KEY= NEXT_PUBLIC_FIREBASE_PROJECT_ID= NEXT_PUBLIC_FIREBASE_APP_ID= NEXT_PUBLIC_DEMO_MODE=1 npm run build && npm run start -- -p 3100",
         url: "http://127.0.0.1:3100",
         reuseExistingServer: !process.env.CI,
         timeout: 240_000,

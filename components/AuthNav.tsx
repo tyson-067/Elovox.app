@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { isDemoMode } from "@/lib/firebase";
 import { FelixScene } from "@/components/Biome";
 import { type FelixAccessory } from "@/components/FoxLogo";
 import { usePlan } from "@/lib/plan";
@@ -17,7 +18,7 @@ import { signOutUser } from "@/lib/auth";
 // unconditionally.
 
 export function AuthNav() {
-  const { user, loading, configured } = useAuth();
+  const { user, loading } = useAuth();
   const { plan } = usePlan();
   const router = useRouter();
 
@@ -88,10 +89,13 @@ export function AuthNav() {
   );
 
 
-  if (!configured) {
-    return (
-      <>{practiceLink}</>
-    );
+  // Only an EXPLICIT demo session gets the shortcut into the app. This used to
+  // be `if (!configured)`, which handed a "Practice" link to every visitor of
+  // any build whose Firebase vars were missing — and RequireAuth then let them
+  // through. Both halves of that are closed now; this is the half a visitor
+  // can see.
+  if (isDemoMode()) {
+    return <>{practiceLink}</>;
   }
 
   if (!user) {

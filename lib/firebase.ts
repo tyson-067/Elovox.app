@@ -29,6 +29,40 @@ const config = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+/**
+ * Is this an EXPLICIT demo session?
+ *
+ * This exists because "Firebase is not configured" used to be a way into the
+ * app. RequireAuth read `configured === false` as "no auth to enforce" and let
+ * anyone through to /practice, /dashboard, /progress and the rest, and AuthNav
+ * put a "Practice" link in the header for them. That is fine as a deliberate
+ * dev affordance and dangerous as a default: a production deploy that lost its
+ * NEXT_PUBLIC_FIREBASE_* vars would not fail closed, it would silently publish
+ * every signed-in screen in the product.
+ *
+ * So the two ideas are separated. Missing config now means LOCKED. Open access
+ * requires someone to ask for it, either way round:
+ *
+ *   - `?demo=1`, stamped into sessionStorage by the inline script in
+ *     app/layout.tsx (dev only), which is how UI work on the signed-in surface
+ *     gets done without an account.
+ *   - NEXT_PUBLIC_DEMO_MODE=1, which the Playwright suite sets on its own
+ *     server so the recording specs can reach /practice.
+ *
+ * Both are deliberate acts. Neither can happen by a variable going missing.
+ */
+export function isDemoMode(): boolean {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === "1") return true;
+  if (process.env.NODE_ENV !== "production" && typeof window !== "undefined") {
+    try {
+      return Boolean(sessionStorage.getItem("elovox.devDemo"));
+    } catch {
+      /* private mode; not a demo */
+    }
+  }
+  return false;
+}
+
 export function isFirebaseConfigured(): boolean {
   // Dev-only demo mode: `?demo=1` (stamped into sessionStorage by the inline
   // script in app/layout.tsx, same mechanism as `?native=1`) makes the client
