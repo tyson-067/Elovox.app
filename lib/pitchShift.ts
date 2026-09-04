@@ -25,13 +25,15 @@
 // is what makes it testable in Node against real audio rather than guessed at
 // in a browser that cannot be listened to from here.
 
+import profile from "./felixVoiceProfile.json" with { type: "json" };
+
 /** The landing page's pitch, which every runtime clip is pulled toward.
  *
- *  Measured from public/felix-hello.mp3, not chosen. Re-cutting the samples can
- *  move it, so tests/unit/pitch-shift.test.ts fails when the committed clip and
- *  this number drift apart — otherwise the report's Felix would be corrected
- *  toward a voice the landing page had stopped using. */
-export const FELIX_ANCHOR_HZ = 208;
+ *  Read from lib/felixVoiceProfile.json, which scripts/felix-voice-sample.mjs
+ *  writes by measuring the clip it just cut. It was a hand-typed constant, and
+ *  that meant a re-cut moved the landing voice while the runtime kept
+ *  correcting toward the old one. Re-cutting now updates both together. */
+export const FELIX_ANCHOR_HZ = profile.anchorHz;
 
 /** Beyond this the correction stops being inaudible and starts being an
  *  effect. A render this far out is left alone: a consistent-but-wrong voice

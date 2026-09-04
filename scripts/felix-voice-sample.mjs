@@ -13,7 +13,16 @@ import { readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { synthesize, fishAudioModel, fishAudioVoiceId, FELIX_SPEED } from "../lib/fishAudio.ts";
-import { hasFfmpeg, medianF0, pcm, splitOnSilence, TAKE_SEPARATOR } from "../lib/voicePitch.ts";
+import {
+  hasFfmpeg,
+  medianF0,
+  pcm,
+  splitByText,
+  pitchRatio,
+  TAKE_SEPARATOR,
+  PITCH_TOLERANCE,
+} from "../lib/voicePitch.ts";
+
 import { FELIX_SAMPLE_TAKE, FELIX_SAMPLE_NOTE } from "../lib/felixSample.ts";
 import { fingerprint, voiceFingerprint } from "../lib/felixSampleStamp.ts";
 
@@ -89,23 +98,54 @@ const joined = SAMPLES.map((s) => s.text).join(TAKE_SEPARATOR);
 let clips = null;
 
 if (hasFfmpeg()) {
-  console.log(`  one render for all ${SAMPLES.length} takes, so they cannot differ…`);
-  const whole = Buffer.from(
-    await synthesize(key, {
-      text: joined,
-      voiceId: fishAudioVoiceId(),
-      model: fishAudioModel(),
-      speed: FELIX_SPEED,
-      timeoutMs: 90_000,
-    })
-  );
-  const tmp = join(ROOT, "public", ".felix-joined.tmp.mp3");
-  writeFileSync(tmp, whole);
-  clips = splitOnSilence(tmp, SAMPLES.length);
-  rmSync(tmp, { force: true });
-
+  // One render, then CHECK IT. "One render is one voice" turned out to be a
+  // probability rather than a guarantee: the long separator pause is exactly
+  // the place the model feels free to reset, and one run produced a 129 Hz
+  // half next to a 200 Hz one from a single request. Both halves had sane
+  // speech rates, so the cut was right and the voice genuinely changed
+  // mid-render.
+  //
+  // So the render is measured after splitting and thrown away if the halves
+  // do not match, up to ATTEMPTS times. The bar is the same PITCH_TOLERANCE
+  // the committed-file test enforces, so this script cannot produce something
+  // that test would reject.
+  const ATTEMPTS = 5;
+  for (let n = 1; n <= ATTEMPTS; n++) {
+    console.log(`  one render for all ${SAMPLES.length} takes (attempt ${n}/${ATTEMPTS})…`);
+    const whole = Buffer.from(
+      await synthesize(key, {
+        text: joined,
+        voiceId: fishAudioVoiceId(),
+        model: fishAudioModel(),
+        speed: FELIX_SPEED,
+        timeoutMs: 90_000,
+      })
+    );
+    const tmp = join(ROOT, "public", ".felix-joined.tmp.mp3");
+    writeFileSync(tmp, whole);
+    const cut = splitByText(tmp, SAMPLES.map((s) => s.text));
+    rmSync(tmp, { force: true });
+    if (!cut) {
+      console.warn("    could not place the cut; re-rendering.");
+      continue;
+    }
+    const f0 = cut.map((c) => medianF0(pcm(c)));
+    if (f0.some((f) => f === null)) {
+      console.warn("    a clip had no measurable pitch; re-rendering.");
+      continue;
+    }
+    const worst = Math.max(
+      ...f0.flatMap((a, i) => f0.slice(i + 1).map((b) => pitchRatio(a, b)))
+    );
+    console.log(`    ${f0.map((f) => `${f.toFixed(0)} Hz`).join(", ")} (spread x${worst.toFixed(2)})`);
+    if (worst <= PITCH_TOLERANCE) {
+      clips = cut;
+      break;
+    }
+    console.warn(`    the model changed voice mid-render (x${worst.toFixed(2)} > x${PITCH_TOLERANCE}); re-rendering.`);
+  }
   if (!clips) {
-    console.warn("  could not find the separator pause — falling back to one call per take.");
+    console.warn("  no attempt produced one voice across every take. Run it again.");
   }
 } else {
   console.warn("  ffmpeg not found — falling back to one call per take, so the voices may differ.");
@@ -148,4 +188,18 @@ for (const [i, sample] of SAMPLES.entries()) {
     `  ${sample.label}: wrote ${sample.out} (${(bytes.byteLength / 1024).toFixed(1)} KB) and its stamp.`
   );
 }
-console.log("Commit the MP3s and their stamps.");
+// The pitch the runtime anchors report clips to, measured from the clip that
+// was actually written rather than typed into a constant by hand. Re-cutting
+// therefore keeps lib/pitchShift.ts pointed at the voice on the front door.
+if (hasFfmpeg()) {
+  const heroPitch = medianF0(pcm(readFileSync(SAMPLES[0].out)));
+  if (heroPitch) {
+    writeFileSync(
+      join(ROOT, "lib", "felixVoiceProfile.json"),
+      JSON.stringify({ anchorHz: Math.round(heroPitch * 10) / 10, from: "public/felix-hello.mp3", generatedAt: new Date().toISOString() }, null, 2) + "\n"
+    );
+    console.log(`  wrote lib/felixVoiceProfile.json (anchor ${heroPitch.toFixed(1)} Hz).`);
+  }
+}
+
+console.log("Commit the MP3s, their stamps, and the voice profile.");

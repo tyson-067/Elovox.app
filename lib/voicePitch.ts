@@ -189,19 +189,24 @@ function silences(path: string, noiseDb = -40, minSec = 0.3): Gap[] {
 }
 
 /**
- * Cut one render into `count` clips at its longest silences.
+ * Cut one render into clips, one per text, at the pauses between them.
  *
- * The separator's pause is by construction the longest gap in the file, so the
- * count-1 longest silences are the boundaries. Each clip runs from the end of
- * the previous gap to the start of the next, which drops the separator's own
- * silence rather than leaving it hanging off the end of a take.
+ * The boundary is PREDICTED from the texts' own lengths and then snapped to
+ * the nearest real silence. It used to be "the count-1 longest silences",
+ * which is wrong and was only ever right by accident: a long take's internal
+ * sentence pauses are as long as the separator's, so on a 26-word anchor
+ * followed by an 11-word line that rule cut at 3.6s and 8.9s, implying speech
+ * rates of 7.2 and 1.2 words per second. Nobody talks like that. Predicting by
+ * length and snapping put the same three renders at 3.3/3.4, 2.8/2.7 and
+ * 3.4/2.6 words per second, which is one person talking.
  *
- * Returns null if the file does not contain enough gaps to cut — the caller
- * then falls back to separate requests and says so, because a wrong cut is a
- * clip with half a sentence in it.
+ * Returns null when there is no usable silence, or when the snap lands
+ * implausibly far from the prediction — the caller then falls back to separate
+ * requests, because a mis-cut clip holds half a sentence and that is worse
+ * than two voices.
  */
-export function splitOnSilence(path: string, count: number): Uint8Array[] | null {
-  if (count < 2) return null;
+export function splitByText(path: string, texts: string[]): Uint8Array[] | null {
+  if (texts.length < 2) return null;
 
   const duration = Number(
     spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration",
@@ -209,21 +214,39 @@ export function splitOnSilence(path: string, count: number): Uint8Array[] | null
   );
   if (!Number.isFinite(duration) || duration <= 0) return null;
 
-  // INTERIOR gaps only. A clip that opens or closes on silence offers that
-  // silence as its longest gap, and picking it produces a zero-length first
-  // segment — which is what made ffmpeg throw here rather than cut.
-  const EDGE = 0.6;
-  const gaps = silences(path)
+  const EDGE = 0.4;
+  const gaps = silences(path, -40, 0.25)
     .filter((g) => g.start > EDGE && g.end < duration - EDGE)
-    .slice(0, count - 1);
-  if (gaps.length < count - 1) return null;
+    .sort((a, b) => a.start - b.start);
+  if (gaps.length < texts.length - 1) return null;
 
-  const bounds = gaps.sort((a, b) => a.start - b.start);
+  // Characters, not words: it tracks speaking time more closely, because a
+  // long word takes longer to say than a short one.
+  const lens = texts.map((t) => t.length);
+  const total = lens.reduce((a, b) => a + b, 0);
+
+  const bounds: Gap[] = [];
+  let acc = 0;
+  for (let i = 0; i < texts.length - 1; i++) {
+    acc += lens[i];
+    const want = (acc / total) * duration;
+    let best = gaps[0];
+    let bestDist = Infinity;
+    for (const g of gaps) {
+      const d = Math.abs((g.start + g.end) / 2 - want);
+      if (d < bestDist) { bestDist = d; best = g; }
+    }
+    // A snap this far from the prediction means the pause we wanted was never
+    // detected, and we are about to cut mid-sentence.
+    if (bestDist > Math.max(1.5, duration * 0.18)) return null;
+    bounds.push(best);
+  }
+
   const clips: Uint8Array[] = [];
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < texts.length; i++) {
     const from = i === 0 ? 0 : bounds[i - 1].end;
-    const to = i === count - 1 ? null : bounds[i].start;
-    if (to !== null && to - from < 0.5) return null; // nonsense boundary
+    const to = i === texts.length - 1 ? null : bounds[i].start;
+    if (to !== null && to - from < 0.5) return null;
     const args = ["-v", "error", "-i", path, "-ss", String(from)];
     if (to !== null) args.push("-to", String(to));
     args.push("-b:a", "64k", "-f", "mp3", "-");
