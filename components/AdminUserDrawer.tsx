@@ -299,7 +299,7 @@ export function AdminUserDrawer({
 
         {deleted ? (
           <p className="mt-8 text-sm text-on-surface-variant">
-            Account deleted. This panel is now history — close it.
+            Account deleted. This panel is now history; close it.
           </p>
         ) : error ? (
           <p className="mt-8 text-sm text-on-surface-variant">
@@ -317,7 +317,7 @@ export function AdminUserDrawer({
               />
               <Row
                 label="Sign-in via"
-                value={detail.account.providers.join(", ") || "—"}
+                value={detail.account.providers.join(", ") || "-"}
               />
               <Row
                 label="Practice sessions"
@@ -333,7 +333,7 @@ export function AdminUserDrawer({
               />
               <Row
                 label="Leaderboard handle"
-                value={detail.leaderboard.handle ?? "—"}
+                value={detail.leaderboard.handle ?? "-"}
               />
             </Group>
 
@@ -381,7 +381,7 @@ export function AdminUserDrawer({
                     label="Level / XP"
                     value={`L${detail.progress.level} · ${detail.progress.xp} XP`}
                   />
-                  <Row label="Coins" value={detail.progress.coins ?? "—"} />
+                  <Row label="Coins" value={detail.progress.coins ?? "-"} />
                   <Row
                     label="Streak"
                     value={`${detail.progress.streakDays} days (best ${detail.progress.longestStreak})`}
@@ -594,7 +594,7 @@ export function AdminUserDrawer({
                                   ? r
                                     ? r.resolved
                                       ? `Canceled. Refunded ${fmtMoney(r.amount, r.currency)} to the card.`
-                                      : "Canceled, but the refund needs attention — see the Billing tab."
+                                      : "Canceled, but the refund needs attention. See the Billing tab."
                                     : "Canceled. Nothing unused to refund."
                                   : undefined,
                             };
@@ -612,7 +612,7 @@ export function AdminUserDrawer({
             <div className="card mt-3 p-4">
               <p className="text-sm font-semibold">Moderation</p>
               <p className="mt-1 text-caption text-on-surface-variant">
-                Yours are conduct only — reports, abuse, an offensive public
+                Yours are conduct only: reports, abuse, an offensive public
                 name. Swearing (+1) and slurs (+2) in a recording are struck
                 automatically by the analyze pipeline, marked &ldquo;auto&rdquo;
                 below; mild words are masked in the transcript and never
@@ -696,7 +696,7 @@ export function AdminUserDrawer({
                               ...res,
                               message:
                                 res.ok && res.data
-                                  ? `Now ${res.data.state} (${res.data.strikes} strikes).${res.data.lockedLogin ? " Login locked." : ""}${res.data.hasLiveSubscription ? " They have a live subscription — settle billing from the Billing controls." : ""}`
+                                  ? `Now ${res.data.state} (${res.data.strikes} strikes).${res.data.lockedLogin ? " Login locked." : ""}${res.data.hasLiveSubscription ? " They have a live subscription. Settle billing from the Billing controls." : ""}`
                                   : undefined,
                             };
                           },
@@ -721,7 +721,7 @@ export function AdminUserDrawer({
                             uid,
                             action: "lift",
                           }),
-                        "Suspension lifted — account is warned."
+                        "Suspension lifted. Account is warned."
                       )
                     }
                   />
@@ -760,7 +760,7 @@ export function AdminUserDrawer({
                             ? "Suspension lifted"
                             : "Reinstated"}
                       </span>{" "}
-                      · {e.source === "audio" ? "auto" : (e.actor ?? "—")} ·{" "}
+                      · {e.source === "audio" ? "auto" : (e.actor ?? "-")} ·{" "}
                       {fmtDateTime(e.at)}
                       {e.stateAfter ? ` · → ${e.stateAfter}` : ""}
                       {e.reason ? <span className="block">{e.reason}</span> : null}
@@ -824,7 +824,7 @@ export function AdminUserDrawer({
               <p className="mt-1 text-caption text-on-surface-variant">
                 For servicing a user&apos;s own request (export or deletion,
                 /privacy promises 30 days). The export contains their private
-                practice content — generate it to send to THEM, don&apos;t
+                practice content, so generate it to send to THEM, don&apos;t
                 browse it. Both are audit-logged, and both arm only when you
                 type the account&apos;s email below (the server re-checks it).
               </p>

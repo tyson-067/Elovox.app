@@ -62,7 +62,7 @@ export default function AiPage() {
       <LegalDoc
         title="How Felix works"
         updated={LEGAL.aiUpdated}
-        intro="Felix is the coach inside Elovox. Felix is not a person — it's AI. Your feedback and scores are generated automatically by machine-learning models, not written by a human listening in. That's worth understanding before you lean on any of it."
+        intro="Felix is the coach inside Elovox. Felix is not a person; it's AI. Your feedback and scores are generated automatically by machine-learning models, not written by a human listening in. That's worth understanding before you lean on any of it."
       >
         <Section heading="What actually happens to a practice run">
           <Bullets
@@ -87,7 +87,7 @@ export default function AiPage() {
             can mishear you. The feedback can be confidently inaccurate,
             inconsistent between two attempts at the same thing, or just
             unhelpful. The scores are a practice aid to measure yourself against
-            over time — not an objective assessment of your ability, and not a
+            over time, not an objective assessment of your ability, and not a
             prediction of how a real interview, pitch, or audience will go.
           </p>
         </Section>
@@ -96,19 +96,19 @@ export default function AiPage() {
           <p>
             Elovox is a practice tool, not a professional service. Nothing Felix
             says is professional, medical, legal, financial, or career advice.
-            Don&apos;t make a decision that matters on the strength of it — use it
+            Don&apos;t make a decision that matters on the strength of it. Use it
             as one input, alongside people whose judgment you trust.
           </p>
         </Section>
 
         <Section heading="On the camera feedback">
           <p>
-            When you turn the camera on, the model comments on visible delivery —
+            When you turn the camera on, the model comments on visible delivery:
             posture, gestures, eye contact, expression. It is reading readily
             visible behavior to coach you, and it can misread you, especially if
             you move, present, or express yourself differently from whatever it
             treats as the norm. It does not identify you, and it builds no
-            face template — see the{" "}
+            face template. See the{" "}
             <Link href="/biometrics" className="text-accent-strong hover:underline">
               voice &amp; camera notice
             </Link>

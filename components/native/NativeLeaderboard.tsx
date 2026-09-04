@@ -226,7 +226,7 @@ function Invite() {
       )}
       {outcome === "failed" && (
         <p className="nv-footnote mt-2" role="status">
-          Couldn&apos;t copy it — no share sheet and no clipboard.
+          Couldn&apos;t copy it: no share sheet and no clipboard.
         </p>
       )}
       {error && <p className="nv-footnote mt-2">{error}</p>}
@@ -345,7 +345,7 @@ export function NativeLeaderboard({
             icon={<Felix mood="coach" className="felix-idle h-16 w-16" />}
             line={
               scope === "friends"
-                ? "No friends here yet. Send someone the link — they land on your board the moment they sign up."
+                ? "No friends here yet. Send someone the link and they land on your board the moment they sign up."
                 : "Nobody's on the board yet. Record something and you'll be the first name on it."
             }
           />

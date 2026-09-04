@@ -100,7 +100,7 @@ export function EmailPrefs({ className = "" }: { className?: string }) {
       <h2 className="font-headline text-lg font-semibold text-primary">Email</h2>
       <p className="mt-1 text-sm text-on-surface-variant">
         Which optional emails you get. Account and billing emails always come
-        through — you&apos;d want the one about a failed sign-in.
+        through. You&apos;d want the one about a failed sign-in.
       </p>
 
       {/* Said plainly because the switches below are all on categories

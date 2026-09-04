@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     siteName: "Elovox",
     url: "/",
     images: [
-      { url: "/og.png", width: 1200, height: 630, alt: "Elovox — speak with impact" },
+      { url: "/og.png", width: 1200, height: 630, alt: "Elovox: speak with impact" },
     ],
   },
 };
@@ -165,7 +165,7 @@ const MODES = [
   {
     tag: "Premium",
     title: "The speech library",
-    body: "Nine short speeches for pace and emphasis — and you can swap any of them for a fresh one.",
+    body: "Nine short speeches for pace and emphasis, and you can swap any of them for a fresh one.",
     glyph: (
       <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
         <path d="M4 5.5c2.5-1.2 5-1.2 8 .5 3-1.7 5.5-1.7 8-.5V18c-2.5-1.2-5-1.2-8 .5-3-1.7-5.5-1.7-8-.5z" />
@@ -176,7 +176,7 @@ const MODES = [
   {
     tag: "Premium",
     title: "Your material",
-    body: "Rehearse the talk you already have — or give Felix the situation and perform the speech he writes.",
+    body: "Rehearse the talk you already have, or give Felix the situation and perform the speech he writes.",
     dark: true,
     glyph: (
       <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} aria-hidden="true">
@@ -288,7 +288,7 @@ export default function LandingPage() {
           className="inline-flex items-center gap-[9px] rounded-full border border-primary/15 bg-white/60 py-[7px] pl-[11px] pr-[15px] font-data text-[10.5px] font-medium uppercase tracking-[0.16em] text-violet-strong"
         >
           <span className="rec-dot h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
-          Elovox — your speaking practice partner
+          Elovox: your speaking practice partner
         </span>
 
         <h1 className="mt-5 font-bold tracking-[-0.045em] text-balance">
@@ -515,7 +515,7 @@ export default function LandingPage() {
                     Felix&apos;s read
                   </p>
                   <p className="lp-report-read mt-2.5 text-[clamp(18px,1.6vw,26px)] leading-[1.35] font-semibold tracking-[-0.02em] text-white">
-                    You sounded confident — and a little rushed.
+                    You sounded confident, and a little rushed.
                   </p>
                 </div>
 
@@ -755,7 +755,7 @@ export default function LandingPage() {
               </p>
               <ul className="mt-[26px] flex list-none flex-col gap-[11px] text-[15.5px] leading-[1.5] text-oxford">
                 {[
-                  "The Daily Minute — a new topic every day, set by Felix",
+                  "The Daily Minute: a new topic every day, set by Felix",
                   "3 attempts a day to beat your own best score",
                   "A Felix feedback report on every attempt",
                   "Levels, XP and streaks",
@@ -813,8 +813,8 @@ export default function LandingPage() {
               <ul className="mt-[26px] flex list-none flex-col gap-[11px] text-[15.5px] leading-[1.5] text-white/95">
                 {[
                   <>
-                    <span className="font-semibold text-white">Camera coaching</span>{" "}
-                    — posture, sway, gestures, eye contact, expression
+                    <span className="font-semibold text-white">Camera coaching:</span>{" "}
+                    posture, sway, gestures, eye contact, expression
                   </>,
                   <>The nine-speech library, plus interview and social skills practice</>,
                   <>Coaching on your own material, and custom speeches Felix writes</>,

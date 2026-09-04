@@ -100,7 +100,7 @@ export function AdminCommunityScreen({ onDenied }: { onDenied?: () => void }) {
     });
     setBusy(null);
     if (res.ok) {
-      setMsg({ ok: true, text: "Handle cleared — the row shows as anonymous." });
+      setMsg({ ok: true, text: "Handle cleared. The row shows as anonymous." });
       reload();
     } else {
       setMsg({ ok: false, text: res.error ?? "That didn't work. Try again." });
@@ -174,9 +174,9 @@ export function AdminCommunityScreen({ onDenied }: { onDenied?: () => void }) {
         }
       >
         <p className="text-sm text-on-surface-variant">
-          Addresses from the speaking-tips form, which has been removed — this
+          Addresses from the speaking-tips form, which has been removed. This
           is the historical list, no longer growing. The policy is one sentence:
-          used only to send those tips, removable on request — the Remove
+          used only to send those tips, removable on request, and the Remove
           button is that request, honored.
         </p>
         <AdminTable headers={["Email", "Joined", "Submissions", ""]} minWidth={560}>

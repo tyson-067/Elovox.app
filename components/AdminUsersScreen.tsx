@@ -235,10 +235,10 @@ export function AdminUsersScreen({ onDenied }: { onDenied?: () => void }) {
                 className="cursor-pointer border-b border-primary/5 last:border-0 hover:bg-primary/5"
               >
                 <td className="px-4 py-2.5 font-medium text-primary">
-                  {r.name ?? "—"}
+                  {r.name ?? "-"}
                 </td>
                 <td className="px-4 py-2.5">
-                  {r.email ?? "—"}
+                  {r.email ?? "-"}
                   {!r.verified && (
                     <span className="ml-1.5 text-caption text-on-surface-variant">
                       (unverified)

@@ -212,7 +212,7 @@ export function AdminRevenueSection({
         <div className="card p-4">
           <p className="text-body-sm font-semibold text-error">{error}</p>
           <p className="mt-1 text-sm text-on-surface-variant">
-            Nothing here is a guess — if Stripe won&apos;t answer, this section
+            Nothing here is a guess: if Stripe won&apos;t answer, this section
             shows no numbers rather than zeros. The list-price estimate is $
             {estMrr.toFixed(2)}/mo.
           </p>
@@ -253,19 +253,19 @@ export function AdminRevenueSection({
         // figures that read as money. A test key produces charges and
         // subscriptions shaped exactly like real ones.
         <p className="mb-3 rounded-lg bg-amber/15 px-4 py-2.5 text-[14px] font-semibold text-amber">
-          Stripe TEST mode — these are test-data figures, not real revenue.
+          Stripe TEST mode: these are test-data figures, not real revenue.
         </p>
       )}
 
       <StatGrid>
         <Stat
           label="MRR"
-          value={rec ? formatMoney(rec.mrr, currency) : "—"}
+          value={rec ? formatMoney(rec.mrr, currency) : "-"}
           hint={`${c.active} active${c.pastDue ? ` · ${c.pastDue} past due` : ""}`}
         />
         <Stat
           label="ARR"
-          value={rec ? formatMoney(rec.arr, currency) : "—"}
+          value={rec ? formatMoney(rec.arr, currency) : "-"}
           hint="MRR × 12, a projection"
         />
         <Stat
@@ -326,19 +326,19 @@ export function AdminRevenueSection({
             {data.recurring.unpricedItems === 1 ? "" : "s"}{" "}
             {/* An explicit {" "} — JSX strips the leading whitespace of a text
                 line, so the plural "s" ran straight into the next word. */}
-            couldn&apos;t be priced from the price alone — MRR is a floor.
+            couldn&apos;t be priced from the price alone, so MRR is a floor.
           </p>
         )}
         {data.recurring.discountsUnavailable && (
           <p className="mt-2 font-semibold text-amber">
             This key can read subscriptions but not the coupons on them, so any
-            discount is invisible — MRR is a list-price ceiling. Add
+            discount is invisible, so MRR is a list-price ceiling. Add
             &ldquo;Coupons: Read&rdquo; to the restricted key to fix it.
           </p>
         )}
         {(data.volume.truncated || data.recurring.truncated) && (
           <p className="mt-2 font-semibold text-amber">
-            Hit the read cap for this window — these totals undercount. Narrow
+            Hit the read cap for this window, so these totals undercount. Narrow
             the period.
           </p>
         )}
@@ -447,8 +447,8 @@ function Breakdown({
           Gross includes tax. Net of tax, the subscriptions themselves came to{" "}
           <span className="font-data font-semibold text-primary">
             {formatMoney(itemised - tax, currency)}
-          </span>{" "}
-          — that&apos;s the figure that decomposes into plan prices.
+          </span>
+          , which is the figure that decomposes into plan prices.
         </p>
       )}
 
@@ -458,7 +458,7 @@ function Breakdown({
           Itemised total is{" "}
           {formatMoney(Math.abs(data.reconciliation.difference), currency)}{" "}
           {data.reconciliation.difference > 0 ? "short of" : "above"} the gross
-          figure — usually a payment whose invoice sits the other side of the
+          figure, usually a payment whose invoice sits the other side of the
           window edge, or a charge with no invoice behind it.
         </p>
       )}
@@ -498,7 +498,7 @@ function Breakdown({
                   )}
                 </td>
                 <td className="py-2 text-on-surface-variant">
-                  {l.customerEmail ?? "—"}
+                  {l.customerEmail ?? "-"}
                   {l.number && (
                     <span className="font-data block text-caption">{l.number}</span>
                   )}
@@ -520,7 +520,7 @@ function Breakdown({
       )}
       {b.listTruncated && (
         <p className="mt-2 text-label font-semibold text-amber">
-          More payments exist than are listed — the totals above still count
+          More payments exist than are listed, but the totals above still count
           them all.
         </p>
       )}

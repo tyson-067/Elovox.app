@@ -515,10 +515,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               : underAge
                 ? `Yes, I'm ${age}`
                 : pending === "google"
-                  ? `Yes, I'm ${age} — continue with Google`
+                  ? `Yes, I'm ${age}, continue with Google`
                   : pending === "apple"
-                    ? `Yes, I'm ${age} — continue with Apple`
-                    : `Yes, I'm ${age} — create my account`}
+                    ? `Yes, I'm ${age}, continue with Apple`
+                    : `Yes, I'm ${age}, create my account`}
           </button>
           <button
             type="button"

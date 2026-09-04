@@ -259,7 +259,7 @@ function BillingSection() {
   const subscribed =
     r?.status === "trialing" || r?.status === "active" || r?.status === "past_due";
   if (r && !subscribed && hasComp(r)) {
-    statusLine = `Premium is open until ${fmtDate(r.premiumUntil)}, free for your ${STREAK_REWARD_DAYS}-day streak. There's nothing to cancel — it just ends.`;
+    statusLine = `Premium is open until ${fmtDate(r.premiumUntil)}, free for your ${STREAK_REWARD_DAYS}-day streak. There's nothing to cancel; it just ends.`;
   }
 
   return (
@@ -743,7 +743,7 @@ function DeleteAccountSection({ hasPassword }: { hasPassword: boolean }) {
         login. If you have a subscription it&apos;s canceled immediately, and
         we put what&apos;s left of the period you&apos;ve already paid for back
         on your card, less the card processing fee our payment provider keeps
-        either way — automatically, you don&apos;t have to ask. (Nothing to
+        either way, automatically. You don&apos;t have to ask. (Nothing to
         refund on a free trial, once a period has run its course, or where the
         current period&apos;s payment never went through.) This cannot be
         undone, and we can&apos;t recover any of it afterwards.

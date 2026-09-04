@@ -61,15 +61,15 @@ export default function CookiesPage() {
       <LegalDoc
         title="Cookies & Storage"
         updated={LEGAL.cookiesUpdated}
-        intro="Elovox sets no advertising cookies and runs no ad trackers. It does keep a few things in your browser to work at all — to remember you're signed in, and to hold your practice history when you're not. Here's the whole list."
+        intro="Elovox sets no advertising cookies and runs no ad trackers. It does keep a few things in your browser to work at all: to remember you're signed in, and to hold your practice history when you're not. Here's the whole list."
       >
         <Section heading="No cookie banner, and why">
           <p>
             We don&apos;t show a cookie consent popup because we don&apos;t do
             the thing those popups exist for: there are no advertising cookies,
             no cross-site tracking, and nothing here is sold or shared. Every
-            item below is functional — the app genuinely needs it to do what you
-            asked — so there&apos;s nothing to opt out of without breaking the
+            item below is functional (the app genuinely needs it to do what you
+            asked), so there&apos;s nothing to opt out of without breaking the
             product.
           </p>
         </Section>
@@ -92,7 +92,7 @@ export default function CookiesPage() {
           <Bullets
             items={[
               "Google reCAPTCHA. It runs in the background to tell real browsers from bots at sign-in and when you record or ask Felix to write something, which is what stops strangers from burning our paid transcription and AI budget. It's a Google service and may set its own cookie in Google's domain. We use it only for abuse prevention.",
-              "Vercel Analytics. We count page views to see what's used, with a privacy-friendly, cookieless setup — no cookie, no cross-site identifier, no selling.",
+              "Vercel Analytics. We count page views to see what's used, with a privacy-friendly, cookieless setup: no cookie, no cross-site identifier, no selling.",
             ]}
           />
         </Section>
@@ -101,7 +101,7 @@ export default function CookiesPage() {
           <p>
             Clearing your browser&apos;s site data for Elovox removes everything
             above (and signs you out). Your account itself, and any history saved
-            to it, is separate — you can erase all of that from{" "}
+            to it, is separate. You can erase all of that from{" "}
             <Link href="/account" className="text-accent-strong hover:underline">
               your account settings
             </Link>

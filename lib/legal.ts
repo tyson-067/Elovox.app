@@ -181,7 +181,7 @@ export const SUBPROCESSORS = [
   {
     name: "Resend",
     purpose:
-      "Sending our emails — account and security notices, billing receipts, and the optional ones you can switch off",
+      "Sending our emails: account and security notices, billing receipts, and the optional ones you can switch off",
     link: "https://resend.com/legal/privacy-policy",
   },
   {

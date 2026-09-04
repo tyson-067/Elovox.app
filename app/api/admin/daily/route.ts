@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
   if (!Number.isFinite(ahead) || ahead < 1 || ahead > MAX_AHEAD_DAYS) {
     return NextResponse.json(
       {
-        error: `Only future days can be set — tomorrow through ${MAX_AHEAD_DAYS} days out. Today is already live for someone.`,
+        error: `Only future days can be set: tomorrow through ${MAX_AHEAD_DAYS} days out. Today is already live for someone.`,
       },
       { status: 400 }
     );
@@ -190,7 +190,7 @@ export async function DELETE(req: NextRequest) {
   const ahead = daysFromToday(date);
   if (!Number.isFinite(ahead) || ahead < 1) {
     return NextResponse.json(
-      { error: "Only future days can be cleared — today is already live." },
+      { error: "Only future days can be cleared. Today is already live." },
       { status: 400 }
     );
   }

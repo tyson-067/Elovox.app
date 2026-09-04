@@ -242,7 +242,7 @@ function XpReceipt({ session }: { session: Session }) {
               letterSpacing: "-0.04em",
             }}
           >
-            {level ? `Level ${level.level} — ${level.title}` : "What this earned"}
+            {level ? `Level ${level.level}: ${level.title}` : "What this earned"}
           </div>
           <div className="nv-footnote mt-1">
             {unlocked

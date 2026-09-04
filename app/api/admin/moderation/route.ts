@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
     }
     if (reason.length < 3) {
       return NextResponse.json(
-        { error: "A strike needs a written reason — it goes in the record." },
+        { error: "A strike needs a written reason; it goes in the record." },
         { status: 400 }
       );
     }

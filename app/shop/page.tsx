@@ -401,7 +401,7 @@ function ShopScreen() {
             Level 10 with a laurel wreath will otherwise wonder where it went. */}
         <p className="mt-1 text-[14px] text-on-surface-variant">
           Bought with coins. The outfits you unlocked by levelling are still
-          yours — take everything off and Felix goes back to those.
+          yours. Take everything off and Felix goes back to those.
         </p>
         <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
           {SHOP_ACCESSORIES.map((item) => (
@@ -454,7 +454,7 @@ function ShopScreen() {
               Backgrounds
             </h2>
             <p className="mt-1 text-[14px] text-on-surface-variant">
-              A scene behind the whole site, here in the browser — these are
+              A scene behind the whole site, here in the browser. These are
               website-only, so they won&apos;t show up in the Elovox app. Plain
               stays the free default.
             </p>

@@ -202,7 +202,7 @@ export function VerifyEmailScreen() {
               <span className="font-semibold">{user.email}</span> just now.
             </p>
             <p className="mt-3 text-sm text-on-surface-variant">
-              Your account is fine — press Resend email below and it should go
+              Your account is fine. Press Resend email below and it should go
               through.
             </p>
           </>

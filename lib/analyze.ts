@@ -161,7 +161,7 @@ export async function analyzeRecording(opts: {
     } else if (msg.type === "error") {
       throw new AnalysisError(
         msg.message ??
-          "Felix couldn't finish that one. Your recording is safe — try again in a moment.",
+          "Felix couldn't finish that one. Your recording is safe, so try again in a moment.",
         msg.retryable !== false
       );
     }
@@ -184,7 +184,7 @@ export async function analyzeRecording(opts: {
     if (err instanceof AnalysisError) throw err;
     // The connection dropped mid-stream. The take is still in the browser.
     throw new AnalysisError(
-      "Lost the connection to Felix mid-analysis. Your recording is safe — try again.",
+      "Lost the connection to Felix mid-analysis. Your recording is safe, so try again.",
       true
     );
   }
@@ -192,7 +192,7 @@ export async function analyzeRecording(opts: {
   if (!analysis) {
     // Stream ended with neither a report nor an explicit error.
     throw new AnalysisError(
-      "Felix couldn't finish analyzing that one. Your recording is safe — try again in a moment.",
+      "Felix couldn't finish analyzing that one. Your recording is safe, so try again in a moment.",
       true
     );
   }

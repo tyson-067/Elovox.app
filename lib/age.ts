@@ -269,7 +269,7 @@ export const AGE_CORRECTION_EXPLAINER =
  * off by enough to matter, and a slipped century is the whole story.
  */
 export const AGE_CORRECTION_NOTICE =
-  "Your last answer is still filled in below. Check it — the year especially — before you continue.";
+  "Your last answer is still filled in below. Check it, the year especially, before you continue.";
 
 /** Shown to 13–17 year olds, who may sign up with permission. */
 export const MINOR_NOTICE =

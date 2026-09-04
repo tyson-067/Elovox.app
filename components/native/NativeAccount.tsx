@@ -489,7 +489,7 @@ function BadgeWall({
                 </span>
                 <span className="nv-badge-name">{b.name}</span>
                 <span className="sr-only">
-                  {b.earned ? "earned" : `not earned yet — ${b.hint}`}
+                  {b.earned ? "earned" : `not earned yet: ${b.hint}`}
                 </span>
               </li>
             ))}
@@ -587,7 +587,7 @@ function PlanSection() {
       footnote =
         "A payment didn't go through. Update your card in a browser to keep Premium.";
     } else if (r.status === "trialing" && ending) {
-      footnote = `Trial canceled. Access until ${endsOn} — you won't be charged.`;
+      footnote = `Trial canceled. Access until ${endsOn}, and you won't be charged.`;
     } else if (r.status === "trialing") {
       footnote = `Free trial until ${fmtDate(r.trialEnd)}.`;
     } else if (r.status === "active" && ending) {

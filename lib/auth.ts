@@ -715,7 +715,7 @@ export function accountErrorMessage(err: unknown): string {
     case "auth/firebase-app-check-token-is-invalid":
     case "auth/app-check-token-invalid":
     case "auth/unverified-app":
-      return "We couldn't verify this device with our security check. Reload and try again — if it keeps happening, get in touch.";
+      return "We couldn't verify this device with our security check. Reload and try again. If it keeps happening, get in touch.";
     case "auth/quota-exceeded":
       return "We've hit our email limit for now. Try again in a little while.";
     case "auth/network-request-failed":

@@ -126,9 +126,9 @@ export default function PrivacyPage() {
           someone is trying to sign in as you, and anything to do with a
           payment. We think you&apos;d want those, and turning them off would
           leave you in the dark about your own money and security.
-          Everything else — a weekly summary of your practice, a nudge about a
+          Everything else (a weekly summary of your practice, a nudge about a
           streak you&apos;re about to break, a single note if you&apos;ve been
-          away a while — is optional and switchable under Email in your account
+          away a while) is optional and switchable under Email in your account
           settings, or from the unsubscribe link in any of them. We do not add
           account holders to the tips list, or the tips list to anything else.
         </p>
@@ -208,7 +208,7 @@ export default function PrivacyPage() {
         </p>
         <p>
           We also read our own numbers in aggregate to understand and improve
-          Elovox — how many people signed up this week, how many practiced
+          Elovox: how many people signed up this week, how many practiced
           today, the average score across everyone. Those are counts and
           averages about the whole userbase at once; nothing in them
           identifies you.
@@ -334,8 +334,8 @@ export default function PrivacyPage() {
           available.
         </p>
         <p>
-          Inside Elovox, a small number of operators can see account records —
-          your email, your plan, how many sessions you&apos;ve run — because
+          Inside Elovox, a small number of operators can see account records
+          (your email, your plan, how many sessions you&apos;ve run) because
           running the service and answering support mail requires it. What they
           don&apos;t do is browse your recordings, transcripts, or reports:
           those stay private to your account. The one time an operator touches

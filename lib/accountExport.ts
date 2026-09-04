@@ -324,15 +324,15 @@ export async function buildAccountExport(
         record: "termsAcceptance",
         what: "Which version of the Terms you accepted, and the date. It is included in full above, under related.termsAcceptance.",
         reason:
-          "It is the record of an agreement between you and us, so it has to outlast the account: without it neither side can show what was agreed if there is ever a dispute about it — including the 30-day window for opting out of the arbitration section, which runs from this date. It holds a version string, a timestamp and your account id, and nothing else.",
+          "It is the record of an agreement between you and us, so it has to outlast the account: without it neither side can show what was agreed if there is ever a dispute about it, including the 30-day window for opting out of the arbitration section, which runs from this date. It holds a version string, a timestamp and your account id, and nothing else.",
         howToGet:
           "It is above. It is kept after deletion; the account id it is filed under points to nothing once the account is gone.",
       },
       {
         record: "emailSuppression",
-        what: "The note that this address must not be emailed, and why — a bounce, a spam complaint, or an unsubscribe. It is included in full above, under related.emailSuppression, whenever there is one.",
+        what: "The note that this address must not be emailed, and why: a bounce, a spam complaint, or an unsubscribe. It is included in full above, under related.emailSuppression, whenever there is one.",
         reason:
-          "This record is the thing that stops us mailing you. Deleting it along with the account would simply start the mail again the next time the address appeared, which is the opposite of what it records you asking for — so it is kept on the basis of that request and of our legitimate interest in not mailing addresses that bounce or that reported us. It holds the address, the reason and the date, and nothing else.",
+          "This record is the thing that stops us mailing you. Deleting it along with the account would simply start the mail again the next time the address appeared, which is the opposite of what it records you asking for, so it is kept on the basis of that request and of our legitimate interest in not mailing addresses that bounce or that reported us. It holds the address, the reason and the date, and nothing else.",
         howToGet:
           "It is above. If you want it removed anyway, understanding that it is what suppresses future mail, email us and say so.",
       },
@@ -386,7 +386,7 @@ export async function buildAccountExport(
     // regulator, or the user moving to another service. Deliberately not a
     // claim of completeness any more: it says what is here, points at what is
     // not, and the file itself names both.
-    note: `Your account data: everything stored under your account (in "data", following subcollections ${MAX_DEPTH} levels deep), plus the records stored outside it that are keyed to you or to your email address (in "related") — the Terms version you accepted, your public leaderboard row and handle, invite codes, tips-list signup, deletion-reason log, any enforcement record, the log of emails we sent you, any suppression note on your address, and any billing alert raised on your account. Anything deliberately left out is listed with its reason in related.withheld; anything we keep after an account is deleted is listed with its reason in related.retained; and any section that hit an export limit is named in "incomplete". Payment records live with Stripe, which retains them for tax and accounting purposes; request those from Stripe or via the billing portal. If you joined the tips list, our email provider Resend also holds a copy of your address until the signup is removed.`,
+    note: `Your account data: everything stored under your account (in "data", following subcollections ${MAX_DEPTH} levels deep), plus the records stored outside it that are keyed to you or to your email address (in "related"): the Terms version you accepted, your public leaderboard row and handle, invite codes, tips-list signup, deletion-reason log, any enforcement record, the log of emails we sent you, any suppression note on your address, and any billing alert raised on your account. Anything deliberately left out is listed with its reason in related.withheld; anything we keep after an account is deleted is listed with its reason in related.retained; and any section that hit an export limit is named in "incomplete". Payment records live with Stripe, which retains them for tax and accounting purposes; request those from Stripe or via the billing portal. If you joined the tips list, our email provider Resend also holds a copy of your address until the signup is removed.`,
     ...(incomplete.length ? { incomplete: `${incomplete.join(" ")} Contact us and we'll send the rest.` } : {}),
   };
 }

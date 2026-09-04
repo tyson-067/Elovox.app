@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       date,
-      note: "No meter doc for that day — nothing was spent, nothing to reset.",
+      note: "No meter doc for that day: nothing was spent, nothing to reset.",
     });
   }
 

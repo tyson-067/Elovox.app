@@ -698,7 +698,7 @@ export function NativeLadder({
                 data-empty={d.score === null && !d.isToday ? "" : undefined}
                 data-now={d.isToday && d.score === null ? "" : undefined}
               >
-                {d.score ?? (d.isToday ? "·" : i < todayIndex ? "—" : "")}
+                {d.score ?? (d.isToday ? "·" : i < todayIndex ? "-" : "")}
               </span>
             </div>
           ))}

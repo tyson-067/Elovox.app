@@ -78,8 +78,8 @@ export default function ChildrenPage() {
         <Section heading={`If you're ${LEGAL.minimumAge}–17`}>
           <p>
             You&apos;re welcome to use Elovox with a parent or guardian&apos;s
-            permission. Because practice runs record your voice — and your camera
-            if you switch it on — it&apos;s worth showing a parent what the app
+            permission. Because practice runs record your voice (and your camera
+            if you switch it on), it&apos;s worth showing a parent what the app
             does before you go deep. The camera is always off unless you turn it
             on.
           </p>
@@ -90,7 +90,7 @@ export default function ChildrenPage() {
           <Bullets
             items={[
               "An email and password, the practice transcripts and coaching reports, and basic progress stats. We do not keep the audio or video from practice sessions.",
-              "No voiceprint or face template is ever created, and we don't try to identify anyone — see the voice & camera notice.",
+              "No voiceprint or face template is ever created, and we don't try to identify anyone. See the voice & camera notice.",
               "There are no ads and no ad tracking anywhere in Elovox.",
             ]}
           />

@@ -132,7 +132,7 @@ export function AdminBillingScreen({ onDenied }: { onDenied?: () => void }) {
     >
       <p className="text-sm text-on-surface-variant">
         Written by the refund helper and the webhook when money needs a human.
-        An unresolved refund is money owed to a user — retry it, or settle it
+        An unresolved refund is money owed to a user: retry it, or settle it
         in Stripe and mark it resolved.
       </p>
       <ActionMsg msg={msg} />
@@ -156,7 +156,7 @@ export function AdminBillingScreen({ onDenied }: { onDenied?: () => void }) {
               )}
             </td>
             <td className="px-4 py-2.5">
-              <p className="font-data text-caption">{al.uid ?? "—"}</p>
+              <p className="font-data text-caption">{al.uid ?? "-"}</p>
               {al.subscriptionId && (
                 <a
                   className="font-data text-caption underline decoration-primary/30 underline-offset-2"
@@ -169,7 +169,7 @@ export function AdminBillingScreen({ onDenied }: { onDenied?: () => void }) {
               )}
             </td>
             <td className="px-4 py-2.5 whitespace-nowrap">
-              {al.amount !== null ? fmtMoney(al.amount, al.currency) : "—"}
+              {al.amount !== null ? fmtMoney(al.amount, al.currency) : "-"}
             </td>
             <td className="px-4 py-2.5">
               {al.resolved ? (

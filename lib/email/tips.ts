@@ -68,7 +68,7 @@ export const TIPS: Tip[] = [
       { kind: "lead", text: "Everyone has one. Almost nobody knows which." },
       {
         kind: "p",
-        text: "Record sixty seconds of yourself explaining what you did yesterday. Play it back and count. Most people find it on the first take — and it's rarely the one they'd have guessed.",
+        text: "Record sixty seconds of yourself explaining what you did yesterday. Play it back and count. Most people find it on the first take, and it's rarely the one they'd have guessed.",
       },
       {
         kind: "p",
@@ -117,7 +117,7 @@ export const TIPS: Tip[] = [
       },
       {
         kind: "p",
-        text: "The fix isn't \"talk slower\" — that feels absurd and never survives the first minute. It's to pause at full stops. Pace looks after itself.",
+        text: "The fix isn't \"talk slower\". That feels absurd and never survives the first minute. It's to pause at full stops. Pace looks after itself.",
       },
       { kind: "cta", label: "See your pace", href: `${siteUrl()}/practice` },
     ],
@@ -130,7 +130,7 @@ export const TIPS: Tip[] = [
       { kind: "lead", text: "Ask yourself what you want someone repeating tomorrow." },
       {
         kind: "p",
-        text: "If the answer is three things, it'll be none. People leave with one idea at most, so the only real decision is which one — and making it deliberately beats letting the audience pick.",
+        text: "If the answer is three things, it'll be none. People leave with one idea at most, so the only real decision is which one, and making it deliberately beats letting the audience pick.",
       },
       {
         kind: "p",
@@ -162,7 +162,7 @@ export const TIPS: Tip[] = [
       { kind: "lead", text: "Writing that looks fine on a page can be unsayable." },
       {
         kind: "p",
-        text: "Long subordinate clauses, stacked adjectives, any sentence you have to take a breath in the middle of — you'll find all of them in about ninety seconds of reading out loud, and never by re-reading silently.",
+        text: "Long subordinate clauses, stacked adjectives, any sentence you have to take a breath in the middle of: you'll find all of them in about ninety seconds of reading out loud, and never by re-reading silently.",
       },
       { kind: "p", text: "If you run out of air, the sentence is too long. Cut it in two." },
     ],
@@ -175,7 +175,7 @@ export const TIPS: Tip[] = [
       { kind: "lead", text: "You already know what it is." },
       {
         kind: "p",
-        text: "There's always one — the hole in the argument, the number that's weak, the thing you hope nobody asks. Most people prepare everything except that, and then it's the only question that actually gets asked.",
+        text: "There's always one: the hole in the argument, the number that's weak, the thing you hope nobody asks. Most people prepare everything except that, and then it's the only question that actually gets asked.",
       },
       {
         kind: "p",
@@ -245,7 +245,7 @@ export const TIPS: Tip[] = [
       },
       {
         kind: "p",
-        text: "That's the last tip in this sequence — no more scheduled emails from us. Thanks for reading them.",
+        text: "That's the last tip in this sequence, so no more scheduled emails from us. Thanks for reading them.",
       },
       { kind: "cta", label: "Record one", href: `${siteUrl()}/practice` },
     ],

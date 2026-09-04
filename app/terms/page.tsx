@@ -232,8 +232,8 @@ export default function TermsPage() {
           Because every recording is transcribed anyway, that transcript is
           screened automatically for swearing and slurs, and anything it finds
           is hidden in your report. Swearing adds a strike to your account, and
-          slurs add two. Milder words — &ldquo;damn&rdquo;, &ldquo;hell&rdquo;,
-          &ldquo;crap&rdquo; and the like — are hidden without a strike, but
+          slurs add two. Milder words (&ldquo;damn&rdquo;, &ldquo;hell&rdquo;,
+          &ldquo;crap&rdquo; and the like) are hidden without a strike, but
           they are not welcome either, and a pattern of them is grounds for us
           to act on this account. No person reads your
           practice to do any of this, and the record we keep says how many
@@ -300,10 +300,10 @@ export default function TermsPage() {
           the part that says what happens when that goes wrong.
         </p>
         <p>
-          If someone brings a claim against us because of something you did —
-          what you recorded or uploaded, a person you recorded without their
+          If someone brings a claim against us because of something you did
+          (what you recorded or uploaded, a person you recorded without their
           permission, a law you broke while using Elovox, or a use of the
-          service these terms don&apos;t allow — you agree to cover what it
+          service these terms don&apos;t allow), you agree to cover what it
           reasonably costs us to deal with it, including legal fees.
         </p>
         <p>
@@ -326,7 +326,7 @@ export default function TermsPage() {
           only covers what is left.
         </p>
         <p>
-          What is left goes to the courts of {LEGAL.jurisdiction} — with two
+          What is left goes to the courts of {LEGAL.jurisdiction}, with two
           exceptions we mean to keep, because the next section keeps them too.
           A small claims case can be brought wherever that court&apos;s own
           rules let you bring it, which is normally where you live, not here.
@@ -348,8 +348,8 @@ export default function TermsPage() {
         </p>
         <p>
           If that doesn&apos;t settle it, and you are in the United States, you
-          and we agree — subject to the rest of this section, which limits what
-          follows and is part of the agreement rather than a footnote to it —
+          and we agree (subject to the rest of this section, which limits what
+          follows and is part of the agreement rather than a footnote to it)
           to resolve the dispute by binding arbitration instead of in court:
           one arbitrator, no jury, run by the American Arbitration
           Association under its Consumer Arbitration Rules (or another
@@ -390,7 +390,7 @@ export default function TermsPage() {
         <p>
           <strong>Who pays.</strong> We&apos;ll pay the filing fee and the
           arbitrator&apos;s fees for any claim you bring in good faith, unless
-          the arbitrator decides it was frivolous — arbitration shouldn&apos;t
+          the arbitrator decides it was frivolous. Arbitration shouldn&apos;t
           cost you more than court would have. Each of us pays our own lawyers,
           unless the law or the arbitrator says otherwise.
         </p>
@@ -398,12 +398,12 @@ export default function TermsPage() {
           <strong>If part of this doesn&apos;t hold.</strong> If a court
           decides the &ldquo;individually, not as a class&rdquo; paragraph
           can&apos;t be enforced for a particular dispute, then that dispute
-          goes to court rather than to arbitration — and everything else in
+          goes to court rather than to arbitration, and everything else in
           these terms, including the rest of this section, still stands.
         </p>
         <p>
           <strong>Where this section doesn&apos;t apply.</strong> It applies
-          only as far as the law allows — all of it, the &ldquo;individually,
+          only as far as the law allows: all of it, the &ldquo;individually,
           not as a class&rdquo; paragraph included. If you are a consumer in
           the UK, the EU, or anywhere else that does not let a company require
           arbitration before a dispute has even arisen, this section does not
@@ -424,7 +424,7 @@ export default function TermsPage() {
 
       <Section heading="Which version this is">
         <p>
-          This is version <strong>{LEGAL.termsVersion}</strong> of the terms — the
+          This is version <strong>{LEGAL.termsVersion}</strong> of the terms, the
           date the wording last changed. It is here so that if we ever disagree
           about what you signed up to, there is something exact to point at
           instead of &ldquo;the terms, at some point&rdquo;. The sign-up screen

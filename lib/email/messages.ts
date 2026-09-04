@@ -90,7 +90,7 @@ export function welcome(email: string, uid: string, firstName?: string): AppMess
         },
         {
           kind: "p",
-          text: "Elovox listens to how you actually speak — pace, filler words, clarity — and tells you what to fix next.",
+          text: "Elovox listens to how you actually speak (pace, filler words, clarity) and tells you what to fix next.",
         },
         { kind: "cta", label: "Start today's speech", href: `${app()}/practice` },
         { kind: "rule" },
@@ -211,7 +211,7 @@ export function subscriptionStarted(
         { kind: "p", text: `${charge}${nextCharge}` },
         {
           kind: "p",
-          text: "Cancel any time from your account — no email required, no retention offer. Cancelling stops the next charge.",
+          text: "Cancel any time from your account: no email required, no retention offer. Cancelling stops the next charge.",
         },
         { kind: "link", href: cancelUrl },
         { kind: "cta", label: "Open Elovox", href: `${app()}/practice` },
@@ -321,7 +321,7 @@ export function paymentFailed(email: string, uid: string, portalUrl: string): Ap
         },
         {
           kind: "p",
-          text: "Premium stays on while we retry. If it keeps failing, the account drops back to free — nothing is deleted.",
+          text: "Premium stays on while we retry. If it keeps failing, the account drops back to free, and nothing is deleted.",
         },
         { kind: "cta", label: "Update your card", href: portalUrl },
       ],
@@ -386,7 +386,7 @@ export function refundIssued(
         },
         {
           kind: "p",
-          text: "Banks usually take five to ten working days to show it. It goes back to the card — never account credit.",
+          text: "Banks usually take five to ten working days to show it. It goes back to the card, never account credit.",
         },
       ],
     },
@@ -433,7 +433,7 @@ export function weeklyProgress(
           kind: "stats",
           items: [
             { label: "Speeches", value: String(stats.sessions) },
-            { label: "Best score", value: stats.bestScore == null ? "—" : String(stats.bestScore) },
+            { label: "Best score", value: stats.bestScore == null ? "-" : String(stats.bestScore) },
             { label: "Streak", value: `${stats.streak}d` },
             { label: "Minutes", value: String(stats.minutes) },
           ],
@@ -556,7 +556,7 @@ export function operatorAlert(
       },
       {
         kind: "note",
-        text: "This one arrives weekly whether or not anything is wrong — so that silence on the other days means the check is running, not that it has died.",
+        text: "This one arrives weekly whether or not anything is wrong, so that silence on the other days means the check is running, not that it has died.",
       }
     );
   } else {
@@ -569,7 +569,7 @@ export function operatorAlert(
             : `${urgent.length} things need attention today.`,
       });
       for (const c of urgent) {
-        blocks.push({ kind: "p", text: `${c.title} — ${c.detail}` });
+        blocks.push({ kind: "p", text: `${c.title}: ${c.detail}` });
       }
     }
     if (watch.length > 0) {
@@ -578,7 +578,7 @@ export function operatorAlert(
         kind: "p",
         text: urgent.length > 0 ? "Also worth a look:" : "Worth a look, nothing urgent:",
       });
-      blocks.push({ kind: "bullets", items: watch.map((c) => `${c.title} — ${c.detail}`) });
+      blocks.push({ kind: "bullets", items: watch.map((c) => `${c.title}: ${c.detail}`) });
     }
     blocks.push({ kind: "cta", label: "Open the console", href: `${app()}/admin` });
   }

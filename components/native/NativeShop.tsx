@@ -158,7 +158,7 @@ function ShopTile({
               // "200". Say what the control does either way.
               aria-label={
                 !afford
-                  ? `${item.name} costs ${item.price} coins — you have ${state.coins}`
+                  ? `${item.name} costs ${item.price} coins, and you have ${state.coins}`
                   : armed
                     ? `Confirm: spend ${item.price} coins on ${item.name}`
                     : `Buy ${item.name} for ${item.price} coins`
@@ -260,7 +260,7 @@ export function NativeShop({
           Level 10 in a laurel wreath will otherwise wonder where it went. */}
       <p className="nv-footnote -mt-2 mb-3 px-1">
         Bought with coins. The outfits you unlocked by levelling are still
-        yours — take everything off and Felix goes back to those.
+        yours. Take everything off and Felix goes back to those.
       </p>
       <div className="nv-shop-grid">
         {SHOP_ACCESSORIES.map((item) => (
@@ -296,7 +296,7 @@ export function NativeShop({
           popover: on a phone the answer is three lines, and three lines are
           cheaper to read than a disclosure to tap. */}
       <p className="nv-footnote mt-8 px-1 leading-5">
-        Coins come from practice — {COINS_PER_LEVEL} a level,{" "}
+        Coins come from practice: {COINS_PER_LEVEL} a level,{" "}
         {COINS_DAILY} for each Daily Minute, more at every streak milestone, and
         a bonus for going back to something you haven&apos;t practiced in a
         while.

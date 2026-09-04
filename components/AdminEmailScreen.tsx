@@ -227,7 +227,7 @@ export function AdminEmailScreen({ onDenied }: { onDenied: () => void }) {
           </p>
           <p className="mt-2 text-sm text-on-surface-variant">
             One tip a week each, timed from when they joined rather than a
-            shared schedule — so this sends a handful most days instead of the
+            shared schedule, so this sends a handful most days instead of the
             whole list at once. Nothing to press. Add tips by appending to{" "}
             <code className="font-data">lib/email/tips.ts</code>; anyone partway
             through carries straight on into them.
@@ -235,7 +235,7 @@ export function AdminEmailScreen({ onDenied }: { onDenied: () => void }) {
           {data.tips.subscribers > 0 && data.tips.due === 0 && (
             <p className="mt-2 text-sm text-on-surface-variant">
               Nobody is due one right now. That is the normal state most of the
-              time — everyone is mid-week.
+              time; everyone is mid-week.
             </p>
           )}
         </div>
@@ -247,17 +247,17 @@ export function AdminEmailScreen({ onDenied }: { onDenied: () => void }) {
           <ConfigRow label="Reply-to" value={config.replyTo} ok />
           <ConfigRow
             label="Webhook secret"
-            value={config.webhookConfigured ? "set" : "missing — bounces aren't suppressed"}
+            value={config.webhookConfigured ? "set" : "missing, bounces aren't suppressed"}
             ok={config.webhookConfigured}
           />
           <ConfigRow
             label="Unsubscribe links"
-            value={config.unsubTokensConfigured ? "signed" : "off — no key to sign with"}
+            value={config.unsubTokensConfigured ? "signed" : "off, no key to sign with"}
             ok={config.unsubTokensConfigured}
           />
           <ConfigRow
             label="Tips audience"
-            value={config.audienceConfigured ? "linked" : "not set — broadcasts unavailable"}
+            value={config.audienceConfigured ? "linked" : "not set, broadcasts unavailable"}
             ok={config.audienceConfigured}
           />
           {(data.domains ?? []).map((d) => (
@@ -330,7 +330,7 @@ export function AdminEmailScreen({ onDenied }: { onDenied: () => void }) {
           ))}
         </AdminTable>
         <p className="mt-2 text-sm text-on-surface-variant">
-          Kept 30 days, then swept by the nightly purge — this holds addresses,
+          Kept 30 days, then swept by the nightly purge. This holds addresses,
           so it lives under the same retention window as the other logs.
         </p>
       </Section>

@@ -190,7 +190,7 @@ export function CoinBadge({ coins }: { coins: number }) {
       // Felix's shop was completely dead on the home screen.
       className="nv-badge nv-press nv-tap44"
       data-pop="sun"
-      aria-label={`${coins.toLocaleString()} coins — open Felix's shop`}
+      aria-label={`${coins.toLocaleString()} coins, open Felix's shop`}
     >
       <CoinGlyph className="h-[16px] w-[16px]" />
       <span className="nv-num" aria-hidden="true">

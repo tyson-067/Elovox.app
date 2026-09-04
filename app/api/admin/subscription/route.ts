@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
   if (action === "resume") {
     if (sub.status === "canceled") {
       return NextResponse.json(
-        { error: "Already fully canceled — Stripe can't resume it." },
+        { error: "Already fully canceled. Stripe can't resume it." },
         { status: 409 }
       );
     }

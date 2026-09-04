@@ -355,8 +355,8 @@ function DenWidget({
           phone and to anyone tabbing. */}
       {sessionsFailed && (
         <p className="mt-4 text-label text-on-surface-variant" role="status">
-          Couldn&apos;t check your badges just now. Nothing has been lost —
-          reload to try again.
+          Couldn&apos;t check your badges just now. Nothing has been lost.
+          Reload to try again.
         </p>
       )}
       {/* inert alongside aria-hidden, not instead of it. Each badge below is a
@@ -390,7 +390,7 @@ function DenWidget({
               <span className="mt-1.5 block text-micro font-semibold leading-tight text-primary">
                 {b.name}
               </span>
-              <span className="sr-only">{b.earned ? " — earned" : " — not earned yet"}</span>
+              <span className="sr-only">{b.earned ? ", earned" : ", not earned yet"}</span>
             </div>
             <span
               id={`badge-tip-${b.id}`}
@@ -627,7 +627,7 @@ function TodayScreen() {
                   })
                 : "next week"}
               . The speech library, your own material, interview practice,
-              social skills and camera coaching are all unlocked — nothing to
+              social skills and camera coaching are all unlocked, with nothing to
               cancel when it ends.
             </p>
             <Link

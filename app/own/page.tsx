@@ -16,7 +16,7 @@ export default function OwnPage() {
         tipLabel="What counts as my own material?"
         tip={
           <>
-            A pitch, a toast, a class presentation — anything you&apos;ve
+            A pitch, a toast, a class presentation: anything you&apos;ve
             already written. Felix doesn&apos;t rewrite it. He scores how you
             say it.
           </>

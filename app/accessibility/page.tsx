@@ -118,12 +118,12 @@ export default function AccessibilityPage() {
               "Screen reader labeling. Icon-only controls carry text labels, decorative graphics are hidden from assistive tech, and status changes that only show as a spinner or a color are also announced as text.",
               "Reduced motion. The site has a lot of movement in it, and we switch it off if your system is set to reduce motion. The animated pieces fall back to a plain static layout rather than disappearing, so you don't lose any content by turning motion off.",
               "Contrast. We've measured the contrast of text against its background and fixed the places that failed, including our own brand orange, which wasn't readable enough for text and is now only used where it isn't text.",
-              "Nothing is explained by color alone. Where a color carries meaning — a strong moment in your transcript, a badge you haven't earned yet — the same thing is also written out for a screen reader.",
+              "Nothing is explained by color alone. Where a color carries meaning (a strong moment in your transcript, a badge you haven't earned yet), the same thing is also written out for a screen reader.",
               "The recording is announced as it runs. A screen reader hears when recording starts, a warning at thirty seconds left and again at ten, and whether the take ended because you stopped it or because the clock ran out. The countdown itself isn't read out second by second, which would talk over the person trying to speak.",
-              "Touch targets. The controls you actually operate — the record button, the navigation, the app's tab bar — are sized for a thumb rather than a cursor.",
+              "Touch targets. The controls you actually operate (the record button, the navigation, the app's tab bar) are sized for a thumb rather than a cursor.",
               "You always get text. Every practice session returns a written transcript of what you said alongside the coaching, so nothing important is delivered as audio only, and you can export all of it as a file.",
               "The camera is off unless you turn it on. Video is never required to use Elovox, and no analysis depends on you being visible.",
-              "Automated checks in our linting flag malformed ARIA and missing image descriptions. They're a floor, not an audit — they warn us, and they catch a narrow set of problems.",
+              "Automated checks in our linting flag malformed ARIA and missing image descriptions. They're a floor, not an audit: they warn us, and they catch a narrow set of problems.",
             ]}
           />
         </Section>
@@ -135,7 +135,7 @@ export default function AccessibilityPage() {
           <Bullets
             items={[
               "Elovox is built around speaking out loud into a microphone. That is the product, and it means the core experience is not usable if you cannot speak, or cannot speak in a way automated transcription handles well. Speech recognition is measurably worse for some accents, some speech disorders, and some deaf and hard-of-hearing speakers, and the coaching sits on top of that transcript. We have not solved this.",
-              "The coaching itself judges delivery — pace, pauses, filler words, and, with the camera on, posture and expression. Those are norms, and they are not neutral. If you stammer, use a communication device, are autistic, or move differently, the feedback can be wrong or unkind in ways we have not fully accounted for.",
+              "The coaching itself judges delivery: pace, pauses, filler words, and, with the camera on, posture and expression. Those are norms, and they are not neutral. If you stammer, use a communication device, are autistic, or move differently, the feedback can be wrong or unkind in ways we have not fully accounted for.",
               "We have not yet run formal testing with disabled users, and we have not commissioned an independent audit. Our checks so far are automated tooling, keyboard testing, and our own review.",
               "The Daily Minute cuts off at sixty seconds, and that limit can't be extended or turned off. It's the same exercise for everyone, but a fixed time limit is a barrier if you need longer, and WCAG asks that limits be adjustable. Everything else in the app is untimed.",
               "Some secondary links, including the ones in the site footer, are smaller than the target size WCAG asks for. The main controls aren't.",
@@ -149,7 +149,7 @@ export default function AccessibilityPage() {
           <p>
             A few things that may help. You can practice with the camera off,
             which most people do. Apart from the Daily Minute, nothing is on a
-            sixty-second clock — a practice run can go up to ten minutes, and
+            sixty-second clock. A practice run can go up to ten minutes, and
             you stop it whenever you&apos;re done. Your transcript and report
             stay in your history, so you
             can read the feedback at your own pace rather than taking it in

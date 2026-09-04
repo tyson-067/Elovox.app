@@ -82,10 +82,10 @@ export function AdminAuditScreen({ onDenied }: { onDenied?: () => void }) {
             <td className="px-4 py-2.5 whitespace-nowrap text-on-surface-variant">
               {fmtDateTime(e.at)}
             </td>
-            <td className="px-4 py-2.5">{e.actor ?? "—"}</td>
+            <td className="px-4 py-2.5">{e.actor ?? "-"}</td>
             <td className="px-4 py-2.5">
               <span className="font-data text-caption font-semibold">
-                {e.action ?? "—"}
+                {e.action ?? "-"}
               </span>
               {!e.ok && (
                 <span className="ml-1.5 rounded-full border border-accent-strong/40 px-1.5 text-micro font-semibold text-accent-strong">
@@ -95,7 +95,7 @@ export function AdminAuditScreen({ onDenied }: { onDenied?: () => void }) {
             </td>
             <td className="px-4 py-2.5">
               {e.targetEmail ?? (
-                <span className="font-data text-caption">{e.targetUid ?? "—"}</span>
+                <span className="font-data text-caption">{e.targetUid ?? "-"}</span>
               )}
             </td>
             <td className="px-4 py-2.5 text-caption text-on-surface-variant">

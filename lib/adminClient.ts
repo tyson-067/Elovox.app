@@ -113,7 +113,7 @@ export async function adminDownload(
 }
 
 export function fmtDate(ms: number | null | undefined): string {
-  if (!ms) return "—";
+  if (!ms) return "-";
   return new Date(ms).toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
@@ -122,7 +122,7 @@ export function fmtDate(ms: number | null | undefined): string {
 }
 
 export function fmtDateTime(ms: number | null | undefined): string {
-  if (!ms) return "—";
+  if (!ms) return "-";
   return new Date(ms).toLocaleString(undefined, {
     year: "numeric",
     month: "short",
@@ -136,6 +136,6 @@ export function fmtMoney(
   cents: number | null | undefined,
   currency: string | null | undefined
 ): string {
-  if (typeof cents !== "number") return "—";
+  if (typeof cents !== "number") return "-";
   return `${(cents / 100).toFixed(2)} ${String(currency ?? "usd").toUpperCase()}`;
 }

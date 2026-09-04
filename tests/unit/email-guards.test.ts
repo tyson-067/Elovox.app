@@ -1306,7 +1306,7 @@ describe("CAN-SPAM postal address", () => {
     expect(text).not.toContain("undefined");
     // The text footer is the whole of the last stanza, so an empty slot would
     // show up here as a blank line between the brand and the site.
-    expect(text.trimEnd().endsWith(`---\n— ${LEGAL.serviceName}\nhttps://elovox.app`)).toBe(true);
+    expect(text.trimEnd().endsWith(`---\n${LEGAL.serviceName}\nhttps://elovox.app`)).toBe(true);
   });
 
   it("trims a padded address instead of rendering the padding", () => {

@@ -257,7 +257,7 @@ export function renderText(doc: EmailDoc): string {
   // blank line in the middle of the footer, the same way it already handles
   // mail that carries no unsubscribe link.
   const footer = [
-    `— ${LEGAL.serviceName}`,
+    `${LEGAL.serviceName}`,
     site,
     postalAddress() || null,
     doc.unsubscribeUrl ? `Unsubscribe: ${doc.unsubscribeUrl}` : null,

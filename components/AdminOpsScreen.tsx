@@ -81,7 +81,7 @@ function BannerEditor({
         maxLength={140}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="e.g. Maintenance tonight 9-10pm PT — practice may pause briefly."
+        placeholder="e.g. Maintenance tonight 9-10pm PT, practice may pause briefly."
         aria-label="Announcement banner text"
         className="card input-glow mt-2 w-full px-3 py-1.5 text-sm focus:outline-none"
       />
@@ -342,11 +342,11 @@ export function AdminOpsScreen({ onDenied }: { onDenied?: () => void }) {
           {data.events.map((e) => (
             <tr key={e.id} className="border-b border-primary/5 last:border-0">
               <td className="px-4 py-2.5 font-medium text-primary">{e.type}</td>
-              <td className="px-4 py-2.5 font-data text-caption">{e.route ?? "—"}</td>
+              <td className="px-4 py-2.5 font-data text-caption">{e.route ?? "-"}</td>
               <td className="px-4 py-2.5 font-data text-caption">
-                {e.uid ?? e.ip ?? "—"}
+                {e.uid ?? e.ip ?? "-"}
               </td>
-              <td className="px-4 py-2.5 text-on-surface-variant">{e.detail ?? "—"}</td>
+              <td className="px-4 py-2.5 text-on-surface-variant">{e.detail ?? "-"}</td>
               <td className="px-4 py-2.5 whitespace-nowrap text-on-surface-variant">
                 {fmtDateTime(e.at)}
               </td>
@@ -368,10 +368,10 @@ export function AdminOpsScreen({ onDenied }: { onDenied?: () => void }) {
             <span className="font-semibold">App Check:</span>{" "}
             {data.config.appCheckEnforced
               ? "enforcing"
-              : "soft-fail (logging only — flip APPCHECK_ENFORCE when the logs go quiet)"}
+              : "soft-fail (logging only; flip APPCHECK_ENFORCE when the logs go quiet)"}
           </p>
           <p className="mt-1 text-caption text-on-surface-variant">
-            Changing either means changing env vars in Vercel and redeploying —
+            Changing either means changing env vars in Vercel and redeploying,
             deliberately not a button here.
           </p>
         </div>

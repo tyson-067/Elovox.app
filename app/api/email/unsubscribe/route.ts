@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
 
   return page(`<h1>Unsubscribe?</h1>
 <p>We'll stop sending <strong>${esc(what)}</strong> to ${esc(claim.email)}.</p>
-<p>Account and billing emails still come through — those aren't marketing, and you'd want the one about a failed sign-in.</p>
+<p>Account and billing emails still come through. Those aren't marketing, and you'd want the one about a failed sign-in.</p>
 <form method="post">
   <input type="hidden" name="t" value="${esc(token)}">
   <button type="submit">Unsubscribe</button>

@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
   }
   if (alert.resolved === true) {
     return NextResponse.json(
-      { error: "Already resolved — nothing to retry." },
+      { error: "Already resolved, nothing to retry." },
       { status: 409 }
     );
   }
@@ -274,7 +274,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Couldn't verify whether a refund already exists. Try again in a moment — retrying blind risks a double refund.",
+          "Couldn't verify whether a refund already exists. Try again in a moment: retrying blind risks a double refund.",
       },
       { status: 503 }
     );

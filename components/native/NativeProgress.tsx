@@ -294,7 +294,7 @@ function DeleteSheet({
       title="Delete this attempt?"
     >
       <p className="nv-footnote mb-3 text-center">
-        {busy ? "Removing…" : "Tell us why — it helps us know what went wrong."}
+        {busy ? "Removing…" : "Tell us why. It helps us know what went wrong."}
       </p>
       <NvGroup>
         {DELETE_REASONS.map((r) => (

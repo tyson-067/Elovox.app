@@ -123,7 +123,7 @@ export async function collectConcerns(
       out.push({
         level: "watch",
         title: "A site banner is showing",
-        detail: `"${flags.banner.slice(0, 80)}" — still visible to every visitor.`,
+        detail: `"${flags.banner.slice(0, 80)}" is still visible to every visitor.`,
       });
     }
   }, "ops flags");

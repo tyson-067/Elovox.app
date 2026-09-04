@@ -34,7 +34,7 @@ const FAILURE_MESSAGE: Record<EraseFailure, string> = {
     "We couldn't cancel your subscription just now, so nothing was deleted. Please try again in a moment.",
   cleanup:
     "We couldn't finish deleting your account, so nothing was deleted. Please try again in a moment.",
-  data: "We couldn't finish deleting your data. Some of it may already be gone — please try again, and contact us if this keeps happening.",
+  data: "We couldn't finish deleting your data. Some of it may already be gone. Please try again, and contact us if this keeps happening.",
   "auth-record":
     "Your data was removed, but we couldn't close the login itself. Please try again in a moment.",
 };

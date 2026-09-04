@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
 
   if (!outcome.granted) {
     return NextResponse.json(
-      { error: "This account has a live subscription — nothing to comp." },
+      { error: "This account has a live subscription, so there is nothing to comp." },
       { status: 409 }
     );
   }

@@ -12,7 +12,7 @@ export interface FaqItem {
 export const FAQ: FaqItem[] = [
   {
     q: `How does the ${TRIAL_DAYS}-day free trial work?`,
-    a: `You get full Premium access for ${TRIAL_DAYS} days, free, on the monthly and annual plans, if you haven't taken a free trial here before — it's one per person, so coming back after a previous trial means you're billed from the start. We only charge when the trial ends, and you can cancel any time before then and pay nothing. The weekly plan has no trial. It's charged from the day you start. If you'd rather pay today than track a trial, tick "Skip the trial" before you check out.`,
+    a: `You get full Premium access for ${TRIAL_DAYS} days, free, on the monthly and annual plans, if you haven't taken a free trial here before. It's one per person, so coming back after a previous trial means you're billed from the start. We only charge when the trial ends, and you can cancel any time before then and pay nothing. The weekly plan has no trial. It's charged from the day you start. If you'd rather pay today than track a trial, tick "Skip the trial" before you check out.`,
   },
   {
     q: "Why is the annual plan so much cheaper per week?",

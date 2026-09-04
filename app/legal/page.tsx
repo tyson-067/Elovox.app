@@ -66,7 +66,7 @@ const DOCS: { href: string; title: string; blurb: string }[] = [
   {
     href: "/ai",
     title: "How Felix works",
-    blurb: "The coaching is AI-generated — what that means and its limits.",
+    blurb: "The coaching is AI-generated: what that means and its limits.",
   },
   {
     href: "/cookies",
@@ -103,7 +103,7 @@ export default function LegalHubPage() {
         </h1>
         <p className="mt-3 text-base leading-relaxed text-on-surface">
           Everything in one place. We try to write these in plain language you
-          can actually get through — if any of it isn&apos;t clear, email{" "}
+          can actually get through. If any of it isn&apos;t clear, email{" "}
           <a
             className="text-accent-strong hover:underline"
             href={`mailto:${LEGAL.emails.support}`}

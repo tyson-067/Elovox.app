@@ -717,7 +717,7 @@ export async function POST(req: NextRequest) {
       {
         error: "analysis-paused",
         message:
-          "Felix is taking a short maintenance break. Your recording is safe — try again in a few minutes.",
+          "Felix is taking a short maintenance break. Your recording is safe, so try again in a few minutes.",
       },
       { status: 503 }
     );
@@ -871,7 +871,7 @@ export async function POST(req: NextRequest) {
       {
         error: "unavailable",
         message:
-          "Couldn't reach the server just now. Your recording is safe — try again in a moment.",
+          "Couldn't reach the server just now. Your recording is safe, so try again in a moment.",
       },
       { status: 503 }
     );
@@ -927,7 +927,7 @@ export async function POST(req: NextRequest) {
       {
         error: "entitlement-unavailable",
         message:
-          "Couldn't check your subscription just now. Your recording is safe — try again in a moment.",
+          "Couldn't check your subscription just now. Your recording is safe, so try again in a moment.",
       },
       { status: 503 }
     );
@@ -1300,7 +1300,7 @@ export async function POST(req: NextRequest) {
         {
           error: "unreadable-audio",
           message:
-            "Felix couldn't read that recording — the audio didn't come through. Record it again and it should go straight through.",
+            "Felix couldn't read that recording. The audio didn't come through. Record it again and it should go straight through.",
         },
         { status: 422 }
       );

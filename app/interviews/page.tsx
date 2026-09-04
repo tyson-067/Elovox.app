@@ -17,7 +17,7 @@ export default function InterviewsPage() {
         tip={
           <>
             Every type has its own question bank. Felix asks one, you answer out
-            loud, and he scores it the way that room would — a hiring panel and
+            loud, and he scores it the way that room would. A hiring panel and
             an admissions officer want different things.
           </>
         }

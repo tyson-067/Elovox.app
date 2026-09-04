@@ -143,7 +143,7 @@ export function AdminDailyPanel() {
   return (
     <Section title="Daily Minute">
       <p className="text-sm text-on-surface-variant">
-        The shared improv topic. Past and today are locked — people have
+        The shared improv topic. Past and today are locked; people have
         played them. Tomorrow onward can be hand-set (a themed week, a launch
         tie-in) or cleared back to Felix&apos;s auto-generation.
       </p>
@@ -163,7 +163,7 @@ export function AdminDailyPanel() {
               {d.exists ? (
                 <span className="text-sm">
                   <span className="font-medium">{d.title ?? "Untitled"}</span>
-                  <span className="text-on-surface-variant"> — {d.topic}</span>
+                  <span className="text-on-surface-variant">: {d.topic}</span>
                   {d.theme === "Operator pick" && (
                     <span className="ml-1.5 rounded-full border border-violet/40 px-1.5 text-micro font-semibold text-violet">
                       operator pick

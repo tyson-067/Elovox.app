@@ -270,8 +270,8 @@ export default function PricingPage() {
           <p className="mt-5 max-w-[54ch] text-lg leading-8 text-on-surface-variant">
             Try every Premium feature free for {TRIAL_DAYS} days on the monthly
             and annual plans. The free days are one per person, not one per
-            plan: if you&apos;ve already taken a free trial here — on this
-            account, or an earlier one with the same email — you&apos;re
+            plan: if you&apos;ve already taken a free trial here (on this
+            account, or an earlier one with the same email), you&apos;re
             billed from day one instead. Paying for the weekly plan doesn&apos;t
             use it up, since weekly never comes with a trial. Keep the free
             plan forever, or unlock all the coaching modes with no three-a-day

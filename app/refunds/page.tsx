@@ -103,7 +103,7 @@ export default function RefundsPage() {
                 customer portal.
               </span>,
               "In the portal, cancel your plan. You'll see the date your access runs until.",
-              "That's it — no phone call, no retention maze, no waiting on us.",
+              "That's it: no phone call, no retention maze, no waiting on us.",
             ]}
           />
           <p>
@@ -133,7 +133,7 @@ export default function RefundsPage() {
             put what&apos;s left of the period you&apos;ve already paid for back
             on your card. You don&apos;t have to ask, and you don&apos;t have to
             wait out the period first. What we give back is the part of a paid
-            period you haven&apos;t used, less the card processing fee — our
+            period you haven&apos;t used, less the card processing fee. Our
             payment provider keeps that whether or not we refund you, so it
             isn&apos;t ours to hand back. There&apos;s nothing to return on a
             free trial, which you never paid for, once a period has run its
@@ -157,14 +157,14 @@ export default function RefundsPage() {
         <Section heading="Refunds">
           <p>
             Payments are generally non-refundable, including for time you
-            didn&apos;t use — that&apos;s what the free trial is for, so you can
+            didn&apos;t use. That&apos;s what the free trial is for, so you can
             decide before you pay. Deleting your account is the standing
             exception, above. Otherwise this isn&apos;t a wall:
           </p>
           <Bullets
             items={[
-              "If you were charged because of a bug on our side, or billed after you'd already canceled, tell us and we'll refund it — in full, not pro-rata.",
-              "If Elovox was broadly unusable for a stretch you paid for, email us — we'll look at it fairly rather than hide behind this page.",
+              "If you were charged because of a bug on our side, or billed after you'd already canceled, tell us and we'll refund it in full, not pro-rata.",
+              "If Elovox was broadly unusable for a stretch you paid for, email us and we'll look at it fairly rather than hide behind this page.",
               "If we discontinue Elovox, we refund any period you've paid for but can no longer use.",
             ]}
           />

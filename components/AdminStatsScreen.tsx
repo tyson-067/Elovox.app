@@ -327,7 +327,7 @@ export function AdminStatsScreen({ onDenied }: { onDenied?: () => void }) {
           <Stat label="Shop purchases" value={e.purchasesTotal} />
           <Stat
             label="Top item"
-            value={e.topItems[0]?.item ?? "—"}
+            value={e.topItems[0]?.item ?? "-"}
             hint={
               e.topItems.length
                 ? e.topItems.map((t) => `${t.item} ×${t.count}`).join(" · ")

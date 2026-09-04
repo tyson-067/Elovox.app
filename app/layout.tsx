@@ -78,7 +78,7 @@ export const metadata: Metadata = {
     siteName: "Elovox",
     title: TITLE,
     description: DESCRIPTION,
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Elovox — speak with impact" }],
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Elovox: speak with impact" }],
   },
   twitter: {
     card: "summary_large_image",

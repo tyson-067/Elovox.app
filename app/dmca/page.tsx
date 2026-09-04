@@ -68,8 +68,8 @@ export default function DmcaPage() {
       >
         <Section heading="What's here to report">
           <p>
-            Most of what you create in Elovox — your recordings, transcripts, and
-            the briefs you type — is private to your own account and never shown
+            Most of what you create in Elovox (your recordings, transcripts, and
+            the briefs you type) is private to your own account and never shown
             to anyone else. What other users can see is your leaderboard row:
             the display name you pick, and your rank, level and streak. So a
             copyright report will almost always
