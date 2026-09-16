@@ -7,7 +7,7 @@ import { Parallax } from "@/components/Parallax";
 import { WordReveal } from "@/components/WordReveal";
 import { LandingMotion } from "@/components/LandingMotion";
 import { ImpactModes, ImpactCta } from "@/components/ImpactModes";
-import { TRIAL_DAYS, formatUSD, planFor } from "@/lib/pricing";
+import { PlanMatrix } from "@/components/PlanMatrix";
 import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
 import { NativeEntry } from "@/components/NativeEntry";
 import { pageGraph, WEBAPP } from "@/lib/schema";
@@ -247,8 +247,6 @@ function TickerRun({ hidden = false }: { hidden?: boolean }) {
 }
 
 export default function LandingPage() {
-  const annual = planFor("annual");
-
   return (
     // native-hide: inside the app this page is a redirect, not a screen.
     // See components/NativeEntry.
@@ -748,110 +746,32 @@ export default function LandingPage() {
       </section>
 
       {/* ================= PRICING ================= */}
+      {/* This used to be two cards: Free on the left, Premium on the right
+          with the annual price on it. That framing asked the reader a
+          question they cannot answer from the homepage — free or paid? — and
+          then answered it with one price out of three, so the two cheaper
+          ways to buy Premium existed only on /pricing.
+
+          It is now the /pricing comparison in its staged cut: all three
+          cycles, the effective weekly rate under each, and a drawn curve over
+          the top plotting that rate falling as the commitment grows. Same
+          component, same numbers, same lib/pricing.ts — see
+          components/PlanMatrix.tsx for the two variants, and LandingMotion's
+          "plans" block for the choreography.
+
+          Free did not disappear from the product. It is one line under the
+          CTAs now rather than a column with equal billing, which is the
+          honest weight for it on a page whose job is to explain what Premium
+          costs. */}
       <section id="pricing" className="mt-[var(--space-section-lg)] scroll-mt-24">
         <Kicker>Pricing</Kicker>
-        <div className="mt-[clamp(32px,4vw,52px)] grid grid-cols-1 gap-[clamp(16px,2vw,28px)] md:grid-cols-2">
+        <div className="mt-[clamp(26px,3.4vw,44px)]">
           <Reveal>
-            <div
-              data-lp-tilt
-              className="relative h-full rounded-3xl border border-primary/15 bg-white p-[clamp(26px,3vw,40px)] shadow-[0_24px_50px_-34px_rgba(11,8,41,0.38)] will-change-transform"
-            >
-              <div className="lp-spot" aria-hidden="true" />
-              <h3 className="font-headline text-[22px] font-bold tracking-[-0.02em] text-primary">
-                Free
-              </h3>
-              <p className="mt-3.5 flex items-baseline gap-[9px] font-data font-medium leading-none tracking-[-0.03em] text-primary">
-                <span className="text-[clamp(2.6rem,4vw,3.9rem)]">$0</span>
-                <span className="text-sm text-on-surface-variant">/ forever</span>
-              </p>
-              <ul className="mt-[26px] flex list-none flex-col gap-[11px] text-[15.5px] leading-[1.5] text-oxford">
-                {[
-                  "The Daily Minute: a new topic every day, set by Felix",
-                  "3 attempts a day to beat your own best score",
-                  "A Felix feedback report on every attempt",
-                  "Levels, XP and streaks",
-                  "Coaching goals and progress tracking",
-                ].map((line) => (
-                  <li key={line} className="flex gap-[11px]">
-                    <span
-                      aria-hidden="true"
-                      className="mt-2 h-[5px] w-[5px] flex-none rounded-full bg-accent"
-                    />
-                    {line}
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href="/signup"
-                data-lp-magnet
-                className="mt-[30px] inline-flex items-center gap-[11px] rounded-full bg-accent-strong py-2.5 pl-6 pr-2.5 text-[15px] font-semibold text-on-primary"
-              >
-                Start free
-                <span className="grid h-[30px] w-[30px] place-items-center rounded-full bg-white/20">
-                  <Arrow size={13} />
-                </span>
-              </Link>
-            </div>
+            <h2 className="max-w-[18ch] font-headline text-[clamp(1.9rem,4.2vw,3.1rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-oxford">
+              The longer you commit, the less a week costs.
+            </h2>
           </Reveal>
-
-          {/* web-only, and the whole page is native-hide besides: the iOS
-              shell must never show a price or a route to buying (App Store
-              guideline 3.1.1). tests/e2e/app-store-gate.spec.ts enforces it. */}
-          <Reveal delay={90}>
-            <div
-              data-lp-tilt
-              className="web-only relative h-full overflow-hidden rounded-3xl bg-[linear-gradient(155deg,#0b0829_0%,#004e89_38%,#1a659e_62%,#8fa0d8_86%,#f9dfc6_100%)] bg-[length:160%_160%] p-[clamp(26px,3vw,40px)] text-white shadow-[0_30px_60px_-30px_rgba(11,8,41,0.6)] will-change-transform"
-            >
-              <div className="lp-spot lp-spot-light" aria-hidden="true" />
-              <div className="flex items-center justify-between gap-3.5">
-                <h3 className="font-headline text-[22px] font-bold tracking-[-0.02em]">
-                  Premium
-                </h3>
-                <span className="rounded-full bg-white/20 px-3 py-[5px] text-[11px] font-bold uppercase tracking-[0.1em]">
-                  {annual.badge}
-                </span>
-              </div>
-              <p className="mt-3.5 flex items-baseline gap-[9px] font-data font-medium leading-none tracking-[-0.03em]">
-                <span className="text-[clamp(2.6rem,4vw,3.9rem)]">
-                  {formatUSD(annual.price)}
-                </span>
-                <span className="text-sm text-white/85">/ year</span>
-              </p>
-              <p className="mt-2.5 font-data text-[12.5px] leading-[1.5] text-white/85">
-                ({formatUSD(annual.perWeek)}/week) · {TRIAL_DAYS}-day free trial
-                on monthly and annual · plus sales tax
-              </p>
-              <ul className="mt-[26px] flex list-none flex-col gap-[11px] text-[15.5px] leading-[1.5] text-white/95">
-                {[
-                  <>
-                    <span className="font-semibold text-white">Camera coaching:</span>{" "}
-                    posture, sway, gestures, eye contact, expression
-                  </>,
-                  <>The nine-speech library, plus interview and social skills practice</>,
-                  <>Coaching on your own material, and custom speeches Felix writes</>,
-                  <>Everything in Free, including the Daily Minute</>,
-                ].map((line, i) => (
-                  <li key={i} className="flex gap-[11px]">
-                    <span
-                      aria-hidden="true"
-                      className="mt-2 h-[5px] w-[5px] flex-none rounded-full bg-orange"
-                    />
-                    <span>{line}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href="/pricing"
-                data-lp-magnet
-                className="relative mt-[30px] inline-flex items-center gap-[11px] overflow-hidden rounded-full border border-white/30 bg-white/20 py-2.5 pl-6 pr-2.5 text-[15px] font-semibold text-white"
-              >
-                See plans &amp; pricing
-                <span className="grid h-[30px] w-[30px] place-items-center rounded-full bg-white/25">
-                  <Arrow size={13} />
-                </span>
-              </Link>
-            </div>
-          </Reveal>
+          <PlanMatrix variant="landing" className="mt-[clamp(28px,3.6vw,52px)]" />
         </div>
       </section>
 

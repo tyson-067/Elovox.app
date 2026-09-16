@@ -8,6 +8,7 @@ import { Reveal } from "@/components/Reveal";
 import { WordReveal } from "@/components/WordReveal";
 import { Parallax } from "@/components/Parallax";
 import { GlowCard } from "@/components/GlowCard";
+import { PlanMatrix } from "@/components/PlanMatrix";
 import { useAuth } from "@/components/AuthProvider";
 import { startCheckout, openBillingPortal } from "@/lib/checkout";
 import { usePlanRecord } from "@/lib/plan";
@@ -39,19 +40,13 @@ import { FAQ } from "@/lib/faq";
 // instead. The account page links here as "Compare plans", so the cycle
 // toggle and the comparison grid stay live for them.
 
-const FREE_FEATURES = [
-  "The Daily Minute, a new topic every day, set by Felix",
-  "3 attempts a day to beat your own best score",
-  // Not "full": reportSchema(premium) in app/api/analyze/route.ts gives a
-  // free report a one-sentence summary, one-sentence dimension notes, 2-3
-  // tips and lighter annotations, and withholds strengths and drills
-  // entirely. "Full" is the word the report screen and the dashboard both
-  // reserve for the Premium version, so selling Free with it contradicted
-  // the product in three places.
-  "A Felix feedback report on every attempt: score, marked transcript, tips",
-  "Levels, XP, and streaks",
-  "Coaching goals and progress tracking",
-];
+// FREE_FEATURES lived here and listed what the free plan includes. The Free
+// column it fed is gone from this page — /pricing sells Premium on three
+// cycles now — and the list has no second reader, so it went with the card
+// rather than sitting here unused. The free tier itself is unchanged: see
+// reportSchema() in app/api/analyze/route.ts for what a free report actually
+// contains, and the hero paragraph above for what this page still says about
+// it.
 
 const PREMIUM_FEATURES = [
   // This line used to read "Everything in Free, unlimited: no daily attempt
@@ -92,7 +87,14 @@ export default function PricingPage() {
 
   const { user, configured } = useAuth();
   const { record } = usePlanRecord();
-  const [cycle, setCycle] = useState<BillingCycle>("annual");
+  // Weekly, deliberately, and it is the page's opening offer rather than its
+  // best one. Annual used to be preselected — the cheapest per week and the
+  // one with "Best value" on it — which meant the first number a visitor read
+  // was $79.99 and the first commitment on the table was a year. Opening on
+  // the $4.99 option asks for the smallest thing first; the comparison right
+  // under the toggle is what argues for the longer cycles, and it argues
+  // better when the reader chose to look rather than arriving pre-committed.
+  const [cycle, setCycle] = useState<BillingCycle>("weekly");
   // The user's opt-out from the free trial: bill today instead. From user
   // feedback — some people would rather pay now than remember a conversion
   // date. Server-side, checkout simply omits trial_period_days.
@@ -273,11 +275,12 @@ export default function PricingPage() {
             plan: if you&apos;ve already taken a free trial here (on this
             account, or an earlier one with the same email), you&apos;re
             billed from day one instead. Paying for the weekly plan doesn&apos;t
-            use it up, since weekly never comes with a trial. Keep the free
-            plan forever, or unlock all the coaching modes with no three-a-day
-            limit. The longer you commit, the less you pay each week. Prices
-            here are before sales tax, which Stripe works out at checkout from
-            your address and adds on top.
+            use it up, since weekly never comes with a trial. Elovox stays free
+            forever on the Daily Minute if you never upgrade, so nothing below
+            is a wall, and every Premium plan unlocks the same coaching modes
+            with no three-a-day limit. The longer you commit, the less you pay
+            each week. Prices here are before sales tax, which Stripe works out
+            at checkout from your address and adds on top.
           </p>
         </Reveal>
       </section>
@@ -328,42 +331,23 @@ export default function PricingPage() {
         </Reveal>
       </section>
 
-      {/* Plan cards */}
-      <section className="mx-auto mt-8 grid max-w-4xl grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Free */}
-        <Reveal className="h-full">
-          <GlowCard className="card h-full p-6 md:p-7 flex flex-col">
-            <h2 className="font-headline text-2xl font-semibold text-primary">
-              Free
-            </h2>
-            {/* Same num-display idiom as the homepage pricing preview
-                (app/page.tsx) — one price treatment, not two. */}
-            <p className="num-display mt-2 text-primary">
-              $0
-              <span className="ml-2 align-baseline font-data text-sm font-medium text-on-surface-variant">
-                / forever
-              </span>
-            </p>
-            <p className="mt-2 text-sm text-on-surface-variant">
-              The daily habit, on the house. No card required.
-            </p>
-            <ul className="mt-5 space-y-2.5 text-base leading-6 text-on-surface">
-              {FREE_FEATURES.map((f) => (
-                <li key={f} className="flex gap-2.5">
-                  <Check className="text-slate" />
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
-            <Link
-              href="/signup"
-              className="btn mt-7 inline-block rounded-lg card px-6 py-3 text-center font-semibold text-primary"
-            >
-              Start free
-            </Link>
-          </GlowCard>
-        </Reveal>
+      {/* Plan card */}
+      {/* One card, not two. This was a Free-vs-Premium comparison, which made
+          the page's job "should you pay?" — and answered it with whichever
+          single cycle the toggle happened to be on, so the two other ways to
+          buy Premium existed only in the grid further down.
 
+          The page now sells one thing on three cycles: pick a cycle, see what
+          it costs and what it includes, buy it. The free tier has not gone
+          anywhere in the PRODUCT — /signup still opens on it and the Daily
+          Minute is still free forever — it is just no longer a column
+          competing with the thing this page exists to explain. The hero
+          paragraph is where it is stated now.
+
+          max-w-2xl, not the old max-w-4xl: a single card stretched across the
+          full four-column measure ran its feature list to ~110 characters a
+          line, which is roughly twice a comfortable read. */}
+      <section className="mx-auto mt-8 max-w-2xl">
         {/* Premium */}
         <Reveal delay={120} className="h-full">
           <GlowCard className="card card-glow-light navy-gradient border-none! h-full p-6 md:p-7 text-white flex flex-col">
@@ -512,6 +496,15 @@ export default function PricingPage() {
       </section>
 
       {/* Plan comparison at a glance */}
+      {/* The same component the homepage stages, in its quiet cut: no drawn
+          curve, no counting rates, no tilt — the homepage has to earn a scroll
+          and this page does not, and a reader who is here has already decided
+          to compare. See components/PlanMatrix.tsx.
+
+          Still a second selector for the cycle, as this grid always was. Two
+          controls for one piece of state is fine when they stay in sync and
+          carry different amounts of information: the toggle is the compact
+          one, these cards are the ones that say why. */}
       <section className="mx-auto mt-[var(--space-section)] max-w-4xl">
         <Reveal>
           <h2 className="text-kicker uppercase text-on-surface-variant">
@@ -519,57 +512,12 @@ export default function PricingPage() {
             <span className="grow-line" aria-hidden="true" />
           </h2>
         </Reveal>
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {PLANS.map((p, i) => {
-            const s = savingsVsWeekly(p);
-            const active = p.cycle === cycle;
-            return (
-              <Reveal key={p.cycle} delay={i * 100} className="h-full">
-                <button
-                  onClick={() => setCycle(p.cycle)}
-                  className={`card h-full w-full p-5 text-left transition-colors ${
-                    active
-                      ? "border-accent! ring-2 ring-accent/25"
-                      : "hover:border-violet/40"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-headline text-lg font-semibold text-primary">
-                      {p.label}
-                    </span>
-                    {subscribed && record?.cycle === p.cycle ? (
-                      <span className="rounded-full bg-accent/12 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent-strong">
-                        Current plan
-                      </span>
-                    ) : (
-                      p.highlight && (
-                        <span className="rounded-full bg-violet/12 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet">
-                          Best value
-                        </span>
-                      )
-                    )}
-                  </div>
-                  {/* font-data + tabular-nums, not the full num-display
-                      scale: three of these sit side by side in one tile,
-                      and num-display's clamp tops out too large to fit. */}
-                  <p className="mt-2 font-data text-3xl font-bold tabular-nums text-primary">
-                    {formatUSD(p.price)}
-                    <span className="font-data text-sm font-normal text-on-surface-variant">
-                      {" "}
-                      / {p.unit}
-                    </span>
-                  </p>
-                  <p className="mt-1 text-sm text-on-surface-variant">
-                    {formatUSD(Number(p.perWeek.toFixed(2)))} per week
-                  </p>
-                  <p className="mt-3 text-label font-semibold text-accent-strong">
-                    {s > 0 ? `Save ${s}% vs weekly` : "Pay as you go"}
-                  </p>
-                </button>
-              </Reveal>
-            );
-          })}
-        </div>
+        <PlanMatrix
+          variant="page"
+          activeCycle={cycle}
+          currentCycle={subscribed ? record?.cycle : undefined}
+          onSelect={setCycle}
+        />
       </section>
 
       {/* FAQ */}

@@ -44,17 +44,23 @@ export function LandingMotion() {
     const cleanups: Array<() => void> = [];
 
     (async () => {
-      const [{ gsap }, { ScrollTrigger }, { DrawSVGPlugin }, { CustomEase }, anime] =
+      // DrawSVGPlugin used to be in this list. Its last two callers were the
+      // pricing section's descent curve and its dotted drop lines, both
+      // removed on 2026-09-15, and a registered plugin with no tween pointed
+      // at it is ~10 KB of parse cost on every landing page view. Put it back
+      // in BOTH places — the destructure and registerPlugin — if a drawn SVG
+      // ever returns; registering a plugin GSAP has not been handed fails
+      // silently and the tween simply does nothing.
+      const [{ gsap }, { ScrollTrigger }, { CustomEase }, anime] =
         await Promise.all([
           import("gsap"),
           import("gsap/ScrollTrigger"),
-          import("gsap/DrawSVGPlugin"),
           import("gsap/CustomEase"),
           import("animejs"),
         ]);
       if (cancelled) return;
 
-      gsap.registerPlugin(ScrollTrigger, DrawSVGPlugin, CustomEase);
+      gsap.registerPlugin(ScrollTrigger, CustomEase);
 
       // The house ease. Named once so every tween in the file shares a
       // personality; falls back to power3 if CustomEase ever fails to load.
@@ -366,6 +372,106 @@ export function LandingMotion() {
                 delay: anime.stagger(45),
               });
             },
+          });
+        });
+
+        // ---- pricing: the bars fill, the rates count down ------------------
+        // The homepage's price section is the three Premium cycles, and the
+        // one number that compares them is the EFFECTIVE WEEKLY RATE: $4.99
+        // weekly, $2.77 monthly, $1.54 annually. Three prices quoted in three
+        // different units cannot be compared by eye, so the bars encode that
+        // rate as a length and the counters walk each one down from the weekly
+        // price to what that cycle actually costs.
+        //
+        // This block used to open with a plotted curve of the same rate drawn
+        // across the top of the section — an SVG path, a clip wipe, three
+        // dotted drop lines and three popping vertices. It came out on
+        // 2026-09-15 at Tyson's request. What is left is deliberately the half
+        // that sits ON the data rather than beside it; the timeline positions
+        // below were pulled forward to close the gap the draw used to fill.
+        //
+        // Every target is already in its finished state in the HTML.
+        // `from()` tweens, never `to()`: GSAP writes the start state at play
+        // time, so if this file never loads — bad network, an older browser, a
+        // thrown plugin — the section is a finished grid rather than an empty
+        // box. The counters are the one thing that WRITES text, so they
+        // capture the server-rendered string first and put it back verbatim at
+        // the end; reformatting the number in this file would let a rounding
+        // difference here disagree with formatUSD() over there on the final
+        // frame.
+        //
+        // One timeline, played once by a single trigger, deliberately NOT
+        // scrubbed. A scrub would hand a reader who flicks past a price
+        // counted to some meaningless intermediate value — and the report
+        // section above already carries the scrubbed set piece for this page.
+        // Two is a gimmick.
+        safe("plans", () => {
+          const matrix = q<HTMLElement>("[data-lp-plan-matrix]");
+          if (!matrix || reduce) return;
+
+          const bars = qa<HTMLElement>("[data-lp-plan-bar]");
+          const rates = qa<HTMLElement>("[data-lp-plan-rate]");
+          if (!bars.length && !rates.length) return;
+
+          // The server-rendered truth, captured before a tween can overwrite
+          // it. This is the value restored at the end of each count.
+          const resting = new Map<HTMLElement, string>();
+          rates.forEach((el) => resting.set(el, el.textContent ?? ""));
+          const restoreAll = () =>
+            rates.forEach((el) => {
+              const t = resting.get(el);
+              if (t != null) el.textContent = t;
+            });
+
+          const tl = gsap.timeline({ defaults: { ease: E }, paused: true });
+
+          // The bars are the one thing on the card that may start at nothing:
+          // they are pure decoration, and the rate they encode is printed in
+          // full beside them. origin-left is set in the markup.
+          if (bars.length)
+            tl.from(
+              bars,
+              { scaleX: 0, duration: 0.8, stagger: 0.14, ease: "power3.out" },
+              0.1,
+            );
+
+          // $4.99 counting down to $2.77 and $1.54. The weekly card's rate IS
+          // $4.99, so its from and to are equal and it is skipped rather than
+          // sitting through a tween that changes nothing.
+          rates.forEach((el, i) => {
+            const to = Number(el.dataset.lpPlanRate);
+            const from = Number(el.dataset.lpPlanFrom);
+            if (!Number.isFinite(to) || !Number.isFinite(from) || to === from) return;
+            const proxy = { v: from };
+            tl.to(
+              proxy,
+              {
+                v: to,
+                duration: 0.85,
+                ease: "power2.out",
+                onUpdate: () => {
+                  el.textContent = `$${proxy.v.toFixed(2)}`;
+                },
+                onComplete: () => {
+                  const t = resting.get(el);
+                  if (t != null) el.textContent = t;
+                },
+              },
+              0.14 + i * 0.14,
+            );
+          });
+
+          // A belt for the counters' braces: if the timeline is reverted
+          // mid-count by a context teardown (a route change during the
+          // animation), the last text written wins and would stick.
+          tl.eventCallback("onComplete", restoreAll);
+          tl.eventCallback("onReverseComplete", restoreAll);
+
+          ScrollTrigger.create({
+            trigger: matrix,
+            start: "top 82%",
+            once: true,
+            onEnter: () => tl.play(),
           });
         });
 
