@@ -70,37 +70,35 @@ const ABOUT_SCHEMA = {
   mainEntity: { "@id": `${SITE}/#organization` },
 };
 
-// Names and roles only, unchanged. Everyone here is a co-founder as well as
-// running their own area, so the card carries both: the shared standing as a
-// badge, the individual remit as the line under it. Rendering "Co-Founder &
-// Head of Marketing" as one string would make the shared half compete with the
-// part that differs, and on a four-person grid the eye would read the same
-// three words four times before finding the one that matters.
+// Four co-founders, and the page is built so that no reader can rank them.
+// This used to be a hierarchy: Tyson at display size under the title
+// "President & Co-founder", the other three as a quiet comma-ish row a third
+// of that size. That layout made a claim about standing, and the claim is no
+// longer the one the company wants to make, so BOTH halves of it are gone —
+// the president title and the type-size gap that was doing the same work
+// without saying so.
+//
+// Equal emphasis here is structural, not a promise in a comment: one array,
+// one card component, one type scale, one colour. There is no per-person
+// prop that could grow a badge later without someone noticing. Tyson is
+// first because he is listed first; that is the only ordering signal on the
+// page, and a four-up grid at one size reads as a set rather than a ranking.
 //
 // No per-person contact details on purpose. These are personal addresses, and
 // a public page is where spam crawlers harvest them. The footer's Contact link
 // is the single way in, and it can be redirected or retired without touching
 // anyone's inbox.
-// Tyson leads, and the page says so at a glance rather than by ranking four
-// equal-looking cards.
-//
-// The title is exactly what the company gave. Co-founder is IN it rather than
-// on a badge above it: as a badge it sat over the line it belongs in and
-// competed with it, and every other name on this page carries the same word.
-const PRESIDENT = {
-  name: "Tyson Youm",
-  role: "President & Co-founder",
-};
-
-// The other three, by name only. Their individual remits came off the page at
-// the founders' request; "Co-founders" is the one thing still said about them,
-// as a group label rather than three badges, because it is true and because
-// repeating it three times was what made four names read as four equals.
 //
 // lib/legal.ts carries all four as the entity behind Elovox regardless — that
 // is what /terms and /privacy print, and it is the one place the list has to
 // be exhaustive whatever this page shows.
-const CO_FOUNDERS = ["Aanya Iyer", "Kelley Gou", "Arad Mehrabian"];
+const CO_FOUNDERS = ["Tyson Youm", "Aanya Iyer", "Kelley Gou", "Arad Mehrabian"];
+
+// Said once, above the grid, rather than stamped under each of four names.
+// Four identical strings in four identical cells is noise the eye has to
+// read past; one label that governs the whole set says the same thing and
+// keeps the names the only varying content in the block.
+const TEAM_ROLE = "Co-founders";
 
 /** The homepage's section eyebrow, to the pixel. Kept as a <p>: every section
  *  below owns a real <h2>, and a second one here would only blur the outline. */
@@ -206,46 +204,47 @@ export default function AboutPage() {
       </section>
 
       {/* ================= TEAM ================= */}
-      {/* Not a four-up masthead. One name at display size with his title under
-          it, then the other three as a single quiet line. The hierarchy is
-          carried by type size and by how much of the page each gets, which is
-          the honest way to show that one of them runs the thing. */}
+      {/* A four-up masthead, and every cell is the same cell. Same type size,
+          same weight, same colour, same accent rule, same amount of page. The
+          previous version carried the hierarchy "by type size and by how much
+          of the page each gets" — that was an accurate description of what it
+          did, and it is exactly what had to go.
+
+          One heading governs all four rather than a role line repeated under
+          each name, so the only thing that differs between cells is the name.
+
+          The grid is 1 / 2 / 4: a phone gets a stacked list, a tablet a 2x2
+          (which still reads as equal — no cell is bigger), a desktop the full
+          row. It never goes to 3 + 1, which would orphan the fourth name and
+          quietly re-introduce a ranking. */}
       <section className="mt-[var(--space-section-lg)]">
         <Reveal>
           <Eyebrow>The team</Eyebrow>
         </Reveal>
 
         <Reveal delay={70}>
-          <div className="mt-8 border-t-2 border-primary/30 pt-6">
-            <p className="font-headline text-[clamp(2rem,4vw,3.2rem)] font-extrabold leading-[1.06] tracking-[-0.03em] text-primary">
-              {PRESIDENT.name}
-            </p>
-            {/* The accent rule the page uses on the one line a section exists
-                to deliver. It is doing the same job here. */}
-            <p className="mt-4 max-w-[34ch] border-l-2 border-accent pl-[18px] text-[clamp(16.5px,1.25vw,19px)] leading-[1.5] text-oxford">
-              {PRESIDENT.role}
-            </p>
-          </div>
+          <h2 className="mt-8 border-t-2 border-primary/30 pt-6 font-headline text-[clamp(1.8rem,3.4vw,2.6rem)] font-extrabold leading-[1.08] tracking-[-0.03em] text-primary">
+            {TEAM_ROLE}
+          </h2>
         </Reveal>
 
-        <Reveal delay={140}>
-          <div className="mt-10 border-t border-[var(--hairline-ink)] pt-5">
-            {/* Label stays in the muted ink; the NAMES take the brand blue,
-                same token as every other name on the page. */}
-            <p className="font-data text-[11px] font-medium uppercase tracking-[0.14em] text-on-surface-variant">
-              Co-founders
-            </p>
-            {/* One line on a desktop, wrapping on a phone. flex-wrap with a
-                gap rather than a comma-joined string, so each name keeps its
-                own box and the row breaks between names instead of inside
-                one. */}
-            <p className="mt-4 flex flex-wrap gap-x-8 gap-y-2.5 text-[clamp(19px,1.6vw,23px)] text-primary">
-              {CO_FOUNDERS.map((name) => (
-                <span key={name}>{name}</span>
-              ))}
-            </p>
-          </div>
-        </Reveal>
+        {/* The stagger is presentation only, and it is the one place order is
+            visible at all. 60ms apart is below the threshold where a reader
+            would read it as a countdown. */}
+        <ul className="mt-9 grid list-none grid-cols-1 gap-x-8 gap-y-9 sm:grid-cols-2 lg:grid-cols-4">
+          {CO_FOUNDERS.map((name, i) => (
+            <Reveal key={name} delay={130 + i * 60} className="h-full">
+              <li className="border-t border-[var(--hairline-ink)] pt-5">
+                {/* The accent rule the page uses on a line a section exists
+                    to deliver — on all four, because all four are that line. */}
+                <span className="block h-[2px] w-9 bg-accent" aria-hidden="true" />
+                <p className="mt-4 font-headline text-[clamp(1.3rem,2vw,1.6rem)] font-bold leading-[1.15] tracking-[-0.025em] text-primary">
+                  {name}
+                </p>
+              </li>
+            </Reveal>
+          ))}
+        </ul>
       </section>
 
       {/* ================= IN THE REAL WORLD ================= */}
