@@ -63,8 +63,26 @@ export const PERSON = {
   "@id": "https://bridgeupproject.org/about#person",
   name: "Tyson Youm",
   url: "https://bridgeupproject.org/about",
+  // No `mainEntityOfPage`. That property names the document whose SUBJECT is
+  // this entity, and there is no such document on elovox.app: /about is about
+  // the company and says so in its own node. Pointing it at /about anyway
+  // would be the markup/content mismatch this file exists to avoid, and
+  // pointing it at a profile page means committing to writing one.
+  //
+  // "where he is president" was cut, and the clause that replaced it is the
+  // one bridgeupproject.org/about and 4formai.com already emit, character for
+  // character. Those two sites carry this same node under this same @id, so a
+  // crawler merges all three into one entity — and a merged entity with three
+  // different `description` values is one whose description Google has to pick
+  // between. Two of the three agreed; this was the odd one out.
+  //
+  // "leads product development" survives where "president" did not because it
+  // is not the same kind of claim. The About page refuses to rank the four
+  // co-founders (see its CO_FOUNDERS note), and a presidency is a rank. A
+  // functional area is not: four co-founders can each lead one, and nothing
+  // visible on /about contradicts it.
   description:
-    "Tyson Youm is the founder of The Bridge Up Project, a co-founder of 4Form AI, and a co-founder of Elovox, where he is president.",
+    "Tyson Youm is the founder of The Bridge Up Project, a co-founder of 4Form AI, and a co-founder of Elovox, where he leads product development.",
   affiliation: [
     {
       "@type": "NGO",
