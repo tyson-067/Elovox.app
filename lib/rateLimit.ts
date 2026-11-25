@@ -105,6 +105,11 @@ export const LIMITS = {
   // script reading the whole library out loud.
   voice: { limit: 60, windowMs: HOUR },
   "voice-ip": { limit: 900, windowMs: HOUR },
+  // LaunchX recording downloads (app/api/launchx/file). Unauthenticated by
+  // design — the 256-bit token in the link is the credential — so the only
+  // thing to bound is how many Firestore reads a stranger can spend by
+  // guessing. One honest delivery is one fetch, maybe a few on retry.
+  "launchx-file": { limit: 120, windowMs: HOUR },
   // Felix's spoken take: one short Gemini call per report, the first time it
   // is opened, then served from the session doc. Sized for someone opening
   // every report they have ever recorded in one sitting, not for a script.

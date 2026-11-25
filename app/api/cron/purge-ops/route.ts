@@ -6,6 +6,7 @@ import { purgeExpiredEmailLog } from "@/lib/email/retention";
 import { reconcileAudiencePurges } from "@/lib/accountDeletion";
 import { clientIp, timingSafeCompare } from "@/lib/verify";
 import { limited, purgeExpiredRateLimits } from "@/lib/rateLimit";
+import { purgeExpiredLaunchxDeliveries } from "@/lib/launchxDelivery";
 
 // The scheduled sweep of expired opsEvents — the backstop that makes the
 // "short operational window" in /privacy true without anyone having to open
@@ -96,15 +97,20 @@ export async function GET(req: NextRequest) {
   // leaves behind is a queued address, and a queue nothing drains is just a
   // slower way of keeping the data. This drains it, idempotently, against
   // "what is still queued now" like everything else in this route.
-  const [deleted, logins, mail, rates, audience] = await Promise.all([
+  // The sixth is the one with the strictest promise: recordings staged for
+  // LaunchX (lib/launchxDelivery.ts). Their links expire after 24 hours, and
+  // this is what makes "Elovox does not keep the audio" true for a delivery
+  // LaunchX never fetched. Small batch: each row is a recording, not a counter.
+  const [deleted, logins, mail, rates, audience, launchx] = await Promise.all([
     purgeExpiredOpsEvents(db, 500),
     purgeExpiredLoginRows(db, 500),
     purgeExpiredEmailLog(db, 500),
     purgeExpiredRateLimits(db, 2000),
     reconcileAudiencePurges(db, 100),
+    purgeExpiredLaunchxDeliveries(db, 200),
   ]);
   console.info(
-    `[cron] purged ${deleted} expired opsEvents, ${logins} expired login rows, ${mail} expired email log rows, ${rates} expired rate rows; removed ${audience.removed} queued address(es) from the email audience, ${audience.pending} still pending`
+    `[cron] purged ${deleted} expired opsEvents, ${logins} expired login rows, ${mail} expired email log rows, ${rates} expired rate rows, ${launchx} expired LaunchX recordings; removed ${audience.removed} queued address(es) from the email audience, ${audience.pending} still pending`
   );
   return NextResponse.json({
     ok: true,
@@ -112,6 +118,7 @@ export async function GET(req: NextRequest) {
     logins,
     mail,
     rates,
+    launchx,
     audienceRemoved: audience.removed,
     audiencePending: audience.pending,
   });
